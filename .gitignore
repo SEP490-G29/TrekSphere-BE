@@ -72,4 +72,7 @@ build/
 ### VS Code ###
 .vscode/
 
+### Docs ###
+docs/
+
 
