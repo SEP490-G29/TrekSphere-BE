@@ -23,7 +23,7 @@ public class Vendor extends BaseEntity {
     @JoinColumn(name = "manager_user_id", unique = true, nullable = false)
     private User managerUser;
 
-    @Column(nullable = false, length = 255)
+    @Column(nullable = false, columnDefinition = "NVARCHAR(255)")
     private String companyName;
 
     @Column(columnDefinition = "TEXT")

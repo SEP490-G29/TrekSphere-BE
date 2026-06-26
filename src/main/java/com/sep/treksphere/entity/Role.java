@@ -23,7 +23,7 @@ public class Role {
     @Column(nullable = false, unique = true, length = 50)
     private String roleName;
 
-    @Column(length = 255)
+    @Column(columnDefinition = "NVARCHAR(255)")
     private String description;
 
     @ManyToMany(fetch = FetchType.LAZY)

@@ -30,7 +30,7 @@ public class MatchingGroup extends BaseEntity {
     @JoinColumn(name = "owner_user_id", nullable = false)
     private User ownerUser;
 
-    @Column(nullable = false, length = 255)
+    @Column(nullable = false, columnDefinition = "NVARCHAR(255)")
     private String groupName;
 
     @Column(columnDefinition = "TEXT")

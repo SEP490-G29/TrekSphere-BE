@@ -26,6 +26,6 @@ public class Permission {
     @Column(nullable = false, length = 50)
     private String action;
 
-    @Column(length = 255)
+    @Column(columnDefinition = "NVARCHAR(255)")
     private String description;
 }

@@ -23,7 +23,7 @@ public class Conversation extends BaseEntity {
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID conversationID;
 
-    @Column(length = 255)
+    @Column(columnDefinition = "NVARCHAR(255)")
     private String title;
 
     @Enumerated(EnumType.STRING)
