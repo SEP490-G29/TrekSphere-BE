@@ -1,7 +1,7 @@
 package com.sep.treksphere.exception;
 
 import com.sep.treksphere.dto.response.ApiResponse;
-import com.sep.treksphere.enums.ErrorCode;
+import com.sep.treksphere.enums.common.ErrorCode;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
