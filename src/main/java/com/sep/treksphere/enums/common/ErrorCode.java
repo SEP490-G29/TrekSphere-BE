@@ -1,4 +1,4 @@
-package com.sep.treksphere.enums;
+package com.sep.treksphere.enums.common;
 
 import lombok.Getter;
 import org.springframework.http.HttpStatus;

@@ -1,6 +1,6 @@
 package com.sep.treksphere.exception;
 
-import com.sep.treksphere.enums.ErrorCode;
+import com.sep.treksphere.enums.common.ErrorCode;
 import lombok.Getter;
 
 @Getter
