@@ -29,7 +29,7 @@ public class TourImage {
     @Column(nullable = false)
     private Integer sortOrder = 0;
 
-    @Column(columnDefinition = "NVARCHAR(255)")
+    @Column(length = 255)
     private String caption;
 
     @Column(nullable = false, updatable = false)

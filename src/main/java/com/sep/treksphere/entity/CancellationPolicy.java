@@ -28,7 +28,7 @@ public class CancellationPolicy extends BaseEntity {
     @Column(nullable = false)
     private Integer refundPercentage;
 
-    @Column(columnDefinition = "NVARCHAR(255)")
+    @Column(length = 255)
     private String description;
 
     @Column(nullable = false)

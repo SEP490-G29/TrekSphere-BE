@@ -32,7 +32,7 @@ public class ReportContent {
     @Column(nullable = false)
     private UUID targetID;
 
-    @Column(nullable = false, columnDefinition = "NVARCHAR(255)")
+    @Column(nullable = false, length = 255)
     private String reason;
 
     @Column(columnDefinition = "TEXT")

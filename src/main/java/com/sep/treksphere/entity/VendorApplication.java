@@ -24,7 +24,7 @@ public class VendorApplication extends BaseEntity {
     @JoinColumn(name = "applicant_user_id", nullable = false)
     private User applicantUser;
 
-    @Column(nullable = false, columnDefinition = "NVARCHAR(255)")
+    @Column(nullable = false, length = 255)
     private String companyName;
 
     @Column(nullable = false, length = 255)

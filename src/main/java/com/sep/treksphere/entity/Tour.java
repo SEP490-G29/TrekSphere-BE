@@ -25,7 +25,7 @@ public class Tour extends BaseEntity {
     @JoinColumn(name = "vendor_id", nullable = false)
     private Vendor vendor;
 
-    @Column(nullable = false, columnDefinition = "NVARCHAR(255)")
+    @Column(nullable = false, length = 255)
     private String tourName;
 
     @Column(nullable = false, columnDefinition = "TEXT")
@@ -35,7 +35,7 @@ public class Tour extends BaseEntity {
     @Column(nullable = false, length = 10)
     private DifficultyLevel difficulty;
 
-    @Column(nullable = false, columnDefinition = "NVARCHAR(255)")
+    @Column(nullable = false, length = 255)
     private String location;
 
     @Column(nullable = false)

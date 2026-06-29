@@ -25,7 +25,7 @@ public class Blog extends BaseEntity {
     @JoinColumn(name = "user_id", nullable = false)
     private User user;
 
-    @Column(nullable = false, columnDefinition = "NVARCHAR(500)")
+    @Column(nullable = false, length = 500)
     private String title;
 
     @Column(nullable = false, columnDefinition = "TEXT")
