@@ -24,7 +24,7 @@ public class BookingParticipant {
     @JoinColumn(name = "booking_id", nullable = false)
     private Booking booking;
 
-    @Column(nullable = false, columnDefinition = "NVARCHAR(255)")
+    @Column(nullable = false, length = 255)
     private String fullName;
 
     @Column(nullable = false)

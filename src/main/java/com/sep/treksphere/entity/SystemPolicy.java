@@ -29,7 +29,7 @@ public class SystemPolicy extends BaseEntity {
     @Column(nullable = false, length = 20)
     private PolicyDataType dataType;
 
-    @Column(columnDefinition = "NVARCHAR(255)")
+    @Column(length = 255)
     private String description;
 
     @ManyToOne(fetch = FetchType.LAZY)
