@@ -46,5 +46,6 @@ public class Vendor extends BaseEntity {
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 10)
+    @Builder.Default
     private VendorStatus status = VendorStatus.ACTIVE;
 }

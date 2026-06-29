@@ -28,6 +28,7 @@ public class VendorStaff extends BaseEntity {
     private User user;
 
     @Column(nullable = false)
+    @Builder.Default
     private Boolean isActive = true;
 
     private LocalDateTime deactivatedAt;

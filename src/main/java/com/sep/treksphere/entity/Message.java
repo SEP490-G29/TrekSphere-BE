@@ -32,8 +32,10 @@ public class Message extends BaseEntity {
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 10)
+    @Builder.Default
     private MessageType messageType = MessageType.TEXT;
 
     @Column(nullable = false)
+    @Builder.Default
     private Boolean isRead = false;
 }

@@ -41,5 +41,6 @@ public class Review extends BaseEntity {
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 10)
+    @Builder.Default
     private ReviewStatus status = ReviewStatus.PENDING;
 }

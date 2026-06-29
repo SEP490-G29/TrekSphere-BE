@@ -38,6 +38,7 @@ public class VendorApplication extends BaseEntity {
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 10)
+    @Builder.Default
     private ApplicationStatus applicationStatus = ApplicationStatus.PENDING;
 
     @Column(columnDefinition = "TEXT")

@@ -47,10 +47,12 @@ public class Booking extends BaseEntity {
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
+    @Builder.Default
     private PaymentStatus paymentStatus = PaymentStatus.PENDING;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 10)
+    @Builder.Default
     private BookingStatus bookingStatus = BookingStatus.PENDING;
 
     @ManyToOne(fetch = FetchType.LAZY)
@@ -66,8 +68,10 @@ public class Booking extends BaseEntity {
     private LocalDateTime cancelledAt;
 
     @OneToMany(mappedBy = "booking", cascade = CascadeType.ALL, orphanRemoval = true)
+    @Builder.Default
     private Set<BookingParticipant> participants = new HashSet<>();
 
     @OneToMany(mappedBy = "booking", cascade = CascadeType.ALL, orphanRemoval = true)
+    @Builder.Default
     private Set<Transaction> transactions = new HashSet<>();
 }

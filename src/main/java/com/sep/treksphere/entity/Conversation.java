@@ -34,6 +34,7 @@ public class Conversation extends BaseEntity {
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 10)
+    @Builder.Default
     private ConversationStatus status = ConversationStatus.ACTIVE;
 
     @ManyToMany
@@ -42,8 +43,10 @@ public class Conversation extends BaseEntity {
         joinColumns = @JoinColumn(name = "conversation_id"),
         inverseJoinColumns = @JoinColumn(name = "user_id")
     )
+    @Builder.Default
     private Set<User> participants = new HashSet<>();
 
     @OneToMany(mappedBy = "conversation", cascade = CascadeType.ALL, orphanRemoval = true)
+    @Builder.Default
     private Set<Message> messages = new HashSet<>();
 }

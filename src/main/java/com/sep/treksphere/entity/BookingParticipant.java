@@ -50,5 +50,6 @@ public class BookingParticipant {
     private String specialRequirements;
 
     @Column(nullable = false)
+    @Builder.Default
     private Boolean infoConfirmed = false;
 }

@@ -38,8 +38,10 @@ public class BlogComment extends BaseEntity {
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 10)
+    @Builder.Default
     private CommentStatus status = CommentStatus.ACTIVE;
 
     @OneToMany(mappedBy = "parentComment", cascade = CascadeType.ALL, orphanRemoval = true)
+    @Builder.Default
     private Set<BlogComment> replies = new HashSet<>();
 }

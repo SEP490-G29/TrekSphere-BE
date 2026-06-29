@@ -37,6 +37,7 @@ public class MatchingMember {
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 10)
+    @Builder.Default
     private JoinStatus joinStatus = JoinStatus.PENDING;
 
     @Column(nullable = false, updatable = false)

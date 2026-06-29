@@ -37,6 +37,7 @@ public class RefreshToken {
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 10)
+    @Builder.Default
     private TokenStatus status = TokenStatus.ACTIVE;
 
     @PrePersist

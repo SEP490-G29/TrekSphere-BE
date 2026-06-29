@@ -61,6 +61,7 @@ public class Tour extends BaseEntity {
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
+    @Builder.Default
     private TourStatus status = TourStatus.DRAFT;
 
     @ManyToOne(fetch = FetchType.LAZY)

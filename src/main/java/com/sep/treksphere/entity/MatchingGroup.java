@@ -40,14 +40,17 @@ public class MatchingGroup extends BaseEntity {
     private Integer maxSize;
 
     @Column(nullable = false)
+    @Builder.Default
     private Integer currentSize = 1;
 
     private LocalDate targetDate;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 10)
+    @Builder.Default
     private MatchingGroupStatus status = MatchingGroupStatus.OPEN;
 
     @OneToMany(mappedBy = "matchingGroup", cascade = CascadeType.ALL, orphanRemoval = true)
+    @Builder.Default
     private Set<MatchingMember> members = new HashSet<>();
 }

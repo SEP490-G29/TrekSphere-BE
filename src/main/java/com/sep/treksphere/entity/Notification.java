@@ -41,5 +41,6 @@ public class Notification extends BaseEntity {
     private UUID referenceID;
 
     @Column(nullable = false)
+    @Builder.Default
     private Boolean isRead = false;
 }

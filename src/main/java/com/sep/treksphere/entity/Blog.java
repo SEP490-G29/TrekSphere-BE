@@ -36,11 +36,14 @@ public class Blog extends BaseEntity {
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
+    @Builder.Default
     private BlogStatus status = BlogStatus.DRAFT;
 
     @Column(nullable = false)
+    @Builder.Default
     private Integer viewCount = 0;
 
     @OneToMany(mappedBy = "blog", cascade = CascadeType.ALL, orphanRemoval = true)
+    @Builder.Default
     private Set<BlogComment> comments = new HashSet<>();
 }

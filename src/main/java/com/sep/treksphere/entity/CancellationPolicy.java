@@ -32,5 +32,6 @@ public class CancellationPolicy extends BaseEntity {
     private String description;
 
     @Column(nullable = false)
+    @Builder.Default
     private Boolean isActive = true;
 }

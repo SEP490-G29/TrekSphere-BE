@@ -35,10 +35,12 @@ public class Transaction extends BaseEntity {
     private BigDecimal amount;
 
     @Column(nullable = false, length = 3)
+    @Builder.Default
     private String currency = "VND";
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 10)
+    @Builder.Default
     private TransactionStatus status = TransactionStatus.PENDING;
 
     private LocalDateTime paidAt;
