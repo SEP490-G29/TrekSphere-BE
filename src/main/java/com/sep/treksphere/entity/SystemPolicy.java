@@ -11,8 +11,8 @@ import java.util.UUID;
 @Getter
 @Setter
 @NoArgsConstructor
-@AllArgsConstructor
-@Builder
+
+
 public class SystemPolicy extends BaseEntity {
 
     @Id

@@ -11,8 +11,8 @@ import java.util.UUID;
 @Getter
 @Setter
 @NoArgsConstructor
-@AllArgsConstructor
-@Builder
+
+
 public class Message extends BaseEntity {
 
     @Id
