@@ -1,0 +1,37 @@
+# ── Build artifacts ──────────────────────────────────────────
+target/
+*.class
+*.jar
+*.war
+
+# ── IDE & OS ─────────────────────────────────────────────────
+.idea/
+*.iml
+*.ipr
+*.iws
+out/
+.vscode/
+.DS_Store
+Thumbs.db
+
+# ── Git ──────────────────────────────────────────────────────
+.git/
+.gitattributes
+.gitignore
+
+# ── Sensitive / environment files ────────────────────────────
+# Never bake secrets into the image!
+.env
+.env.local
+.env.*.local
+
+# ── Logs & temp ──────────────────────────────────────────────
+*.log
+logs/
+
+# ── Documentation ────────────────────────────────────────────
+README.md
+docs/
+
+# ── Docker files themselves (not needed in build context) ─────
+docker-compose*.yml
