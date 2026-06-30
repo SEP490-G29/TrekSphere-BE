@@ -1,4 +1,4 @@
--- V2__seed_data.sql
+-- R__seed_auth_data.sql
 -- Seed Data for Authentication & Authorization
 
 INSERT INTO role (roleid, role_name, description)
