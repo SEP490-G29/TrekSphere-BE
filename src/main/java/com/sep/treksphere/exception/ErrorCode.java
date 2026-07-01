@@ -1,4 +1,4 @@
-package com.sep.treksphere.enums.common;
+package com.sep.treksphere.exception;
 
 import lombok.Getter;
 import org.springframework.http.HttpStatus;
@@ -15,7 +15,11 @@ public enum ErrorCode {
     ACCESS_DENIED(1002, HttpStatus.FORBIDDEN, "Bạn không có quyền thực hiện hành động này"),
     USER_NOT_FOUND(1003, HttpStatus.NOT_FOUND, "Người dùng không tồn tại"),
     USER_EXISTED(1004, HttpStatus.BAD_REQUEST, "Tài khoản (Email hoặc Username) đã tồn tại"),
-    WRONG_PASSWORD(1005, HttpStatus.BAD_REQUEST, "Mật khẩu không chính xác");
+    WRONG_PASSWORD(1005, HttpStatus.BAD_REQUEST, "Mật khẩu không chính xác"),
+    USER_NOT_ACTIVE(1006, HttpStatus.FORBIDDEN, "Tài khoản chưa được kích hoạt hoặc bị khóa"),
+    EMAIL_NOT_VERIFIED(1007, HttpStatus.FORBIDDEN, "Vui lòng xác thực email trước khi đăng nhập"),
+    INVALID_TOKEN(1008, HttpStatus.UNAUTHORIZED, "Token không hợp lệ hoặc đã hết hạn"),
+    ROLE_NOT_FOUND(1009, HttpStatus.INTERNAL_SERVER_ERROR, "Không tìm thấy vai trò mặc định trong hệ thống");
 
 
     private final int code;

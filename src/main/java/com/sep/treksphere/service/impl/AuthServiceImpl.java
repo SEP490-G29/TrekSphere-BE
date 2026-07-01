@@ -10,8 +10,8 @@ import com.sep.treksphere.entity.Role;
 import com.sep.treksphere.entity.User;
 import com.sep.treksphere.enums.user.TokenStatus;
 import com.sep.treksphere.enums.user.UserStatus;
-import com.sep.treksphere.exception.BadRequestException;
-import com.sep.treksphere.exception.ResourceNotFoundException;
+import com.sep.treksphere.exception.AppException;
+import com.sep.treksphere.exception.ErrorCode;
 import com.sep.treksphere.repository.RefreshTokenRepository;
 import com.sep.treksphere.repository.RoleRepository;
 import com.sep.treksphere.repository.UserRepository;
@@ -31,7 +31,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.time.ZoneId;
-import java.util.Collections;
 import java.util.Date;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -56,6 +55,7 @@ public class AuthServiceImpl implements AuthService {
     @Override
     @Transactional
     public AuthResponse login(AuthRequest request) {
+        // Xác thực thông tin đăng nhập qua AuthenticationManager
         authenticationManager.authenticate(
                 new UsernamePasswordAuthenticationToken(
                         request.getEmail(),
@@ -64,14 +64,16 @@ public class AuthServiceImpl implements AuthService {
         );
 
         User user = userRepository.findByEmail(request.getEmail())
-                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+                .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
 
+        // Kiểm tra trạng thái tài khoản
         if (user.getStatus() != UserStatus.ACTIVE) {
-            throw new BadRequestException("User account is not active");
+            throw new AppException(ErrorCode.USER_NOT_ACTIVE);
         }
-        
+
+        // Kiểm tra email đã xác thực chưa
         if (!user.getEmailVerified()) {
-            throw new BadRequestException("Please verify your email before logging in");
+            throw new AppException(ErrorCode.EMAIL_NOT_VERIFIED);
         }
 
         CustomUserDetails userDetails = new CustomUserDetails(user);
@@ -90,13 +92,13 @@ public class AuthServiceImpl implements AuthService {
 
         if (userRepository.existsByEmail(request.getEmail())) {
             log.warn("Registration failed: Email {} already exists", request.getEmail());
-            throw new RuntimeException("Email already in use!");
+            throw new AppException(ErrorCode.USER_EXISTED);
         }
 
-        log.info("Fetching USER/TREKKER role from database...");
+        log.info("Fetching default role from database...");
         Role userRole = roleRepository.findByRoleName("USER")
                 .orElseGet(() -> roleRepository.findByRoleName("TREKKER")
-                        .orElseThrow(() -> new RuntimeException("Default role not found.")));
+                        .orElseThrow(() -> new AppException(ErrorCode.ROLE_NOT_FOUND)));
 
         log.info("Encoding password for user: {}", request.getEmail());
         String encodedPassword = passwordEncoder.encode(request.getPassword());
@@ -116,10 +118,10 @@ public class AuthServiceImpl implements AuthService {
 
         log.info("Generating verification token...");
         String verificationToken = tokenProvider.generateVerificationToken(user.getEmail());
-        
-        // TODO: Replace with actual domain when deployed
+
+        // TODO: Thay thế bằng domain thực khi deploy
         String verificationUrl = "http://localhost:8080/api/v1/auth/verify?token=" + verificationToken;
-        
+
         log.info("Sending verification email to: {}", user.getEmail());
         emailService.sendVerificationEmail(user.getEmail(), user.getFullName(), verificationUrl);
 
@@ -131,34 +133,35 @@ public class AuthServiceImpl implements AuthService {
                 .message("User registered successfully. Please check your email to verify your account.")
                 .build();
     }
-    
+
     @Override
     @Transactional
     public String verifyEmail(String token) {
         log.info("Starting email verification process with token...");
+
         if (!tokenProvider.validateToken(token)) {
             log.error("Invalid or expired verification token.");
-            throw new RuntimeException("Invalid or expired token.");
+            throw new AppException(ErrorCode.INVALID_TOKEN);
         }
-        
+
         String email = tokenProvider.getEmailFromToken(token);
         log.info("Token validated for email: {}", email);
-        
+
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> {
                     log.error("User with email {} not found.", email);
-                    return new RuntimeException("User not found.");
+                    return new AppException(ErrorCode.USER_NOT_FOUND);
                 });
-                
+
         if (user.getEmailVerified()) {
             log.info("Email {} is already verified.", email);
             return "Email is already verified.";
         }
-        
+
         user.setEmailVerified(true);
         userRepository.save(user);
         log.info("Email {} has been successfully verified.", email);
-        
+
         return "Email verified successfully! You can now log in.";
     }
 
@@ -166,17 +169,17 @@ public class AuthServiceImpl implements AuthService {
     @Transactional
     public AuthResponse refreshToken(String refreshTokenStr) {
         RefreshToken tokenEntity = refreshTokenRepository.findByToken(refreshTokenStr)
-                .orElseThrow(() -> new BadRequestException("Invalid refresh token"));
+                .orElseThrow(() -> new AppException(ErrorCode.INVALID_TOKEN));
 
         if (tokenEntity.getStatus() != TokenStatus.ACTIVE || tokenEntity.getExpiresAt().isBefore(LocalDateTime.now())) {
-            throw new BadRequestException("Refresh token is expired or revoked");
+            throw new AppException(ErrorCode.INVALID_TOKEN, "Refresh token đã hết hạn hoặc bị thu hồi");
         }
 
         User user = tokenEntity.getUser();
         CustomUserDetails userDetails = new CustomUserDetails(user);
 
         if (!jwtService.isTokenValid(refreshTokenStr, userDetails)) {
-            throw new BadRequestException("Refresh token is invalid");
+            throw new AppException(ErrorCode.INVALID_TOKEN);
         }
 
         tokenEntity.setStatus(TokenStatus.EXPIRED);
