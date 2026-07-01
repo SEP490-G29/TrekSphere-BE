@@ -1,8 +1,8 @@
-package com.sep.treksphere.dto.request;
+package com.sep.treksphere.dto.auth;
 
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.Size;
+import jakarta.validation.constraints.Pattern;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -10,19 +10,21 @@ import lombok.NoArgsConstructor;
 
 @Data
 @Builder
-@AllArgsConstructor
 @NoArgsConstructor
+@AllArgsConstructor
 public class RegisterRequest {
 
     @NotBlank(message = "Email is required")
-    @Email(message = "Email format is invalid")
+    @Email(message = "Invalid email format")
     private String email;
 
-    @NotBlank(message = "Full name is required")
-    @Size(min = 2, max = 255, message = "Full name must be between 2 and 255 characters")
-    private String fullName;
-
     @NotBlank(message = "Password is required")
-    @Size(min = 6, message = "Password must be at least 6 characters")
+    @Pattern(
+        regexp = "^(?=.*[0-9])(?=.*[a-z])(?=.*[A-Z]).{8,}$",
+        message = "Password must be at least 8 characters long and contain at least one uppercase letter, one lowercase letter and one digit"
+    )
     private String password;
+
+    @NotBlank(message = "Full name is required")
+    private String fullName;
 }
