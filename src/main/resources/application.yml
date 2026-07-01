@@ -25,6 +25,18 @@ spring:
     baseline-on-migrate: true
     validate-on-migrate: true
 
+  mail:
+    host: ${MAIL_HOST:smtp.gmail.com}
+    port: ${MAIL_PORT:587}
+    username: ${MAIL_USERNAME}
+    password: ${MAIL_PASSWORD}
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+
 springdoc:
   api-docs:
     path: /v3/api-docs
@@ -45,3 +57,7 @@ application:
       expiration: ${JWT_EXPIRATION_TIME}
       refresh-token:
         expiration: ${JWT_REFRESH_EXPIRATION_TIME}
+      reset-password:
+        expiration: ${JWT_RESET_PASSWORD_EXPIRATION_TIME:300000}
+  frontend:
+    reset-password-url: ${FRONTEND_RESET_PASSWORD_URL:http://localhost:5173/reset-password}
