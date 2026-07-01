@@ -1,6 +1,8 @@
 package com.sep.treksphere.service.impl;
 
+import com.sep.treksphere.constant.MessageConstant;
 import com.sep.treksphere.dto.request.AuthRequest;
+import com.sep.treksphere.dto.request.ChangePasswordRequest;
 import com.sep.treksphere.dto.request.RegisterRequest;
 import com.sep.treksphere.dto.response.AuthResponse;
 import com.sep.treksphere.dto.response.UserResponse;
@@ -30,8 +32,6 @@ import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.Date;
 import java.util.List;
-import java.util.Optional;
-import java.util.UUID;
 import java.util.stream.Collectors;
 
 @Service
@@ -168,6 +168,24 @@ public class AuthServiceImpl implements AuthService {
         }
 
         user.setPasswordHash(passwordEncoder.encode(newPassword));
+        userRepository.save(user);
+    }
+
+    @Override
+    @Transactional
+    public void changePassword(String email, ChangePasswordRequest request) {
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new ResourceNotFoundException(MessageConstant.USER_NOT_FOUND));
+
+        if (!passwordEncoder.matches(request.getCurrentPassword(), user.getPasswordHash())) {
+            throw new BadRequestException(MessageConstant.CURRENT_PASSWORD_INCORRECT);
+        }
+
+        if (passwordEncoder.matches(request.getNewPassword(), user.getPasswordHash())) {
+            throw new BadRequestException(MessageConstant.NEW_PASSWORD_SAME_AS_OLD);
+        }
+
+        user.setPasswordHash(passwordEncoder.encode(request.getNewPassword()));
         userRepository.save(user);
     }
 

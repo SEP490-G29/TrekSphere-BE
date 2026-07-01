@@ -1,17 +1,23 @@
 package com.sep.treksphere.controller;
 
+import com.sep.treksphere.constant.MessageConstant;
 import com.sep.treksphere.dto.request.AuthRequest;
+import com.sep.treksphere.dto.request.ChangePasswordRequest;
 import com.sep.treksphere.dto.request.ForgotPasswordRequest;
 import com.sep.treksphere.dto.request.RegisterRequest;
 import com.sep.treksphere.dto.request.ResetPasswordRequest;
 import com.sep.treksphere.dto.response.AuthResponse;
 import com.sep.treksphere.dto.response.ApiResponse;
+import com.sep.treksphere.exception.BadRequestException;
+import com.sep.treksphere.security.CustomUserDetails;
 import com.sep.treksphere.service.AuthService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -47,9 +53,25 @@ public class AuthController {
         return ResponseEntity.ok(ApiResponse.success("If the email exists, a password reset link has been sent."));
     }
 
+    @Operation(summary = "Reset mật khẩu", description = "Cho phép người dùng reset mật khẩu bằng token")   
     @PostMapping("/reset-password")
     public ResponseEntity<ApiResponse<String>> resetPassword(@Valid @RequestBody ResetPasswordRequest request) {
         authService.resetPassword(request.getToken(), request.getNewPassword());
         return ResponseEntity.ok(ApiResponse.success("Password has been reset successfully."));
+    }
+
+    @Operation(summary = "Thay đổi mật khẩu", description = "Cho phép người dùng đã đăng nhập thay đổi mật khẩu")
+    @SecurityRequirement(name = "bearerAuth")
+    @PostMapping("/change-password")
+    public ResponseEntity<ApiResponse<String>> changePassword(
+            @AuthenticationPrincipal CustomUserDetails userDetails,
+            @Valid @RequestBody ChangePasswordRequest request) {
+        
+        if (userDetails == null) {
+            throw new BadRequestException(MessageConstant.USER_NOT_LOGGED_IN);
+        }
+        
+        authService.changePassword(userDetails.getUsername(), request);
+        return ResponseEntity.ok(ApiResponse.success(MessageConstant.PASSWORD_CHANGED_SUCCESSFULLY));
     }
 }
