@@ -6,8 +6,8 @@ VALUES
     (gen_random_uuid(), 'ADMIN',          'Quản trị viên hệ thống TrekSphere'),
     (gen_random_uuid(), 'TREKKER',        'Người dùng thông thường'),
     (gen_random_uuid(), 'VENDOR_MANAGER', 'Quản lý của nhà cung cấp'),
-    (gen_random_uuid(), 'VENDOR_STAFF',   'Nhân viên của nhà cung cấp');
-
+    (gen_random_uuid(), 'VENDOR_STAFF',   'Nhân viên của nhà cung cấp')
+ON CONFLICT (role_name) DO NOTHING;
 
 INSERT INTO users (
     userid, email, password_hash, full_name, status,
@@ -16,15 +16,17 @@ INSERT INTO users (
 VALUES (
            '11111111-1111-1111-1111-111111111111',
            'admin@treksphere.com',
-           '$2a$10$xn3LI/AjqicFYZFruSwve.681477XaVNaUQbr1UxgNhCAW9BExAJe',
+           '$2a$12$U9wlqfpWBI/sMn3T.Ukzcue8P4o.mIVcSdSkNoTiYE9eyA4InyMqC', --admin
            'System Administrator',
            'ACTIVE',
            true,
            false,
            CURRENT_TIMESTAMP
-       );
+       )
+ON CONFLICT (userid) DO NOTHING;
 
 INSERT INTO user_role (user_id, role_id)
 SELECT '11111111-1111-1111-1111-111111111111', roleid
 FROM role
-WHERE role_name = 'ADMIN';
+WHERE role_name = 'ADMIN'
+ON CONFLICT (role_id, user_id) DO NOTHING;
