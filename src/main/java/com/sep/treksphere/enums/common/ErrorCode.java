@@ -15,7 +15,12 @@ public enum ErrorCode {
     ACCESS_DENIED(1002, HttpStatus.FORBIDDEN, "Bạn không có quyền thực hiện hành động này"),
     USER_NOT_FOUND(1003, HttpStatus.NOT_FOUND, "Người dùng không tồn tại"),
     USER_EXISTED(1004, HttpStatus.BAD_REQUEST, "Tài khoản (Email hoặc Username) đã tồn tại"),
-    WRONG_PASSWORD(1005, HttpStatus.BAD_REQUEST, "Mật khẩu không chính xác");
+    WRONG_PASSWORD(1005, HttpStatus.BAD_REQUEST, "Mật khẩu không chính xác"),
+
+    // Upload
+    UPLOAD_FAILED(2001, HttpStatus.INTERNAL_SERVER_ERROR, "Lỗi tải file lên hệ thống"),
+    FILE_TOO_LARGE(2002, HttpStatus.BAD_REQUEST, "Kích thước file vượt quá giới hạn cho phép (10MB)"),
+    INVALID_FILE_FORMAT(2003, HttpStatus.BAD_REQUEST, "Định dạng file không được hỗ trợ");
 
 
     private final int code;
