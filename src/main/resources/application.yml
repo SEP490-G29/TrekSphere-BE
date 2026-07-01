@@ -38,3 +38,10 @@ management:
       exposure:
         include: health
 
+application:
+  security:
+    jwt:
+      secret-key: ${JWT_SECRET_KEY}
+      expiration: ${JWT_EXPIRATION_TIME}
+      refresh-token:
+        expiration: ${JWT_REFRESH_EXPIRATION_TIME}
