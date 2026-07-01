@@ -17,6 +17,7 @@ import com.sep.treksphere.repository.UserRepository;
 import com.sep.treksphere.security.CustomUserDetails;
 import com.sep.treksphere.security.JwtService;
 import com.sep.treksphere.service.AuthService;
+import com.sep.treksphere.service.EmailService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -30,6 +31,7 @@ import java.time.ZoneId;
 import java.util.Date;
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 @Service
@@ -39,12 +41,16 @@ public class AuthServiceImpl implements AuthService {
     private final UserRepository userRepository;
     private final RoleRepository roleRepository;
     private final RefreshTokenRepository refreshTokenRepository;
+    private final EmailService emailService;
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
     private final AuthenticationManager authenticationManager;
 
     @Value("${application.security.jwt.refresh-token.expiration}")
     private long refreshExpiration;
+
+    @Value("${application.frontend.reset-password-url}")
+    private String frontendResetUrl;
 
     @Override
     @Transactional
@@ -79,8 +85,8 @@ public class AuthServiceImpl implements AuthService {
             throw new BadRequestException("Email is already taken");
         }
 
-        Role userRole = roleRepository.findByRoleName("USER")
-                .orElseThrow(() -> new ResourceNotFoundException("Default role USER not found"));
+        Role userRole = roleRepository.findByRoleName("TREKKER")
+                .orElseThrow(() -> new ResourceNotFoundException("Default role TREKKER not found"));
 
         User user = new User();
         user.setEmail(request.getEmail());
@@ -130,6 +136,39 @@ public class AuthServiceImpl implements AuthService {
         saveRefreshToken(user, newRefreshToken);
 
         return buildAuthResponse(user, accessToken, newRefreshToken);
+    }
+
+    @Override
+    @Transactional
+    public void forgotPassword(String email) {
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new ResourceNotFoundException("Email not found"));
+
+        String tokenStr = jwtService.generatePasswordResetToken(user);
+
+        String resetLink = frontendResetUrl + "?token=" + tokenStr;
+        emailService.sendPasswordResetEmail(user.getEmail(), resetLink);
+    }
+
+    @Override
+    @Transactional
+    public void resetPassword(String token, String newPassword) {
+        String email;
+        try {
+            email = jwtService.extractUsername(token);
+        } catch (Exception e) {
+            throw new BadRequestException("Invalid reset token");
+        }
+
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new BadRequestException("User associated with this token not found"));
+
+        if (!jwtService.validatePasswordResetToken(token, user)) {
+            throw new BadRequestException("Invalid or expired reset token");
+        }
+
+        user.setPasswordHash(passwordEncoder.encode(newPassword));
+        userRepository.save(user);
     }
 
     private void saveRefreshToken(User user, String refreshToken) {
