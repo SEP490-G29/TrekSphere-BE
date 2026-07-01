@@ -13,21 +13,18 @@ spring:
 
   jpa:
     hibernate:
-      ddl-auto: none
+      ddl-auto: validate
     show-sql: true
     properties:
       hibernate:
         format_sql: true
         dialect: org.hibernate.dialect.PostgreSQLDialect
+  flyway:
+    enabled: true
+    locations: classpath:db/migration,classpath:db/seed
+    baseline-on-migrate: true
+    validate-on-migrate: true
 
-springdoc:
-  api-docs:
-    path: /v3/api-docs
-  swagger-ui:
-    path: /swagger-ui.html
-    operationsSorter: method
-
-spring:
   mail:
     host: smtp.gmail.com
     port: 587
@@ -40,7 +37,24 @@ spring:
           starttls:
             enable: true
 
-jwt:
-  secret: ${JWT_SECRET:404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970}
-  expiration: 86400000 # 1 day in ms
-  email-verification-expiration: 3600000 # 1 hour in ms
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+    operationsSorter: method
+
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+
+application:
+  security:
+    jwt:
+      secret-key: ${JWT_SECRET_KEY}
+      expiration: ${JWT_EXPIRATION_TIME}
+      refresh-token:
+        expiration: ${JWT_REFRESH_EXPIRATION_TIME}

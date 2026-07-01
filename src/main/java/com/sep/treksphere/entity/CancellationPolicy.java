@@ -10,8 +10,8 @@ import java.util.UUID;
 @Getter
 @Setter
 @NoArgsConstructor
-@AllArgsConstructor
-@Builder
+
+
 public class CancellationPolicy extends BaseEntity {
 
     @Id

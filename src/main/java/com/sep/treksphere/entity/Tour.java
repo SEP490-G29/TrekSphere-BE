@@ -13,8 +13,8 @@ import java.util.UUID;
 @Getter
 @Setter
 @NoArgsConstructor
-@AllArgsConstructor
-@Builder
+
+
 public class Tour extends BaseEntity {
 
     @Id

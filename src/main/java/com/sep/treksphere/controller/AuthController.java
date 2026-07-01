@@ -1,7 +1,9 @@
 package com.sep.treksphere.controller;
 
-import com.sep.treksphere.dto.auth.RegisterRequest;
-import com.sep.treksphere.dto.auth.RegisterResponse;
+import com.sep.treksphere.dto.request.AuthRequest;
+import com.sep.treksphere.dto.request.RegisterRequest;
+import com.sep.treksphere.dto.response.AuthResponse;
+import com.sep.treksphere.dto.response.RegisterResponse;
 import com.sep.treksphere.dto.response.ApiResponse;
 import com.sep.treksphere.service.AuthService;
 import jakarta.validation.Valid;
@@ -18,6 +20,11 @@ import org.springframework.web.bind.annotation.*;
 public class AuthController {
 
     private final AuthService authService;
+
+    @PostMapping("/login")
+    public ResponseEntity<ApiResponse<AuthResponse>> login(@Valid @RequestBody AuthRequest request) {
+        return ResponseEntity.ok(ApiResponse.success(authService.login(request)));
+    }
 
     @PostMapping("/register")
     public ResponseEntity<ApiResponse<RegisterResponse>> register(@Valid @RequestBody RegisterRequest request) {
@@ -49,5 +56,12 @@ public class AuthController {
             log.error("REST response: Email verification failed - {}", e.getMessage());
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ApiResponse.error(HttpStatus.BAD_REQUEST.value(), e.getMessage()));
         }
+    }
+
+    @PostMapping("/refresh-token")
+    public ResponseEntity<ApiResponse<AuthResponse>> refreshToken(
+            @RequestParam("token") String refreshToken
+    ) {
+        return ResponseEntity.ok(ApiResponse.success(authService.refreshToken(refreshToken)));
     }
 }
