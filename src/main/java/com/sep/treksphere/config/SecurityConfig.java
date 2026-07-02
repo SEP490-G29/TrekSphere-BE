@@ -48,6 +48,7 @@ public class SecurityConfig {
                                 "/api/v1/auth/refresh-token",
                                 "/api/v1/auth/forgot-password",
                                 "/api/v1/auth/reset-password",
+                                "/api/v1/auth/verify",
                                 "/v2/api-docs",
                                 "/v3/api-docs",
                                 "/v3/api-docs/**",

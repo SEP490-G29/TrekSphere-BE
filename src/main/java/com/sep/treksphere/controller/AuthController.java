@@ -32,7 +32,8 @@ public class AuthController {
     public ResponseEntity<ApiResponse<AuthResponse>> login(@Valid @RequestBody AuthRequest request) {
         return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, authService.login(request)));
     }
-    @Operation(summary = "Đăng ký tài khoản", description = "Đăng ký một tài khoản mới với quyền TREKKER. Mật khẩu phải có ít nhất 1 chữ, 1 số và độ dài tối thiểu 8 ký tự.")
+    @Operation(summary = "Đăng ký tài khoản", description = "Đăng ký một tài khoản mới với quyền TREKKER")
+    @PostMapping("/register")
     public ResponseEntity<ApiResponse<RegisterResponse>> register(@Valid @RequestBody RegisterRequest request) {
         RegisterResponse response = authService.register(request);
         log.info("REST response: Registration successful for {}", request.getEmail());
