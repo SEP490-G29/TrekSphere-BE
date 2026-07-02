@@ -5,22 +5,25 @@ import com.sep.treksphere.dto.request.AuthRequest;
 import com.sep.treksphere.dto.request.ChangePasswordRequest;
 import com.sep.treksphere.dto.request.RegisterRequest;
 import com.sep.treksphere.dto.response.AuthResponse;
+import com.sep.treksphere.dto.response.RegisterResponse;
 import com.sep.treksphere.dto.response.UserResponse;
 import com.sep.treksphere.entity.RefreshToken;
 import com.sep.treksphere.entity.Role;
 import com.sep.treksphere.entity.User;
 import com.sep.treksphere.enums.user.TokenStatus;
 import com.sep.treksphere.enums.user.UserStatus;
-import com.sep.treksphere.exception.BadRequestException;
-import com.sep.treksphere.exception.ResourceNotFoundException;
+import com.sep.treksphere.exception.AppException;
+import com.sep.treksphere.exception.ErrorCode;
 import com.sep.treksphere.repository.RefreshTokenRepository;
 import com.sep.treksphere.repository.RoleRepository;
 import com.sep.treksphere.repository.UserRepository;
 import com.sep.treksphere.security.CustomUserDetails;
 import com.sep.treksphere.security.JwtService;
+import com.sep.treksphere.security.JwtTokenProvider;
 import com.sep.treksphere.service.AuthService;
 import com.sep.treksphere.service.EmailService;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -36,6 +39,7 @@ import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class AuthServiceImpl implements AuthService {
 
     private final UserRepository userRepository;
@@ -44,6 +48,7 @@ public class AuthServiceImpl implements AuthService {
     private final EmailService emailService;
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
+    private final JwtTokenProvider tokenProvider;
     private final AuthenticationManager authenticationManager;
 
     @Value("${application.security.jwt.refresh-token.expiration}")
@@ -63,10 +68,14 @@ public class AuthServiceImpl implements AuthService {
         );
 
         User user = userRepository.findByEmail(request.getEmail())
-                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+                .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
 
         if (user.getStatus() != UserStatus.ACTIVE) {
-            throw new BadRequestException("User account is not active");
+            throw new AppException(ErrorCode.USER_NOT_ACTIVE);
+        }
+
+        if (!user.isEmailVerified()) {
+            throw new AppException(ErrorCode.EMAIL_NOT_VERIFIED);
         }
 
         CustomUserDetails userDetails = new CustomUserDetails(user);
@@ -80,56 +89,108 @@ public class AuthServiceImpl implements AuthService {
 
     @Override
     @Transactional
-    public AuthResponse register(RegisterRequest request) {
+    public RegisterResponse register(RegisterRequest request) {
+        log.info("Starting registration process for email: {}", request.getEmail());
+
+        if (!request.getPassword().equals(request.getConfirmPassword())) {
+            log.warn("Registration failed: Passwords do not match for email {}", request.getEmail());
+            throw new AppException(ErrorCode.VALIDATION_ERROR, "Mật khẩu xác nhận không khớp");
+        }
         if (userRepository.existsByEmail(request.getEmail())) {
-            throw new BadRequestException("Email is already taken");
+            log.warn("Registration failed: Email {} already exists", request.getEmail());
+            throw new AppException(ErrorCode.USER_EXISTED);
         }
 
+        log.info("Fetching default role from database...");
         Role userRole = roleRepository.findByRoleName("TREKKER")
-                .orElseThrow(() -> new ResourceNotFoundException("Default role TREKKER not found"));
+                .orElseThrow(() -> {
+                    log.error("Default role 'TREKKER' not found in the database.");
+                    return new AppException(ErrorCode.ROLE_NOT_FOUND);
+                });
 
+        log.info("Encoding password for user: {}", request.getEmail());
+        String encodedPassword = passwordEncoder.encode(request.getPassword());
+
+        log.info("Creating new User entity...");
         User user = new User();
         user.setEmail(request.getEmail());
         user.setFullName(request.getFullName());
-        user.setPasswordHash(passwordEncoder.encode(request.getPassword()));
+        user.setPasswordHash(encodedPassword);
         user.setStatus(UserStatus.ACTIVE);
         user.setEmailVerified(false);
         user.getRoles().add(userRole);
 
+        log.info("Saving User {} to database...", request.getEmail());
         user = userRepository.save(user);
+        log.info("User {} saved successfully with ID: {}", user.getEmail(), user.getUserID());
 
-        CustomUserDetails userDetails = new CustomUserDetails(user);
-        String accessToken = jwtService.generateToken(userDetails);
-        String refreshToken = jwtService.generateRefreshToken(userDetails);
+        log.info("Generating verification token...");
+        String verificationToken = tokenProvider.generateVerificationToken(user.getEmail());
 
-        saveRefreshToken(user, refreshToken);
+        String verificationUrl = "http://localhost:8080/api/v1/auth/verify?token=" + verificationToken;
 
-        return buildAuthResponse(user, accessToken, refreshToken);
+        log.info("Sending verification email to: {}", user.getEmail());
+        emailService.sendVerificationEmail(user.getEmail(), user.getFullName(), verificationUrl);
+
+        log.info("Registration process completed successfully for: {}", request.getEmail());
+        return RegisterResponse.builder()
+                .userID(user.getUserID())
+                .email(user.getEmail())
+                .fullName(user.getFullName())
+                .build();
+    }
+
+    @Override
+    @Transactional
+    public String verifyEmail(String token) {
+        log.info("Starting email verification process with token...");
+        String message = "Xác minh email thành công! Bạn có thể đăng nhập ngay bây giờ.";
+        if (!tokenProvider.validateToken(token)) {
+            log.error("Invalid or expired verification token.");
+            throw new AppException(ErrorCode.INVALID_TOKEN);
+        }
+
+        String email = tokenProvider.getEmailFromToken(token);
+        log.info("Token validated for email: {}", email);
+
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> {
+                    log.error("User with email {} not found.", email);
+                    return new AppException(ErrorCode.USER_NOT_FOUND);
+                });
+
+        if (user.isEmailVerified()) {
+            log.info("Email {} is already verified.", email);
+            message = "Email đã được xác minh.";
+        } else {
+            user.setEmailVerified(true);
+            userRepository.save(user);
+            log.info("Email {} has been successfully verified.", email);
+        }
+        return message;
     }
 
     @Override
     @Transactional
     public AuthResponse refreshToken(String refreshTokenStr) {
         RefreshToken tokenEntity = refreshTokenRepository.findByToken(refreshTokenStr)
-                .orElseThrow(() -> new BadRequestException("Invalid refresh token"));
+                .orElseThrow(() -> new AppException(ErrorCode.INVALID_TOKEN));
 
         if (tokenEntity.getStatus() != TokenStatus.ACTIVE || tokenEntity.getExpiresAt().isBefore(LocalDateTime.now())) {
-            throw new BadRequestException("Refresh token is expired or revoked");
+            throw new AppException(ErrorCode.INVALID_TOKEN, "Refresh token đã hết hạn hoặc bị thu hồi");
         }
 
         User user = tokenEntity.getUser();
         CustomUserDetails userDetails = new CustomUserDetails(user);
 
         if (!jwtService.isTokenValid(refreshTokenStr, userDetails)) {
-            throw new BadRequestException("Refresh token is invalid");
+            throw new AppException(ErrorCode.INVALID_TOKEN);
         }
 
-        // Revoke the old token (Optional depending on your security policy)
         tokenEntity.setStatus(TokenStatus.EXPIRED);
         tokenEntity.setRevokedAt(LocalDateTime.now());
         refreshTokenRepository.save(tokenEntity);
 
-        // Generate new tokens
         String accessToken = jwtService.generateToken(userDetails);
         String newRefreshToken = jwtService.generateRefreshToken(userDetails);
 
@@ -142,7 +203,7 @@ public class AuthServiceImpl implements AuthService {
     @Transactional
     public void forgotPassword(String email) {
         User user = userRepository.findByEmail(email)
-                .orElseThrow(() -> new ResourceNotFoundException("Email not found"));
+                .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
 
         String tokenStr = jwtService.generatePasswordResetToken(user);
 
@@ -157,14 +218,14 @@ public class AuthServiceImpl implements AuthService {
         try {
             email = jwtService.extractUsername(token);
         } catch (Exception e) {
-            throw new BadRequestException("Invalid reset token");
+            throw new AppException(ErrorCode.INVALID_TOKEN);
         }
 
         User user = userRepository.findByEmail(email)
-                .orElseThrow(() -> new BadRequestException("User associated with this token not found"));
+                .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
 
         if (!jwtService.validatePasswordResetToken(token, user)) {
-            throw new BadRequestException("Invalid or expired reset token");
+            throw new AppException(ErrorCode.INVALID_TOKEN);
         }
 
         user.setPasswordHash(passwordEncoder.encode(newPassword));
@@ -175,14 +236,14 @@ public class AuthServiceImpl implements AuthService {
     @Transactional
     public void changePassword(String email, ChangePasswordRequest request) {
         User user = userRepository.findByEmail(email)
-                .orElseThrow(() -> new ResourceNotFoundException(MessageConstant.USER_NOT_FOUND));
+                .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
 
         if (!passwordEncoder.matches(request.getCurrentPassword(), user.getPasswordHash())) {
-            throw new BadRequestException(MessageConstant.CURRENT_PASSWORD_INCORRECT);
+            throw new AppException(ErrorCode.VALIDATION_ERROR, MessageConstant.CURRENT_PASSWORD_INCORRECT);
         }
 
         if (passwordEncoder.matches(request.getNewPassword(), user.getPasswordHash())) {
-            throw new BadRequestException(MessageConstant.NEW_PASSWORD_SAME_AS_OLD);
+            throw new AppException(ErrorCode.VALIDATION_ERROR, MessageConstant.NEW_PASSWORD_SAME_AS_OLD);
         }
 
         user.setPasswordHash(passwordEncoder.encode(request.getNewPassword()));
@@ -194,7 +255,6 @@ public class AuthServiceImpl implements AuthService {
         token.setUser(user);
         token.setToken(refreshToken);
         token.setStatus(TokenStatus.ACTIVE);
-        // Chuyển từ ms sang LocalDateTime
         Date expiryDate = new Date(System.currentTimeMillis() + refreshExpiration);
         token.setExpiresAt(LocalDateTime.ofInstant(expiryDate.toInstant(), ZoneId.systemDefault()));
         refreshTokenRepository.save(token);

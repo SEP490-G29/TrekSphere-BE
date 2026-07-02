@@ -6,14 +6,16 @@ public class MessageConstant {
     }
 
     // Auth Messages
-    public static final String USER_NOT_FOUND = "User not found";
-    public static final String USER_NOT_LOGGED_IN = "User must be logged in";
-    public static final String CURRENT_PASSWORD_INCORRECT = "Current password is incorrect";
-    public static final String NEW_PASSWORD_SAME_AS_OLD = "New password cannot be the same as the current password";
-    public static final String PASSWORD_CHANGED_SUCCESSFULLY = "Password has been changed successfully.";
+    public static final String USER_NOT_FOUND = "Người dùng không tồn tại";
+    public static final String USER_NOT_LOGGED_IN = "Người dùng chưa đăng nhập";
+    public static final String CURRENT_PASSWORD_INCORRECT = "Mật khẩu hiện tại không chính xác";
+    public static final String NEW_PASSWORD_SAME_AS_OLD = "Mật khẩu mới không được trùng với mật khẩu cũ";
+    public static final String PASSWORD_CHANGED_SUCCESSFULLY = "Mật khẩu đã được thay đổi thành công.";
+    public static final String RESET_LINK_SENT_SUCCESSFULLY = "Nếu email hợp lệ, một đường link đặt lại mật khẩu đã được gửi đến email của bạn.";
+    public static final String PASSWORD_RESET_SUCCESSFULLY = "Mật khẩu đã được đặt lại thành công.";
     
     // Validation Messages
-    public static final String CURRENT_PASSWORD_REQUIRED = "Current password is required";
-    public static final String NEW_PASSWORD_REQUIRED = "New password is required";
-    public static final String PASSWORD_MIN_LENGTH = "Password must be at least 8 characters long";
+    public static final String CURRENT_PASSWORD_REQUIRED = "Vui lòng nhập mật khẩu hiện tại";
+    public static final String NEW_PASSWORD_REQUIRED = "Vui lòng nhập mật khẩu mới";
+    public static final String PASSWORD_MIN_LENGTH = "Mật khẩu phải có ít nhất 8 ký tự";
 }

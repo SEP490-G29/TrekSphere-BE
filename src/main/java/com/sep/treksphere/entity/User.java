@@ -49,7 +49,7 @@ public class User extends BaseEntity {
     private UserStatus status = UserStatus.ACTIVE;
 
     @Column(nullable = false)
-    private Boolean emailVerified = false;
+    private boolean emailVerified = false;
 
     @ManyToMany(fetch = FetchType.LAZY)
     @JoinTable(

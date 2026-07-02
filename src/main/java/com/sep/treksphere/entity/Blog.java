@@ -13,8 +13,6 @@ import java.util.UUID;
 @Getter
 @Setter
 @NoArgsConstructor
-
-
 public class Blog extends BaseEntity {
 
     @Id

@@ -23,10 +23,10 @@ VALUES (
            false,
            CURRENT_TIMESTAMP
        )
-ON CONFLICT (userid) DO NOTHING;
+ON CONFLICT (email) DO NOTHING;
 
 INSERT INTO user_role (user_id, role_id)
 SELECT '11111111-1111-1111-1111-111111111111', roleid
 FROM role
 WHERE role_name = 'ADMIN'
-ON CONFLICT (role_id, user_id) DO NOTHING;
+ON CONFLICT DO NOTHING;
