@@ -5,6 +5,7 @@ import com.sep.treksphere.service.FileService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.MediaType;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
@@ -27,7 +28,7 @@ public class FileController {
     ) {
         log.info("REST request to upload file [{}] to folder: {}", file.getOriginalFilename(), folder);
         String fileUrl = fileService.uploadFile(file, folder);
-        return ResponseEntity.ok(ApiResponse.success(fileUrl));
+        return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, fileUrl));
     }
 
     @PostMapping(value = "/upload/batch", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
@@ -37,7 +38,7 @@ public class FileController {
     ) {
         log.info("REST request to upload {} files to folder: {}", files.size(), folder);
         List<String> fileUrls = fileService.uploadFiles(files, folder);
-        return ResponseEntity.ok(ApiResponse.success(fileUrls));
+        return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, fileUrls));
     }
 
     @DeleteMapping("/delete")
@@ -46,6 +47,6 @@ public class FileController {
     ) {
         log.info("REST request to delete file with publicId: {}", publicId);
         fileService.deleteFile(publicId);
-        return ResponseEntity.ok(ApiResponse.success("File deleted successfully"));
+        return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, null, "Xóa file thành công"));
     }
 }
