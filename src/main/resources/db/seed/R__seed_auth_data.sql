@@ -9,7 +9,6 @@ VALUES
     (gen_random_uuid(), 'VENDOR_STAFF',   'Nhân viên của nhà cung cấp')
 ON CONFLICT (role_name) DO NOTHING;
 
-
 INSERT INTO users (
     userid, email, password_hash, full_name, status,
     email_verified, is_deleted, created_at

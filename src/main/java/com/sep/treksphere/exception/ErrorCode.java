@@ -19,7 +19,12 @@ public enum ErrorCode {
     USER_NOT_ACTIVE(1006, HttpStatus.FORBIDDEN, "Tài khoản chưa được kích hoạt hoặc bị khóa"),
     EMAIL_NOT_VERIFIED(1007, HttpStatus.FORBIDDEN, "Vui lòng xác thực email trước khi đăng nhập"),
     INVALID_TOKEN(1008, HttpStatus.UNAUTHORIZED, "Token không hợp lệ hoặc đã hết hạn"),
-    ROLE_NOT_FOUND(1009, HttpStatus.INTERNAL_SERVER_ERROR, "Không tìm thấy vai trò mặc định trong hệ thống");
+    ROLE_NOT_FOUND(1009, HttpStatus.INTERNAL_SERVER_ERROR, "Không tìm thấy vai trò mặc định trong hệ thống"),
+
+    // Upload
+    UPLOAD_FAILED(2001, HttpStatus.INTERNAL_SERVER_ERROR, "Lỗi tải file lên hệ thống"),
+    FILE_TOO_LARGE(2002, HttpStatus.BAD_REQUEST, "Kích thước file vượt quá giới hạn cho phép (10MB)"),
+    INVALID_FILE_FORMAT(2003, HttpStatus.BAD_REQUEST, "Định dạng file không được hỗ trợ");
 
 
     private final int code;

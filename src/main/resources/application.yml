@@ -37,13 +37,22 @@ spring:
           starttls:
             enable: true
 
+  servlet:
+    multipart:
+      max-file-size: 10MB
+      max-request-size: 10MB
+
+cloudinary:
+  cloud-name: ${CLOUDINARY_CLOUD_NAME}
+  api-key: ${CLOUDINARY_API_KEY}
+  api-secret: ${CLOUDINARY_API_SECRET}
+
 springdoc:
   api-docs:
     path: /v3/api-docs
   swagger-ui:
     path: /swagger-ui.html
     operationsSorter: method
-
 
 management:
   endpoints:
@@ -58,3 +67,7 @@ application:
       expiration: ${JWT_EXPIRATION_TIME}
       refresh-token:
         expiration: ${JWT_REFRESH_EXPIRATION_TIME}
+      reset-password:
+        expiration: ${JWT_RESET_PASSWORD_EXPIRATION_TIME:300000}
+  frontend:
+    reset-password-url: ${FRONTEND_RESET_PASSWORD_URL:http://localhost:5173/reset-password}

@@ -1,6 +1,8 @@
 package com.sep.treksphere.service.impl;
 
+import com.sep.treksphere.constant.MessageConstant;
 import com.sep.treksphere.dto.request.AuthRequest;
+import com.sep.treksphere.dto.request.ChangePasswordRequest;
 import com.sep.treksphere.dto.request.RegisterRequest;
 import com.sep.treksphere.dto.response.AuthResponse;
 import com.sep.treksphere.dto.response.RegisterResponse;
@@ -43,14 +45,17 @@ public class AuthServiceImpl implements AuthService {
     private final UserRepository userRepository;
     private final RoleRepository roleRepository;
     private final RefreshTokenRepository refreshTokenRepository;
+    private final EmailService emailService;
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
     private final JwtTokenProvider tokenProvider;
-    private final EmailService emailService;
     private final AuthenticationManager authenticationManager;
 
     @Value("${application.security.jwt.refresh-token.expiration}")
     private long refreshExpiration;
+
+    @Value("${application.frontend.reset-password-url}")
+    private String frontendResetUrl;
 
     @Override
     @Transactional
@@ -192,6 +197,57 @@ public class AuthServiceImpl implements AuthService {
         saveRefreshToken(user, newRefreshToken);
 
         return buildAuthResponse(user, accessToken, newRefreshToken);
+    }
+
+    @Override
+    @Transactional
+    public void forgotPassword(String email) {
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
+
+        String tokenStr = jwtService.generatePasswordResetToken(user);
+
+        String resetLink = frontendResetUrl + "?token=" + tokenStr;
+        emailService.sendPasswordResetEmail(user.getEmail(), resetLink);
+    }
+
+    @Override
+    @Transactional
+    public void resetPassword(String token, String newPassword) {
+        String email;
+        try {
+            email = jwtService.extractUsername(token);
+        } catch (Exception e) {
+            throw new AppException(ErrorCode.INVALID_TOKEN);
+        }
+
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
+
+        if (!jwtService.validatePasswordResetToken(token, user)) {
+            throw new AppException(ErrorCode.INVALID_TOKEN);
+        }
+
+        user.setPasswordHash(passwordEncoder.encode(newPassword));
+        userRepository.save(user);
+    }
+
+    @Override
+    @Transactional
+    public void changePassword(String email, ChangePasswordRequest request) {
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
+
+        if (!passwordEncoder.matches(request.getCurrentPassword(), user.getPasswordHash())) {
+            throw new AppException(ErrorCode.VALIDATION_ERROR, MessageConstant.CURRENT_PASSWORD_INCORRECT);
+        }
+
+        if (passwordEncoder.matches(request.getNewPassword(), user.getPasswordHash())) {
+            throw new AppException(ErrorCode.VALIDATION_ERROR, MessageConstant.NEW_PASSWORD_SAME_AS_OLD);
+        }
+
+        user.setPasswordHash(passwordEncoder.encode(request.getNewPassword()));
+        userRepository.save(user);
     }
 
     private void saveRefreshToken(User user, String refreshToken) {
