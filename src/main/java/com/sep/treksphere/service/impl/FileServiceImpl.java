@@ -2,8 +2,8 @@ package com.sep.treksphere.service.impl;
 
 import com.cloudinary.Cloudinary;
 import com.cloudinary.utils.ObjectUtils;
-import com.sep.treksphere.enums.common.ErrorCode;
-import com.sep.treksphere.exception.BusinessException;
+import com.sep.treksphere.exception.AppException;
+import com.sep.treksphere.exception.ErrorCode;
 import com.sep.treksphere.service.FileService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -53,14 +53,14 @@ public class FileServiceImpl implements FileService {
 
         } catch (IOException e) {
             log.error("Failed to upload file to Cloudinary: {}", e.getMessage(), e);
-            throw new BusinessException(ErrorCode.UPLOAD_FAILED);
+            throw new AppException(ErrorCode.UPLOAD_FAILED);
         }
     }
 
     @Override
     public List<String> uploadFiles(List<MultipartFile> files, String folder) {
         if (files == null || files.isEmpty()) {
-            throw new BusinessException(ErrorCode.INVALID_FILE_FORMAT);
+            throw new AppException(ErrorCode.INVALID_FILE_FORMAT);
         }
 
         List<String> urls = new ArrayList<>();
@@ -77,25 +77,25 @@ public class FileServiceImpl implements FileService {
             log.info("Cloudinary delete result for [{}]: {}", publicId, result.get("result"));
         } catch (IOException e) {
             log.error("Failed to delete file from Cloudinary: {}", e.getMessage(), e);
-            throw new BusinessException(ErrorCode.UPLOAD_FAILED);
+            throw new AppException(ErrorCode.UPLOAD_FAILED);
         }
     }
 
 
     private void validateFile(MultipartFile file) {
         if (file == null || file.isEmpty()) {
-            throw new BusinessException(ErrorCode.INVALID_FILE_FORMAT);
+            throw new AppException(ErrorCode.INVALID_FILE_FORMAT);
         }
 
         if (file.getSize() > MAX_FILE_SIZE) {
             log.warn("File size {} exceeds limit of {} bytes", file.getSize(), MAX_FILE_SIZE);
-            throw new BusinessException(ErrorCode.FILE_TOO_LARGE);
+            throw new AppException(ErrorCode.FILE_TOO_LARGE);
         }
 
         String contentType = file.getContentType();
         if (contentType == null || !ALLOWED_CONTENT_TYPES.contains(contentType)) {
             log.warn("Invalid file format: {}", contentType);
-            throw new BusinessException(ErrorCode.INVALID_FILE_FORMAT);
+            throw new AppException(ErrorCode.INVALID_FILE_FORMAT);
         }
     }
 
