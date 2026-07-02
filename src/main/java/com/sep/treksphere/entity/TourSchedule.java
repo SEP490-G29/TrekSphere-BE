@@ -35,7 +35,6 @@ public class TourSchedule extends BaseEntity {
     private Integer availableSlots;
 
     @Column(nullable = false)
-    @Builder.Default
     private Integer bookedSlots = 0;
 
     @Column(nullable = false, precision = 12, scale = 2)
@@ -43,6 +42,5 @@ public class TourSchedule extends BaseEntity {
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 10)
-    @Builder.Default
     private ScheduleStatus status = ScheduleStatus.OPEN;
 }

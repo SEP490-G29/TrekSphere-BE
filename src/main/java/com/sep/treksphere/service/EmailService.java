@@ -31,7 +31,7 @@ public class EmailService {
             MimeMessageHelper helper = new MimeMessageHelper(mimeMessage, true, "UTF-8");
             
             helper.setTo(to);
-            helper.setSubject("TrekSphere - Verify your email address");
+            helper.setSubject("TrekSphere - Xác minh địa chỉ email của bạn");
             helper.setText(process, true);
 
             mailSender.send(mimeMessage);

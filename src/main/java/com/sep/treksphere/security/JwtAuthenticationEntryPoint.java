@@ -13,17 +13,20 @@ import org.springframework.stereotype.Component;
 
 import java.io.IOException;
 
+import lombok.RequiredArgsConstructor;
+
 @Component
+@RequiredArgsConstructor
 public class JwtAuthenticationEntryPoint implements AuthenticationEntryPoint {
 
+    private final ObjectMapper objectMapper;
     @Override
     public void commence(HttpServletRequest request, HttpServletResponse response, AuthenticationException authException) throws IOException, ServletException {
         response.setStatus(HttpStatus.UNAUTHORIZED.value());
         response.setContentType(MediaType.APPLICATION_JSON_VALUE);
 
-        ApiResponse<Object> apiResponse = ApiResponse.error(HttpStatus.UNAUTHORIZED.value(), "Unauthorized: " + authException.getMessage());
-        
-        ObjectMapper objectMapper = new ObjectMapper();
+        ApiResponse<Object> apiResponse = ApiResponse.error(HttpStatus.UNAUTHORIZED, "Unauthorized: " + authException.getMessage());
+
         response.getWriter().write(objectMapper.writeValueAsString(apiResponse));
     }
 }

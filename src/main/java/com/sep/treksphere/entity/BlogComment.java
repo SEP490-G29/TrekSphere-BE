@@ -39,6 +39,5 @@ public class BlogComment extends BaseEntity {
     private CommentStatus status = CommentStatus.ACTIVE;
 
     @OneToMany(mappedBy = "parentComment", cascade = CascadeType.ALL, orphanRemoval = true)
-    @Builder.Default
     private Set<BlogComment> replies = new HashSet<>();
 }

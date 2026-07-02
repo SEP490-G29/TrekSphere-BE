@@ -44,23 +44,19 @@ public class Voucher extends BaseEntity {
     private LocalDateTime validUntil;
 
     @Column(nullable = false)
-    @Builder.Default
     private Integer usedCount = 0;
 
     @Column(nullable = false)
     private Integer maxUsage;
 
     @Column(nullable = false, precision = 12, scale = 2)
-    @Builder.Default
     private BigDecimal minOrderValue = BigDecimal.ZERO;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 10)
-    @Builder.Default
     private VoucherApprovalStatus approvalStatus = VoucherApprovalStatus.PENDING;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 10)
-    @Builder.Default
     private VoucherStatus status = VoucherStatus.ACTIVE;
 }

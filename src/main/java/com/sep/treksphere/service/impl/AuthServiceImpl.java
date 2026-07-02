@@ -55,7 +55,6 @@ public class AuthServiceImpl implements AuthService {
     @Override
     @Transactional
     public AuthResponse login(AuthRequest request) {
-        // Xác thực thông tin đăng nhập qua AuthenticationManager
         authenticationManager.authenticate(
                 new UsernamePasswordAuthenticationToken(
                         request.getEmail(),
@@ -66,13 +65,11 @@ public class AuthServiceImpl implements AuthService {
         User user = userRepository.findByEmail(request.getEmail())
                 .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
 
-        // Kiểm tra trạng thái tài khoản
         if (user.getStatus() != UserStatus.ACTIVE) {
             throw new AppException(ErrorCode.USER_NOT_ACTIVE);
         }
 
-        // Kiểm tra email đã xác thực chưa
-        if (!user.getEmailVerified()) {
+        if (!user.isEmailVerified()) {
             throw new AppException(ErrorCode.EMAIL_NOT_VERIFIED);
         }
 
@@ -96,9 +93,11 @@ public class AuthServiceImpl implements AuthService {
         }
 
         log.info("Fetching default role from database...");
-        Role userRole = roleRepository.findByRoleName("USER")
-                .orElseGet(() -> roleRepository.findByRoleName("TREKKER")
-                        .orElseThrow(() -> new AppException(ErrorCode.ROLE_NOT_FOUND)));
+        Role userRole = roleRepository.findByRoleName("TREKKER")
+                .orElseThrow(() -> {
+                    log.error("Default role 'TREKKER' not found in the database.");
+                    return new AppException(ErrorCode.ROLE_NOT_FOUND);
+                });
 
         log.info("Encoding password for user: {}", request.getEmail());
         String encodedPassword = passwordEncoder.encode(request.getPassword());
@@ -119,7 +118,6 @@ public class AuthServiceImpl implements AuthService {
         log.info("Generating verification token...");
         String verificationToken = tokenProvider.generateVerificationToken(user.getEmail());
 
-        // TODO: Thay thế bằng domain thực khi deploy
         String verificationUrl = "http://localhost:8080/api/v1/auth/verify?token=" + verificationToken;
 
         log.info("Sending verification email to: {}", user.getEmail());
@@ -130,7 +128,6 @@ public class AuthServiceImpl implements AuthService {
                 .userID(user.getUserID())
                 .email(user.getEmail())
                 .fullName(user.getFullName())
-                .message("User registered successfully. Please check your email to verify your account.")
                 .build();
     }
 
@@ -138,7 +135,7 @@ public class AuthServiceImpl implements AuthService {
     @Transactional
     public String verifyEmail(String token) {
         log.info("Starting email verification process with token...");
-
+        String message = "Xác minh email thành công! Bạn có thể đăng nhập ngay bây giờ.";
         if (!tokenProvider.validateToken(token)) {
             log.error("Invalid or expired verification token.");
             throw new AppException(ErrorCode.INVALID_TOKEN);
@@ -153,16 +150,15 @@ public class AuthServiceImpl implements AuthService {
                     return new AppException(ErrorCode.USER_NOT_FOUND);
                 });
 
-        if (user.getEmailVerified()) {
+        if (user.isEmailVerified()) {
             log.info("Email {} is already verified.", email);
-            return "Email is already verified.";
+            message = "Email đã được xác minh.";
+        } else {
+            user.setEmailVerified(true);
+            userRepository.save(user);
+            log.info("Email {} has been successfully verified.", email);
         }
-
-        user.setEmailVerified(true);
-        userRepository.save(user);
-        log.info("Email {} has been successfully verified.", email);
-
-        return "Email verified successfully! You can now log in.";
+        return message;
     }
 
     @Override

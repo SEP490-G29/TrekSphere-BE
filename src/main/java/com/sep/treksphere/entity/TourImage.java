@@ -27,7 +27,6 @@ public class TourImage {
     private String imageUrl;
 
     @Column(nullable = false)
-    @Builder.Default
     private Integer sortOrder = 0;
 
     @Column(length = 255)

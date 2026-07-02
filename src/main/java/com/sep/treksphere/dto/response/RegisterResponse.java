@@ -15,5 +15,4 @@ public class RegisterResponse {
     private UUID userID;
     private String email;
     private String fullName;
-    private String message;
 }

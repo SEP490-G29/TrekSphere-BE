@@ -46,12 +46,10 @@ public class User extends BaseEntity {
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
-    @Builder.Default
     private UserStatus status = UserStatus.ACTIVE;
 
     @Column(nullable = false)
-    @Builder.Default
-    private Boolean emailVerified = false;
+    private boolean emailVerified = false;
 
     @ManyToMany(fetch = FetchType.LAZY)
     @JoinTable(
@@ -59,6 +57,5 @@ public class User extends BaseEntity {
         joinColumns = @JoinColumn(name = "user_id"),
         inverseJoinColumns = @JoinColumn(name = "role_id")
     )
-    @Builder.Default
     private Set<Role> roles = new HashSet<>();
 }

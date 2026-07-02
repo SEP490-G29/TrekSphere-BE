@@ -26,10 +26,10 @@ spring:
     validate-on-migrate: true
 
   mail:
-    host: smtp.gmail.com
-    port: 587
-    username: ${MAIL_USERNAME:treksphere.noreply@gmail.com}
-    password: ${MAIL_PASSWORD:secret}
+    host: ${MAILTRAP_HOST}
+    port: ${MAILTRAP_PORT}
+    username: ${MAILTRAP_USERNAME}
+    password: ${MAILTRAP_PASSWORD}
     properties:
       mail:
         smtp:

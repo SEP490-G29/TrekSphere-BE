@@ -40,7 +40,6 @@ public class ReportContent {
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 10)
-    @Builder.Default
     private ReportStatus status = ReportStatus.PENDING;
 
     @Column(columnDefinition = "TEXT")
