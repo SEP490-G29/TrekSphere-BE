@@ -87,6 +87,10 @@ public class AuthServiceImpl implements AuthService {
     public RegisterResponse register(RegisterRequest request) {
         log.info("Starting registration process for email: {}", request.getEmail());
 
+        if (!request.getPassword().equals(request.getConfirmPassword())) {
+            log.warn("Registration failed: Passwords do not match for email {}", request.getEmail());
+            throw new AppException(ErrorCode.VALIDATION_ERROR, "Mật khẩu xác nhận không khớp");
+        }
         if (userRepository.existsByEmail(request.getEmail())) {
             log.warn("Registration failed: Email {} already exists", request.getEmail());
             throw new AppException(ErrorCode.USER_EXISTED);
