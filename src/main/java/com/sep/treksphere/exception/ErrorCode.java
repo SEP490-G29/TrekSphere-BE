@@ -27,7 +27,10 @@ public enum ErrorCode {
     INVALID_FILE_FORMAT(2003, HttpStatus.BAD_REQUEST, "Định dạng file không được hỗ trợ"),
 
     // Tour
-    TOUR_NOT_FOUND(3001, HttpStatus.NOT_FOUND, "Tour không tồn tại");
+    TOUR_NOT_FOUND(3001, HttpStatus.NOT_FOUND, "Tour không tồn tại"),
+
+    // Blog
+    BLOG_NOT_FOUND(4001, HttpStatus.NOT_FOUND, "Bài viết không tồn tại");
 
 
     private final int code;

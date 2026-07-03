@@ -1,5 +1,6 @@
 package com.sep.treksphere.service.impl;
 
+import com.sep.treksphere.dto.response.PaginationResponse;
 import com.sep.treksphere.dto.response.TourDetailResponse;
 import com.sep.treksphere.dto.response.TourImageResponse;
 import com.sep.treksphere.dto.response.TourScheduleResponse;
@@ -41,7 +42,7 @@ public class TourServiceImpl implements TourService {
 
     @Override
     @Transactional(readOnly = true)
-    public Page<TourSummaryResponse> getTours(
+    public PaginationResponse<TourSummaryResponse> getTours(
             String keyword,
             String location,
             DifficultyLevel difficulty,
@@ -64,7 +65,7 @@ public class TourServiceImpl implements TourService {
                 difficulty,
                 pageable);
 
-        return tourPage.map(this::toSummaryResponse);
+        return toPaginationResponse(tourPage.map(this::toSummaryResponse));
     }
 
     @Override
@@ -158,6 +159,17 @@ public class TourServiceImpl implements TourService {
                 .bookedSlots(schedule.getBookedSlots())
                 .price(schedule.getPrice())
                 .status(schedule.getStatus())
+                .build();
+    }
+
+    private <T> PaginationResponse<T> toPaginationResponse(Page<T> page) {
+        return PaginationResponse.<T>builder()
+                .content(page.getContent())
+                .pageNumber(page.getNumber())
+                .pageSize(page.getSize())
+                .totalElements(page.getTotalElements())
+                .totalPages(page.getTotalPages())
+                .last(page.isLast())
                 .build();
     }
 }
