@@ -3,7 +3,7 @@ package com.sep.treksphere.controller;
 import com.sep.treksphere.constant.MessageConstant;
 import com.sep.treksphere.dto.request.*;
 import com.sep.treksphere.dto.response.ApiResponse;
-import com.sep.treksphere.dto.response.AuthResponse;
+import com.sep.treksphere.dto.response.LoginResponse;
 import com.sep.treksphere.dto.response.RegisterResponse;
 import com.sep.treksphere.security.CustomUserDetails;
 import com.sep.treksphere.service.AuthService;
@@ -27,10 +27,10 @@ public class AuthController {
 
     private final AuthService authService;
 
-    @Operation(summary = "Đăng nhập", description = "Trả về JWT token nếu đăng nhập thành công")
+    @Operation(summary = "Đăng nhập", description = "Đăng nhập với email và passoword")
     @PostMapping("/login")
-    public ResponseEntity<ApiResponse<AuthResponse>> login(@Valid @RequestBody AuthRequest request) {
-        return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, authService.login(request)));
+    public ResponseEntity<ApiResponse<LoginResponse>> login(@Valid @RequestBody LoginRequest request) {
+        return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK,authService.login(request),"Đăng nhập thành công"));
     }
     @Operation(summary = "Đăng ký tài khoản", description = "Đăng ký một tài khoản mới với quyền TREKKER")
     @PostMapping("/register")
@@ -53,7 +53,7 @@ public class AuthController {
     }
 
     @PostMapping("/refresh-token")
-    public ResponseEntity<ApiResponse<AuthResponse>> refreshToken(
+    public ResponseEntity<ApiResponse<LoginResponse>> refreshToken(
             @RequestParam("token") String refreshToken
     ) {
         return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, authService.refreshToken(refreshToken)));

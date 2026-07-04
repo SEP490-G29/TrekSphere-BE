@@ -1,12 +1,11 @@
 package com.sep.treksphere.service.impl;
 
 import com.sep.treksphere.constant.MessageConstant;
-import com.sep.treksphere.dto.request.AuthRequest;
 import com.sep.treksphere.dto.request.ChangePasswordRequest;
+import com.sep.treksphere.dto.request.LoginRequest;
 import com.sep.treksphere.dto.request.RegisterRequest;
-import com.sep.treksphere.dto.response.AuthResponse;
+import com.sep.treksphere.dto.response.LoginResponse;
 import com.sep.treksphere.dto.response.RegisterResponse;
-import com.sep.treksphere.dto.response.UserResponse;
 import com.sep.treksphere.entity.RefreshToken;
 import com.sep.treksphere.entity.Role;
 import com.sep.treksphere.entity.User;
@@ -14,6 +13,7 @@ import com.sep.treksphere.enums.user.TokenStatus;
 import com.sep.treksphere.enums.user.UserStatus;
 import com.sep.treksphere.exception.AppException;
 import com.sep.treksphere.exception.ErrorCode;
+import com.sep.treksphere.mapper.AuthMapper;
 import com.sep.treksphere.repository.RefreshTokenRepository;
 import com.sep.treksphere.repository.RoleRepository;
 import com.sep.treksphere.repository.UserRepository;
@@ -34,8 +34,6 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.Date;
-import java.util.List;
-import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -50,6 +48,7 @@ public class AuthServiceImpl implements AuthService {
     private final JwtService jwtService;
     private final JwtTokenProvider tokenProvider;
     private final AuthenticationManager authenticationManager;
+    private final AuthMapper authMapper;
 
     @Value("${application.security.jwt.refresh-token.expiration}")
     private long refreshExpiration;
@@ -59,7 +58,7 @@ public class AuthServiceImpl implements AuthService {
 
     @Override
     @Transactional
-    public AuthResponse login(AuthRequest request) {
+    public LoginResponse login(LoginRequest request) {
         authenticationManager.authenticate(
                 new UsernamePasswordAuthenticationToken(
                         request.getEmail(),
@@ -84,7 +83,7 @@ public class AuthServiceImpl implements AuthService {
 
         saveRefreshToken(user, refreshToken);
 
-        return buildAuthResponse(user, accessToken, refreshToken);
+        return authMapper.toLoginResponse(user, accessToken, refreshToken);
     }
 
     @Override
@@ -98,7 +97,7 @@ public class AuthServiceImpl implements AuthService {
         }
         if (userRepository.existsByEmail(request.getEmail())) {
             log.warn("Registration failed: Email {} already exists", request.getEmail());
-            throw new AppException(ErrorCode.USER_EXISTED);
+            throw new AppException(ErrorCode.EMAIL_EXISTED);
         }
 
         log.info("Fetching default role from database...");
@@ -172,7 +171,7 @@ public class AuthServiceImpl implements AuthService {
 
     @Override
     @Transactional
-    public AuthResponse refreshToken(String refreshTokenStr) {
+    public LoginResponse refreshToken(String refreshTokenStr) {
         RefreshToken tokenEntity = refreshTokenRepository.findByToken(refreshTokenStr)
                 .orElseThrow(() -> new AppException(ErrorCode.INVALID_TOKEN));
 
@@ -196,7 +195,7 @@ public class AuthServiceImpl implements AuthService {
 
         saveRefreshToken(user, newRefreshToken);
 
-        return buildAuthResponse(user, accessToken, newRefreshToken);
+        return authMapper.toLoginResponse(user, accessToken, newRefreshToken);
     }
 
     @Override
@@ -260,23 +259,5 @@ public class AuthServiceImpl implements AuthService {
         refreshTokenRepository.save(token);
     }
 
-    private AuthResponse buildAuthResponse(User user, String accessToken, String refreshToken) {
-        List<String> roles = user.getRoles().stream()
-                .map(Role::getRoleName)
-                .collect(Collectors.toList());
 
-        UserResponse userResponse = UserResponse.builder()
-                .id(user.getUserID().toString())
-                .email(user.getEmail())
-                .fullName(user.getFullName())
-                .avatarUrl(user.getAvatarUrl())
-                .roles(roles)
-                .build();
-
-        return AuthResponse.builder()
-                .accessToken(accessToken)
-                .refreshToken(refreshToken)
-                .user(userResponse)
-                .build();
-    }
 }
