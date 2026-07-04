@@ -3,6 +3,7 @@ package com.sep.treksphere.entity;
 import com.sep.treksphere.enums.blog.CommentStatus;
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.SQLRestriction;
 
 import java.util.HashSet;
 import java.util.Set;
@@ -10,6 +11,7 @@ import java.util.UUID;
 
 @Entity
 @Table(name = "blog_comment")
+@SQLRestriction("is_deleted = false")
 @Getter
 @Setter
 @NoArgsConstructor

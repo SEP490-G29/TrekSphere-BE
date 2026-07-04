@@ -53,6 +53,8 @@ public class SecurityConfig {
                                 "/api/v1/auth/verify",
                                 "/api/v1/tours",
                                 "/api/v1/tours/*",
+                                "/api/v1/blogs",
+                                "/api/v1/blogs/*",
                                 "/v2/api-docs",
                                 "/v3/api-docs",
                                 "/v3/api-docs/**",

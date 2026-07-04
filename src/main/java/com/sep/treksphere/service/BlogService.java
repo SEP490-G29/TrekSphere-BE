@@ -1,4 +1,14 @@
 package com.sep.treksphere.service;
 
+import com.sep.treksphere.dto.response.BlogDetailResponse;
+import com.sep.treksphere.dto.response.BlogSummaryResponse;
+import com.sep.treksphere.dto.response.PaginationResponse;
+
+import java.util.UUID;
+
 public interface BlogService {
+
+    PaginationResponse<BlogSummaryResponse> getBlogs(String keyword, int page, int size, String sortBy, String sortDir);
+
+    BlogDetailResponse getBlogById(UUID blogId);
 }
