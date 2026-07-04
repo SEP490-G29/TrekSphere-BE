@@ -14,7 +14,7 @@ public enum ErrorCode {
     UNAUTHORIZED(1001, HttpStatus.UNAUTHORIZED, "Bạn cần đăng nhập để thực hiện chức năng này"),
     ACCESS_DENIED(1002, HttpStatus.FORBIDDEN, "Bạn không có quyền thực hiện hành động này"),
     USER_NOT_FOUND(1003, HttpStatus.NOT_FOUND, "Người dùng không tồn tại"),
-    USER_EXISTED(1004, HttpStatus.BAD_REQUEST, "Email đã tồn tại"),
+    EMAIL_EXISTED(1004, HttpStatus.BAD_REQUEST, "Email đã tồn tại"),
     WRONG_PASSWORD(1005, HttpStatus.BAD_REQUEST, "Mật khẩu không chính xác"),
     USER_NOT_ACTIVE(1006, HttpStatus.FORBIDDEN, "Tài khoản chưa được kích hoạt hoặc bị khóa"),
     EMAIL_NOT_VERIFIED(1007, HttpStatus.FORBIDDEN, "Vui lòng xác thực email trước khi đăng nhập"),
