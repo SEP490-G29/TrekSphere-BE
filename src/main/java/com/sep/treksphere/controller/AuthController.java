@@ -92,4 +92,12 @@ public class AuthController {
         authService.changePassword(userDetails.getUsername(), request);
         return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, null, MessageConstant.PASSWORD_CHANGED_SUCCESSFULLY));
     }
+
+    @Operation(summary = "Đăng xuất", description = "Thu hồi refresh token của phiên bản đăng nhập hiện tại")
+    @SecurityRequirement(name = "bearerAuth")
+    @PostMapping("/logout")
+    public ResponseEntity<ApiResponse<String>> logout(@RequestParam("token") String refreshToken) {
+        authService.logout(refreshToken);
+        return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, "Đăng xuất thành công"));
+    }
 }
