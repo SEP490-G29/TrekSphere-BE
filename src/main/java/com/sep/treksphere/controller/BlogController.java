@@ -25,7 +25,7 @@ public class BlogController {
 
     @GetMapping
     public ResponseEntity<ApiResponse<PaginationResponse<BlogSummaryResponse>>> getBlogs(
-            @Parameter(description = "Từ khóa tìm kiếm theo tiêu đề") @RequestParam(required = false) String keyword,
+            @RequestParam(required = false) String keyword,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size,
             @RequestParam(defaultValue = "createdAt") String sortBy,

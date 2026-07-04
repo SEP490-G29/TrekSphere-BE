@@ -4,6 +4,7 @@ import com.sep.treksphere.dto.response.BlogCommentResponse;
 import com.sep.treksphere.dto.response.BlogDetailResponse;
 import com.sep.treksphere.dto.response.BlogSummaryResponse;
 import com.sep.treksphere.dto.response.PaginationResponse;
+import com.sep.treksphere.utils.PaginationUtils;
 import com.sep.treksphere.entity.Blog;
 import com.sep.treksphere.entity.BlogComment;
 import com.sep.treksphere.enums.blog.BlogStatus;
@@ -55,7 +56,7 @@ public class BlogServiceImpl implements BlogService {
                 normalizedKeyword,
                 pageable);
 
-        return toPaginationResponse(blogPage.map(this::toSummaryResponse));
+        return PaginationUtils.toPaginationResponse(blogPage.map(this::toSummaryResponse));
     }
 
     @Override
@@ -147,14 +148,5 @@ public class BlogServiceImpl implements BlogService {
                 .build();
     }
 
-    private <T> PaginationResponse<T> toPaginationResponse(Page<T> page) {
-        return PaginationResponse.<T>builder()
-                .content(page.getContent())
-                .pageNumber(page.getNumber())
-                .pageSize(page.getSize())
-                .totalElements(page.getTotalElements())
-                .totalPages(page.getTotalPages())
-                .last(page.isLast())
-                .build();
-    }
+
 }
