@@ -320,6 +320,18 @@ public class AuthServiceImpl implements AuthService {
         }
     }
 
+    @Override
+    @Transactional
+    public void logout(String refreshTokenStr) {
+        refreshTokenRepository.findByToken(refreshTokenStr)
+                .ifPresent(tokenEntity -> {
+                    tokenEntity.setStatus(TokenStatus.REVOKED);
+                    tokenEntity.setRevokedAt(LocalDateTime.now());
+                    refreshTokenRepository.save(tokenEntity);
+                    log.info("Refresh token revoked successfully during logout.");
+                });
+    }
+
     private void saveRefreshToken(User user, String refreshToken) {
         RefreshToken token = new RefreshToken();
         token.setUser(user);
