@@ -24,7 +24,10 @@ public enum ErrorCode {
     // Upload
     UPLOAD_FAILED(2001, HttpStatus.INTERNAL_SERVER_ERROR, "Lỗi tải file lên hệ thống"),
     FILE_TOO_LARGE(2002, HttpStatus.BAD_REQUEST, "Kích thước file vượt quá giới hạn cho phép (10MB)"),
-    INVALID_FILE_FORMAT(2003, HttpStatus.BAD_REQUEST, "Định dạng file không được hỗ trợ");
+    INVALID_FILE_FORMAT(2003, HttpStatus.BAD_REQUEST, "Định dạng file không được hỗ trợ"),
+
+    // Tour
+    TOUR_NOT_FOUND(3001, HttpStatus.NOT_FOUND, "Tour không tồn tại");
 
 
     private final int code;
