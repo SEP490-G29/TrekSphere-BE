@@ -11,8 +11,13 @@ import com.sep.treksphere.entity.Role;
 import com.sep.treksphere.entity.User;
 import com.sep.treksphere.enums.user.TokenStatus;
 import com.sep.treksphere.enums.user.UserStatus;
+import com.google.api.client.googleapis.auth.oauth2.GoogleIdToken;
+import com.google.api.client.googleapis.auth.oauth2.GoogleIdTokenVerifier;
+import com.google.api.client.http.javanet.NetHttpTransport;
+import com.google.api.client.json.gson.GsonFactory;
 import com.sep.treksphere.exception.AppException;
 import com.sep.treksphere.exception.ErrorCode;
+import com.sep.treksphere.enums.user.AuthProvider;
 import com.sep.treksphere.mapper.AuthMapper;
 import com.sep.treksphere.repository.RefreshTokenRepository;
 import com.sep.treksphere.repository.RoleRepository;
@@ -33,6 +38,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.time.ZoneId;
+import java.util.Collections;
 import java.util.Date;
 
 @Service
@@ -55,6 +61,9 @@ public class AuthServiceImpl implements AuthService {
 
     @Value("${application.frontend.reset-password-url}")
     private String frontendResetUrl;
+
+    @Value("${application.security.oauth2.google.client-id}")
+    private String googleClientId;
 
     @Override
     @Transactional
@@ -247,6 +256,68 @@ public class AuthServiceImpl implements AuthService {
 
         user.setPasswordHash(passwordEncoder.encode(request.getNewPassword()));
         userRepository.save(user);
+    }
+
+    @Override
+    @Transactional
+    public LoginResponse googleLogin(String idTokenParam) {
+        try {
+            GoogleIdTokenVerifier verifier = 
+                new GoogleIdTokenVerifier.Builder(
+                    new NetHttpTransport(),
+                    GsonFactory.getDefaultInstance())
+                    .setAudience(Collections.singletonList(googleClientId))
+                    .build();
+
+            GoogleIdToken idToken = verifier.verify(idTokenParam);
+            if (idToken != null) {
+                GoogleIdToken.Payload payload = idToken.getPayload();
+                String email = payload.getEmail();
+                String name = (String) payload.get("name");
+                String pictureUrl = (String) payload.get("picture");
+                String subject = payload.getSubject();
+
+                User user = userRepository.findByEmail(email).orElse(null);
+                
+                if (user == null) {
+                    Role userRole = roleRepository.findByRoleName("TREKKER")
+                            .orElseThrow(() -> new AppException(ErrorCode.ROLE_NOT_FOUND));
+                            
+                    user = new User();
+                    user.setEmail(email);
+                    user.setFullName(name);
+                    user.setAvatarUrl(pictureUrl);
+                    user.setProvider(AuthProvider.GOOGLE);
+                    user.setProviderId(subject);
+                    user.setStatus(UserStatus.ACTIVE);
+                    user.setEmailVerified(true);
+                    user.getRoles().add(userRole);
+                    user = userRepository.save(user);
+                } else {
+                    if (user.getProviderId() == null) {
+                        user.setProviderId(subject);
+                        userRepository.save(user);
+                    }
+                }
+
+                if (user.getStatus() != UserStatus.ACTIVE) {
+                    throw new AppException(ErrorCode.USER_NOT_ACTIVE);
+                }
+
+                CustomUserDetails userDetails = new CustomUserDetails(user);
+                String accessToken = jwtService.generateToken(userDetails);
+                String refreshToken = jwtService.generateRefreshToken(userDetails);
+
+                saveRefreshToken(user, refreshToken);
+
+                return authMapper.toLoginResponse(user, accessToken, refreshToken);
+            } else {
+                throw new AppException(ErrorCode.INVALID_TOKEN, "Google ID token không hợp lệ.");
+            }
+        } catch (Exception e) {
+            log.error("Google login failed", e);
+            throw new AppException(ErrorCode.INVALID_TOKEN, "Google login failed: " + e.getMessage());
+        }
     }
 
     private void saveRefreshToken(User user, String refreshToken) {

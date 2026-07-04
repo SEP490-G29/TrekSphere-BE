@@ -32,6 +32,12 @@ public class AuthController {
     public ResponseEntity<ApiResponse<LoginResponse>> login(@Valid @RequestBody LoginRequest request) {
         return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK,authService.login(request),"Đăng nhập thành công"));
     }
+
+    @Operation(summary = "Đăng nhập bằng Google", description = "Đăng nhập thông qua Google ID Token")
+    @PostMapping("/google")
+    public ResponseEntity<ApiResponse<LoginResponse>> googleLogin(@RequestParam("idToken") String idToken) {
+        return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, authService.googleLogin(idToken), "Đăng nhập bằng Google thành công"));
+    }
     @Operation(summary = "Đăng ký tài khoản", description = "Đăng ký một tài khoản mới với quyền TREKKER")
     @PostMapping("/register")
     public ResponseEntity<ApiResponse<RegisterResponse>> register(@Valid @RequestBody RegisterRequest request) {
