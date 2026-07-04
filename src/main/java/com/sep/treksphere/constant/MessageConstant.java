@@ -60,6 +60,12 @@ public class MessageConstant {
     // Email Messages
     public static final String EMAIL_SEND_FAILED = "Gửi email thất bại";
 
+    // Tour Messages
+    public static final String TOUR_NOT_FOUND = "Tour không tồn tại";
+
+    // Blog Messages
+    public static final String BLOG_NOT_FOUND = "Bài viết không tồn tại";
+
     // Additional Validation Messages
     public static final String EMAIL_REQUIRED = "Vui lòng nhập email";
     public static final String EMAIL_INVALID = "Định dạng email không hợp lệ";
