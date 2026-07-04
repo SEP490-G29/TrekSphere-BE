@@ -18,4 +18,9 @@ public class MessageConstant {
     public static final String CURRENT_PASSWORD_REQUIRED = "Vui lòng nhập mật khẩu hiện tại";
     public static final String NEW_PASSWORD_REQUIRED = "Vui lòng nhập mật khẩu mới";
     public static final String PASSWORD_MIN_LENGTH = "Mật khẩu phải có ít nhất 8 ký tự";
+
+    // Profile Messages
+    public static final String FULL_NAME_REQUIRED = "Họ tên không được để trống";
+    public static final String INVALID_PHONE = "Số điện thoại không hợp lệ";
+    public static final String PROFILE_UPDATED_SUCCESSFULLY = "Cập nhật hồ sơ thành công";
 }
