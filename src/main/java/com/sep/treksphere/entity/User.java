@@ -1,5 +1,6 @@
 package com.sep.treksphere.entity;
 
+import com.sep.treksphere.enums.user.AuthProvider;
 import com.sep.treksphere.enums.user.Gender;
 import com.sep.treksphere.enums.user.UserStatus;
 import jakarta.persistence.*;
@@ -50,6 +51,13 @@ public class User extends BaseEntity {
 
     @Column(nullable = false)
     private boolean emailVerified = false;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 20)
+    private AuthProvider provider = AuthProvider.LOCAL;
+
+    @Column(length = 255)
+    private String providerId;
 
     @ManyToMany(fetch = FetchType.LAZY)
     @JoinTable(
