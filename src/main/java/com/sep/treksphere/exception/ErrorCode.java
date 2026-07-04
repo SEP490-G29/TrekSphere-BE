@@ -28,7 +28,13 @@ public enum ErrorCode {
     INVALID_FILE_FORMAT(2003, HttpStatus.BAD_REQUEST, MessageConstant.INVALID_FILE_FORMAT),
     
     // Email
-    EMAIL_SEND_FAILED(3001, HttpStatus.INTERNAL_SERVER_ERROR, MessageConstant.EMAIL_SEND_FAILED);
+    EMAIL_SEND_FAILED(3001, HttpStatus.INTERNAL_SERVER_ERROR, MessageConstant.EMAIL_SEND_FAILED),
+
+    // Tour
+    TOUR_NOT_FOUND(3001, HttpStatus.NOT_FOUND, "Tour không tồn tại"),
+
+    // Blog
+    BLOG_NOT_FOUND(4001, HttpStatus.NOT_FOUND, "Bài viết không tồn tại");
 
 
     private final int code;
