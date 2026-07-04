@@ -1,5 +1,7 @@
 package com.sep.treksphere.dto.request;
 
+import com.sep.treksphere.constant.MessageConstant;
+
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import lombok.AllArgsConstructor;
@@ -13,10 +15,10 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 public class LoginRequest {
     
-    @NotBlank(message = "Vui lòng nhập email")
-    @Email(message = "Định dạng email không hợp lệ")
+    @NotBlank(message = MessageConstant.EMAIL_REQUIRED)
+    @Email(message = MessageConstant.EMAIL_INVALID)
     private String email;
     
-    @NotBlank(message = "Vui lòng nhập mật khẩu")
+    @NotBlank(message = MessageConstant.PASSWORD_REQUIRED)
     private String password;
 }

@@ -3,28 +3,32 @@ package com.sep.treksphere.exception;
 import lombok.Getter;
 import org.springframework.http.HttpStatus;
 
+import com.sep.treksphere.constant.MessageConstant;
 
 @Getter
 public enum ErrorCode {
 
-    UNCATEGORIZED_EXCEPTION(9999, HttpStatus.INTERNAL_SERVER_ERROR, "Lỗi hệ thống không xác định"),
-    INVALID_KEY(9998, HttpStatus.BAD_REQUEST, "Invalid message key"),
-    VALIDATION_ERROR(9001, HttpStatus.BAD_REQUEST, "Dữ liệu đầu vào không hợp lệ"),
+    UNCATEGORIZED_EXCEPTION(9999, HttpStatus.INTERNAL_SERVER_ERROR, MessageConstant.SYSTEM_ERROR_UNKNOWN),
+    INVALID_KEY(9998, HttpStatus.BAD_REQUEST, MessageConstant.INVALID_MESSAGE_KEY),
+    VALIDATION_ERROR(9001, HttpStatus.BAD_REQUEST, MessageConstant.VALIDATION_ERROR_MSG),
 
-    UNAUTHORIZED(1001, HttpStatus.UNAUTHORIZED, "Bạn cần đăng nhập để thực hiện chức năng này"),
-    ACCESS_DENIED(1002, HttpStatus.FORBIDDEN, "Bạn không có quyền thực hiện hành động này"),
-    USER_NOT_FOUND(1003, HttpStatus.NOT_FOUND, "Người dùng không tồn tại"),
-    EMAIL_EXISTED(1004, HttpStatus.BAD_REQUEST, "Email đã tồn tại"),
-    WRONG_PASSWORD(1005, HttpStatus.BAD_REQUEST, "Mật khẩu không chính xác"),
-    USER_NOT_ACTIVE(1006, HttpStatus.FORBIDDEN, "Tài khoản chưa được kích hoạt hoặc bị khóa"),
-    EMAIL_NOT_VERIFIED(1007, HttpStatus.FORBIDDEN, "Vui lòng xác thực email trước khi đăng nhập"),
-    INVALID_TOKEN(1008, HttpStatus.UNAUTHORIZED, "Token không hợp lệ hoặc đã hết hạn"),
-    ROLE_NOT_FOUND(1009, HttpStatus.INTERNAL_SERVER_ERROR, "Không tìm thấy vai trò mặc định trong hệ thống"),
+    UNAUTHORIZED(1001, HttpStatus.UNAUTHORIZED, MessageConstant.UNAUTHORIZED_ACTION),
+    ACCESS_DENIED(1002, HttpStatus.FORBIDDEN, MessageConstant.ACCESS_DENIED),
+    USER_NOT_FOUND(1003, HttpStatus.NOT_FOUND, MessageConstant.USER_NOT_FOUND),
+    EMAIL_EXISTED(1004, HttpStatus.BAD_REQUEST, MessageConstant.EMAIL_EXISTED),
+    WRONG_PASSWORD(1005, HttpStatus.BAD_REQUEST, MessageConstant.WRONG_PASSWORD),
+    USER_NOT_ACTIVE(1006, HttpStatus.FORBIDDEN, MessageConstant.USER_NOT_ACTIVE_OR_LOCKED),
+    EMAIL_NOT_VERIFIED(1007, HttpStatus.FORBIDDEN, MessageConstant.EMAIL_NOT_VERIFIED),
+    INVALID_TOKEN(1008, HttpStatus.UNAUTHORIZED, MessageConstant.INVALID_TOKEN),
+    ROLE_NOT_FOUND(1009, HttpStatus.INTERNAL_SERVER_ERROR, MessageConstant.ROLE_NOT_FOUND),
 
     // Upload
-    UPLOAD_FAILED(2001, HttpStatus.INTERNAL_SERVER_ERROR, "Lỗi tải file lên hệ thống"),
-    FILE_TOO_LARGE(2002, HttpStatus.BAD_REQUEST, "Kích thước file vượt quá giới hạn cho phép (10MB)"),
-    INVALID_FILE_FORMAT(2003, HttpStatus.BAD_REQUEST, "Định dạng file không được hỗ trợ");
+    UPLOAD_FAILED(2001, HttpStatus.INTERNAL_SERVER_ERROR, MessageConstant.UPLOAD_FAILED),
+    FILE_TOO_LARGE(2002, HttpStatus.BAD_REQUEST, MessageConstant.FILE_TOO_LARGE),
+    INVALID_FILE_FORMAT(2003, HttpStatus.BAD_REQUEST, MessageConstant.INVALID_FILE_FORMAT),
+    
+    // Email
+    EMAIL_SEND_FAILED(3001, HttpStatus.INTERNAL_SERVER_ERROR, MessageConstant.EMAIL_SEND_FAILED);
 
 
     private final int code;

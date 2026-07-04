@@ -2,6 +2,7 @@ package com.sep.treksphere.controller;
 
 import com.sep.treksphere.dto.response.ApiResponse;
 import com.sep.treksphere.service.FileService;
+import com.sep.treksphere.constant.MessageConstant;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.MediaType;
@@ -47,6 +48,6 @@ public class FileController {
     ) {
         log.info("REST request to delete file with publicId: {}", publicId);
         fileService.deleteFile(publicId);
-        return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, null, "Xóa file thành công"));
+        return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, null, MessageConstant.FILE_DELETED_SUCCESSFULLY));
     }
 }

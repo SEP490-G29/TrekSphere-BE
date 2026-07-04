@@ -1,5 +1,6 @@
 package com.sep.treksphere.dto.request;
 
+import com.sep.treksphere.constant.MessageConstant;
 import com.sep.treksphere.constant.ValidationConstant;
 
 import jakarta.validation.constraints.NotBlank;
@@ -15,11 +16,11 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 @NoArgsConstructor
 public class ResetPasswordRequest {
-    @NotBlank(message = "Token is required")
+    @NotBlank(message = MessageConstant.TOKEN_REQUIRED)
     private String token;
 
-    @NotBlank(message = "Password is required")
-    @Size(min = 8, message = "Password must be at least 8 characters long")
+    @NotBlank(message = MessageConstant.PASSWORD_REQUIRED)
+    @Size(min = 8, message = MessageConstant.PASSWORD_MIN_LENGTH)
     @Pattern(regexp = ValidationConstant.PASSWORD_REGEX,
             message = ValidationConstant.PASSWORD_MESSAGE)
     private String newPassword;

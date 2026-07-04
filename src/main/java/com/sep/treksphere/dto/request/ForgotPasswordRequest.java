@@ -1,5 +1,7 @@
 package com.sep.treksphere.dto.request;
 
+import com.sep.treksphere.constant.MessageConstant;
+
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import lombok.AllArgsConstructor;
@@ -12,7 +14,7 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 @NoArgsConstructor
 public class ForgotPasswordRequest {
-    @NotBlank(message = "Email is required")
-    @Email(message = "Invalid email format")
+    @NotBlank(message = MessageConstant.EMAIL_REQUIRED)
+    @Email(message = MessageConstant.EMAIL_INVALID)
     private String email;
 }

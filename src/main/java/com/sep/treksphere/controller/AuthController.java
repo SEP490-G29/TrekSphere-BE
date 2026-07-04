@@ -30,32 +30,29 @@ public class AuthController {
     @Operation(summary = "Đăng nhập", description = "Đăng nhập với email và passoword")
     @PostMapping("/login")
     public ResponseEntity<ApiResponse<LoginResponse>> login(@Valid @RequestBody LoginRequest request) {
-        return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK,authService.login(request),"Đăng nhập thành công"));
+        log.info("Attempting to log in user with email: {}", request.getEmail());
+        return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK,authService.login(request),MessageConstant.LOGIN_SUCCESSFULLY));
     }
 
     @Operation(summary = "Đăng nhập bằng Google", description = "Đăng nhập thông qua Google ID Token")
     @PostMapping("/google")
     public ResponseEntity<ApiResponse<LoginResponse>> googleLogin(@RequestParam("idToken") String idToken) {
-        return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, authService.googleLogin(idToken), "Đăng nhập bằng Google thành công"));
+        log.info("Attempting to log in user with Google ID Token");
+        return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, authService.googleLogin(idToken), MessageConstant.GOOGLE_LOGIN_SUCCESSFULLY));
     }
+
     @Operation(summary = "Đăng ký tài khoản", description = "Đăng ký một tài khoản mới với quyền TREKKER")
     @PostMapping("/register")
     public ResponseEntity<ApiResponse<RegisterResponse>> register(@Valid @RequestBody RegisterRequest request) {
-        RegisterResponse response = authService.register(request);
-        log.info("REST response: Registration successful for {}", request.getEmail());
+        log.info("Attempting to register user with email: {}", request.getEmail());
         HttpStatus status = HttpStatus.CREATED;
-        return ResponseEntity.status(status)
-                .body(ApiResponse.success(status, response,
-                        "Đăng ký thành công. Vui lòng kiểm tra email để xác nhận tài khoản của bạn."));
+        return ResponseEntity.status(status).body(ApiResponse.success(status, authService.register(request), MessageConstant.REGISTER_SUCCESSFULLY));
     }
 
     @GetMapping("/verify")
     public ResponseEntity<ApiResponse<String>> verifyEmail(@RequestParam("token") String token) {
-        log.info("REST request to verify email with token");
-        String result = authService.verifyEmail(token);
-        log.info("REST response: Email verified successfully.");
-        return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, result));
-
+        log.info("Attempting to verify email with token: {}", token);
+        return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, authService.verifyEmail(token)));
     }
 
     @PostMapping("/refresh-token")
@@ -98,6 +95,6 @@ public class AuthController {
     @PostMapping("/logout")
     public ResponseEntity<ApiResponse<String>> logout(@RequestParam("token") String refreshToken) {
         authService.logout(refreshToken);
-        return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, "Đăng xuất thành công"));
+        return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, MessageConstant.LOGOUT_SUCCESSFULLY));
     }
 }

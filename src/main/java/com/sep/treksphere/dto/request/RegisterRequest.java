@@ -1,5 +1,8 @@
 package com.sep.treksphere.dto.request;
 
+import com.sep.treksphere.constant.MessageConstant;
+import com.sep.treksphere.constant.ValidationConstant;
+
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
@@ -14,20 +17,20 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 public class RegisterRequest {
 
-    @NotBlank(message = "Email không được để trống")
-    @Email(message = "Email không hợp lệ")
+    @NotBlank(message = MessageConstant.EMAIL_REQUIRED)
+    @Email(message = MessageConstant.EMAIL_INVALID)
     private String email;
 
-    @NotBlank(message = "Mật khẩu không được để trống")
+    @NotBlank(message = MessageConstant.PASSWORD_REQUIRED)
     @Pattern(
-            regexp = "^(?=.*[0-9])(?=.*[a-z])(?=.*[A-Z]).{8,}$",
-            message = "Mật khẩu phải có ít nhất 8 ký tự và chứa ít nhất một chữ cái viết hoa, một chữ cái viết thường và một chữ số."
+            regexp = ValidationConstant.PASSWORD_REGEX,
+            message = ValidationConstant.PASSWORD_MESSAGE
     )
     private String password;
 
-    @NotBlank(message = "Họ tên không được để trống")
+    @NotBlank(message = MessageConstant.FULL_NAME_REQUIRED)
     private String fullName;
 
-    @NotBlank(message = "Xác nhận mật khẩu không được để trống")
+    @NotBlank(message = MessageConstant.CONFIRM_PASSWORD_REQUIRED)
     private String confirmPassword;
 }

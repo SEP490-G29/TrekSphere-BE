@@ -1,6 +1,8 @@
 package com.sep.treksphere.service.impl;
 
 import com.sep.treksphere.service.EmailService;
+import com.sep.treksphere.exception.AppException;
+import com.sep.treksphere.exception.ErrorCode;
 import jakarta.mail.MessagingException;
 import jakarta.mail.internet.MimeMessage;
 import lombok.RequiredArgsConstructor;
@@ -52,7 +54,7 @@ public class EmailServiceImpl implements EmailService {
 
         } catch (MessagingException e) {
             log.error("Failed to send password reset email to {}", toEmail, e);
-            throw new RuntimeException("Failed to send email");
+            throw new AppException(ErrorCode.EMAIL_SEND_FAILED);
         }
     }
 
@@ -76,7 +78,7 @@ public class EmailServiceImpl implements EmailService {
             log.info("Verification email sent successfully to {}", to);
         } catch (MessagingException e) {
             log.error("Failed to send verification email to {}", to, e);
-            throw new RuntimeException("Failed to send email", e);
+            throw new AppException(ErrorCode.EMAIL_SEND_FAILED);
         }
     }
 }

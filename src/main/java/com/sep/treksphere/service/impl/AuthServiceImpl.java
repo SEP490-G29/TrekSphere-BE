@@ -1,5 +1,9 @@
 package com.sep.treksphere.service.impl;
 
+import com.google.api.client.googleapis.auth.oauth2.GoogleIdToken;
+import com.google.api.client.googleapis.auth.oauth2.GoogleIdTokenVerifier;
+import com.google.api.client.http.javanet.NetHttpTransport;
+import com.google.api.client.json.gson.GsonFactory;
 import com.sep.treksphere.constant.MessageConstant;
 import com.sep.treksphere.dto.request.ChangePasswordRequest;
 import com.sep.treksphere.dto.request.LoginRequest;
@@ -9,15 +13,11 @@ import com.sep.treksphere.dto.response.RegisterResponse;
 import com.sep.treksphere.entity.RefreshToken;
 import com.sep.treksphere.entity.Role;
 import com.sep.treksphere.entity.User;
+import com.sep.treksphere.enums.user.AuthProvider;
 import com.sep.treksphere.enums.user.TokenStatus;
 import com.sep.treksphere.enums.user.UserStatus;
-import com.google.api.client.googleapis.auth.oauth2.GoogleIdToken;
-import com.google.api.client.googleapis.auth.oauth2.GoogleIdTokenVerifier;
-import com.google.api.client.http.javanet.NetHttpTransport;
-import com.google.api.client.json.gson.GsonFactory;
 import com.sep.treksphere.exception.AppException;
 import com.sep.treksphere.exception.ErrorCode;
-import com.sep.treksphere.enums.user.AuthProvider;
 import com.sep.treksphere.mapper.AuthMapper;
 import com.sep.treksphere.repository.RefreshTokenRepository;
 import com.sep.treksphere.repository.RoleRepository;
@@ -68,15 +68,9 @@ public class AuthServiceImpl implements AuthService {
     @Override
     @Transactional
     public LoginResponse login(LoginRequest request) {
-        authenticationManager.authenticate(
-                new UsernamePasswordAuthenticationToken(
-                        request.getEmail(),
-                        request.getPassword()
-                )
-        );
+        authenticationManager.authenticate(new UsernamePasswordAuthenticationToken(request.getEmail(), request.getPassword()));
 
-        User user = userRepository.findByEmail(request.getEmail())
-                .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
+        User user = userRepository.findByEmail(request.getEmail()).orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
 
         if (user.getStatus() != UserStatus.ACTIVE) {
             throw new AppException(ErrorCode.USER_NOT_ACTIVE);
@@ -102,7 +96,7 @@ public class AuthServiceImpl implements AuthService {
 
         if (!request.getPassword().equals(request.getConfirmPassword())) {
             log.warn("Registration failed: Passwords do not match for email {}", request.getEmail());
-            throw new AppException(ErrorCode.VALIDATION_ERROR, "Mật khẩu xác nhận không khớp");
+            throw new AppException(ErrorCode.VALIDATION_ERROR, MessageConstant.CONFIRM_PASSWORD_NOT_MATCH);
         }
         if (userRepository.existsByEmail(request.getEmail())) {
             log.warn("Registration failed: Email {} already exists", request.getEmail());
@@ -110,11 +104,10 @@ public class AuthServiceImpl implements AuthService {
         }
 
         log.info("Fetching default role from database...");
-        Role userRole = roleRepository.findByRoleName("TREKKER")
-                .orElseThrow(() -> {
-                    log.error("Default role 'TREKKER' not found in the database.");
-                    return new AppException(ErrorCode.ROLE_NOT_FOUND);
-                });
+        Role userRole = roleRepository.findByRoleName("TREKKER").orElseThrow(() -> {
+            log.error("Default role 'TREKKER' not found in the database.");
+            return new AppException(ErrorCode.ROLE_NOT_FOUND);
+        });
 
         log.info("Encoding password for user: {}", request.getEmail());
         String encodedPassword = passwordEncoder.encode(request.getPassword());
@@ -141,18 +134,13 @@ public class AuthServiceImpl implements AuthService {
         emailService.sendVerificationEmail(user.getEmail(), user.getFullName(), verificationUrl);
 
         log.info("Registration process completed successfully for: {}", request.getEmail());
-        return RegisterResponse.builder()
-                .userID(user.getUserID())
-                .email(user.getEmail())
-                .fullName(user.getFullName())
-                .build();
+        return RegisterResponse.builder().userID(user.getUserID()).email(user.getEmail()).fullName(user.getFullName()).build();
     }
 
     @Override
     @Transactional
     public String verifyEmail(String token) {
         log.info("Starting email verification process with token...");
-        String message = "Xác minh email thành công! Bạn có thể đăng nhập ngay bây giờ.";
         if (!tokenProvider.validateToken(token)) {
             log.error("Invalid or expired verification token.");
             throw new AppException(ErrorCode.INVALID_TOKEN);
@@ -161,31 +149,29 @@ public class AuthServiceImpl implements AuthService {
         String email = tokenProvider.getEmailFromToken(token);
         log.info("Token validated for email: {}", email);
 
-        User user = userRepository.findByEmail(email)
-                .orElseThrow(() -> {
-                    log.error("User with email {} not found.", email);
-                    return new AppException(ErrorCode.USER_NOT_FOUND);
-                });
+        User user = userRepository.findByEmail(email).orElseThrow(() -> {
+            log.error("User with email {} not found.", email);
+            return new AppException(ErrorCode.USER_NOT_FOUND);
+        });
 
         if (user.isEmailVerified()) {
             log.info("Email {} is already verified.", email);
-            message = "Email đã được xác minh.";
-        } else {
-            user.setEmailVerified(true);
-            userRepository.save(user);
-            log.info("Email {} has been successfully verified.", email);
+            return MessageConstant.EMAIL_ALREADY_VERIFIED;
         }
-        return message;
+        user.setEmailVerified(true);
+        userRepository.save(user);
+        log.info("Email {} has been successfully verified.", email);
+
+        return MessageConstant.EMAIL_VERIFIED_SUCCESSFULLY;
     }
 
     @Override
     @Transactional
     public LoginResponse refreshToken(String refreshTokenStr) {
-        RefreshToken tokenEntity = refreshTokenRepository.findByToken(refreshTokenStr)
-                .orElseThrow(() -> new AppException(ErrorCode.INVALID_TOKEN));
+        RefreshToken tokenEntity = refreshTokenRepository.findByToken(refreshTokenStr).orElseThrow(() -> new AppException(ErrorCode.INVALID_TOKEN));
 
         if (tokenEntity.getStatus() != TokenStatus.ACTIVE || tokenEntity.getExpiresAt().isBefore(LocalDateTime.now())) {
-            throw new AppException(ErrorCode.INVALID_TOKEN, "Refresh token đã hết hạn hoặc bị thu hồi");
+            throw new AppException(ErrorCode.INVALID_TOKEN, MessageConstant.INVALID_REFRESH_TOKEN);
         }
 
         User user = tokenEntity.getUser();
@@ -210,8 +196,7 @@ public class AuthServiceImpl implements AuthService {
     @Override
     @Transactional
     public void forgotPassword(String email) {
-        User user = userRepository.findByEmail(email)
-                .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
+        User user = userRepository.findByEmail(email).orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
 
         String tokenStr = jwtService.generatePasswordResetToken(user);
 
@@ -229,8 +214,7 @@ public class AuthServiceImpl implements AuthService {
             throw new AppException(ErrorCode.INVALID_TOKEN);
         }
 
-        User user = userRepository.findByEmail(email)
-                .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
+        User user = userRepository.findByEmail(email).orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
 
         if (!jwtService.validatePasswordResetToken(token, user)) {
             throw new AppException(ErrorCode.INVALID_TOKEN);
@@ -243,8 +227,7 @@ public class AuthServiceImpl implements AuthService {
     @Override
     @Transactional
     public void changePassword(String email, ChangePasswordRequest request) {
-        User user = userRepository.findByEmail(email)
-                .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
+        User user = userRepository.findByEmail(email).orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
 
         if (!passwordEncoder.matches(request.getCurrentPassword(), user.getPasswordHash())) {
             throw new AppException(ErrorCode.VALIDATION_ERROR, MessageConstant.CURRENT_PASSWORD_INCORRECT);
@@ -262,12 +245,7 @@ public class AuthServiceImpl implements AuthService {
     @Transactional
     public LoginResponse googleLogin(String idTokenParam) {
         try {
-            GoogleIdTokenVerifier verifier = 
-                new GoogleIdTokenVerifier.Builder(
-                    new NetHttpTransport(),
-                    GsonFactory.getDefaultInstance())
-                    .setAudience(Collections.singletonList(googleClientId))
-                    .build();
+            GoogleIdTokenVerifier verifier = new GoogleIdTokenVerifier.Builder(new NetHttpTransport(), GsonFactory.getDefaultInstance()).setAudience(Collections.singletonList(googleClientId)).build();
 
             GoogleIdToken idToken = verifier.verify(idTokenParam);
             if (idToken != null) {
@@ -278,11 +256,10 @@ public class AuthServiceImpl implements AuthService {
                 String subject = payload.getSubject();
 
                 User user = userRepository.findByEmail(email).orElse(null);
-                
+
                 if (user == null) {
-                    Role userRole = roleRepository.findByRoleName("TREKKER")
-                            .orElseThrow(() -> new AppException(ErrorCode.ROLE_NOT_FOUND));
-                            
+                    Role userRole = roleRepository.findByRoleName("TREKKER").orElseThrow(() -> new AppException(ErrorCode.ROLE_NOT_FOUND));
+
                     user = new User();
                     user.setEmail(email);
                     user.setFullName(name);
@@ -312,7 +289,7 @@ public class AuthServiceImpl implements AuthService {
 
                 return authMapper.toLoginResponse(user, accessToken, refreshToken);
             } else {
-                throw new AppException(ErrorCode.INVALID_TOKEN, "Google ID token không hợp lệ.");
+                throw new AppException(ErrorCode.INVALID_TOKEN, MessageConstant.INVALID_GOOGLE_ID_TOKEN);
             }
         } catch (Exception e) {
             log.error("Google login failed", e);
@@ -323,13 +300,12 @@ public class AuthServiceImpl implements AuthService {
     @Override
     @Transactional
     public void logout(String refreshTokenStr) {
-        refreshTokenRepository.findByToken(refreshTokenStr)
-                .ifPresent(tokenEntity -> {
-                    tokenEntity.setStatus(TokenStatus.REVOKED);
-                    tokenEntity.setRevokedAt(LocalDateTime.now());
-                    refreshTokenRepository.save(tokenEntity);
-                    log.info("Refresh token revoked successfully during logout.");
-                });
+        refreshTokenRepository.findByToken(refreshTokenStr).ifPresent(tokenEntity -> {
+            tokenEntity.setStatus(TokenStatus.REVOKED);
+            tokenEntity.setRevokedAt(LocalDateTime.now());
+            refreshTokenRepository.save(tokenEntity);
+            log.info("Refresh token revoked successfully during logout.");
+        });
     }
 
     private void saveRefreshToken(User user, String refreshToken) {
