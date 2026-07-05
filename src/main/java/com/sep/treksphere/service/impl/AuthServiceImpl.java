@@ -59,8 +59,8 @@ public class AuthServiceImpl implements AuthService {
     @Value("${application.security.jwt.refresh-token.expiration}")
     private long refreshExpiration;
 
-    @Value("${application.frontend.reset-password-url}")
-    private String frontendResetUrl;
+    @Value("${application.frontend.url}")
+    private String frontendUrl;
 
     @Value("${application.security.oauth2.google.client-id}")
     private String googleClientId;
@@ -71,7 +71,6 @@ public class AuthServiceImpl implements AuthService {
         User user = userRepository.findByEmail(request.getEmail()).orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
 
         authenticationManager.authenticate(new UsernamePasswordAuthenticationToken(request.getEmail(), request.getPassword()));
-
 
 
         if (user.getStatus() != UserStatus.ACTIVE) {
@@ -130,7 +129,7 @@ public class AuthServiceImpl implements AuthService {
         log.info("Generating verification token...");
         String verificationToken = tokenProvider.generateVerificationToken(user.getEmail());
 
-        String verificationUrl = "http://localhost:8080/api/v1/auth/verify?token=" + verificationToken;
+        String verificationUrl = frontendUrl + "/verify?token=" + verificationToken;
 
         log.info("Sending verification email to: {}", user.getEmail());
         emailService.sendVerificationEmail(user.getEmail(), user.getFullName(), verificationUrl);
@@ -202,7 +201,7 @@ public class AuthServiceImpl implements AuthService {
 
         String tokenStr = jwtService.generatePasswordResetToken(user);
 
-        String resetLink = frontendResetUrl + "?token=" + tokenStr;
+        String resetLink = frontendUrl + "/reset-password?token=" + tokenStr;
         emailService.sendPasswordResetEmail(user.getEmail(), resetLink);
     }
 

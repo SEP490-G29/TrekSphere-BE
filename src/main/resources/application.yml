@@ -73,4 +73,4 @@ application:
       reset-password:
         expiration: ${JWT_RESET_PASSWORD_EXPIRATION_TIME:300000}
   frontend:
-    reset-password-url: ${FRONTEND_RESET_PASSWORD_URL:http://localhost:5173/reset-password}
+    url: ${FRONTEND_URL}
