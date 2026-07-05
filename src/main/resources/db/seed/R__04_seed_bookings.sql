@@ -4,7 +4,7 @@
 -- 1. Booking
 INSERT INTO booking (
     bookingid, schedule_id, user_id, voucher_id, 
-    total_price, discount_amount, refund_amount, 
+    number_of_participants, total_price, discount_amount, refund_amount, 
     booking_status, payment_status, cancellation_reason, 
     is_deleted, created_at
 )
@@ -13,28 +13,28 @@ VALUES
     (
         'e1111111-1111-1111-1111-111111111111', 'd1111111-1111-1111-1111-111111111111', 
         '22222222-2222-2222-2222-222222222221', NULL, 
-        7500000.00, 0.00, NULL, 
+        3, 7500000.00, 0.00, NULL, 
         'CONFIRMED', 'PAID', NULL, false, CURRENT_TIMESTAMP - interval '2 days'
     ),
     -- Booking 2: Trekker 2 đặt Tour Tà Năng (Đã hoàn thành)
     (
         'e2222222-2222-2222-2222-222222222222', 'd4444444-4444-4444-4444-444444444441', 
         '22222222-2222-2222-2222-222222222222', NULL, 
-        3600000.00, 0.00, NULL, 
+        2, 3600000.00, 0.00, NULL, 
         'COMPLETED', 'PAID', NULL, false, CURRENT_TIMESTAMP - interval '10 days'
     ),
     -- Booking 3: Trekker 1 đặt Lảo Thẩn (Đang chờ thanh toán)
     (
         'e3333333-3333-3333-3333-333333333333', 'd2222222-2222-2222-2222-222222222221', 
         '22222222-2222-2222-2222-222222222221', NULL, 
-        4200000.00, 0.00, NULL, 
+        1, 4200000.00, 0.00, NULL, 
         'PENDING', 'PENDING', NULL, false, CURRENT_TIMESTAMP
     ),
     -- Booking 4: Đã hủy
     (
         'e4444444-4444-4444-4444-444444444444', 'd1111111-1111-1111-1111-111111111112', 
         '22222222-2222-2222-2222-222222222222', NULL, 
-        2500000.00, 0.00, 2500000.00, 
+        1, 2500000.00, 0.00, 2500000.00, 
         'CANCELLED', 'REFUNDED', 'Bận việc đột xuất không thể đi', false, CURRENT_TIMESTAMP - interval '5 days'
     )
 ON CONFLICT (bookingid) DO NOTHING;

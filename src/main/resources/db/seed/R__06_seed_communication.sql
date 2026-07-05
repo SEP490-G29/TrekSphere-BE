@@ -8,11 +8,11 @@ INSERT INTO conversation (
 )
 VALUES 
     (
-        'g1111111-1111-1111-1111-111111111111', 'MATCHING_GROUP', 'Nhóm leo Bạch Mộc Lương Tử cuối tháng 8', 
+        '77777777-1111-1111-1111-111111111111', 'MATCHING_GROUP', 'Nhóm leo Bạch Mộc Lương Tử cuối tháng 8', 
         'ACTIVE', false, CURRENT_TIMESTAMP
     ),
     (
-        'g2222222-2222-2222-2222-222222222222', 'DIRECT', 'Hỗ trợ khách hàng - An & Vendor Sapa', 
+        '77777777-2222-2222-2222-222222222222', 'DIRECT', 'Hỗ trợ khách hàng - An & Vendor Sapa', 
         'ACTIVE', false, CURRENT_TIMESTAMP - interval '1 day'
     )
 ON CONFLICT (conversationid) DO NOTHING;
@@ -21,11 +21,11 @@ ON CONFLICT (conversationid) DO NOTHING;
 INSERT INTO conversation_participant (conversation_id, user_id)
 VALUES 
     -- Group Chat Bạch Mộc
-    ('g1111111-1111-1111-1111-111111111111', '22222222-2222-2222-2222-222222222221'),
-    ('g1111111-1111-1111-1111-111111111111', '22222222-2222-2222-2222-222222222222'),
+    ('77777777-1111-1111-1111-111111111111', '22222222-2222-2222-2222-222222222221'),
+    ('77777777-1111-1111-1111-111111111111', '22222222-2222-2222-2222-222222222222'),
     -- Direct Chat
-    ('g2222222-2222-2222-2222-222222222222', '22222222-2222-2222-2222-222222222221'), -- Trekker An
-    ('g2222222-2222-2222-2222-222222222222', '33333333-3333-3333-3333-333333333331')  -- Vendor Cường
+    ('77777777-2222-2222-2222-222222222222', '22222222-2222-2222-2222-222222222221'), -- Trekker An
+    ('77777777-2222-2222-2222-222222222222', '33333333-3333-3333-3333-333333333331')  -- Vendor Cường
 ON CONFLICT (conversation_id, user_id) DO NOTHING;
 
 -- 3. Message (Tin nhắn)
@@ -36,18 +36,18 @@ INSERT INTO message (
 VALUES 
     -- Trong Group Bạch Mộc
     (
-        gen_random_uuid(), 'g1111111-1111-1111-1111-111111111111', '22222222-2222-2222-2222-222222222221', 'TEXT', 
+        gen_random_uuid(), '77777777-1111-1111-1111-111111111111', '22222222-2222-2222-2222-222222222221', 'TEXT', 
         'Chào mọi người, mình mới lập nhóm, ai muốn đi Bạch Mộc thì join nhé!', 
         true, false, CURRENT_TIMESTAMP - interval '1 hour'
     ),
     -- Direct Chat
     (
-        gen_random_uuid(), 'g2222222-2222-2222-2222-222222222222', '22222222-2222-2222-2222-222222222221', 'TEXT', 
+        gen_random_uuid(), '77777777-2222-2222-2222-222222222222', '22222222-2222-2222-2222-222222222221', 'TEXT', 
         'Chào admin, cho mình hỏi tour Fansipan cuối tháng này còn chỗ không ạ?', 
         true, false, CURRENT_TIMESTAMP - interval '1 day'
     ),
     (
-        gen_random_uuid(), 'g2222222-2222-2222-2222-222222222222', '33333333-3333-3333-3333-333333333331', 'TEXT', 
+        gen_random_uuid(), '77777777-2222-2222-2222-222222222222', '33333333-3333-3333-3333-333333333331', 'TEXT', 
         'Chào bạn An, tour Fansipan hiện tại vẫn còn 5 slot nhé, bạn có thể đặt trên hệ thống.', 
         false, false, CURRENT_TIMESTAMP - interval '23 hours'
     )
