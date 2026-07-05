@@ -20,7 +20,6 @@ public class ResetPasswordRequest {
     private String token;
 
     @NotBlank(message = MessageConstant.PASSWORD_REQUIRED)
-    @Size(min = 8, message = MessageConstant.PASSWORD_MIN_LENGTH)
     @Pattern(regexp = ValidationConstant.PASSWORD_REGEX,
             message = ValidationConstant.PASSWORD_MESSAGE)
     private String newPassword;

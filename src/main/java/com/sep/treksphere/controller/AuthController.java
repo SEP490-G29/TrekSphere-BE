@@ -82,9 +82,7 @@ public class AuthController {
             @AuthenticationPrincipal CustomUserDetails userDetails,
             @Valid @RequestBody ChangePasswordRequest request) {
         
-        if (userDetails == null) {
-            throw new com.sep.treksphere.exception.AppException(com.sep.treksphere.exception.ErrorCode.UNAUTHORIZED, MessageConstant.USER_NOT_LOGGED_IN);
-        }
+
         
         authService.changePassword(userDetails.getUsername(), request);
         return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, null, MessageConstant.PASSWORD_CHANGED_SUCCESSFULLY));

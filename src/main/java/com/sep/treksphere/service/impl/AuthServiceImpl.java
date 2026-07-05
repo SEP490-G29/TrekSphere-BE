@@ -68,9 +68,11 @@ public class AuthServiceImpl implements AuthService {
     @Override
     @Transactional
     public LoginResponse login(LoginRequest request) {
+        User user = userRepository.findByEmail(request.getEmail()).orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
+
         authenticationManager.authenticate(new UsernamePasswordAuthenticationToken(request.getEmail(), request.getPassword()));
 
-        User user = userRepository.findByEmail(request.getEmail()).orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
+
 
         if (user.getStatus() != UserStatus.ACTIVE) {
             throw new AppException(ErrorCode.USER_NOT_ACTIVE);
@@ -227,6 +229,11 @@ public class AuthServiceImpl implements AuthService {
     @Override
     @Transactional
     public void changePassword(String email, ChangePasswordRequest request) {
+
+        if (email == null) {
+            throw new AppException(ErrorCode.UNAUTHORIZED, MessageConstant.USER_NOT_LOGGED_IN);
+        }
+
         User user = userRepository.findByEmail(email).orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
 
         if (!passwordEncoder.matches(request.getCurrentPassword(), user.getPasswordHash())) {
