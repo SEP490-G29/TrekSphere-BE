@@ -1,0 +1,36 @@
+package com.sep.treksphere.dto.request;
+
+import com.sep.treksphere.constant.MessageConstant;
+import com.sep.treksphere.constant.ValidationConstant;
+
+import jakarta.validation.constraints.Email;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Pattern;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+@Data
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
+public class RegisterRequest {
+
+    @NotBlank(message = MessageConstant.EMAIL_REQUIRED)
+    @Email(message = MessageConstant.EMAIL_INVALID)
+    private String email;
+
+    @NotBlank(message = MessageConstant.PASSWORD_REQUIRED)
+    @Pattern(
+            regexp = ValidationConstant.PASSWORD_REGEX,
+            message = ValidationConstant.PASSWORD_MESSAGE
+    )
+    private String password;
+
+    @NotBlank(message = MessageConstant.FULL_NAME_REQUIRED)
+    private String fullName;
+
+    @NotBlank(message = MessageConstant.CONFIRM_PASSWORD_REQUIRED)
+    private String confirmPassword;
+}
