@@ -15,5 +15,5 @@ public interface AuthService {
     void resetPassword(String token, String newPassword);
     void changePassword(String email, ChangePasswordRequest request);
     LoginResponse googleLogin(String idToken);
-    void logout(String refreshToken);
+    void logout(String accessToken, String refreshToken);
 }

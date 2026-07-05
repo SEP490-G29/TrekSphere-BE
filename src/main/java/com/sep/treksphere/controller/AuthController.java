@@ -10,6 +10,7 @@ import com.sep.treksphere.service.AuthService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -91,8 +92,13 @@ public class AuthController {
     @Operation(summary = "Đăng xuất", description = "Thu hồi refresh token của phiên bản đăng nhập hiện tại")
     @SecurityRequirement(name = "bearerAuth")
     @PostMapping("/logout")
-    public ResponseEntity<ApiResponse<String>> logout(@RequestParam("token") String refreshToken) {
-        authService.logout(refreshToken);
+    public ResponseEntity<ApiResponse<String>> logout(HttpServletRequest request, @RequestParam("token") String refreshToken) {
+        String authHeader = request.getHeader("Authorization");
+        String accessToken = null;
+        if (authHeader != null && authHeader.startsWith("Bearer ")) {
+            accessToken = authHeader.substring(7);
+        }
+        authService.logout(accessToken, refreshToken);
         return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, MessageConstant.LOGOUT_SUCCESSFULLY));
     }
 }

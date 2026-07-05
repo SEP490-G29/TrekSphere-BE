@@ -28,6 +28,26 @@ services:
     networks:
       - treksphere_net
 
+  redis:
+    image: redis:alpine
+    container_name: treksphere_redis
+    restart: always
+    ports:
+      - "6379:6379"
+    networks:
+      - treksphere_net
+
+  redisinsight:
+    image: redis/redisinsight:latest
+    container_name: treksphere_redisinsight
+    restart: always
+    ports:
+      - "8001:5540"
+    depends_on:
+      - redis
+    networks:
+      - treksphere_net
+
 volumes:
   postgres_data:
 

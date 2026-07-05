@@ -30,6 +30,7 @@ import com.sep.treksphere.service.EmailService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -40,6 +41,7 @@ import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.Collections;
 import java.util.Date;
+import java.util.concurrent.TimeUnit;
 
 @Service
 @RequiredArgsConstructor
@@ -55,6 +57,7 @@ public class AuthServiceImpl implements AuthService {
     private final JwtTokenProvider tokenProvider;
     private final AuthenticationManager authenticationManager;
     private final AuthMapper authMapper;
+    private final StringRedisTemplate stringRedisTemplate;
 
     @Value("${application.security.jwt.refresh-token.expiration}")
     private long refreshExpiration;
@@ -305,13 +308,32 @@ public class AuthServiceImpl implements AuthService {
 
     @Override
     @Transactional
-    public void logout(String refreshTokenStr) {
+    public void logout(String accessToken, String refreshTokenStr) {
         refreshTokenRepository.findByToken(refreshTokenStr).ifPresent(tokenEntity -> {
             tokenEntity.setStatus(TokenStatus.REVOKED);
             tokenEntity.setRevokedAt(LocalDateTime.now());
             refreshTokenRepository.save(tokenEntity);
             log.info("Refresh token revoked successfully during logout.");
         });
+
+        if (accessToken != null) {
+            try {
+                Date expirationDate = jwtService.extractExpiration(accessToken);
+                long timeToLive = expirationDate.getTime() - System.currentTimeMillis();
+                
+                if (timeToLive > 0) {
+                    stringRedisTemplate.opsForValue().set(
+                            "blacklist:" + accessToken,
+                            "true",
+                            timeToLive,
+                            TimeUnit.MILLISECONDS
+                    );
+                    log.info("Access token added to blacklist successfully.");
+                }
+            } catch (Exception e) {
+                log.warn("Could not extract expiration from access token during logout: {}", e.getMessage());
+            }
+        }
     }
 
     private void saveRefreshToken(User user, String refreshToken) {
