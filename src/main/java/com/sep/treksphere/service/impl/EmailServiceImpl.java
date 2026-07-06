@@ -1,65 +1,74 @@
 package com.sep.treksphere.service.impl;
 
+import com.sendgrid.Method;
+import com.sendgrid.Request;
+import com.sendgrid.Response;
+import com.sendgrid.SendGrid;
+import com.sendgrid.helpers.mail.Mail;
+import com.sendgrid.helpers.mail.objects.Content;
+import com.sendgrid.helpers.mail.objects.Email;
 import com.sep.treksphere.service.EmailService;
 import com.sep.treksphere.exception.AppException;
 import com.sep.treksphere.exception.ErrorCode;
-import jakarta.mail.MessagingException;
-import jakarta.mail.internet.MimeMessage;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.mail.javamail.JavaMailSender;
-import org.springframework.mail.javamail.MimeMessageHelper;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.thymeleaf.TemplateEngine;
 import org.thymeleaf.context.Context;
 
+import java.io.IOException;
+
 @Service
-@RequiredArgsConstructor
 @Slf4j
 public class EmailServiceImpl implements EmailService {
 
-    private final JavaMailSender mailSender;
     private final TemplateEngine templateEngine;
+    private final SendGrid sendGrid;
+
+    @Value("${sendgrid.from-email}")
+    private String fromEmail;
+
+    public EmailServiceImpl(TemplateEngine templateEngine, @Value("${sendgrid.api-key}") String apiKey) {
+        this.templateEngine = templateEngine;
+        this.sendGrid = new SendGrid(apiKey);
+    }
 
     @Override
     public void sendPasswordResetEmail(String toEmail, String resetLink) {
+        log.info("Preparing to send password reset email to {}", toEmail);
         try {
-            MimeMessage message = mailSender.createMimeMessage();
-            MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
+            Context context = new Context();
+            context.setVariable("resetLink", resetLink);
 
-            helper.setTo(toEmail);
-            helper.setSubject("TrekSphere - Password Reset Request");
+            String htmlContent = templateEngine.process("password-reset", context);
+
+            Email from = new Email(fromEmail, "TrekSphere");
+            String subject = "TrekSphere - Password Reset Request";
+            Email to = new Email(toEmail);
+            Content content = new Content("text/html", htmlContent);
+            Mail mail = new Mail(from, subject, to, content);
+
+            Request request = new Request();
+            request.setMethod(Method.POST);
+            request.setEndpoint("mail/send");
+            request.setBody(mail.build());
             
-            String htmlContent = """
-                    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 10px;">
-                        <h2 style="color: #2e6c80;">Password Reset Request</h2>
-                        <p>Hello,</p>
-                        <p>We received a request to reset the password for your TrekSphere account.</p>
-                        <p>Click the button below to set a new password. This link is valid for 5 minutes.</p>
-                        <div style="text-align: center; margin: 30px 0;">
-                            <a href="%s" style="background-color: #2e6c80; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; font-weight: bold;">Reset Password</a>
-                        </div>
-                        <p>If the button doesn't work, you can copy and paste this link into your browser:</p>
-                        <p style="word-break: break-all; color: #555;">%s</p>
-                        <hr style="border: none; border-top: 1px solid #e0e0e0; margin: 20px 0;" />
-                        <p style="font-size: 12px; color: #888;">If you didn't request a password reset, you can safely ignore this email.</p>
-                        <p style="font-size: 12px; color: #888;">TrekSphere Team</p>
-                    </div>
-                    """.formatted(resetLink, resetLink);
-
-            helper.setText(htmlContent, true); // true = isHtml
-
-            mailSender.send(message);
-            log.info("Password reset email sent successfully to {}", toEmail);
-
-        } catch (MessagingException e) {
+            Response response = sendGrid.api(request);
+            if (response.getStatusCode() >= 200 && response.getStatusCode() < 300) {
+                log.info("Password reset email sent successfully to {}", toEmail);
+            } else {
+                log.error("SendGrid API returned status {}: {}", response.getStatusCode(), response.getBody());
+                throw new AppException(ErrorCode.EMAIL_SEND_FAILED);
+            }
+        } catch (IOException e) {
             log.error("Failed to send password reset email to {}", toEmail, e);
             throw new AppException(ErrorCode.EMAIL_SEND_FAILED);
         }
     }
 
-    public void sendVerificationEmail(String to, String fullName, String verificationUrl) {
-        log.info("Preparing to send verification email to {}", to);
+    @Override
+    public void sendVerificationEmail(String toAddress, String fullName, String verificationUrl) {
+        log.info("Preparing to send verification email to {}", toAddress);
         try {
             Context context = new Context();
             context.setVariable("fullName", fullName);
@@ -67,17 +76,26 @@ public class EmailServiceImpl implements EmailService {
 
             String process = templateEngine.process("email-verification", context);
 
-            MimeMessage mimeMessage = mailSender.createMimeMessage();
-            MimeMessageHelper helper = new MimeMessageHelper(mimeMessage, true, "UTF-8");
+            Email from = new Email(fromEmail, "TrekSphere");
+            String subject = "TrekSphere - Xác minh địa chỉ email của bạn";
+            Email to = new Email(toAddress);
+            Content content = new Content("text/html", process);
+            Mail mail = new Mail(from, subject, to, content);
 
-            helper.setTo(to);
-            helper.setSubject("TrekSphere - Xác minh địa chỉ email của bạn");
-            helper.setText(process, true);
+            Request request = new Request();
+            request.setMethod(Method.POST);
+            request.setEndpoint("mail/send");
+            request.setBody(mail.build());
 
-            mailSender.send(mimeMessage);
-            log.info("Verification email sent successfully to {}", to);
-        } catch (MessagingException e) {
-            log.error("Failed to send verification email to {}", to, e);
+            Response response = sendGrid.api(request);
+            if (response.getStatusCode() >= 200 && response.getStatusCode() < 300) {
+                log.info("Verification email sent successfully to {}", toAddress);
+            } else {
+                log.error("SendGrid API returned status {}: {}", response.getStatusCode(), response.getBody());
+                throw new AppException(ErrorCode.EMAIL_SEND_FAILED);
+            }
+        } catch (IOException e) {
+            log.error("Failed to send verification email to {}", toAddress, e);
             throw new AppException(ErrorCode.EMAIL_SEND_FAILED);
         }
     }
