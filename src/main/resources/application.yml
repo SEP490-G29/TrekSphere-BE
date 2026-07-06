@@ -83,5 +83,8 @@ application:
         expiration: ${JWT_REFRESH_EXPIRATION_TIME}
       reset-password:
         expiration: ${JWT_RESET_PASSWORD_EXPIRATION_TIME:300000}
+  cookie:
+    secure: false
+    same-site: Strict
   frontend:
     url: ${FRONTEND_URL}

@@ -1,32 +1,37 @@
 package com.sep.treksphere.security;
 
+import io.jsonwebtoken.ExpiredJwtException;
+import io.jsonwebtoken.JwtException;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
-import org.springframework.data.redis.core.StringRedisTemplate;
+import com.sep.treksphere.service.TokenBlacklistService;
+import com.sep.treksphere.utils.CookieUtil;
 import org.springframework.lang.NonNull;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.web.authentication.WebAuthenticationDetailsSource;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.sep.treksphere.dto.response.ApiResponse;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import lombok.extern.slf4j.Slf4j;
 
 @Component
 @RequiredArgsConstructor
+@Slf4j
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private final JwtService jwtService;
     private final UserDetailsService userDetailsService;
-    private final StringRedisTemplate stringRedisTemplate;
+    private final TokenBlacklistService tokenBlacklistService;
     private final ObjectMapper objectMapper;
 
     @Override
@@ -35,29 +40,39 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             @NonNull HttpServletResponse response,
             @NonNull FilterChain filterChain
     ) throws ServletException, IOException {
-        final String authHeader = request.getHeader("Authorization");
-        final String jwt;
-        final String userEmail;
+        String jwt = CookieUtil.extract(request, "access_token");
 
-        if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+        if (jwt == null) {
+            String authHeader = request.getHeader("Authorization");
+            if (authHeader != null && authHeader.startsWith("Bearer ")) {
+                jwt = authHeader.substring(7);
+            }
+        }
+
+        if (jwt == null) {
             filterChain.doFilter(request, response);
             return;
         }
 
-        jwt = authHeader.substring(7);
-
-        Boolean isBlacklisted = stringRedisTemplate.hasKey("blacklist:" + jwt);
-        if (Boolean.TRUE.equals(isBlacklisted)) {
-            response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
-            response.setContentType("application/json");
-            response.setCharacterEncoding("UTF-8");
-            ApiResponse<String> apiResponse = ApiResponse.error(HttpStatus.UNAUTHORIZED, "Token đã bị thu hồi");
-            response.getWriter().write(objectMapper.writeValueAsString(apiResponse));
-            return;
-        }
-
         try {
-            userEmail = jwtService.extractUsername(jwt);
+            if (!jwtService.isSignatureValid(jwt)) {
+                filterChain.doFilter(request, response);
+                return;
+            }
+
+            String type = jwtService.extractType(jwt);
+            if (!"access".equals(type)) {
+                filterChain.doFilter(request, response);
+                return;
+            }
+
+            String jti = jwtService.extractJti(jwt);
+            if (tokenBlacklistService.isBlacklisted(jti)) {
+                sendErrorResponse(response, "Token đã bị thu hồi");
+                return;
+            }
+
+            String userEmail = jwtService.extractUsername(jwt);
             if (userEmail != null && SecurityContextHolder.getContext().getAuthentication() == null) {
                 UserDetails userDetails = this.userDetailsService.loadUserByUsername(userEmail);
 
@@ -73,9 +88,22 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                     SecurityContextHolder.getContext().setAuthentication(authToken);
                 }
             }
+        } catch (ExpiredJwtException e) {
+            log.debug("JWT Token expired: {}", e.getMessage());
+        } catch (JwtException | IllegalArgumentException e) {
+            log.warn("Invalid JWT token: {}", e.getMessage());
         } catch (Exception e) {
+            log.error("Error during authentication: ", e);
         }
         
         filterChain.doFilter(request, response);
+    }
+
+    private void sendErrorResponse(HttpServletResponse response, String message) throws IOException {
+        response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+        response.setContentType("application/json");
+        response.setCharacterEncoding("UTF-8");
+        ApiResponse<String> apiResponse = ApiResponse.error(HttpStatus.UNAUTHORIZED, message);
+        response.getWriter().write(objectMapper.writeValueAsString(apiResponse));
     }
 }

@@ -31,10 +31,10 @@ public enum ErrorCode {
     EMAIL_SEND_FAILED(3001, HttpStatus.INTERNAL_SERVER_ERROR, MessageConstant.EMAIL_SEND_FAILED),
 
     // Tour
-    TOUR_NOT_FOUND(3001, HttpStatus.NOT_FOUND, MessageConstant.TOUR_NOT_FOUND),
+    TOUR_NOT_FOUND(4001, HttpStatus.NOT_FOUND, MessageConstant.TOUR_NOT_FOUND),
 
     // Blog
-    BLOG_NOT_FOUND(4001, HttpStatus.NOT_FOUND, MessageConstant.BLOG_NOT_FOUND);
+    BLOG_NOT_FOUND(5001, HttpStatus.NOT_FOUND, MessageConstant.BLOG_NOT_FOUND);
 
 
     private final int code;
