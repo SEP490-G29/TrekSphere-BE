@@ -14,11 +14,13 @@ spring:
 
   data:
     redis:
-      host: ${REDIS_HOST:localhost}
-      port: ${REDIS_PORT:6379}
+      host: ${REDIS_HOST}
+      port: ${REDIS_PORT}
       password: ${REDIS_PASSWORD}
+      repositories:
+        enabled: false
       ssl:
-        enabled: ${REDIS_SSL_ENABLED:false}
+        enabled: false
 
   jpa:
     hibernate:
@@ -34,20 +36,9 @@ spring:
     baseline-on-migrate: true
     validate-on-migrate: true
 
-  mail:
-    host: ${MAIL_HOST}
-    port: ${MAIL_PORT}
-    username: ${MAIL_USERNAME}
-    password: ${MAIL_PASSWORD}
-    properties:
-      mail:
-        smtp:
-          auth: true
-          starttls:
-            enable: true
-          connectiontimeout: 5000
-          timeout: 5000
-          writetimeout: 5000
+sendgrid:
+  api-key: ${SENDGRID_API_KEY}
+  from-email: ${MAIL_FROM_ADDRESS}
 
   servlet:
     multipart:
@@ -86,7 +77,7 @@ application:
       refresh-token:
         expiration: ${JWT_REFRESH_EXPIRATION_TIME}
       reset-password:
-        expiration: ${JWT_RESET_PASSWORD_EXPIRATION_TIME:300000}
+        expiration: ${JWT_RESET_PASSWORD_EXPIRATION_TIME}
   cookie:
     secure: false
     same-site: Strict
