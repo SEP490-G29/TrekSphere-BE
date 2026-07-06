@@ -10,16 +10,13 @@ import com.sep.treksphere.dto.request.LoginRequest;
 import com.sep.treksphere.dto.request.RegisterRequest;
 import com.sep.treksphere.dto.response.LoginResponse;
 import com.sep.treksphere.dto.response.RegisterResponse;
-import com.sep.treksphere.entity.RefreshToken;
 import com.sep.treksphere.entity.Role;
 import com.sep.treksphere.entity.User;
 import com.sep.treksphere.enums.user.AuthProvider;
-import com.sep.treksphere.enums.user.TokenStatus;
 import com.sep.treksphere.enums.user.UserStatus;
 import com.sep.treksphere.exception.AppException;
 import com.sep.treksphere.exception.ErrorCode;
 import com.sep.treksphere.mapper.AuthMapper;
-import com.sep.treksphere.repository.RefreshTokenRepository;
 import com.sep.treksphere.repository.RoleRepository;
 import com.sep.treksphere.repository.UserRepository;
 import com.sep.treksphere.security.CustomUserDetails;
@@ -27,9 +24,12 @@ import com.sep.treksphere.security.JwtService;
 import com.sep.treksphere.security.JwtTokenProvider;
 import com.sep.treksphere.service.AuthService;
 import com.sep.treksphere.service.EmailService;
+import com.sep.treksphere.service.RefreshTokenService;
+import com.sep.treksphere.service.TokenBlacklistService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -40,6 +40,7 @@ import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.Collections;
 import java.util.Date;
+import java.util.concurrent.TimeUnit;
 
 @Service
 @RequiredArgsConstructor
@@ -48,7 +49,8 @@ public class AuthServiceImpl implements AuthService {
 
     private final UserRepository userRepository;
     private final RoleRepository roleRepository;
-    private final RefreshTokenRepository refreshTokenRepository;
+    private final RefreshTokenService refreshTokenService;
+    private final TokenBlacklistService tokenBlacklistService;
     private final EmailService emailService;
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
@@ -82,12 +84,7 @@ public class AuthServiceImpl implements AuthService {
         }
 
         CustomUserDetails userDetails = new CustomUserDetails(user);
-        String accessToken = jwtService.generateToken(userDetails);
-        String refreshToken = jwtService.generateRefreshToken(userDetails);
-
-        saveRefreshToken(user, refreshToken);
-
-        return authMapper.toLoginResponse(user, accessToken, refreshToken);
+        return issueTokens(userDetails, user);
     }
 
     @Override
@@ -169,29 +166,45 @@ public class AuthServiceImpl implements AuthService {
     @Override
     @Transactional
     public LoginResponse refreshToken(String refreshTokenStr) {
-        RefreshToken tokenEntity = refreshTokenRepository.findByToken(refreshTokenStr).orElseThrow(() -> new AppException(ErrorCode.INVALID_TOKEN));
-
-        if (tokenEntity.getStatus() != TokenStatus.ACTIVE || tokenEntity.getExpiresAt().isBefore(LocalDateTime.now())) {
-            throw new AppException(ErrorCode.INVALID_TOKEN, MessageConstant.INVALID_REFRESH_TOKEN);
+        if (refreshTokenStr == null || refreshTokenStr.trim().isEmpty()) {
+            throw new AppException(ErrorCode.INVALID_TOKEN, "Không tìm thấy refresh token trong cookie");
         }
-
-        User user = tokenEntity.getUser();
+        
+        if (!jwtService.isSignatureValid(refreshTokenStr)) {
+            throw new AppException(ErrorCode.INVALID_TOKEN, "Token không hợp lệ");
+        }
+        
+        String type = jwtService.extractType(refreshTokenStr);
+        if (!"refresh".equals(type)) {
+            throw new AppException(ErrorCode.INVALID_TOKEN, "Token type không đúng");
+        }
+        
+        String jti = jwtService.extractJti(refreshTokenStr);
+        if (tokenBlacklistService.isBlacklisted(jti)) {
+            throw new AppException(ErrorCode.INVALID_TOKEN, "Token đã bị thu hồi");
+        }
+        
+        String userEmail;
+        try {
+            userEmail = jwtService.extractUsername(refreshTokenStr);
+        } catch (Exception e) {
+            throw new AppException(ErrorCode.INVALID_TOKEN, "Token không chứa thông tin user");
+        }
+        
+        refreshTokenService.validateAndConsume(userEmail, jti);
+        
+        User user = userRepository.findByEmail(userEmail).orElseThrow(() -> new AppException(ErrorCode.INVALID_TOKEN, "User không tồn tại"));
         CustomUserDetails userDetails = new CustomUserDetails(user);
-
+        
         if (!jwtService.isTokenValid(refreshTokenStr, userDetails)) {
-            throw new AppException(ErrorCode.INVALID_TOKEN);
+            throw new AppException(ErrorCode.INVALID_TOKEN, "Token đã hết hạn hoặc không hợp lệ");
         }
-
-        tokenEntity.setStatus(TokenStatus.EXPIRED);
-        tokenEntity.setRevokedAt(LocalDateTime.now());
-        refreshTokenRepository.save(tokenEntity);
-
-        String accessToken = jwtService.generateToken(userDetails);
-        String newRefreshToken = jwtService.generateRefreshToken(userDetails);
-
-        saveRefreshToken(user, newRefreshToken);
-
-        return authMapper.toLoginResponse(user, accessToken, newRefreshToken);
+        
+        Date expiration = jwtService.extractExpiration(refreshTokenStr);
+        long ttl = expiration.getTime() - System.currentTimeMillis();
+        tokenBlacklistService.blacklist(jti, ttl);
+        
+        return issueTokens(userDetails, user);
     }
 
     @Override
@@ -284,16 +297,11 @@ public class AuthServiceImpl implements AuthService {
                 }
 
                 if (user.getStatus() != UserStatus.ACTIVE) {
-                    throw new AppException(ErrorCode.USER_NOT_ACTIVE);
+            throw new AppException(ErrorCode.USER_NOT_ACTIVE);
                 }
 
                 CustomUserDetails userDetails = new CustomUserDetails(user);
-                String accessToken = jwtService.generateToken(userDetails);
-                String refreshToken = jwtService.generateRefreshToken(userDetails);
-
-                saveRefreshToken(user, refreshToken);
-
-                return authMapper.toLoginResponse(user, accessToken, refreshToken);
+                return issueTokens(userDetails, user);
             } else {
                 throw new AppException(ErrorCode.INVALID_TOKEN, MessageConstant.INVALID_GOOGLE_ID_TOKEN);
             }
@@ -304,25 +312,49 @@ public class AuthServiceImpl implements AuthService {
     }
 
     @Override
-    @Transactional
-    public void logout(String refreshTokenStr) {
-        refreshTokenRepository.findByToken(refreshTokenStr).ifPresent(tokenEntity -> {
-            tokenEntity.setStatus(TokenStatus.REVOKED);
-            tokenEntity.setRevokedAt(LocalDateTime.now());
-            refreshTokenRepository.save(tokenEntity);
-            log.info("Refresh token revoked successfully during logout.");
-        });
+    public void logout(String accessToken, String refreshTokenStr) {
+        blacklistIfValid(accessToken, "access");
+
+        if (refreshTokenStr != null && jwtService.isSignatureValid(refreshTokenStr)) {
+            blacklistIfValid(refreshTokenStr, "refresh");
+            try {
+                String userEmail = jwtService.extractUsername(refreshTokenStr);
+                refreshTokenService.revokeAll(userEmail);
+                log.info("Refresh token revoked successfully during logout.");
+            } catch (Exception e) {
+                log.error("Unable to revoke refresh token session after logging out.", e);
+            }
+        }
     }
 
-    private void saveRefreshToken(User user, String refreshToken) {
-        RefreshToken token = new RefreshToken();
-        token.setUser(user);
-        token.setToken(refreshToken);
-        token.setStatus(TokenStatus.ACTIVE);
-        Date expiryDate = new Date(System.currentTimeMillis() + refreshExpiration);
-        token.setExpiresAt(LocalDateTime.ofInstant(expiryDate.toInstant(), ZoneId.systemDefault()));
-        refreshTokenRepository.save(token);
+    private LoginResponse issueTokens(CustomUserDetails userDetails, User user) {
+        String accessToken = jwtService.generateToken(userDetails);
+        String refreshToken = jwtService.generateRefreshToken(userDetails);
+
+        String refreshJti = jwtService.extractJti(refreshToken);
+        refreshTokenService.store(user.getEmail(), refreshJti, refreshExpiration);
+
+        return authMapper.toLoginResponse(user, accessToken, refreshToken);
     }
 
+    private void blacklistIfValid(String token, String expectedType) {
+        if (token == null || !jwtService.isSignatureValid(token)) return;
+
+        try {
+
+            String actualType = jwtService.extractType(token);
+            if (!expectedType.equals(actualType)) {
+                log.warn("Ignore blacklist: token type does not match, expected={}, actual={}", expectedType, actualType);
+                return;
+            }
+
+            String jti = jwtService.extractJti(token);
+            long ttl = jwtService.extractExpiration(token).getTime() - System.currentTimeMillis();
+            tokenBlacklistService.blacklist(jti, ttl);
+            log.info("{} token blacklisted for logout.", expectedType);
+        } catch (Exception e) {
+            log.error("Errors when blacklisting {} token upon logout", expectedType, e);
+        }
+    }
 
 }

@@ -11,6 +11,11 @@ spring:
     password: ${POSTGRES_PASSWORD}
     driver-class-name: org.postgresql.Driver
 
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+
   jpa:
     hibernate:
       ddl-auto: validate
@@ -36,6 +41,9 @@ spring:
           auth: true
           starttls:
             enable: true
+          connectiontimeout: 5000
+          timeout: 5000
+          writetimeout: 5000
 
   servlet:
     multipart:
@@ -59,6 +67,9 @@ management:
     web:
       exposure:
         include: health
+  health:
+    mail:
+      enabled: false
 
 application:
   security:
@@ -72,5 +83,8 @@ application:
         expiration: ${JWT_REFRESH_EXPIRATION_TIME}
       reset-password:
         expiration: ${JWT_RESET_PASSWORD_EXPIRATION_TIME:300000}
+  cookie:
+    secure: false
+    same-site: Strict
   frontend:
     url: ${FRONTEND_URL}

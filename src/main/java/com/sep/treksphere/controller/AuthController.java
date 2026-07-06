@@ -5,11 +5,15 @@ import com.sep.treksphere.dto.request.*;
 import com.sep.treksphere.dto.response.ApiResponse;
 import com.sep.treksphere.dto.response.LoginResponse;
 import com.sep.treksphere.dto.response.RegisterResponse;
+import com.sep.treksphere.dto.response.UserResponse;
 import com.sep.treksphere.security.CustomUserDetails;
 import com.sep.treksphere.service.AuthService;
+import com.sep.treksphere.utils.CookieUtil;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -26,19 +30,26 @@ import org.springframework.web.bind.annotation.*;
 public class AuthController {
 
     private final AuthService authService;
+    private final CookieUtil cookieUtil;
 
     @Operation(summary = "Đăng nhập", description = "Đăng nhập với email và passoword")
     @PostMapping("/login")
-    public ResponseEntity<ApiResponse<LoginResponse>> login(@Valid @RequestBody LoginRequest request) {
+    public ResponseEntity<ApiResponse<UserResponse>> login(@Valid @RequestBody LoginRequest request) {
         log.info("Attempting to log in user with email: {}", request.getEmail());
-        return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK,authService.login(request),MessageConstant.LOGIN_SUCCESSFULLY));
+        LoginResponse loginResponse = authService.login(request);
+        return ResponseEntity.ok()
+                .headers(cookieUtil.createCookieHeaders(loginResponse.getAccessToken(), loginResponse.getRefreshToken()))
+                .body(ApiResponse.success(HttpStatus.OK, loginResponse.getUser(), MessageConstant.LOGIN_SUCCESSFULLY));
     }
 
     @Operation(summary = "Đăng nhập bằng Google", description = "Đăng nhập thông qua Google ID Token")
     @PostMapping("/google")
-    public ResponseEntity<ApiResponse<LoginResponse>> googleLogin(@RequestParam("idToken") String idToken) {
+    public ResponseEntity<ApiResponse<UserResponse>> googleLogin(@RequestParam("idToken") String idToken) {
         log.info("Attempting to log in user with Google ID Token");
-        return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, authService.googleLogin(idToken), MessageConstant.GOOGLE_LOGIN_SUCCESSFULLY));
+        LoginResponse loginResponse = authService.googleLogin(idToken);
+        return ResponseEntity.ok()
+                .headers(cookieUtil.createCookieHeaders(loginResponse.getAccessToken(), loginResponse.getRefreshToken()))
+                .body(ApiResponse.success(HttpStatus.OK, loginResponse.getUser(), MessageConstant.GOOGLE_LOGIN_SUCCESSFULLY));
     }
 
     @Operation(summary = "Đăng ký tài khoản", description = "Đăng ký một tài khoản mới với quyền TREKKER")
@@ -56,10 +67,14 @@ public class AuthController {
     }
 
     @PostMapping("/refresh-token")
-    public ResponseEntity<ApiResponse<LoginResponse>> refreshToken(
-            @RequestParam("token") String refreshToken
+    public ResponseEntity<ApiResponse<UserResponse>> refreshToken(
+            @Parameter(hidden = true) @CookieValue(value = "refresh_token") String refreshToken
     ) {
-        return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, authService.refreshToken(refreshToken)));
+
+        LoginResponse loginResponse = authService.refreshToken(refreshToken);
+        return ResponseEntity.ok()
+                .headers(cookieUtil.createCookieHeaders(loginResponse.getAccessToken(), loginResponse.getRefreshToken()))
+                .body(ApiResponse.success(HttpStatus.OK, loginResponse.getUser()));
     }
 
     @PostMapping("/forgot-password")
@@ -68,7 +83,7 @@ public class AuthController {
         return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, null, MessageConstant.RESET_LINK_SENT_SUCCESSFULLY));
     }
 
-    @Operation(summary = "Reset mật khẩu", description = "Cho phép người dùng reset mật khẩu bằng token")   
+    @Operation(summary = "Reset mật khẩu", description = "Cho phép người dùng reset mật khẩu bằng token")
     @PostMapping("/reset-password")
     public ResponseEntity<ApiResponse<String>> resetPassword(@Valid @RequestBody ResetPasswordRequest request) {
         authService.resetPassword(request.getToken(), request.getNewPassword());
@@ -81,18 +96,17 @@ public class AuthController {
     public ResponseEntity<ApiResponse<String>> changePassword(
             @AuthenticationPrincipal CustomUserDetails userDetails,
             @Valid @RequestBody ChangePasswordRequest request) {
-        
-
-        
         authService.changePassword(userDetails.getUsername(), request);
         return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, null, MessageConstant.PASSWORD_CHANGED_SUCCESSFULLY));
     }
 
     @Operation(summary = "Đăng xuất", description = "Thu hồi refresh token của phiên bản đăng nhập hiện tại")
-    @SecurityRequirement(name = "bearerAuth")
     @PostMapping("/logout")
-    public ResponseEntity<ApiResponse<String>> logout(@RequestParam("token") String refreshToken) {
-        authService.logout(refreshToken);
-        return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, MessageConstant.LOGOUT_SUCCESSFULLY));
+    public ResponseEntity<ApiResponse<String>> logout(HttpServletRequest request, @Parameter(hidden = true) @CookieValue(value = "refresh_token", required = false) String refreshToken) {
+        String accessToken = CookieUtil.extractAccessToken(request);
+        authService.logout(accessToken, refreshToken);
+        return ResponseEntity.ok()
+                .headers(cookieUtil.createExpiredCookieHeaders())
+                .body(ApiResponse.success(HttpStatus.OK, MessageConstant.LOGOUT_SUCCESSFULLY));
     }
 }
