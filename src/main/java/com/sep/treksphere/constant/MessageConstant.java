@@ -32,6 +32,7 @@ public class MessageConstant {
     // Profile Messages
     public static final String FULL_NAME_REQUIRED = "Họ tên không được để trống";
     public static final String INVALID_PHONE = "Số điện thoại không hợp lệ";
+    public static final String INVALID_DOB = "Ngày sinh không hợp lệ (không được lớn hơn ngày hiện tại)";
     public static final String PROFILE_UPDATED_SUCCESSFULLY = "Cập nhật hồ sơ thành công";
 
     // System Error Messages

@@ -38,13 +38,20 @@ public class UserServiceImpl implements UserService {
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
 
-        if (request.getFullName() != null && !request.getFullName().trim().isEmpty()) {
-            user.setFullName(request.getFullName().trim());
+        if (request.getFullName() != null) {
+            String fullName = request.getFullName().trim();
+            if (fullName.isEmpty()) {
+                throw new AppException(ErrorCode.VALIDATION_ERROR, MessageConstant.FULL_NAME_REQUIRED);
+            }
+            user.setFullName(fullName);
         }
-        if (request.getPhone() != null && !request.getPhone().isEmpty()) {
-            user.setPhone(request.getPhone());
+        if (request.getPhone() != null && !request.getPhone().trim().isEmpty()) {
+            user.setPhone(request.getPhone().trim());
         }
         if (request.getDateOfBirth() != null) {
+            if (request.getDateOfBirth().isAfter(java.time.LocalDate.now())) {
+                throw new AppException(ErrorCode.VALIDATION_ERROR, MessageConstant.INVALID_DOB);
+            }
             user.setDateOfBirth(request.getDateOfBirth());
         }
         if (request.getGender() != null) {
