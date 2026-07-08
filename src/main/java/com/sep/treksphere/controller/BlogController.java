@@ -5,8 +5,6 @@ import com.sep.treksphere.dto.response.BlogDetailResponse;
 import com.sep.treksphere.dto.response.BlogSummaryResponse;
 import com.sep.treksphere.dto.response.PaginationResponse;
 import com.sep.treksphere.service.BlogService;
-import io.swagger.v3.oas.annotations.Operation;
-import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;

@@ -31,7 +31,7 @@ public class VendorController {
     @PreAuthorize("hasRole('ADMIN')")
     @GetMapping
     public ResponseEntity<ApiResponse<PaginationResponse<VendorResponse>>> getVendors(
-            @Valid @ModelAttribute BaseFilterRequest request) {
+            @Valid @org.springdoc.core.annotations.ParameterObject @ModelAttribute BaseFilterRequest request) {
         
         PaginationResponse<VendorResponse> response = vendorService.getVendors(request);
         return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, response));

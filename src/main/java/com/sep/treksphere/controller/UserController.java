@@ -59,4 +59,15 @@ public class UserController {
         UserProfileResponse profile = userService.updateProfile(userDetails.getUsername(), request, request.getAvatar());
         return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, profile, MessageConstant.PROFILE_UPDATED_SUCCESSFULLY));
     }
+
+    @Operation(summary = "Lấy danh sách Trekker", description = "Trả về danh sách các user có role là TREKKER (Dành cho Admin)")
+    @SecurityRequirement(name = "bearerAuth")
+    @org.springframework.security.access.prepost.PreAuthorize("hasRole('ADMIN')")
+    @GetMapping("/trekkers")
+    public ResponseEntity<ApiResponse<com.sep.treksphere.dto.response.PaginationResponse<UserProfileResponse>>> getTrekkers(
+            @Valid @org.springdoc.core.annotations.ParameterObject @ModelAttribute com.sep.treksphere.dto.request.BaseFilterRequest request) {
+        
+        com.sep.treksphere.dto.response.PaginationResponse<UserProfileResponse> response = userService.getTrekkers(request);
+        return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, response));
+    }
 }

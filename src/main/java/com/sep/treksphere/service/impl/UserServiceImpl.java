@@ -1,7 +1,9 @@
 package com.sep.treksphere.service.impl;
 
 import com.sep.treksphere.constant.MessageConstant;
+import com.sep.treksphere.dto.request.BaseFilterRequest;
 import com.sep.treksphere.dto.request.UpdateProfileRequest;
+import com.sep.treksphere.dto.response.PaginationResponse;
 import com.sep.treksphere.dto.response.UserProfileResponse;
 import com.sep.treksphere.entity.User;
 import com.sep.treksphere.exception.AppException;
@@ -11,9 +13,12 @@ import com.sep.treksphere.repository.UserRepository;
 import com.sep.treksphere.service.FileService;
 import com.sep.treksphere.service.UserService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
+
+import java.util.List;
 
 @Service
 @RequiredArgsConstructor
@@ -66,5 +71,28 @@ public class UserServiceImpl implements UserService {
         userRepository.save(user);
 
         return userMapper.toUserProfileResponse(user);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public PaginationResponse<UserProfileResponse> getTrekkers(BaseFilterRequest request) {
+        Page<User> usersPage = userRepository.findByRoleNameAndKeyword(
+                "TREKKER",
+                request.getKeyword(),
+                request.getPageable()
+        );
+
+        List<UserProfileResponse> responses = usersPage.getContent().stream()
+                .map(userMapper::toUserProfileResponse)
+                .toList();
+
+        return PaginationResponse.<UserProfileResponse>builder()
+                .content(responses)
+                .pageNumber(usersPage.getNumber())
+                .pageSize(usersPage.getSize())
+                .totalElements(usersPage.getTotalElements())
+                .totalPages(usersPage.getTotalPages())
+                .last(usersPage.isLast())
+                .build();
     }
 }
