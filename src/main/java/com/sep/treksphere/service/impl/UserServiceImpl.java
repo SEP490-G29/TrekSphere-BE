@@ -40,6 +40,15 @@ public class UserServiceImpl implements UserService {
     }
 
     @Override
+    @Transactional(readOnly = true)
+    public UserProfileResponse getUserById(String userId) {
+        User user = userRepository.findById(UUID.fromString(userId))
+                .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
+
+        return userMapper.toUserProfileResponse(user);
+    }
+
+    @Override
     @Transactional
     public UserProfileResponse updateProfile(String email, UpdateProfileRequest request, MultipartFile avatar) {
         User user = userRepository.findByEmail(email)

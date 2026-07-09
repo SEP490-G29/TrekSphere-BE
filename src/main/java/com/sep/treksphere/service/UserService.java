@@ -10,6 +10,7 @@ import com.sep.treksphere.enums.user.UserStatus;
 
 public interface UserService {
     UserProfileResponse getUserProfile(String email);
+    UserProfileResponse getUserById(String userId);
     UserProfileResponse updateProfile(String email, UpdateProfileRequest request, MultipartFile avatar);
     PaginationResponse<UserProfileResponse> getUsers(UserFilterRequest request);
     void changeUserStatus(String userId, UserStatus status);

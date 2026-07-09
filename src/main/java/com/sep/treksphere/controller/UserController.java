@@ -78,6 +78,17 @@ public class UserController {
         return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, response));
     }
 
+    @Operation(summary = "Lấy chi tiết User", description = "Trả về thông tin chi tiết của một user theo ID (Dành cho Admin)")
+    @SecurityRequirement(name = "bearerAuth")
+    @PreAuthorize("hasRole('ADMIN')")
+    @GetMapping("/{userId}")
+    public ResponseEntity<ApiResponse<UserProfileResponse>> getUserById(
+            @PathVariable String userId) {
+        
+        UserProfileResponse response = userService.getUserById(userId);
+        return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, response));
+    }
+
     @Operation(summary = "Khoá/Mở khoá tài khoản", description = "Thay đổi trạng thái của người dùng (Dành cho Admin)")
     @SecurityRequirement(name = "bearerAuth")
     @PreAuthorize("hasRole('ADMIN')")
