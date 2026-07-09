@@ -1,8 +1,6 @@
 package com.sep.treksphere.mapper;
 
 import com.sep.treksphere.dto.response.LoginResponse;
-import com.sep.treksphere.dto.response.UserResponse;
-import com.sep.treksphere.entity.Role;
 import com.sep.treksphere.entity.User;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
