@@ -18,10 +18,17 @@ import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import com.sep.treksphere.dto.request.UpdateProfileRequest;
+import com.sep.treksphere.dto.request.UserFilterRequest;
+import com.sep.treksphere.dto.response.PaginationResponse;
+import com.sep.treksphere.enums.user.UserStatus;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.ModelAttribute;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springdoc.core.annotations.ParameterObject;
+import org.springframework.security.access.prepost.PreAuthorize;
 
 @RestController
 @RequestMapping("/api/v1/users")
@@ -60,14 +67,26 @@ public class UserController {
         return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, profile, MessageConstant.PROFILE_UPDATED_SUCCESSFULLY));
     }
 
-    @Operation(summary = "Lấy danh sách Trekker", description = "Trả về danh sách các user có role là TREKKER (Dành cho Admin)")
+    @Operation(summary = "Lấy danh sách User", description = "Trả về danh sách tất cả user, có thể lọc theo trạng thái và role (Dành cho Admin)")
     @SecurityRequirement(name = "bearerAuth")
-    @org.springframework.security.access.prepost.PreAuthorize("hasRole('ADMIN')")
-    @GetMapping("/trekkers")
-    public ResponseEntity<ApiResponse<com.sep.treksphere.dto.response.PaginationResponse<UserProfileResponse>>> getTrekkers(
-            @Valid @org.springdoc.core.annotations.ParameterObject @ModelAttribute com.sep.treksphere.dto.request.BaseFilterRequest request) {
+    @PreAuthorize("hasRole('ADMIN')")
+    @GetMapping
+    public ResponseEntity<ApiResponse<PaginationResponse<UserProfileResponse>>> getUsers(
+            @Valid @ParameterObject @ModelAttribute UserFilterRequest request) {
         
-        com.sep.treksphere.dto.response.PaginationResponse<UserProfileResponse> response = userService.getTrekkers(request);
+        PaginationResponse<UserProfileResponse> response = userService.getUsers(request);
         return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, response));
+    }
+
+    @Operation(summary = "Khoá/Mở khoá tài khoản", description = "Thay đổi trạng thái của người dùng (Dành cho Admin)")
+    @SecurityRequirement(name = "bearerAuth")
+    @PreAuthorize("hasRole('ADMIN')")
+    @PutMapping("/{userId}/status")
+    public ResponseEntity<ApiResponse<Void>> changeUserStatus(
+            @PathVariable String userId,
+            @RequestParam UserStatus status) {
+        
+        userService.changeUserStatus(userId, status);
+        return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, null, MessageConstant.STATUS_UPDATED_SUCCESSFULLY));
     }
 }

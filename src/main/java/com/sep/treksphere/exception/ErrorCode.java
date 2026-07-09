@@ -34,7 +34,10 @@ public enum ErrorCode {
     TOUR_NOT_FOUND(4001, HttpStatus.NOT_FOUND, MessageConstant.TOUR_NOT_FOUND),
 
     // Blog
-    BLOG_NOT_FOUND(5001, HttpStatus.NOT_FOUND, MessageConstant.BLOG_NOT_FOUND);
+    BLOG_NOT_FOUND(5001, HttpStatus.NOT_FOUND, MessageConstant.BLOG_NOT_FOUND),
+    
+    // Vendor
+    VENDOR_NOT_FOUND(6001, HttpStatus.NOT_FOUND, MessageConstant.VENDOR_NOT_FOUND);
 
 
     private final int code;
