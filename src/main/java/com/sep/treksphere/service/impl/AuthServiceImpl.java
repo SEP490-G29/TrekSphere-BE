@@ -124,8 +124,12 @@ public class AuthServiceImpl implements AuthService {
 
         String verificationUrl = frontendUrl + "/verify?token=" + verificationToken;
 
-        log.info("Sending verification email to: {}", user.getEmail());
-        emailService.sendVerificationEmail(user.getEmail(), user.getFullName(), verificationUrl);
+        try {
+            emailService.sendVerificationEmail(user.getEmail(), user.getFullName(), verificationUrl);
+            log.info("Verification email sent to: {}", user.getEmail());
+        } catch (Exception e) {
+            log.error("Failed to send verification email to {}, user is still created. Will need resend.", user.getEmail(), e);
+        }
 
         log.info("Registration process completed successfully for: {}", request.getEmail());
         return RegisterResponse.builder().userID(user.getUserID()).email(user.getEmail()).fullName(user.getFullName()).build();
