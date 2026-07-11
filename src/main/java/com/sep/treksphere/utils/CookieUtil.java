@@ -65,7 +65,7 @@ public class CookieUtil {
     private long refreshExpiration;
 
     public HttpHeaders createCookieHeaders(String accessToken, String refreshToken) {
-       HttpHeaders headers = new org.springframework.http.HttpHeaders();
+       HttpHeaders headers = new HttpHeaders();
         headers.add(HttpHeaders.SET_COOKIE, build("access_token", accessToken, jwtExpiration / 1000, "/").toString());
         headers.add(HttpHeaders.SET_COOKIE, build("refresh_token", refreshToken, refreshExpiration / 1000, "/api/v1/auth").toString());
         return headers;

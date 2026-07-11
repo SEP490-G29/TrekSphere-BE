@@ -7,9 +7,9 @@ import com.sendgrid.SendGrid;
 import com.sendgrid.helpers.mail.Mail;
 import com.sendgrid.helpers.mail.objects.Content;
 import com.sendgrid.helpers.mail.objects.Email;
-import com.sep.treksphere.service.EmailService;
 import com.sep.treksphere.exception.AppException;
 import com.sep.treksphere.exception.ErrorCode;
+import com.sep.treksphere.service.EmailService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -28,23 +28,35 @@ public class EmailServiceImpl implements EmailService {
     @Value("${sendgrid.from-email}")
     private String fromEmail;
 
-    public EmailServiceImpl(TemplateEngine templateEngine, @Value("${sendgrid.api-key}") String apiKey) {
+    public EmailServiceImpl(TemplateEngine templateEngine, SendGrid sendGrid) {
         this.templateEngine = templateEngine;
-        this.sendGrid = new SendGrid(apiKey);
+        this.sendGrid = sendGrid;
     }
 
     @Override
     public void sendPasswordResetEmail(String toEmail, String resetLink) {
-        log.info("Preparing to send password reset email to {}", toEmail);
-        try {
-            Context context = new Context();
-            context.setVariable("resetLink", resetLink);
+        Context context = new Context();
+        context.setVariable("resetLink", resetLink);
 
-            String htmlContent = templateEngine.process("password-reset", context);
+        sendEmail(toEmail, "TrekSphere - Yêu cầu đặt lại mật khẩu", "password-reset", context);
+    }
+
+    @Override
+    public void sendVerificationEmail(String toAddress, String fullName, String verificationUrl) {
+        Context context = new Context();
+        context.setVariable("fullName", fullName);
+        context.setVariable("verificationUrl", verificationUrl);
+
+        sendEmail(toAddress, "TrekSphere - Xác minh địa chỉ email của bạn", "email-verification", context);
+    }
+
+    private void sendEmail(String toAddress, String subject, String templateName, Context context) {
+        log.info("Preparing to send email [{}] to {}", templateName, toAddress);
+        try {
+            String htmlContent = templateEngine.process(templateName, context);
 
             Email from = new Email(fromEmail, "TrekSphere");
-            String subject = "TrekSphere - Password Reset Request";
-            Email to = new Email(toEmail);
+            Email to = new Email(toAddress);
             Content content = new Content("text/html", htmlContent);
             Mail mail = new Mail(from, subject, to, content);
 
@@ -52,50 +64,16 @@ public class EmailServiceImpl implements EmailService {
             request.setMethod(Method.POST);
             request.setEndpoint("mail/send");
             request.setBody(mail.build());
-            
+
             Response response = sendGrid.api(request);
             if (response.getStatusCode() >= 200 && response.getStatusCode() < 300) {
-                log.info("Password reset email sent successfully to {}", toEmail);
+                log.info("Email [{}] sent successfully to {}", templateName, toAddress);
             } else {
                 log.error("SendGrid API returned status {}: {}", response.getStatusCode(), response.getBody());
                 throw new AppException(ErrorCode.EMAIL_SEND_FAILED);
             }
         } catch (IOException e) {
-            log.error("Failed to send password reset email to {}", toEmail, e);
-            throw new AppException(ErrorCode.EMAIL_SEND_FAILED);
-        }
-    }
-
-    @Override
-    public void sendVerificationEmail(String toAddress, String fullName, String verificationUrl) {
-        log.info("Preparing to send verification email to {}", toAddress);
-        try {
-            Context context = new Context();
-            context.setVariable("fullName", fullName);
-            context.setVariable("verificationUrl", verificationUrl);
-
-            String process = templateEngine.process("email-verification", context);
-
-            Email from = new Email(fromEmail, "TrekSphere");
-            String subject = "TrekSphere - Xác minh địa chỉ email của bạn";
-            Email to = new Email(toAddress);
-            Content content = new Content("text/html", process);
-            Mail mail = new Mail(from, subject, to, content);
-
-            Request request = new Request();
-            request.setMethod(Method.POST);
-            request.setEndpoint("mail/send");
-            request.setBody(mail.build());
-
-            Response response = sendGrid.api(request);
-            if (response.getStatusCode() >= 200 && response.getStatusCode() < 300) {
-                log.info("Verification email sent successfully to {}", toAddress);
-            } else {
-                log.error("SendGrid API returned status {}: {}", response.getStatusCode(), response.getBody());
-                throw new AppException(ErrorCode.EMAIL_SEND_FAILED);
-            }
-        } catch (IOException e) {
-            log.error("Failed to send verification email to {}", toAddress, e);
+            log.error("Failed to send email [{}] to {}", templateName, toAddress, e);
             throw new AppException(ErrorCode.EMAIL_SEND_FAILED);
         }
     }
