@@ -8,8 +8,8 @@ import org.mapstruct.Mapping;
 @Mapper(componentModel = "spring", uses = {UserMapper.class})
 public interface VendorStaffMapper {
 
-    @Mapping(target = "vendorStaffId", expression = "java(vendorStaff.getVendorStaffID() != null ? vendorStaff.getVendorStaffID().toString() : null)")
-    @Mapping(target = "vendorId", expression = "java(vendorStaff.getVendor() != null && vendorStaff.getVendor().getVendorID() != null ? vendorStaff.getVendor().getVendorID().toString() : null)")
+    @Mapping(target = "vendorStaffId", expression = "java(vendorStaff.getVendorStaffId() != null ? vendorStaff.getVendorStaffId().toString() : null)")
+    @Mapping(target = "vendorId", expression = "java(vendorStaff.getVendor() != null && vendorStaff.getVendor().getVendorId() != null ? vendorStaff.getVendor().getVendorId().toString() : null)")
     @Mapping(target = "user", source = "user")
     VendorStaffResponse toVendorStaffResponse(VendorStaff vendorStaff);
 }

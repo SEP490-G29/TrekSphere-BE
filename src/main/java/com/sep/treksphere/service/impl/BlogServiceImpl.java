@@ -157,10 +157,10 @@ public class BlogServiceImpl implements BlogService {
 
         boolean isAdmin = userDetails.getAuthorities().stream()
                 .anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN"));
-        boolean isAuthor = blog.getUser().getUserID().equals(userDetails.getUser().getUserID());
+        boolean isAuthor = blog.getUser().getUserId().equals(userDetails.getUser().getUserId());
 
         if (!isAdmin && !isAuthor) {
-            log.warn("User {} attempted to modify blog {} without permission", userDetails.getUser().getUserID(), blogId);
+            log.warn("User {} attempted to modify blog {} without permission", userDetails.getUser().getUserId(), blogId);
             throw new AppException(ErrorCode.ACCESS_DENIED);
         }
         return blog;
@@ -172,7 +172,7 @@ public class BlogServiceImpl implements BlogService {
         Blog blog = getBlogAndVerifyOwnership(blogId, userDetails);
         blog.setStatus(BlogStatus.HIDDEN);
         blogRepository.save(blog);
-        log.info("User {} successfully hid blog {}", userDetails.getUser().getUserID(), blogId);
+        log.info("User {} successfully hid blog {}. New status: {}", userDetails.getUser().getUserId(), blogId, blog.getStatus());
     }
 
     @Override
@@ -182,9 +182,9 @@ public class BlogServiceImpl implements BlogService {
         blog.setStatus(BlogStatus.DELETED);
         blog.setIsDeleted(true);
         blog.setDeletedAt(java.time.LocalDateTime.now());
-        blog.setDeletedBy(userDetails.getUser().getUserID().toString());
+        blog.setDeletedBy(userDetails.getUser().getUserId().toString());
         blogRepository.save(blog);
-        log.info("User {} successfully deleted blog {}", userDetails.getUser().getUserID(), blogId);
+        log.info("User {} successfully deleted blog {}. New status: {}, isDeleted: {}", userDetails.getUser().getUserId(), blogId, blog.getStatus(), blog.getIsDeleted());
     }
 
 }

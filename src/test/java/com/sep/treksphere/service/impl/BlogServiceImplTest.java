@@ -58,25 +58,25 @@ class BlogServiceImplTest {
 
         // Setup Author
         author = new User();
-        author.setUserID(UUID.randomUUID());
+        author.setUserId(UUID.randomUUID());
         author.setRoles(new HashSet<>(Collections.singletonList(roleUser)));
         authorDetails = new CustomUserDetails(author);
 
         // Setup Other User
         otherUser = new User();
-        otherUser.setUserID(UUID.randomUUID());
+        otherUser.setUserId(UUID.randomUUID());
         otherUser.setRoles(new HashSet<>(Collections.singletonList(roleUser)));
         otherUserDetails = new CustomUserDetails(otherUser);
 
         // Setup Admin
         admin = new User();
-        admin.setUserID(UUID.randomUUID());
+        admin.setUserId(UUID.randomUUID());
         admin.setRoles(new HashSet<>(Collections.singletonList(roleAdmin)));
         adminDetails = new CustomUserDetails(admin);
 
         // Setup Blog
         blog = new Blog();
-        blog.setBlogID(blogId);
+        blog.setBlogId(blogId);
         blog.setUser(author);
         blog.setStatus(BlogStatus.PUBLISHED);
         blog.setIsDeleted(false);
@@ -135,7 +135,7 @@ class BlogServiceImplTest {
         assertEquals(BlogStatus.DELETED, blog.getStatus());
         assertTrue(blog.getIsDeleted());
         assertNotNull(blog.getDeletedAt());
-        assertEquals(author.getUserID().toString(), blog.getDeletedBy());
+        assertEquals(author.getUserId().toString(), blog.getDeletedBy());
         verify(blogRepository, times(1)).save(blog);
     }
 
@@ -148,7 +148,7 @@ class BlogServiceImplTest {
         assertEquals(BlogStatus.DELETED, blog.getStatus());
         assertTrue(blog.getIsDeleted());
         assertNotNull(blog.getDeletedAt());
-        assertEquals(admin.getUserID().toString(), blog.getDeletedBy());
+        assertEquals(admin.getUserId().toString(), blog.getDeletedBy());
         verify(blogRepository, times(1)).save(blog);
     }
 

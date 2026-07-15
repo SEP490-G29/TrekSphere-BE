@@ -29,11 +29,11 @@ public class VendorStaffServiceImpl implements VendorStaffService {
     @Override
     @Transactional(readOnly = true)
     public PaginationResponse<VendorStaffResponse> getMyVendorStaff(String managerEmail, BaseFilterRequest request) {
-        Vendor vendor = vendorRepository.findByManagerUser_Email(managerEmail)
+        Vendor vendor = vendorRepository.findByManager_Email(managerEmail)
                 .orElseThrow(() -> new AppException(ErrorCode.VENDOR_NOT_FOUND));
 
         Page<VendorStaff> staffPage = vendorStaffRepository.findByVendorIdAndKeyword(
-                vendor.getVendorID(),
+                vendor.getVendorId(),
                 request.getKeyword(),
                 request.getPageable()
         );

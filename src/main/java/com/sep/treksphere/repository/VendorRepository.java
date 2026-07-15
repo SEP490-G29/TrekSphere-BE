@@ -14,7 +14,7 @@ import java.util.UUID;
 @Repository
 public interface VendorRepository extends JpaRepository<Vendor, UUID> {
     
-    Optional<Vendor> findByManagerUser_Email(String email);
+    Optional<Vendor> findByManager_Email(String email);
     
     @Query("SELECT v FROM Vendor v WHERE v.isDeleted = false AND (:keyword IS NULL OR :keyword = '' OR LOWER(v.companyName) LIKE LOWER(CONCAT('%', :keyword, '%')) OR LOWER(v.contactEmail) LIKE LOWER(CONCAT('%', :keyword, '%')))")
     Page<Vendor> findByKeyword(@Param("keyword") String keyword, Pageable pageable);

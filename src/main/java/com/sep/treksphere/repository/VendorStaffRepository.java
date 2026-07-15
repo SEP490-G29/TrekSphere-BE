@@ -13,7 +13,7 @@ import java.util.UUID;
 @Repository
 public interface VendorStaffRepository extends JpaRepository<VendorStaff, UUID> {
 
-    @Query("SELECT vs FROM VendorStaff vs WHERE vs.vendor.vendorID = :vendorId " +
+    @Query("SELECT vs FROM VendorStaff vs WHERE vs.vendor.vendorId = :vendorId " +
            "AND (:keyword IS NULL OR :keyword = '' " +
            "OR LOWER(vs.user.fullName) LIKE LOWER(CONCAT('%', :keyword, '%')) " +
            "OR LOWER(vs.user.email) LIKE LOWER(CONCAT('%', :keyword, '%')))")
