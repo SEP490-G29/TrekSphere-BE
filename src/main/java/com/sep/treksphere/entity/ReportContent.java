@@ -1,11 +1,11 @@
 package com.sep.treksphere.entity;
 
 import com.sep.treksphere.enums.blog.ReportStatus;
-import com.sep.treksphere.enums.blog.TargetType;
 import jakarta.persistence.*;
-import lombok.*;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
 
-import java.time.LocalDateTime;
 import java.util.UUID;
 
 @Entity
@@ -15,47 +15,32 @@ import java.util.UUID;
 @NoArgsConstructor
 
 
-public class ReportContent {
+public class ReportContent extends BaseEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
-    private UUID reportID;
+    private UUID reportContentId;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "reporter_user_id", nullable = false)
-    private User reporterUser;
+    @JoinColumn(name = "reporter_id", nullable = false)
+    private User reporter;
 
-    @Enumerated(EnumType.STRING)
-    @Column(nullable = false, length = 10)
-    private TargetType targetType;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "blog_id")
+    private Blog blog;
 
-    @Column(nullable = false)
-    private UUID targetID;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "blog_comment_id")
+    private BlogComment blogComment;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "review_id")
+    private Review review;
 
     @Column(nullable = false, length = 255)
     private String reason;
 
-    @Column(columnDefinition = "TEXT")
-    private String detail;
-
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 10)
     private ReportStatus status = ReportStatus.PENDING;
-
-    @Column(columnDefinition = "TEXT")
-    private String moderationDecision;
-
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "moderated_by_user_id")
-    private User moderatedByUser;
-
-    @Column(nullable = false, updatable = false)
-    private LocalDateTime reportedAt;
-
-    private LocalDateTime resolvedAt;
-
-    @PrePersist
-    protected void onCreate() {
-        this.reportedAt = LocalDateTime.now();
-    }
 }

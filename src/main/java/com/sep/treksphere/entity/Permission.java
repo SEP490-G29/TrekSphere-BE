@@ -1,7 +1,9 @@
 package com.sep.treksphere.entity;
 
 import jakarta.persistence.*;
-import lombok.*;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
 
 import java.util.UUID;
 
@@ -18,7 +20,7 @@ public class Permission {
 
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
-    private UUID permissionID;
+    private UUID permissionId;
 
     @Column(nullable = false, length = 100)
     private String resource;

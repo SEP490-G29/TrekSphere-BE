@@ -1,8 +1,9 @@
 package com.sep.treksphere.entity;
 
-import com.sep.treksphere.enums.chat.MessageType;
 import jakarta.persistence.*;
-import lombok.*;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
 
 import java.util.UUID;
 
@@ -17,22 +18,18 @@ public class Message extends BaseEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
-    private UUID messageID;
+    private UUID messageId;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "conversation_id", nullable = false)
     private Conversation conversation;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "sender_user_id", nullable = false)
-    private User senderUser;
+    @JoinColumn(name = "sender_id", nullable = false)
+    private User sender;
 
     @Column(nullable = false, columnDefinition = "TEXT")
     private String content;
-
-    @Enumerated(EnumType.STRING)
-    @Column(nullable = false, length = 10)
-    private MessageType messageType = MessageType.TEXT;
 
     @Column(nullable = false)
     private Boolean isRead = false;

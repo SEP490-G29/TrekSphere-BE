@@ -4,7 +4,6 @@ import com.sep.treksphere.dto.response.BlogCommentResponse;
 import com.sep.treksphere.dto.response.BlogDetailResponse;
 import com.sep.treksphere.dto.response.BlogSummaryResponse;
 import com.sep.treksphere.dto.response.PaginationResponse;
-import com.sep.treksphere.utils.PaginationUtils;
 import com.sep.treksphere.entity.Blog;
 import com.sep.treksphere.entity.BlogComment;
 import com.sep.treksphere.enums.blog.BlogStatus;
@@ -14,6 +13,7 @@ import com.sep.treksphere.exception.ErrorCode;
 import com.sep.treksphere.repository.BlogCommentRepository;
 import com.sep.treksphere.repository.BlogRepository;
 import com.sep.treksphere.service.BlogService;
+import com.sep.treksphere.utils.PaginationUtils;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -80,21 +80,21 @@ public class BlogServiceImpl implements BlogService {
     private List<BlogCommentResponse> buildCommentTree(List<BlogComment> allComments) {
         Map<UUID, BlogCommentResponse> responseMap = allComments.stream()
                 .collect(Collectors.toMap(
-                        BlogComment::getCommentID,
+                        BlogComment::getBlogCommentId,
                         this::toCommentResponse,
                         (a, b) -> a));
         for (BlogComment comment : allComments) {
             if (comment.getParentComment() != null) {
-                UUID parentId = comment.getParentComment().getCommentID();
+                UUID parentId = comment.getParentComment().getBlogCommentId();
                 BlogCommentResponse parent = responseMap.get(parentId);
                 if (parent != null) {
-                    parent.getReplies().add(responseMap.get(comment.getCommentID()));
+                    parent.getReplies().add(responseMap.get(comment.getBlogCommentId()));
                 }
             }
         }
         return allComments.stream()
                 .filter(c -> c.getParentComment() == null)
-                .map(c -> responseMap.get(c.getCommentID()))
+                .map(c -> responseMap.get(c.getBlogCommentId()))
                 .toList();
     }
 
@@ -102,12 +102,12 @@ public class BlogServiceImpl implements BlogService {
         int totalComments = blogCommentRepository.countByBlogAndStatus(blog, CommentStatus.ACTIVE);
 
         return BlogSummaryResponse.builder()
-                .blogId(blog.getBlogID().toString())
+                .blogId(blog.getBlogId().toString())
                 .title(blog.getTitle())
                 .coverImageUrl(blog.getCoverImageUrl())
                 .status(blog.getStatus())
                 .viewCount(blog.getViewCount())
-                .authorId(blog.getUser().getUserID().toString())
+                .authorId(blog.getUser().getUserId().toString())
                 .authorName(blog.getUser().getFullName())
                 .authorAvatarUrl(blog.getUser().getAvatarUrl())
                 .totalComments(totalComments)
@@ -119,13 +119,13 @@ public class BlogServiceImpl implements BlogService {
             List<BlogCommentResponse> comments,
             int totalComments) {
         return BlogDetailResponse.builder()
-                .blogId(blog.getBlogID().toString())
+                .blogId(blog.getBlogId().toString())
                 .title(blog.getTitle())
                 .content(blog.getContent())
                 .coverImageUrl(blog.getCoverImageUrl())
                 .status(blog.getStatus())
                 .viewCount(blog.getViewCount())
-                .authorId(blog.getUser().getUserID().toString())
+                .authorId(blog.getUser().getUserId().toString())
                 .authorName(blog.getUser().getFullName())
                 .authorAvatarUrl(blog.getUser().getAvatarUrl())
                 .comments(comments)
@@ -137,8 +137,8 @@ public class BlogServiceImpl implements BlogService {
 
     private BlogCommentResponse toCommentResponse(BlogComment comment) {
         return BlogCommentResponse.builder()
-                .commentId(comment.getCommentID().toString())
-                .userId(comment.getUser().getUserID().toString())
+                .commentId(comment.getBlogCommentId().toString())
+                .userId(comment.getUser().getUserId().toString())
                 .userFullName(comment.getUser().getFullName())
                 .userAvatarUrl(comment.getUser().getAvatarUrl())
                 .content(comment.getContent())

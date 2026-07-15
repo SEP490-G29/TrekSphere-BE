@@ -3,7 +3,9 @@ package com.sep.treksphere.entity;
 import com.sep.treksphere.enums.booking.BookingStatus;
 import com.sep.treksphere.enums.booking.PaymentStatus;
 import jakarta.persistence.*;
-import lombok.*;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -22,14 +24,17 @@ public class Booking extends BaseEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
-    private UUID bookingID;
+    private UUID bookingId;
+
+    @Column(nullable = false, unique = true, length = 50)
+    private String bookingCode;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id", nullable = false)
     private User user;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "schedule_id", nullable = false)
+    @JoinColumn(name = "tour_schedule_id", nullable = false)
     private TourSchedule schedule;
 
     @ManyToOne(fetch = FetchType.LAZY)
@@ -38,6 +43,9 @@ public class Booking extends BaseEntity {
 
     @Column(nullable = false)
     private Integer numberOfParticipants;
+
+    @Column(nullable = false, precision = 12, scale = 2)
+    private BigDecimal originalPrice;
 
     @Column(nullable = false, precision = 12, scale = 2)
     private BigDecimal totalPrice;
@@ -53,9 +61,8 @@ public class Booking extends BaseEntity {
     @Column(nullable = false, length = 10)
     private BookingStatus bookingStatus = BookingStatus.PENDING;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "cancelled_by_user_id")
-    private User cancelledBy;
+    @Column(length = 500)
+    private String proofImageUrl;
 
     @Column(columnDefinition = "TEXT")
     private String cancellationReason;
@@ -67,7 +74,4 @@ public class Booking extends BaseEntity {
 
     @OneToMany(mappedBy = "booking", cascade = CascadeType.ALL, orphanRemoval = true)
     private Set<BookingParticipant> participants = new HashSet<>();
-
-    @OneToMany(mappedBy = "booking", cascade = CascadeType.ALL, orphanRemoval = true)
-    private Set<Transaction> transactions = new HashSet<>();
 }

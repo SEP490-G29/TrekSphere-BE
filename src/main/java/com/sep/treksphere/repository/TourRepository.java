@@ -39,7 +39,7 @@ public interface TourRepository extends JpaRepository<Tour, UUID> {
      @Query("""
                SELECT t FROM Tour t
                JOIN FETCH t.vendor v
-               WHERE t.tourID = :tourId AND t.isDeleted = false
+               WHERE t.tourId = :tourId AND t.isDeleted = false
                """)
      Optional<Tour> findDetailById(@Param("tourId") UUID tourId);
 }

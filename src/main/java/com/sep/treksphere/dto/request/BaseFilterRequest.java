@@ -1,11 +1,11 @@
 package com.sep.treksphere.dto.request;
 
+import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Getter;
 import lombok.Setter;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
-import io.swagger.v3.oas.annotations.media.Schema;
 
 @Getter
 @Setter

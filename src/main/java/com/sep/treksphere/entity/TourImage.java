@@ -1,9 +1,10 @@
 package com.sep.treksphere.entity;
 
 import jakarta.persistence.*;
-import lombok.*;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
 
-import java.time.LocalDateTime;
 import java.util.UUID;
 
 @Entity
@@ -13,11 +14,11 @@ import java.util.UUID;
 @NoArgsConstructor
 
 
-public class TourImage {
+public class TourImage extends BaseEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
-    private UUID imageID;
+    private UUID imageId;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "tour_id", nullable = false)
@@ -32,11 +33,4 @@ public class TourImage {
     @Column(length = 255)
     private String caption;
 
-    @Column(nullable = false, updatable = false)
-    private LocalDateTime createdAt;
-
-    @PrePersist
-    protected void onCreate() {
-        this.createdAt = LocalDateTime.now();
-    }
 }

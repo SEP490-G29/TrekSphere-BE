@@ -3,9 +3,10 @@ package com.sep.treksphere.entity;
 import com.sep.treksphere.enums.matching.JoinStatus;
 import com.sep.treksphere.enums.matching.MatchingRole;
 import jakarta.persistence.*;
-import lombok.*;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
 
-import java.time.LocalDateTime;
 import java.util.UUID;
 
 @Entity
@@ -17,11 +18,11 @@ import java.util.UUID;
 @NoArgsConstructor
 
 
-public class MatchingMember {
+public class MatchingMember extends BaseEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
-    private UUID memberID;
+    private UUID matchingMemberId;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "group_id", nullable = false)
@@ -37,15 +38,5 @@ public class MatchingMember {
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 10)
-    private JoinStatus joinStatus = JoinStatus.PENDING;
-
-    @Column(nullable = false, updatable = false)
-    private LocalDateTime joinedAt;
-
-    private LocalDateTime leftAt;
-
-    @PrePersist
-    protected void onCreate() {
-        this.joinedAt = LocalDateTime.now();
-    }
+    private JoinStatus status = JoinStatus.PENDING;
 }

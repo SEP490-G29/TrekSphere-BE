@@ -1,9 +1,10 @@
 package com.sep.treksphere.entity;
 
-import com.sep.treksphere.enums.chat.ConversationStatus;
 import com.sep.treksphere.enums.chat.ConversationType;
 import jakarta.persistence.*;
-import lombok.*;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
 
 import java.time.LocalDateTime;
 import java.util.HashSet;
@@ -21,7 +22,7 @@ public class Conversation extends BaseEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
-    private UUID conversationID;
+    private UUID conversationId;
 
     @Column(length = 255)
     private String title;
@@ -31,10 +32,6 @@ public class Conversation extends BaseEntity {
     private ConversationType conversationType;
 
     private LocalDateTime lastMessageAt;
-
-    @Enumerated(EnumType.STRING)
-    @Column(nullable = false, length = 10)
-    private ConversationStatus status = ConversationStatus.ACTIVE;
 
     @ManyToMany
     @JoinTable(

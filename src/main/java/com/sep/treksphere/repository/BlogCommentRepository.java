@@ -19,7 +19,7 @@ public interface BlogCommentRepository extends JpaRepository<BlogComment, UUID> 
     @Query("""
             SELECT c FROM BlogComment c
             JOIN FETCH c.user u
-            WHERE c.blog.blogID = :blogId
+            WHERE c.blog.blogId = :blogId
               AND c.status = :status
             ORDER BY c.createdAt ASC
             """)
@@ -30,7 +30,7 @@ public interface BlogCommentRepository extends JpaRepository<BlogComment, UUID> 
     @Query("""
             SELECT c FROM BlogComment c
             JOIN FETCH c.user u
-            WHERE c.blog.blogID = :blogId
+            WHERE c.blog.blogId = :blogId
               AND c.parentComment IS NULL
               AND c.status = :status
             ORDER BY c.createdAt ASC
@@ -43,7 +43,7 @@ public interface BlogCommentRepository extends JpaRepository<BlogComment, UUID> 
     @Query("""
             SELECT c FROM BlogComment c
             JOIN FETCH c.user u
-            WHERE c.parentComment.commentID = :parentId
+            WHERE c.parentComment.blogCommentId = :parentId
               AND c.status = :status
             ORDER BY c.createdAt ASC
             """)

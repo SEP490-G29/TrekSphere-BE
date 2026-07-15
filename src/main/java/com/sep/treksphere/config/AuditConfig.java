@@ -32,8 +32,8 @@ public class AuditConfig {
 
             if (principal instanceof CustomUserDetails userDetails
                     && userDetails.getUser() != null
-                    && userDetails.getUser().getUserID() != null) {
-                return Optional.of(userDetails.getUser().getUserID().toString());
+                    && userDetails.getUser().getUserId() != null) {
+                return Optional.of(userDetails.getUser().getUserId().toString());
             }
 
             return Optional.ofNullable(authentication.getName()).or(() -> Optional.of(SYSTEM_AUDITOR));

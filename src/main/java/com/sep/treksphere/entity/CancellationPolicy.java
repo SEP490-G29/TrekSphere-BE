@@ -1,7 +1,9 @@
 package com.sep.treksphere.entity;
 
 import jakarta.persistence.*;
-import lombok.*;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
 
 import java.util.UUID;
 
@@ -16,14 +18,14 @@ public class CancellationPolicy extends BaseEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
-    private UUID policyID;
+    private UUID cancellationPolicyId;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "vendor_id", nullable = false)
     private Vendor vendor;
 
     @Column(nullable = false)
-    private Integer daysBeforeDeparture;
+    private Integer cancelBeforeDays;
 
     @Column(nullable = false)
     private Integer refundPercentage;

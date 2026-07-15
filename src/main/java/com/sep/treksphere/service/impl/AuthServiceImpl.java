@@ -117,7 +117,7 @@ public class AuthServiceImpl implements AuthService {
 
         log.info("Saving User {} to database...", request.getEmail());
         user = userRepository.save(user);
-        log.info("User {} saved successfully with ID: {}", user.getEmail(), user.getUserID());
+        log.info("User {} saved successfully with ID: {}", user.getEmail(), user.getUserId());
 
         log.info("Generating verification token...");
         String verificationToken = tokenProvider.generateVerificationToken(user.getEmail());
@@ -132,7 +132,7 @@ public class AuthServiceImpl implements AuthService {
         }
 
         log.info("Registration process completed successfully for: {}", request.getEmail());
-        return RegisterResponse.builder().userID(user.getUserID()).email(user.getEmail()).fullName(user.getFullName()).build();
+        return RegisterResponse.builder().userId(user.getUserId()).email(user.getEmail()).fullName(user.getFullName()).build();
     }
 
     @Override
