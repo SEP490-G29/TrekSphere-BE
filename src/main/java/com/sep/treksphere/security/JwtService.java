@@ -1,5 +1,6 @@
 package com.sep.treksphere.security;
 
+import com.sep.treksphere.entity.User;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.ExpiredJwtException;
 import io.jsonwebtoken.JwtException;
@@ -9,8 +10,6 @@ import io.jsonwebtoken.security.Keys;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Service;
-
-import com.sep.treksphere.entity.User;
 
 import javax.crypto.SecretKey;
 import java.util.Date;

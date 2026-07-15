@@ -31,7 +31,7 @@ public interface BlogRepository extends JpaRepository<Blog, UUID> {
     @Query("""
                SELECT b FROM Blog b
                JOIN FETCH b.user u
-               WHERE b.blogID = :blogId AND b.isDeleted = false
+               WHERE b.blogId = :blogId AND b.isDeleted = false
                """)
     Optional<Blog> findDetailById(@Param("blogId") UUID blogId);
 }

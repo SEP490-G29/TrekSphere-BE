@@ -2,7 +2,9 @@ package com.sep.treksphere.entity;
 
 import com.sep.treksphere.enums.blog.BlogStatus;
 import jakarta.persistence.*;
-import lombok.*;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
 
 import java.util.HashSet;
 import java.util.Set;
@@ -17,7 +19,7 @@ public class Blog extends BaseEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
-    private UUID blogID;
+    private UUID blogId;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id", nullable = false)

@@ -3,7 +3,9 @@ package com.sep.treksphere.entity;
 import com.sep.treksphere.enums.tour.DifficultyLevel;
 import com.sep.treksphere.enums.tour.TourStatus;
 import jakarta.persistence.*;
-import lombok.*;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
 
 import java.math.BigDecimal;
 import java.util.UUID;
@@ -19,7 +21,7 @@ public class Tour extends BaseEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
-    private UUID tourID;
+    private UUID tourId;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "vendor_id", nullable = false)
@@ -45,7 +47,13 @@ public class Tour extends BaseEntity {
     private BigDecimal basePrice;
 
     @Column(nullable = false)
+    private Integer minCapacity = 1;
+
+    @Column(nullable = false)
     private Integer maxCapacity;
+
+    @Column(precision = 5, scale = 2)
+    private BigDecimal totalDistanceKm;
 
     @Column(columnDefinition = "TEXT")
     private String highlights;
@@ -64,6 +72,6 @@ public class Tour extends BaseEntity {
     private TourStatus status = TourStatus.DRAFT;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "created_by_user_id", nullable = false)
-    private User createdByUser;
+    @JoinColumn(name = "creator_id", nullable = false)
+    private User creator;
 }

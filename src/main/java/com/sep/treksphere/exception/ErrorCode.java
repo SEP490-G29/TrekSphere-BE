@@ -1,9 +1,8 @@
 package com.sep.treksphere.exception;
 
+import com.sep.treksphere.constant.MessageConstant;
 import lombok.Getter;
 import org.springframework.http.HttpStatus;
-
-import com.sep.treksphere.constant.MessageConstant;
 
 @Getter
 public enum ErrorCode {

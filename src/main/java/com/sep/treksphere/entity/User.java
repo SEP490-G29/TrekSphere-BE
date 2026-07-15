@@ -4,7 +4,9 @@ import com.sep.treksphere.enums.user.AuthProvider;
 import com.sep.treksphere.enums.user.Gender;
 import com.sep.treksphere.enums.user.UserStatus;
 import jakarta.persistence.*;
-import lombok.*;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
 
 import java.time.LocalDate;
 import java.util.HashSet;
@@ -22,7 +24,7 @@ public class User extends BaseEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
-    private UUID userID;
+    private UUID userId;
 
     @Column(nullable = false, unique = true, length = 255)
     private String email;
