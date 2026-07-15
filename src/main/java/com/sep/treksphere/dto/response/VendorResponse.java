@@ -11,8 +11,8 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 public class VendorResponse {
-    private String vendorID;
-    private UserProfileResponse managerUser;
+    private String vendorId;
+    private UserProfileResponse manager;
     private String companyName;
     private String description;
     private String logoUrl;

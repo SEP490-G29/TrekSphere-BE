@@ -2,7 +2,9 @@ package com.sep.treksphere.entity;
 
 import com.sep.treksphere.enums.user.Gender;
 import jakarta.persistence.*;
-import lombok.*;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
 
 import java.time.LocalDate;
 import java.util.UUID;
@@ -14,11 +16,11 @@ import java.util.UUID;
 @NoArgsConstructor
 
 
-public class BookingParticipant {
+public class BookingParticipant extends BaseEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
-    private UUID participantID;
+    private UUID participantId;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "booking_id", nullable = false)
@@ -43,12 +45,9 @@ public class BookingParticipant {
     @Column(length = 255)
     private String email;
 
-    @Column(nullable = false, length = 255)
-    private String emergencyContact;
+    @Column(length = 255)
+    private String address;
 
     @Column(columnDefinition = "TEXT")
     private String specialRequirements;
-
-    @Column(nullable = false)
-    private Boolean infoConfirmed = false;
 }

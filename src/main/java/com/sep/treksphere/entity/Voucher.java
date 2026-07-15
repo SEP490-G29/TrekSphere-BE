@@ -1,10 +1,11 @@
 package com.sep.treksphere.entity;
 
 import com.sep.treksphere.enums.voucher.DiscountType;
-import com.sep.treksphere.enums.voucher.VoucherApprovalStatus;
 import com.sep.treksphere.enums.voucher.VoucherStatus;
 import jakarta.persistence.*;
-import lombok.*;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -21,7 +22,7 @@ public class Voucher extends BaseEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
-    private UUID voucherID;
+    private UUID voucherId;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "vendor_id", nullable = false)
@@ -52,9 +53,6 @@ public class Voucher extends BaseEntity {
     @Column(nullable = false, precision = 12, scale = 2)
     private BigDecimal minOrderValue = BigDecimal.ZERO;
 
-    @Enumerated(EnumType.STRING)
-    @Column(nullable = false, length = 10)
-    private VoucherApprovalStatus approvalStatus = VoucherApprovalStatus.PENDING;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 10)

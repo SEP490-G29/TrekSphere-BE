@@ -1,7 +1,9 @@
 package com.sep.treksphere.entity;
 
 import jakarta.persistence.*;
-import lombok.*;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
 
 import java.util.HashSet;
 import java.util.Set;
@@ -18,7 +20,7 @@ public class Role {
 
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
-    private UUID roleID;
+    private UUID roleId;
 
     @Column(nullable = false, unique = true, length = 50)
     private String roleName;

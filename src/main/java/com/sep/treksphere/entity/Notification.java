@@ -3,7 +3,9 @@ package com.sep.treksphere.entity;
 import com.sep.treksphere.enums.system.NotificationEventType;
 import com.sep.treksphere.enums.system.ReferenceType;
 import jakarta.persistence.*;
-import lombok.*;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
 
 import java.util.UUID;
 
@@ -18,11 +20,11 @@ public class Notification extends BaseEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
-    private UUID notificationID;
+    private UUID notificationId;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "user_id", nullable = false)
-    private User user;
+    @JoinColumn(name = "recipient_id", nullable = false)
+    private User recipient;
 
     @Column(nullable = false, length = 255)
     private String title;
@@ -32,13 +34,13 @@ public class Notification extends BaseEntity {
     private NotificationEventType eventType;
 
     @Column(nullable = false, columnDefinition = "TEXT")
-    private String message;
+    private String content;
 
     @Enumerated(EnumType.STRING)
     @Column(length = 50)
     private ReferenceType referenceType;
 
-    private UUID referenceID;
+    private UUID referenceId;
 
     @Column(nullable = false)
     private Boolean isRead = false;

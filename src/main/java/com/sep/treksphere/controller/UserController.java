@@ -1,6 +1,7 @@
 package com.sep.treksphere.controller;
 
 import com.sep.treksphere.constant.MessageConstant;
+import com.sep.treksphere.dto.request.UpdateProfileRequest;
 import com.sep.treksphere.dto.response.ApiResponse;
 import com.sep.treksphere.dto.response.UserProfileResponse;
 import com.sep.treksphere.exception.AppException;
@@ -22,6 +23,7 @@ import com.sep.treksphere.dto.request.UserFilterRequest;
 import com.sep.treksphere.dto.response.PaginationResponse;
 import com.sep.treksphere.enums.user.UserStatus;
 import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.ModelAttribute;
@@ -29,6 +31,9 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springdoc.core.annotations.ParameterObject;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/api/v1/users")

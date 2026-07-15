@@ -2,9 +2,10 @@ package com.sep.treksphere.entity;
 
 import com.sep.treksphere.enums.vendor.ApplicationStatus;
 import jakarta.persistence.*;
-import lombok.*;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
 
-import java.time.LocalDateTime;
 import java.util.UUID;
 
 @Entity
@@ -18,11 +19,12 @@ public class VendorApplication extends BaseEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
-    private UUID applicationID;
+    @Column(name = "vendor_application_id")
+    private UUID vendorApplicationId;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "applicant_user_id", nullable = false)
-    private User applicantUser;
+    @JoinColumn(name = "applicant_id", nullable = false)
+    private User applicant;
 
     @Column(nullable = false, length = 255)
     private String companyName;
@@ -43,9 +45,9 @@ public class VendorApplication extends BaseEntity {
     @Column(columnDefinition = "TEXT")
     private String rejectionReason;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "reviewed_by")
-    private User reviewedBy;
+    @Column(nullable = false, unique = true, length = 50)
+    private String taxCode;
 
-    private LocalDateTime reviewedAt;
+    @Column(nullable = false, length = 500)
+    private String businessLicenseUrl;
 }
