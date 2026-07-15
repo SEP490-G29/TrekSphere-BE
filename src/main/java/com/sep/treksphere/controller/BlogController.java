@@ -50,7 +50,18 @@ public class BlogController {
             @PathVariable UUID id,
             @AuthenticationPrincipal CustomUserDetails userDetails) {
         blogService.hideBlog(id, userDetails);
-        return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, null));
+        return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, null, "Ẩn blog thành công."));
+    }
+
+    @Operation(summary = "Bỏ ẩn Blog", description = "Tác giả bỏ ẩn blog của chính mình, hoặc Admin bỏ ẩn blog.")
+    @SecurityRequirement(name = "bearerAuth")
+    @PreAuthorize("isAuthenticated()")
+    @PutMapping("/{id}/unhide")
+    public ResponseEntity<ApiResponse<Void>> unhideBlog(
+            @PathVariable UUID id,
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+        blogService.unhideBlog(id, userDetails);
+        return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, null, "Bỏ ẩn blog thành công."));
     }
 
     @Operation(summary = "Xóa Blog", description = "Tác giả xóa blog của chính mình, hoặc Admin xóa blog vi phạm.")

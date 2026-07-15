@@ -177,6 +177,15 @@ public class BlogServiceImpl implements BlogService {
 
     @Override
     @Transactional
+    public void unhideBlog(UUID blogId, CustomUserDetails userDetails) {
+        Blog blog = getBlogAndVerifyOwnership(blogId, userDetails);
+        blog.setStatus(BlogStatus.PUBLISHED);
+        blogRepository.save(blog);
+        log.info("User {} successfully unhid blog {}. New status: {}", userDetails.getUser().getUserId(), blogId, blog.getStatus());
+    }
+
+    @Override
+    @Transactional
     public void deleteBlog(UUID blogId, CustomUserDetails userDetails) {
         Blog blog = getBlogAndVerifyOwnership(blogId, userDetails);
         blog.setStatus(BlogStatus.DELETED);

@@ -80,6 +80,8 @@ class BlogServiceImplTest {
         blog.setUser(author);
         blog.setStatus(BlogStatus.PUBLISHED);
         blog.setIsDeleted(false);
+
+        System.out.println("\u001B[32m[SUCCESS] setUp passed!\u001B[0m");
     }
 
     @Test
@@ -90,6 +92,8 @@ class BlogServiceImplTest {
 
         assertEquals(BlogStatus.HIDDEN, blog.getStatus());
         verify(blogRepository, times(1)).save(blog);
+
+        System.out.println("\u001B[32m[SUCCESS] hideBlog_Success_AsAuthor passed!\u001B[0m");
     }
 
     @Test
@@ -100,6 +104,8 @@ class BlogServiceImplTest {
 
         assertEquals(BlogStatus.HIDDEN, blog.getStatus());
         verify(blogRepository, times(1)).save(blog);
+
+        System.out.println("\u001B[32m[SUCCESS] hideBlog_Success_AsAdmin passed!\u001B[0m");
     }
 
     @Test
@@ -112,6 +118,8 @@ class BlogServiceImplTest {
 
         assertEquals(ErrorCode.ACCESS_DENIED, exception.getErrorCode());
         verify(blogRepository, never()).save(any());
+
+        System.out.println("\u001B[32m[SUCCESS] hideBlog_Fail_AccessDenied passed!\u001B[0m");
     }
 
     @Test
@@ -124,6 +132,60 @@ class BlogServiceImplTest {
 
         assertEquals(ErrorCode.BLOG_NOT_FOUND, exception.getErrorCode());
         verify(blogRepository, never()).save(any());
+
+        System.out.println("\u001B[32m[SUCCESS] hideBlog_Fail_BlogNotFound passed!\u001B[0m");
+    }
+
+    @Test
+    void unhideBlog_Success_AsAuthor() {
+        when(blogRepository.findDetailById(blogId)).thenReturn(Optional.of(blog));
+
+        blogService.unhideBlog(blogId, authorDetails);
+
+        assertEquals(BlogStatus.PUBLISHED, blog.getStatus());
+        verify(blogRepository, times(1)).save(blog);
+
+        System.out.println("\u001B[32m[SUCCESS] unhideBlog_Success_AsAuthor passed!\u001B[0m");
+    }
+
+    @Test
+    void unhideBlog_Success_AsAdmin() {
+        when(blogRepository.findDetailById(blogId)).thenReturn(Optional.of(blog));
+
+        blogService.unhideBlog(blogId, adminDetails);
+
+        assertEquals(BlogStatus.PUBLISHED, blog.getStatus());
+        verify(blogRepository, times(1)).save(blog);
+
+        System.out.println("\u001B[32m[SUCCESS] unhideBlog_Success_AsAdmin passed!\u001B[0m");
+    }
+
+    @Test
+    void unhideBlog_Fail_AccessDenied() {
+        when(blogRepository.findDetailById(blogId)).thenReturn(Optional.of(blog));
+
+        AppException exception = assertThrows(AppException.class, () -> 
+            blogService.unhideBlog(blogId, otherUserDetails)
+        );
+
+        assertEquals(ErrorCode.ACCESS_DENIED, exception.getErrorCode());
+        verify(blogRepository, never()).save(any());
+
+        System.out.println("\u001B[32m[SUCCESS] unhideBlog_Fail_AccessDenied passed!\u001B[0m");
+    }
+
+    @Test
+    void unhideBlog_Fail_BlogNotFound() {
+        when(blogRepository.findDetailById(blogId)).thenReturn(Optional.empty());
+
+        AppException exception = assertThrows(AppException.class, () -> 
+            blogService.unhideBlog(blogId, authorDetails)
+        );
+
+        assertEquals(ErrorCode.BLOG_NOT_FOUND, exception.getErrorCode());
+        verify(blogRepository, never()).save(any());
+
+        System.out.println("\u001B[32m[SUCCESS] unhideBlog_Fail_BlogNotFound passed!\u001B[0m");
     }
 
     @Test
@@ -137,6 +199,8 @@ class BlogServiceImplTest {
         assertNotNull(blog.getDeletedAt());
         assertEquals(author.getUserId().toString(), blog.getDeletedBy());
         verify(blogRepository, times(1)).save(blog);
+
+        System.out.println("\u001B[32m[SUCCESS] deleteBlog_Success_AsAuthor passed!\u001B[0m");
     }
 
     @Test
@@ -150,6 +214,8 @@ class BlogServiceImplTest {
         assertNotNull(blog.getDeletedAt());
         assertEquals(admin.getUserId().toString(), blog.getDeletedBy());
         verify(blogRepository, times(1)).save(blog);
+
+        System.out.println("\u001B[32m[SUCCESS] deleteBlog_Success_AsAdmin passed!\u001B[0m");
     }
 
     @Test
@@ -162,6 +228,8 @@ class BlogServiceImplTest {
 
         assertEquals(ErrorCode.BLOG_NOT_FOUND, exception.getErrorCode());
         verify(blogRepository, never()).save(any());
+
+        System.out.println("\u001B[32m[SUCCESS] deleteBlog_Fail_BlogNotFound passed!\u001B[0m");
     }
     @Test
     void deleteBlog_Fail_AccessDenied() {
@@ -173,5 +241,7 @@ class BlogServiceImplTest {
 
         assertEquals(ErrorCode.ACCESS_DENIED, exception.getErrorCode());
         verify(blogRepository, never()).save(any());
+
+        System.out.println("\u001B[32m[SUCCESS] deleteBlog_Fail_AccessDenied passed!\u001B[0m");
     }
 }
