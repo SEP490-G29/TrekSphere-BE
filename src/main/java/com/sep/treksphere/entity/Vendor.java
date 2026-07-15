@@ -2,7 +2,9 @@ package com.sep.treksphere.entity;
 
 import com.sep.treksphere.enums.vendor.VendorStatus;
 import jakarta.persistence.*;
-import lombok.*;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
 
 import java.util.UUID;
 
@@ -17,11 +19,11 @@ public class Vendor extends BaseEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
-    private UUID vendorID;
+    private UUID vendorId;
 
     @OneToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "manager_user_id", unique = true, nullable = false)
-    private User managerUser;
+    @JoinColumn(name = "manager_id", unique = true, nullable = false)
+    private User manager;
 
     @Column(nullable = false, length = 255)
     private String companyName;
@@ -43,6 +45,15 @@ public class Vendor extends BaseEntity {
 
     @Column(length = 100)
     private String bankName;
+
+    @Column(length = 500)
+    private String paymentQrUrl;
+
+    @Column(nullable = false, unique = true, length = 50)
+    private String taxCode;
+
+    @Column(nullable = false, length = 500)
+    private String businessLicenseUrl;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 10)

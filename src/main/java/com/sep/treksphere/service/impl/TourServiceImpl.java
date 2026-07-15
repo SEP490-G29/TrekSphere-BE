@@ -1,11 +1,6 @@
 package com.sep.treksphere.service.impl;
 
-import com.sep.treksphere.dto.response.PaginationResponse;
-import com.sep.treksphere.dto.response.TourDetailResponse;
-import com.sep.treksphere.dto.response.TourImageResponse;
-import com.sep.treksphere.dto.response.TourScheduleResponse;
-import com.sep.treksphere.dto.response.TourSummaryResponse;
-import com.sep.treksphere.utils.PaginationUtils;
+import com.sep.treksphere.dto.response.*;
 import com.sep.treksphere.entity.Tour;
 import com.sep.treksphere.entity.TourImage;
 import com.sep.treksphere.entity.TourSchedule;
@@ -20,6 +15,7 @@ import com.sep.treksphere.repository.TourImageRepository;
 import com.sep.treksphere.repository.TourRepository;
 import com.sep.treksphere.repository.TourScheduleRepository;
 import com.sep.treksphere.service.TourService;
+import com.sep.treksphere.utils.PaginationUtils;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -87,7 +83,7 @@ public class TourServiceImpl implements TourService {
         int totalReviews = reviewRepository.countByTourAndStatusAndIsDeletedFalse(tour, ReviewStatus.APPROVED);
 
         return TourSummaryResponse.builder()
-                .tourId(tour.getTourID().toString())
+                .tourId(tour.getTourId().toString())
                 .tourName(tour.getTourName())
                 .location(tour.getLocation())
                 .durationDays(tour.getDurationDays())
@@ -95,7 +91,7 @@ public class TourServiceImpl implements TourService {
                 .difficulty(tour.getDifficulty())
                 .status(tour.getStatus())
                 .coverImageUrl(tour.getCoverImageUrl())
-                .vendorId(tour.getVendor().getVendorID().toString())
+                .vendorId(tour.getVendor().getVendorId().toString())
                 .vendorName(tour.getVendor().getCompanyName())
                 .averageRating(avgRating)
                 .totalReviews(totalReviews)
@@ -111,7 +107,7 @@ public class TourServiceImpl implements TourService {
             int totalReviews) {
         return TourDetailResponse.builder()
                 // Tour info
-                .tourId(tour.getTourID().toString())
+                .tourId(tour.getTourId().toString())
                 .tourName(tour.getTourName())
                 .description(tour.getDescription())
                 .difficulty(tour.getDifficulty())
@@ -127,7 +123,7 @@ public class TourServiceImpl implements TourService {
                 .createdAt(tour.getCreatedAt())
                 .updatedAt(tour.getUpdatedAt())
                 // Vendor info
-                .vendorId(tour.getVendor().getVendorID().toString())
+                .vendorId(tour.getVendor().getVendorId().toString())
                 .vendorName(tour.getVendor().getCompanyName())
                 .vendorLogoUrl(tour.getVendor().getLogoUrl())
                 .vendorContactEmail(tour.getVendor().getContactEmail())
@@ -144,7 +140,7 @@ public class TourServiceImpl implements TourService {
 
     private TourImageResponse toImageResponse(TourImage image) {
         return TourImageResponse.builder()
-                .imageId(image.getImageID().toString())
+                .imageId(image.getImageId().toString())
                 .imageUrl(image.getImageUrl())
                 .sortOrder(image.getSortOrder())
                 .caption(image.getCaption())
@@ -153,7 +149,7 @@ public class TourServiceImpl implements TourService {
 
     private TourScheduleResponse toScheduleResponse(TourSchedule schedule) {
         return TourScheduleResponse.builder()
-                .scheduleId(schedule.getScheduleID().toString())
+                .scheduleId(schedule.getScheduleId().toString())
                 .departureDate(schedule.getDepartureDate())
                 .returnDate(schedule.getReturnDate())
                 .availableSlots(schedule.getAvailableSlots())

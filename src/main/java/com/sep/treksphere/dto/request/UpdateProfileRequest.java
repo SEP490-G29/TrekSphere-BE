@@ -5,10 +5,9 @@ import com.sep.treksphere.constant.ValidationConstant;
 import com.sep.treksphere.enums.user.Gender;
 import jakarta.validation.constraints.Pattern;
 import lombok.Data;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.time.LocalDate;
-
-import org.springframework.web.multipart.MultipartFile;
 
 @Data
 public class UpdateProfileRequest {

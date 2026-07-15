@@ -8,7 +8,7 @@ import org.mapstruct.Mapping;
 @Mapper(componentModel = "spring", uses = {UserMapper.class})
 public interface VendorMapper {
 
-    @Mapping(target = "vendorID", expression = "java(vendor.getVendorID() != null ? vendor.getVendorID().toString() : null)")
-    @Mapping(target = "managerUser", source = "managerUser")
+    @Mapping(target = "vendorId", expression = "java(vendor.getVendorId() != null ? vendor.getVendorId().toString() : null)")
+    @Mapping(target = "manager", source = "manager")
     VendorResponse toVendorResponse(Vendor vendor);
 }

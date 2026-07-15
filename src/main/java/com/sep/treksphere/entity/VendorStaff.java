@@ -1,9 +1,10 @@
 package com.sep.treksphere.entity;
 
 import jakarta.persistence.*;
-import lombok.*;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
 
-import java.time.LocalDateTime;
 import java.util.UUID;
 
 @Entity
@@ -17,7 +18,7 @@ public class VendorStaff extends BaseEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
-    private UUID vendorStaffID;
+    private UUID vendorStaffId;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "vendor_id", nullable = false)
@@ -29,6 +30,4 @@ public class VendorStaff extends BaseEntity {
 
     @Column(nullable = false)
     private Boolean isActive = true;
-
-    private LocalDateTime deactivatedAt;
 }

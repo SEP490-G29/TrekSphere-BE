@@ -1,7 +1,9 @@
 package com.sep.treksphere.dto.response;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
-import lombok.*;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Getter;
 import org.springframework.http.HttpStatus;
 
 import java.time.Instant;
