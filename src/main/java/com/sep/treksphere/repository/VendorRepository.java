@@ -8,11 +8,14 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.util.Optional;
 import java.util.UUID;
 
 @Repository
 public interface VendorRepository extends JpaRepository<Vendor, UUID> {
     
-    @Query("SELECT v FROM Vendor v WHERE :keyword IS NULL OR :keyword = '' OR LOWER(v.companyName) LIKE LOWER(CONCAT('%', :keyword, '%')) OR LOWER(v.contactEmail) LIKE LOWER(CONCAT('%', :keyword, '%'))")
+    Optional<Vendor> findByManager_Email(String email);
+    
+    @Query("SELECT v FROM Vendor v WHERE v.isDeleted = false AND (:keyword IS NULL OR :keyword = '' OR LOWER(v.companyName) LIKE LOWER(CONCAT('%', :keyword, '%')) OR LOWER(v.contactEmail) LIKE LOWER(CONCAT('%', :keyword, '%')))")
     Page<Vendor> findByKeyword(@Param("keyword") String keyword, Pageable pageable);
 }

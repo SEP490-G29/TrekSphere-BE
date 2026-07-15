@@ -34,11 +34,13 @@ public class MessageConstant {
     public static final String INVALID_PHONE = "Số điện thoại không hợp lệ";
     public static final String INVALID_DOB = "Ngày sinh không hợp lệ (không được lớn hơn ngày hiện tại)";
     public static final String PROFILE_UPDATED_SUCCESSFULLY = "Cập nhật hồ sơ thành công";
+    public static final String STATUS_UPDATED_SUCCESSFULLY = "Cập nhật trạng thái người dùng thành công";
 
     // System Error Messages
     public static final String SYSTEM_ERROR_UNKNOWN = "Lỗi hệ thống không xác định";
     public static final String INVALID_MESSAGE_KEY = "Mã tin nhắn không hợp lệ";
     public static final String VALIDATION_ERROR_MSG = "Dữ liệu đầu vào không hợp lệ";
+    public static final String LOCKED_STATUS_NOT_SUPPORTED = "Chức năng khoá vĩnh viễn chưa được hỗ trợ";
 
     // Auth Error Messages
     public static final String UNAUTHORIZED_ACTION = "Bạn cần đăng nhập để thực hiện chức năng này";
@@ -63,6 +65,9 @@ public class MessageConstant {
 
     // Tour Messages
     public static final String TOUR_NOT_FOUND = "Tour không tồn tại";
+
+    // Vendor Messages
+    public static final String VENDOR_NOT_FOUND = "Vendor không tồn tại";
 
     // Blog Messages
     public static final String BLOG_NOT_FOUND = "Bài viết không tồn tại";
