@@ -1,6 +1,7 @@
 package com.sep.treksphere.service.impl;
 
 import com.sep.treksphere.dto.request.VendorApplicationFilterRequest;
+import com.sep.treksphere.dto.request.VendorApplicationRejectRequest;
 import com.sep.treksphere.dto.request.VendorApplicationRequest;
 import com.sep.treksphere.dto.response.PaginationResponse;
 import com.sep.treksphere.dto.response.VendorApplicationResponse;
@@ -201,5 +202,31 @@ public class VendorApplicationServiceImpl implements VendorApplicationService {
                 vendor.getVendorId(), vendor.getCompanyName());
 
         return vendorMapper.toVendorResponse(vendor);
+    }
+
+    @Override
+    @Transactional
+    public VendorApplicationResponse rejectApplication(UUID id, VendorApplicationRejectRequest request) {
+        log.info("Processing rejection for vendor application with ID: {}", id);
+
+        VendorApplication application = vendorApplicationRepository.findById(id)
+                .orElseThrow(() -> {
+                    log.error("Vendor application with ID {} not found for rejection", id);
+                    return new AppException(ErrorCode.VENDOR_APPLICATION_NOT_FOUND);
+                });
+
+        if (application.getApplicationStatus() != ApplicationStatus.PENDING) {
+            log.warn("Vendor application {} is already processed. Current status: {}", 
+                    id, application.getApplicationStatus());
+            throw new AppException(ErrorCode.APPLICATION_ALREADY_PROCESSED);
+        }
+
+        application.setApplicationStatus(ApplicationStatus.REJECTED);
+        application.setRejectionReason(request.getRejectionReason());
+
+        application = vendorApplicationRepository.save(application);
+        log.info("Successfully rejected vendor application with ID: {}", id);
+
+        return vendorApplicationMapper.toResponse(application);
     }
 }

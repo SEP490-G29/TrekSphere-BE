@@ -95,4 +95,6 @@ public class MessageConstant {
     public static final String UNAUTHORIZED_APPLICATION_ACCESS = "Bạn không có quyền truy cập đơn đăng ký này";
     public static final String APPLICATION_ALREADY_PROCESSED = "Đơn đăng ký đối tác này đã được xử lý";
     public static final String VENDOR_APPLICATION_APPROVED = "Phê duyệt đơn đăng ký và kích hoạt tài khoản Vendor thành công.";
+    public static final String REJECTION_REASON_REQUIRED = "Lý do từ chối không được để trống";
+    public static final String VENDOR_APPLICATION_REJECTED = "Từ chối đơn đăng ký đối tác thành công.";
 }

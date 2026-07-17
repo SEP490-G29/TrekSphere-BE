@@ -2,6 +2,7 @@ package com.sep.treksphere.controller;
 
 import com.sep.treksphere.constant.MessageConstant;
 import com.sep.treksphere.dto.request.VendorApplicationFilterRequest;
+import com.sep.treksphere.dto.request.VendorApplicationRejectRequest;
 import com.sep.treksphere.dto.request.VendorApplicationRequest;
 import com.sep.treksphere.dto.response.ApiResponse;
 import com.sep.treksphere.dto.response.PaginationResponse;
@@ -86,6 +87,25 @@ public class VendorApplicationController {
                 HttpStatus.OK, 
                 data, 
                 MessageConstant.VENDOR_APPLICATION_APPROVED
+        );
+        
+        return ResponseEntity.ok(response);
+    }
+
+    @Operation(summary = "Từ chối đơn đăng ký (Admin)", description = "Admin từ chối đơn ứng tuyển kèm theo lý do cụ thể.")
+    @SecurityRequirement(name = "bearerAuth")
+    @PreAuthorize("hasRole('ADMIN')")
+    @PutMapping("/{id}/reject")
+    public ResponseEntity<ApiResponse<VendorApplicationResponse>> rejectApplication(
+            @PathVariable UUID id,
+            @Valid @RequestBody VendorApplicationRejectRequest request) {
+        
+        VendorApplicationResponse data = vendorApplicationService.rejectApplication(id, request);
+        
+        ApiResponse<VendorApplicationResponse> response = ApiResponse.success(
+                HttpStatus.OK, 
+                data, 
+                MessageConstant.VENDOR_APPLICATION_REJECTED
         );
         
         return ResponseEntity.ok(response);
