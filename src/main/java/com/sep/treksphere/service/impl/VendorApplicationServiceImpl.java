@@ -13,6 +13,7 @@ import com.sep.treksphere.mapper.VendorApplicationMapper;
 import com.sep.treksphere.repository.UserRepository;
 import com.sep.treksphere.repository.VendorApplicationRepository;
 import com.sep.treksphere.repository.VendorRepository;
+import com.sep.treksphere.security.CustomUserDetails;
 import com.sep.treksphere.service.FileService;
 import com.sep.treksphere.service.VendorApplicationService;
 import lombok.RequiredArgsConstructor;
@@ -23,6 +24,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 @Service
@@ -115,5 +117,29 @@ public class VendorApplicationServiceImpl implements VendorApplicationService {
                 .totalPages(pageResult.getTotalPages())
                 .last(pageResult.isLast())
                 .build();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public VendorApplicationResponse getApplicationById(UUID id, CustomUserDetails userDetails) {
+        log.info("Fetching details of vendor application with ID: {} for user: {}", id, userDetails.getUsername());
+
+        VendorApplication application = vendorApplicationRepository.findById(id)
+                .orElseThrow(() -> {
+                    log.error("Vendor application with ID {} not found", id);
+                    return new AppException(ErrorCode.VENDOR_APPLICATION_NOT_FOUND);
+                });
+
+        boolean isAdmin = userDetails.getAuthorities().stream()
+                .anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN"));
+        boolean isOwner = application.getApplicant().getUserId().equals(userDetails.getUser().getUserId());
+
+        if (!isAdmin && !isOwner) {
+            log.warn("User {} attempted to view vendor application {} without permission", 
+                    userDetails.getUser().getUserId(), id);
+            throw new AppException(ErrorCode.UNAUTHORIZED_APPLICATION_ACCESS);
+        }
+
+        return vendorApplicationMapper.toResponse(application);
     }
 }

@@ -4,8 +4,12 @@ import com.sep.treksphere.dto.request.VendorApplicationFilterRequest;
 import com.sep.treksphere.dto.request.VendorApplicationRequest;
 import com.sep.treksphere.dto.response.PaginationResponse;
 import com.sep.treksphere.dto.response.VendorApplicationResponse;
+import com.sep.treksphere.security.CustomUserDetails;
+
+import java.util.UUID;
 
 public interface VendorApplicationService {
     VendorApplicationResponse submitApplication(String applicantEmail, VendorApplicationRequest request);
     PaginationResponse<VendorApplicationResponse> getApplications(VendorApplicationFilterRequest request);
+    VendorApplicationResponse getApplicationById(UUID id, CustomUserDetails userDetails);
 }

@@ -6,8 +6,6 @@ import com.sep.treksphere.dto.request.VendorApplicationRequest;
 import com.sep.treksphere.dto.response.ApiResponse;
 import com.sep.treksphere.dto.response.PaginationResponse;
 import com.sep.treksphere.dto.response.VendorApplicationResponse;
-import com.sep.treksphere.exception.AppException;
-import com.sep.treksphere.exception.ErrorCode;
 import com.sep.treksphere.security.CustomUserDetails;
 import com.sep.treksphere.service.VendorApplicationService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -22,6 +20,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/v1/vendors/applications")
@@ -40,13 +40,13 @@ public class VendorApplicationController {
             @Valid @ModelAttribute VendorApplicationRequest request) {
 
         VendorApplicationResponse data = vendorApplicationService.submitApplication(userDetails.getUsername(), request);
-        
+
         ApiResponse<VendorApplicationResponse> response = ApiResponse.success(
-                HttpStatus.CREATED, 
-                data, 
+                HttpStatus.CREATED,
+                data,
                 MessageConstant.VENDOR_APPLICATION_SUBMITTED
         );
-        
+
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
@@ -56,8 +56,20 @@ public class VendorApplicationController {
     @GetMapping
     public ResponseEntity<ApiResponse<PaginationResponse<VendorApplicationResponse>>> getApplications(
             @Valid @ParameterObject @ModelAttribute VendorApplicationFilterRequest request) {
-        
+
         PaginationResponse<VendorApplicationResponse> data = vendorApplicationService.getApplications(request);
+        return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, data));
+    }
+
+    @Operation(summary = "Xem chi tiết đơn đăng ký", description = "Admin hoặc Trekker nộp đơn có thể xem chi tiết hồ sơ đơn ứng tuyển.")
+    @SecurityRequirement(name = "bearerAuth")
+    @PreAuthorize("isAuthenticated()")
+    @GetMapping("/{id}")
+    public ResponseEntity<ApiResponse<VendorApplicationResponse>> getApplicationById(
+            @PathVariable UUID id,
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+
+        VendorApplicationResponse data = vendorApplicationService.getApplicationById(id, userDetails);
         return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, data));
     }
 }
