@@ -16,6 +16,10 @@ public interface VendorRepository extends JpaRepository<Vendor, UUID> {
     
     Optional<Vendor> findByManager_Email(String email);
     
+    boolean existsByTaxCode(String taxCode);
+    boolean existsByContactEmail(String contactEmail);
+    boolean existsByContactPhone(String contactPhone);
+    
     @Query("SELECT v FROM Vendor v WHERE v.isDeleted = false AND (:keyword IS NULL OR :keyword = '' OR LOWER(v.companyName) LIKE LOWER(CONCAT('%', :keyword, '%')) OR LOWER(v.contactEmail) LIKE LOWER(CONCAT('%', :keyword, '%')))")
     Page<Vendor> findByKeyword(@Param("keyword") String keyword, Pageable pageable);
 }

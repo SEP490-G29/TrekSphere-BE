@@ -55,7 +55,7 @@ public class MessageConstant {
     // Upload Error Messages
     public static final String UPLOAD_FAILED = "Lỗi tải file lên hệ thống";
     public static final String FILE_TOO_LARGE = "Kích thước file vượt quá giới hạn cho phép (10MB)";
-    public static final String INVALID_FILE_FORMAT = "Định dạng file không được hỗ trợ";
+    public static final String INVALID_FILE_FORMAT = "Định dạng file không được hỗ trợ (Chỉ chấp nhận: JPEG, PNG, WEBP)";
     
     // File Success Messages
     public static final String FILE_DELETED_SUCCESSFULLY = "Xóa file thành công";
@@ -78,4 +78,18 @@ public class MessageConstant {
     public static final String PASSWORD_REQUIRED = "Vui lòng nhập mật khẩu";
     public static final String TOKEN_REQUIRED = "Vui lòng cung cấp token";
     public static final String CONFIRM_PASSWORD_REQUIRED = "Vui lòng nhập lại mật khẩu xác nhận";
+
+    // Vendor Application Messages
+    public static final String COMPANY_NAME_REQUIRED = "Tên công ty không được để trống";
+    public static final String CONTACT_EMAIL_REQUIRED = "Email liên hệ không được để trống";
+    public static final String CONTACT_PHONE_REQUIRED = "Số điện thoại liên hệ không được để trống";
+    public static final String TAX_CODE_REQUIRED = "Mã số thuế không được để trống";
+    public static final String TAX_CODE_INVALID = "Mã số thuế không hợp lệ (phải từ 10 đến 13 chữ số)";
+    public static final String BUSINESS_LICENSE_REQUIRED = "Ảnh/file giấy phép kinh doanh không được để trống";
+    public static final String VENDOR_APPLICATION_NOT_FOUND = "Đơn đăng ký đối tác không tồn tại";
+    public static final String TAX_CODE_ALREADY_EXISTS = "Mã số thuế đã tồn tại trên hệ thống";
+    public static final String APPLICATION_PENDING_EXISTS = "Bạn đã có đơn đăng ký đang chờ xử lý";
+    public static final String VENDOR_APPLICATION_SUBMITTED = "Đơn đăng ký đối tác đã được gửi thành công.";
+    public static final String CONTACT_EMAIL_ALREADY_EXISTS = "Email liên hệ đã tồn tại trên hệ thống";
+    public static final String CONTACT_PHONE_ALREADY_EXISTS = "Số điện thoại liên hệ đã tồn tại trên hệ thống";
 }
