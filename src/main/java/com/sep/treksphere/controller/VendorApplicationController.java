@@ -1,8 +1,10 @@
 package com.sep.treksphere.controller;
 
 import com.sep.treksphere.constant.MessageConstant;
+import com.sep.treksphere.dto.request.VendorApplicationFilterRequest;
 import com.sep.treksphere.dto.request.VendorApplicationRequest;
 import com.sep.treksphere.dto.response.ApiResponse;
+import com.sep.treksphere.dto.response.PaginationResponse;
 import com.sep.treksphere.dto.response.VendorApplicationResponse;
 import com.sep.treksphere.exception.AppException;
 import com.sep.treksphere.exception.ErrorCode;
@@ -13,6 +15,7 @@ import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springdoc.core.annotations.ParameterObject;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -45,5 +48,16 @@ public class VendorApplicationController {
         );
         
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
+    }
+
+    @Operation(summary = "Lấy danh sách đơn đăng ký (Admin)", description = "Admin lọc và phân trang toàn bộ các đơn đăng ký đối tác.")
+    @SecurityRequirement(name = "bearerAuth")
+    @PreAuthorize("hasRole('ADMIN')")
+    @GetMapping
+    public ResponseEntity<ApiResponse<PaginationResponse<VendorApplicationResponse>>> getApplications(
+            @Valid @ParameterObject @ModelAttribute VendorApplicationFilterRequest request) {
+        
+        PaginationResponse<VendorApplicationResponse> data = vendorApplicationService.getApplications(request);
+        return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, data));
     }
 }
