@@ -4,12 +4,18 @@ import com.sep.treksphere.dto.request.VendorApplicationFilterRequest;
 import com.sep.treksphere.dto.request.VendorApplicationRequest;
 import com.sep.treksphere.dto.response.PaginationResponse;
 import com.sep.treksphere.dto.response.VendorApplicationResponse;
+import com.sep.treksphere.dto.response.VendorResponse;
+import com.sep.treksphere.entity.Role;
 import com.sep.treksphere.entity.User;
+import com.sep.treksphere.entity.Vendor;
 import com.sep.treksphere.entity.VendorApplication;
+import com.sep.treksphere.enums.vendor.VendorStatus;
 import com.sep.treksphere.exception.ErrorCode;
 import com.sep.treksphere.enums.vendor.ApplicationStatus;
 import com.sep.treksphere.exception.AppException;
 import com.sep.treksphere.mapper.VendorApplicationMapper;
+import com.sep.treksphere.mapper.VendorMapper;
+import com.sep.treksphere.repository.RoleRepository;
 import com.sep.treksphere.repository.UserRepository;
 import com.sep.treksphere.repository.VendorApplicationRepository;
 import com.sep.treksphere.repository.VendorRepository;
@@ -36,6 +42,8 @@ public class VendorApplicationServiceImpl implements VendorApplicationService {
     private final UserRepository userRepository;
     private final VendorRepository vendorRepository;
     private final VendorApplicationMapper vendorApplicationMapper;
+    private final RoleRepository roleRepository;
+    private final VendorMapper vendorMapper;
     private final FileService fileService;
 
     @Override
@@ -141,5 +149,57 @@ public class VendorApplicationServiceImpl implements VendorApplicationService {
         }
 
         return vendorApplicationMapper.toResponse(application);
+    }
+
+    @Override
+    @Transactional
+    public VendorResponse approveApplication(UUID id) {
+        log.info("Processing approval for vendor application with ID: {}", id);
+
+        VendorApplication application = vendorApplicationRepository.findById(id)
+                .orElseThrow(() -> {
+                    log.error("Vendor application with ID {} not found for approval", id);
+                    return new AppException(ErrorCode.VENDOR_APPLICATION_NOT_FOUND);
+                });
+
+        if (application.getApplicationStatus() != ApplicationStatus.PENDING) {
+            log.warn("Vendor application {} is already processed. Current status: {}", 
+                    id, application.getApplicationStatus());
+            throw new AppException(ErrorCode.APPLICATION_ALREADY_PROCESSED);
+        }
+
+        application.setApplicationStatus(ApplicationStatus.APPROVED);
+        vendorApplicationRepository.save(application);
+
+        User applicant = application.getApplicant();
+        Role managerRole = roleRepository.findByRoleName("VENDOR_MANAGER")
+                .orElseThrow(() -> {
+                    log.error("Role VENDOR_MANAGER not found in database");
+                    return new AppException(ErrorCode.ROLE_NOT_FOUND);
+                });
+
+        boolean hasManagerRole = applicant.getRoles().stream()
+                .anyMatch(r -> r.getRoleName().equals("VENDOR_MANAGER"));
+        if (!hasManagerRole) {
+            applicant.getRoles().add(managerRole);
+            userRepository.save(applicant);
+            log.info("Role VENDOR_MANAGER successfully assigned to user: {}", applicant.getEmail());
+        }
+
+        Vendor vendor = new Vendor();
+        vendor.setManager(applicant);
+        vendor.setCompanyName(application.getCompanyName());
+        vendor.setContactEmail(application.getContactEmail());
+        vendor.setContactPhone(application.getContactPhone());
+        vendor.setTaxCode(application.getTaxCode());
+        vendor.setBusinessLicenseUrl(application.getBusinessLicenseUrl());
+        vendor.setDescription(application.getBusinessDescription());
+        vendor.setStatus(VendorStatus.ACTIVE);
+
+        vendor = vendorRepository.save(vendor);
+        log.info("Successfully created Vendor profile with ID: {} for company: {}", 
+                vendor.getVendorId(), vendor.getCompanyName());
+
+        return vendorMapper.toVendorResponse(vendor);
     }
 }

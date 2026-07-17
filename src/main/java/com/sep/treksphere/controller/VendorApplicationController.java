@@ -6,6 +6,7 @@ import com.sep.treksphere.dto.request.VendorApplicationRequest;
 import com.sep.treksphere.dto.response.ApiResponse;
 import com.sep.treksphere.dto.response.PaginationResponse;
 import com.sep.treksphere.dto.response.VendorApplicationResponse;
+import com.sep.treksphere.dto.response.VendorResponse;
 import com.sep.treksphere.security.CustomUserDetails;
 import com.sep.treksphere.service.VendorApplicationService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -71,5 +72,22 @@ public class VendorApplicationController {
 
         VendorApplicationResponse data = vendorApplicationService.getApplicationById(id, userDetails);
         return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, data));
+    }
+
+    @Operation(summary = "Duyệt đơn đăng ký (Admin)", description = "Admin chấp nhận đơn, nâng cấp quyền và tự động kích hoạt hồ sơ Vendor.")
+    @SecurityRequirement(name = "bearerAuth")
+    @PreAuthorize("hasRole('ADMIN')")
+    @PutMapping("/{id}/approve")
+    public ResponseEntity<ApiResponse<VendorResponse>> approveApplication(@PathVariable UUID id) {
+        
+        VendorResponse data = vendorApplicationService.approveApplication(id);
+        
+        ApiResponse<VendorResponse> response = ApiResponse.success(
+                HttpStatus.OK, 
+                data, 
+                MessageConstant.VENDOR_APPLICATION_APPROVED
+        );
+        
+        return ResponseEntity.ok(response);
     }
 }
