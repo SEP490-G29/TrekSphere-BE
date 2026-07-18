@@ -2,13 +2,12 @@ package com.sep.treksphere.controller;
 
 import com.sep.treksphere.constant.MessageConstant;
 import com.sep.treksphere.dto.request.VendorApplicationFilterRequest;
-import com.sep.treksphere.dto.request.VendorApplicationRejectRequest;
+import com.sep.treksphere.dto.request.VendorApplicationReviewRequest;
 import com.sep.treksphere.dto.request.VendorApplicationRequest;
 import com.sep.treksphere.dto.request.VendorApplicationUpdateRequest;
 import com.sep.treksphere.dto.response.ApiResponse;
 import com.sep.treksphere.dto.response.PaginationResponse;
 import com.sep.treksphere.dto.response.VendorApplicationResponse;
-import com.sep.treksphere.dto.response.VendorResponse;
 import com.sep.treksphere.security.CustomUserDetails;
 import com.sep.treksphere.service.VendorApplicationService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -76,37 +75,20 @@ public class VendorApplicationController {
         return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, data));
     }
 
-    @Operation(summary = "Duyệt đơn đăng ký (Admin)", description = "Admin chấp nhận đơn, nâng cấp quyền và tự động kích hoạt hồ sơ Vendor.")
+    @Operation(summary = "Kiểm duyệt đơn đăng ký (Admin)", description = "Admin phê duyệt (APPROVED) hoặc từ chối (REJECTED) đơn ứng tuyển của đối tác.")
     @SecurityRequirement(name = "bearerAuth")
     @PreAuthorize("hasRole('ADMIN')")
-    @PutMapping("/{id}/approve")
-    public ResponseEntity<ApiResponse<VendorResponse>> approveApplication(@PathVariable UUID id) {
-        
-        VendorResponse data = vendorApplicationService.approveApplication(id);
-        
-        ApiResponse<VendorResponse> response = ApiResponse.success(
-                HttpStatus.OK, 
-                data, 
-                MessageConstant.VENDOR_APPLICATION_APPROVED
-        );
-        
-        return ResponseEntity.ok(response);
-    }
-
-    @Operation(summary = "Từ chối đơn đăng ký (Admin)", description = "Admin từ chối đơn ứng tuyển kèm theo lý do cụ thể.")
-    @SecurityRequirement(name = "bearerAuth")
-    @PreAuthorize("hasRole('ADMIN')")
-    @PutMapping("/{id}/reject")
-    public ResponseEntity<ApiResponse<VendorApplicationResponse>> rejectApplication(
+    @PostMapping("/{id}/review")
+    public ResponseEntity<ApiResponse<VendorApplicationResponse>> reviewApplication(
             @PathVariable UUID id,
-            @Valid @RequestBody VendorApplicationRejectRequest request) {
+            @Valid @RequestBody VendorApplicationReviewRequest request) {
         
-        VendorApplicationResponse data = vendorApplicationService.rejectApplication(id, request);
+        VendorApplicationResponse data = vendorApplicationService.reviewApplication(id, request);
         
         ApiResponse<VendorApplicationResponse> response = ApiResponse.success(
                 HttpStatus.OK, 
                 data, 
-                MessageConstant.VENDOR_APPLICATION_REJECTED
+                MessageConstant.VENDOR_APPLICATION_REVIEWED
         );
         
         return ResponseEntity.ok(response);

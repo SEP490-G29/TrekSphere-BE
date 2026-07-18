@@ -1,7 +1,7 @@
 package com.sep.treksphere.service.impl;
 
 import com.sep.treksphere.dto.request.VendorApplicationFilterRequest;
-import com.sep.treksphere.dto.request.VendorApplicationRejectRequest;
+import com.sep.treksphere.dto.request.VendorApplicationReviewRequest;
 import com.sep.treksphere.dto.request.VendorApplicationRequest;
 import com.sep.treksphere.dto.request.VendorApplicationUpdateRequest;
 import com.sep.treksphere.dto.response.PaginationResponse;
@@ -156,12 +156,12 @@ public class VendorApplicationServiceImpl implements VendorApplicationService {
 
     @Override
     @Transactional
-    public VendorResponse approveApplication(UUID id) {
-        log.info("Processing approval for vendor application with ID: {}", id);
+    public VendorApplicationResponse reviewApplication(UUID id, VendorApplicationReviewRequest request) {
+        log.info("Processing review for vendor application with ID: {} to status: {}", id, request.getStatus());
 
         VendorApplication application = vendorApplicationRepository.findById(id)
                 .orElseThrow(() -> {
-                    log.error("Vendor application with ID {} not found for approval", id);
+                    log.error("Vendor application with ID {} not found for review", id);
                     return new AppException(ErrorCode.VENDOR_APPLICATION_NOT_FOUND);
                 });
 
@@ -171,63 +171,55 @@ public class VendorApplicationServiceImpl implements VendorApplicationService {
             throw new AppException(ErrorCode.APPLICATION_ALREADY_PROCESSED);
         }
 
-        application.setApplicationStatus(ApplicationStatus.APPROVED);
-        vendorApplicationRepository.save(application);
-
-        User applicant = application.getApplicant();
-        Role managerRole = roleRepository.findByRoleName("VENDOR_MANAGER")
-                .orElseThrow(() -> {
-                    log.error("Role VENDOR_MANAGER not found in database");
-                    return new AppException(ErrorCode.ROLE_NOT_FOUND);
-                });
-
-        boolean hasManagerRole = applicant.getRoles().stream()
-                .anyMatch(r -> r.getRoleName().equals("VENDOR_MANAGER"));
-        if (!hasManagerRole) {
-            applicant.getRoles().add(managerRole);
-            userRepository.save(applicant);
-            log.info("Role VENDOR_MANAGER successfully assigned to user: {}", applicant.getEmail());
+        if (request.getStatus() != ApplicationStatus.APPROVED && request.getStatus() != ApplicationStatus.REJECTED) {
+            log.warn("Invalid review status: {}", request.getStatus());
+            throw new AppException(ErrorCode.INVALID_REVIEW_STATUS);
         }
 
-        Vendor vendor = new Vendor();
-        vendor.setManager(applicant);
-        vendor.setCompanyName(application.getCompanyName());
-        vendor.setContactEmail(application.getContactEmail());
-        vendor.setContactPhone(application.getContactPhone());
-        vendor.setTaxCode(application.getTaxCode());
-        vendor.setBusinessLicenseUrl(application.getBusinessLicenseUrl());
-        vendor.setDescription(application.getBusinessDescription());
-        vendor.setStatus(VendorStatus.ACTIVE);
+        if (request.getStatus() == ApplicationStatus.APPROVED) {
+            application.setApplicationStatus(ApplicationStatus.APPROVED);
+            application.setRejectionReason(null);
+            vendorApplicationRepository.save(application);
 
-        vendor = vendorRepository.save(vendor);
-        log.info("Successfully created Vendor profile with ID: {} for company: {}", 
-                vendor.getVendorId(), vendor.getCompanyName());
+            User applicant = application.getApplicant();
+            Role managerRole = roleRepository.findByRoleName("VENDOR_MANAGER")
+                    .orElseThrow(() -> {
+                        log.error("Role VENDOR_MANAGER not found in database");
+                        return new AppException(ErrorCode.ROLE_NOT_FOUND);
+                    });
 
-        return vendorMapper.toVendorResponse(vendor);
-    }
+            boolean hasManagerRole = applicant.getRoles().stream()
+                    .anyMatch(r -> r.getRoleName().equals("VENDOR_MANAGER"));
+            if (!hasManagerRole) {
+                applicant.getRoles().add(managerRole);
+                userRepository.save(applicant);
+                log.info("Role VENDOR_MANAGER successfully assigned to user: {}", applicant.getEmail());
+            }
 
-    @Override
-    @Transactional
-    public VendorApplicationResponse rejectApplication(UUID id, VendorApplicationRejectRequest request) {
-        log.info("Processing rejection for vendor application with ID: {}", id);
+            Vendor vendor = new Vendor();
+            vendor.setManager(applicant);
+            vendor.setCompanyName(application.getCompanyName());
+            vendor.setContactEmail(application.getContactEmail());
+            vendor.setContactPhone(application.getContactPhone());
+            vendor.setTaxCode(application.getTaxCode());
+            vendor.setBusinessLicenseUrl(application.getBusinessLicenseUrl());
+            vendor.setDescription(application.getBusinessDescription());
+            vendor.setStatus(VendorStatus.ACTIVE);
 
-        VendorApplication application = vendorApplicationRepository.findById(id)
-                .orElseThrow(() -> {
-                    log.error("Vendor application with ID {} not found for rejection", id);
-                    return new AppException(ErrorCode.VENDOR_APPLICATION_NOT_FOUND);
-                });
+            vendor = vendorRepository.save(vendor);
+            log.info("Successfully created Vendor profile with ID: {} for company: {}", 
+                    vendor.getVendorId(), vendor.getCompanyName());
+        } else {
+            if (!StringUtils.hasText(request.getRejectionReason())) {
+                log.warn("Rejection reason is required when status is REJECTED");
+                throw new AppException(ErrorCode.REJECTION_REASON_REQUIRED);
+            }
 
-        if (application.getApplicationStatus() != ApplicationStatus.PENDING) {
-            log.warn("Vendor application {} is already processed. Current status: {}", 
-                    id, application.getApplicationStatus());
-            throw new AppException(ErrorCode.APPLICATION_ALREADY_PROCESSED);
+            application.setApplicationStatus(ApplicationStatus.REJECTED);
+            application.setRejectionReason(request.getRejectionReason().trim());
+            vendorApplicationRepository.save(application);
+            log.info("Successfully rejected vendor application with ID: {}", id);
         }
-
-        application.setApplicationStatus(ApplicationStatus.REJECTED);
-        application.setRejectionReason(request.getRejectionReason());
-
-        application = vendorApplicationRepository.save(application);
-        log.info("Successfully rejected vendor application with ID: {}", id);
 
         return vendorApplicationMapper.toResponse(application);
     }
