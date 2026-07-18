@@ -1,6 +1,7 @@
 package com.sep.treksphere.service.impl;
 
 import com.sep.treksphere.dto.request.BaseFilterRequest;
+import com.sep.treksphere.dto.request.VendorProfileUpdateRequest;
 import com.sep.treksphere.dto.response.PaginationResponse;
 import com.sep.treksphere.dto.response.VendorProfileResponse;
 import com.sep.treksphere.dto.response.VendorResponse;
@@ -9,15 +10,18 @@ import com.sep.treksphere.entity.VendorStaff;
 import com.sep.treksphere.exception.AppException;
 import com.sep.treksphere.exception.ErrorCode;
 import com.sep.treksphere.mapper.VendorMapper;
+import com.sep.treksphere.repository.VendorApplicationRepository;
 import com.sep.treksphere.repository.VendorRepository;
 import com.sep.treksphere.repository.VendorStaffRepository;
 import com.sep.treksphere.security.CustomUserDetails;
+import com.sep.treksphere.service.FileService;
 import com.sep.treksphere.service.VendorService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
 
 import java.util.List;
 import java.util.UUID;
@@ -29,6 +33,8 @@ public class VendorServiceImpl implements VendorService {
 
     private final VendorRepository vendorRepository;
     private final VendorStaffRepository vendorStaffRepository;
+    private final VendorApplicationRepository vendorApplicationRepository;
+    private final FileService fileService;
     private final VendorMapper vendorMapper;
 
     @Override
@@ -87,6 +93,72 @@ public class VendorServiceImpl implements VendorService {
             log.warn("User ID {} with unauthorized roles tried to access vendor profile", userId);
             throw new AppException(ErrorCode.UNAUTHORIZED_VENDOR_ACCESS);
         }
+
+        return vendorMapper.toVendorProfileResponse(vendor);
+    }
+
+    @Override
+    @Transactional
+    public VendorProfileResponse updateVendorProfile(CustomUserDetails userDetails, VendorProfileUpdateRequest request) {
+        UUID userId = userDetails.getUser().getUserId();
+        log.info("Updating vendor profile for user ID: {}", userId);
+
+        Vendor vendor = vendorRepository.findByManager_UserId(userId)
+                .orElseThrow(() -> {
+                    log.error("Vendor not found for manager user ID: {}", userId);
+                    return new AppException(ErrorCode.VENDOR_NOT_FOUND);
+                });
+
+        if (StringUtils.hasText(request.getContactEmail())) {
+            String newEmail = request.getContactEmail().trim();
+            if (!newEmail.equalsIgnoreCase(vendor.getContactEmail())) {
+                boolean existsInVendors = vendorRepository.existsByContactEmailAndVendorIdNot(newEmail, vendor.getVendorId());
+                boolean existsInApps = vendorApplicationRepository.existsByContactEmailAndApplicant_UserIdNot(newEmail, userId);
+                if (existsInVendors || existsInApps) {
+                    log.warn("Contact email {} is already registered during update of vendor profile {}", newEmail, vendor.getVendorId());
+                    throw new AppException(ErrorCode.CONTACT_EMAIL_ALREADY_EXISTS);
+                }
+                vendor.setContactEmail(newEmail);
+            }
+        }
+
+        if (StringUtils.hasText(request.getContactPhone())) {
+            String newPhone = request.getContactPhone().trim();
+            if (!newPhone.equals(vendor.getContactPhone())) {
+                boolean existsInVendors = vendorRepository.existsByContactPhoneAndVendorIdNot(newPhone, vendor.getVendorId());
+                boolean existsInApps = vendorApplicationRepository.existsByContactPhoneAndApplicant_UserIdNot(newPhone, userId);
+                if (existsInVendors || existsInApps) {
+                    log.warn("Contact phone {} is already registered during update of vendor profile {}", newPhone, vendor.getVendorId());
+                    throw new AppException(ErrorCode.CONTACT_PHONE_ALREADY_EXISTS);
+                }
+                vendor.setContactPhone(newPhone);
+            }
+        }
+
+        if (StringUtils.hasText(request.getDescription())) {
+            vendor.setDescription(request.getDescription().trim());
+        }
+        if (StringUtils.hasText(request.getBankAccount())) {
+            vendor.setBankAccount(request.getBankAccount().trim());
+        }
+        if (StringUtils.hasText(request.getBankName())) {
+            vendor.setBankName(request.getBankName().trim());
+        }
+
+        if (request.getLogo() != null && !request.getLogo().isEmpty()) {
+            log.info("Uploading new logo for vendor ID: {}", vendor.getVendorId());
+            String logoUrl = fileService.uploadFile(request.getLogo(), "vendor-logos");
+            vendor.setLogoUrl(logoUrl);
+        }
+
+        if (request.getPaymentQr() != null && !request.getPaymentQr().isEmpty()) {
+            log.info("Uploading new payment QR for vendor ID: {}", vendor.getVendorId());
+            String qrUrl = fileService.uploadFile(request.getPaymentQr(), "vendor-qrs");
+            vendor.setPaymentQrUrl(qrUrl);
+        }
+
+        vendor = vendorRepository.save(vendor);
+        log.info("Successfully updated vendor profile for Vendor ID: {}", vendor.getVendorId());
 
         return vendorMapper.toVendorProfileResponse(vendor);
     }

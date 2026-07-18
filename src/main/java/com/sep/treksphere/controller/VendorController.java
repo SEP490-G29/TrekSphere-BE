@@ -2,6 +2,7 @@ package com.sep.treksphere.controller;
 
 import com.sep.treksphere.constant.MessageConstant;
 import com.sep.treksphere.dto.request.BaseFilterRequest;
+import com.sep.treksphere.dto.request.VendorProfileUpdateRequest;
 import com.sep.treksphere.dto.response.ApiResponse;
 import com.sep.treksphere.dto.response.PaginationResponse;
 import com.sep.treksphere.dto.response.VendorProfileResponse;
@@ -14,10 +15,12 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -54,6 +57,24 @@ public class VendorController {
                 HttpStatus.OK,
                 data,
                 MessageConstant.VENDOR_PROFILE_FETCHED
+        );
+        return ResponseEntity.ok(response);
+    }
+
+    @Operation(summary = "Cập nhật hồ sơ Vendor hiện tại", description = "Cho phép Vendor Manager cập nhật thông tin chi tiết của doanh nghiệp.")
+    @SecurityRequirement(name = "bearerAuth")
+    @PreAuthorize("hasRole('VENDOR_MANAGER')")
+    @PutMapping(value = "/profile", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<ApiResponse<VendorProfileResponse>> updateVendorProfile(
+            @AuthenticationPrincipal CustomUserDetails userDetails,
+            @Valid @ModelAttribute VendorProfileUpdateRequest request) {
+        
+        VendorProfileResponse data = vendorService.updateVendorProfile(userDetails, request);
+        
+        ApiResponse<VendorProfileResponse> response = ApiResponse.success(
+                HttpStatus.OK,
+                data,
+                MessageConstant.VENDOR_PROFILE_UPDATED
         );
         return ResponseEntity.ok(response);
     }
