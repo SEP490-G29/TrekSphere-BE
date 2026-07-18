@@ -110,4 +110,7 @@ public class MessageConstant {
     public static final String UNAUTHORIZED_VENDOR_ACCESS = "Bạn không có quyền truy cập thông tin Vendor";
     public static final String VENDOR_PROFILE_FETCHED = "Lấy thông tin hồ sơ đối tác thành công";
     public static final String VENDOR_PROFILE_UPDATED = "Cập nhật thông tin hồ sơ đối tác thành công";
+    public static final String VENDOR_STATUS_REQUIRED = "Trạng thái của đối tác không được để trống";
+    public static final String VENDOR_STATUS_UPDATED = "Cập nhật trạng thái đối tác thành công";
+    public static final String VENDOR_REVOKED_STATUS = "Không thể thay đổi trạng thái của đối tác đã bị thu hồi quyền (REVOKED)";
 }

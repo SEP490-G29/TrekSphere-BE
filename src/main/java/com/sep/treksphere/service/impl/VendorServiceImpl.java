@@ -2,11 +2,13 @@ package com.sep.treksphere.service.impl;
 
 import com.sep.treksphere.dto.request.BaseFilterRequest;
 import com.sep.treksphere.dto.request.VendorProfileUpdateRequest;
+import com.sep.treksphere.dto.request.VendorStatusUpdateRequest;
 import com.sep.treksphere.dto.response.PaginationResponse;
 import com.sep.treksphere.dto.response.VendorProfileResponse;
 import com.sep.treksphere.dto.response.VendorResponse;
 import com.sep.treksphere.entity.Vendor;
 import com.sep.treksphere.entity.VendorStaff;
+import com.sep.treksphere.enums.vendor.VendorStatus;
 import com.sep.treksphere.exception.AppException;
 import com.sep.treksphere.exception.ErrorCode;
 import com.sep.treksphere.mapper.VendorMapper;
@@ -161,5 +163,27 @@ public class VendorServiceImpl implements VendorService {
         log.info("Successfully updated vendor profile for Vendor ID: {}", vendor.getVendorId());
 
         return vendorMapper.toVendorProfileResponse(vendor);
+    }
+
+    @Override
+    @Transactional
+    public VendorResponse updateVendorStatus(UUID id, VendorStatusUpdateRequest request) {
+        log.info("Updating status for vendor ID: {} to {}", id, request.getStatus());
+        Vendor vendor = vendorRepository.findById(id)
+                .orElseThrow(() -> {
+                    log.error("Vendor not found with ID: {}", id);
+                    return new AppException(ErrorCode.VENDOR_NOT_FOUND);
+                });
+
+        if (vendor.getStatus() == VendorStatus.REVOKED) {
+            log.warn("Cannot change status for already REVOKED vendor ID: {}", id);
+            throw new AppException(ErrorCode.VENDOR_REVOKED_STATUS);
+        }
+
+        vendor.setStatus(request.getStatus());
+        vendor = vendorRepository.save(vendor);
+        log.info("Successfully updated status for vendor ID: {}", id);
+
+        return vendorMapper.toVendorResponse(vendor);
     }
 }
