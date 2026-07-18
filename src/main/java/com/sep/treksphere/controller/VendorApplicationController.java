@@ -42,7 +42,7 @@ public class VendorApplicationController {
             @AuthenticationPrincipal CustomUserDetails userDetails,
             @Valid @ModelAttribute VendorApplicationRequest request) {
 
-        VendorApplicationResponse data = vendorApplicationService.saveDraftApplication(userDetails.getUsername(), request);
+        VendorApplicationResponse data = vendorApplicationService.saveDraftApplication(userDetails.getUser().getUserId(), request);
 
         ApiResponse<VendorApplicationResponse> response = ApiResponse.success(
                 HttpStatus.CREATED,
@@ -112,7 +112,7 @@ public class VendorApplicationController {
         return ResponseEntity.ok(response);
     }
 
-    @Operation(summary = "Cập nhật đơn đăng ký bị reject", description = "Cho phép Trekker cập nhật lại thông tin hồ sơ của đơn bị từ chối.")
+    @Operation(summary = "Cập nhật nội dung đơn đăng ký", description = "Cho phép Trekker cập nhật lại thông tin hồ sơ của đơn nháp (DRAFT) hoặc đơn bị từ chối (REJECTED).")
     @SecurityRequirement(name = "bearerAuth")
     @PreAuthorize("hasRole('TREKKER')")
     @PutMapping(value = "/{id}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
@@ -121,7 +121,7 @@ public class VendorApplicationController {
             @AuthenticationPrincipal CustomUserDetails userDetails,
             @Valid @ModelAttribute VendorApplicationUpdateRequest request) {
         
-        VendorApplicationResponse data = vendorApplicationService.updateApplication(id, request, userDetails.getUsername());
+        VendorApplicationResponse data = vendorApplicationService.updateApplication(id, request, userDetails.getUser().getUserId());
         
         ApiResponse<VendorApplicationResponse> response = ApiResponse.success(
                 HttpStatus.OK, 
@@ -140,12 +140,31 @@ public class VendorApplicationController {
             @PathVariable UUID id,
             @AuthenticationPrincipal CustomUserDetails userDetails) {
         
-        VendorApplicationResponse data = vendorApplicationService.submitDraftApplication(id, userDetails.getUsername());
+        VendorApplicationResponse data = vendorApplicationService.submitDraftApplication(id, userDetails.getUser().getUserId());
         
         ApiResponse<VendorApplicationResponse> response = ApiResponse.success(
                 HttpStatus.OK, 
                 data, 
                 MessageConstant.VENDOR_APPLICATION_SUBMITTED
+        );
+        
+        return ResponseEntity.ok(response);
+    }
+
+    @Operation(summary = "Nộp lại đơn đăng ký bị từ chối", description = "Cho phép Trekker nộp lại đơn đăng ký từ trạng thái bị từ chối (REJECTED) lên PENDING để chờ duyệt lại.")
+    @SecurityRequirement(name = "bearerAuth")
+    @PreAuthorize("hasRole('TREKKER')")
+    @PostMapping("/{id}/resubmit")
+    public ResponseEntity<ApiResponse<VendorApplicationResponse>> resubmitRejectedApplication(
+            @PathVariable UUID id,
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+        
+        VendorApplicationResponse data = vendorApplicationService.resubmitRejectedApplication(id, userDetails.getUser().getUserId());
+        
+        ApiResponse<VendorApplicationResponse> response = ApiResponse.success(
+                HttpStatus.OK, 
+                data, 
+                MessageConstant.VENDOR_APPLICATION_RESUBMITTED
         );
         
         return ResponseEntity.ok(response);

@@ -12,11 +12,12 @@ import com.sep.treksphere.security.CustomUserDetails;
 import java.util.UUID;
 
 public interface VendorApplicationService {
-    VendorApplicationResponse saveDraftApplication(String applicantEmail, VendorApplicationRequest request);
+    VendorApplicationResponse saveDraftApplication(UUID applicantId, VendorApplicationRequest request);
     PaginationResponse<VendorApplicationResponse> getApplications(VendorApplicationFilterRequest request);
     VendorApplicationResponse getApplicationById(UUID id, CustomUserDetails userDetails);
     VendorResponse approveApplication(UUID id);
     VendorApplicationResponse rejectApplication(UUID id, VendorApplicationRejectRequest request);
-    VendorApplicationResponse updateApplication(UUID id, VendorApplicationUpdateRequest request, String applicantEmail);
-    VendorApplicationResponse submitDraftApplication(UUID id, String applicantEmail);
+    VendorApplicationResponse updateApplication(UUID id, VendorApplicationUpdateRequest request, UUID applicantId);
+    VendorApplicationResponse submitDraftApplication(UUID id, UUID applicantId);
+    VendorApplicationResponse resubmitRejectedApplication(UUID id, UUID applicantId);
 }

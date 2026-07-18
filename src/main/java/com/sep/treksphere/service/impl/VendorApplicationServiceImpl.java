@@ -51,12 +51,12 @@ public class VendorApplicationServiceImpl implements VendorApplicationService {
 
     @Override
     @Transactional
-    public VendorApplicationResponse saveDraftApplication(String applicantEmail, VendorApplicationRequest request) {
-        log.info("Processing vendor application draft creation for user email: {}", applicantEmail);
+    public VendorApplicationResponse saveDraftApplication(UUID applicantId, VendorApplicationRequest request) {
+        log.info("Processing vendor application draft creation for user ID: {}", applicantId);
 
-        User applicant = userRepository.findByEmail(applicantEmail)
+        User applicant = userRepository.findById(applicantId)
                 .orElseThrow(() -> {
-                    log.error("User with email {} not found", applicantEmail);
+                    log.error("User with ID {} not found", applicantId);
                     return new AppException(ErrorCode.USER_NOT_FOUND);
                 });
 
@@ -64,7 +64,7 @@ public class VendorApplicationServiceImpl implements VendorApplicationService {
                 applicant.getUserId(), ApplicationStatus.PENDING
         );
         if (hasPending) {
-            log.warn("User {} already has a PENDING vendor application", applicantEmail);
+            log.warn("User ID {} already has a PENDING vendor application", applicantId);
             throw new AppException(ErrorCode.APPLICATION_PENDING_EXISTS);
         }
 
@@ -98,7 +98,7 @@ public class VendorApplicationServiceImpl implements VendorApplicationService {
 
         vendorApplication = vendorApplicationRepository.save(vendorApplication);
         log.info("Successfully created vendor application draft with ID: {} for user: {}", 
-                vendorApplication.getVendorApplicationId(), applicantEmail);
+                vendorApplication.getVendorApplicationId(), applicantId);
 
         return vendorApplicationMapper.toResponse(vendorApplication);
     }
@@ -234,8 +234,8 @@ public class VendorApplicationServiceImpl implements VendorApplicationService {
 
     @Override
     @Transactional
-    public VendorApplicationResponse updateApplication(UUID id, VendorApplicationUpdateRequest request, String applicantEmail) {
-        log.info("Updating vendor application with ID: {} for user: {}", id, applicantEmail);
+    public VendorApplicationResponse updateApplication(UUID id, VendorApplicationUpdateRequest request, UUID applicantId) {
+        log.info("Updating vendor application with ID: {} for user ID: {}", id, applicantId);
 
         VendorApplication application = vendorApplicationRepository.findById(id)
                 .orElseThrow(() -> {
@@ -243,13 +243,14 @@ public class VendorApplicationServiceImpl implements VendorApplicationService {
                     return new AppException(ErrorCode.VENDOR_APPLICATION_NOT_FOUND);
                 });
 
-        if (!application.getApplicant().getEmail().equals(applicantEmail)) {
-            log.warn("User {} attempted to update vendor application {} owned by {}", 
-                    applicantEmail, id, application.getApplicant().getEmail());
+        if (!application.getApplicant().getUserId().equals(applicantId)) {
+            log.warn("User ID {} attempted to update vendor application {} owned by {}", 
+                    applicantId, id, application.getApplicant().getUserId());
             throw new AppException(ErrorCode.UNAUTHORIZED_APPLICATION_ACCESS);
         }
 
-        if (application.getApplicationStatus() != ApplicationStatus.REJECTED) {
+        if (application.getApplicationStatus() != ApplicationStatus.DRAFT &&
+            application.getApplicationStatus() != ApplicationStatus.REJECTED) {
             log.warn("Cannot update vendor application {}. Current status is: {}", 
                     id, application.getApplicationStatus());
             throw new AppException(ErrorCode.CANNOT_UPDATE_APPLICATION);
@@ -310,19 +311,16 @@ public class VendorApplicationServiceImpl implements VendorApplicationService {
             application.setBusinessLicenseUrl(newUrl);
         }
 
-        application.setApplicationStatus(ApplicationStatus.PENDING);
-        application.setRejectionReason(null);
-
         application = vendorApplicationRepository.save(application);
-        log.info("Successfully updated and resubmitted vendor application with ID: {}", id);
+        log.info("Successfully updated vendor application with ID: {}", id);
 
         return vendorApplicationMapper.toResponse(application);
     }
 
     @Override
     @Transactional
-    public VendorApplicationResponse submitDraftApplication(UUID id, String applicantEmail) {
-        log.info("Submitting draft vendor application with ID: {} for user: {}", id, applicantEmail);
+    public VendorApplicationResponse submitDraftApplication(UUID id, UUID applicantId) {
+        log.info("Submitting draft vendor application with ID: {} for user ID: {}", id, applicantId);
 
         VendorApplication application = vendorApplicationRepository.findById(id)
                 .orElseThrow(() -> {
@@ -330,9 +328,9 @@ public class VendorApplicationServiceImpl implements VendorApplicationService {
                     return new AppException(ErrorCode.VENDOR_APPLICATION_NOT_FOUND);
                 });
 
-        if (!application.getApplicant().getEmail().equals(applicantEmail)) {
-            log.warn("User {} attempted to submit vendor application {} owned by {}", 
-                    applicantEmail, id, application.getApplicant().getEmail());
+        if (!application.getApplicant().getUserId().equals(applicantId)) {
+            log.warn("User ID {} attempted to submit vendor application {} owned by {}", 
+                    applicantId, id, application.getApplicant().getUserId());
             throw new AppException(ErrorCode.UNAUTHORIZED_APPLICATION_ACCESS);
         }
 
@@ -370,6 +368,62 @@ public class VendorApplicationServiceImpl implements VendorApplicationService {
 
         application = vendorApplicationRepository.save(application);
         log.info("Successfully submitted draft vendor application with ID: {}", id);
+
+        return vendorApplicationMapper.toResponse(application);
+    }
+
+    @Override
+    @Transactional
+    public VendorApplicationResponse resubmitRejectedApplication(UUID id, UUID applicantId) {
+        log.info("Resubmitting rejected vendor application with ID: {} for user ID: {}", id, applicantId);
+
+        VendorApplication application = vendorApplicationRepository.findById(id)
+                .orElseThrow(() -> {
+                    log.error("Vendor application with ID {} not found for resubmission", id);
+                    return new AppException(ErrorCode.VENDOR_APPLICATION_NOT_FOUND);
+                });
+
+        if (!application.getApplicant().getUserId().equals(applicantId)) {
+            log.warn("User ID {} attempted to resubmit vendor application {} owned by {}", 
+                    applicantId, id, application.getApplicant().getUserId());
+            throw new AppException(ErrorCode.UNAUTHORIZED_APPLICATION_ACCESS);
+        }
+
+        if (application.getApplicationStatus() != ApplicationStatus.REJECTED) {
+            log.warn("Cannot resubmit vendor application {}. Current status is: {}", 
+                    id, application.getApplicationStatus());
+            throw new AppException(ErrorCode.CANNOT_RESUBMIT_APPLICATION);
+        }
+
+        boolean isTaxCodeExistInApplications = vendorApplicationRepository
+                .existsByTaxCodeAndVendorApplicationIdNot(application.getTaxCode(), id);
+        boolean isTaxCodeExistInVendors = vendorRepository.existsByTaxCode(application.getTaxCode());
+        if (isTaxCodeExistInApplications || isTaxCodeExistInVendors) {
+            log.warn("Tax code {} already exists during resubmission of application {}", application.getTaxCode(), id);
+            throw new AppException(ErrorCode.TAX_CODE_ALREADY_EXISTS);
+        }
+
+        boolean isEmailExistInApplications = vendorApplicationRepository
+                .existsByContactEmailAndVendorApplicationIdNot(application.getContactEmail(), id);
+        boolean isEmailExistInVendors = vendorRepository.existsByContactEmail(application.getContactEmail());
+        if (isEmailExistInApplications || isEmailExistInVendors) {
+            log.warn("Contact email {} already exists during resubmission of application {}", application.getContactEmail(), id);
+            throw new AppException(ErrorCode.CONTACT_EMAIL_ALREADY_EXISTS);
+        }
+
+        boolean isPhoneExistInApplications = vendorApplicationRepository
+                .existsByContactPhoneAndVendorApplicationIdNot(application.getContactPhone(), id);
+        boolean isPhoneExistInVendors = vendorRepository.existsByContactPhone(application.getContactPhone());
+        if (isPhoneExistInApplications || isPhoneExistInVendors) {
+            log.warn("Contact phone {} already exists during resubmission of application {}", application.getContactPhone(), id);
+            throw new AppException(ErrorCode.CONTACT_PHONE_ALREADY_EXISTS);
+        }
+
+        application.setApplicationStatus(ApplicationStatus.PENDING);
+        application.setRejectionReason(null);
+
+        application = vendorApplicationRepository.save(application);
+        log.info("Successfully resubmitted vendor application with ID: {}", id);
 
         return vendorApplicationMapper.toResponse(application);
     }
