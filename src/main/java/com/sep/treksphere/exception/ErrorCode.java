@@ -36,7 +36,14 @@ public enum ErrorCode {
     BLOG_NOT_FOUND(5001, HttpStatus.NOT_FOUND, MessageConstant.BLOG_NOT_FOUND),
     
     // Vendor
-    VENDOR_NOT_FOUND(6001, HttpStatus.NOT_FOUND, MessageConstant.VENDOR_NOT_FOUND);
+    VENDOR_NOT_FOUND(6001, HttpStatus.NOT_FOUND, MessageConstant.VENDOR_NOT_FOUND),
+    VENDOR_STAFF_NOT_FOUND(6002, HttpStatus.NOT_FOUND, MessageConstant.VENDOR_STAFF_NOT_FOUND),
+
+    // Tour Management
+    TOUR_NOT_BELONG_TO_VENDOR(4002, HttpStatus.FORBIDDEN, MessageConstant.TOUR_NOT_BELONG_TO_VENDOR),
+    TOUR_STATUS_NOT_EDITABLE(4003, HttpStatus.BAD_REQUEST, MessageConstant.TOUR_STATUS_NOT_EDITABLE),
+    TOUR_NOT_IN_DRAFT_OR_REJECTED(4004, HttpStatus.BAD_REQUEST, MessageConstant.TOUR_NOT_IN_DRAFT_OR_REJECTED);
+
 
 
     private final int code;

@@ -65,9 +65,29 @@ public class MessageConstant {
 
     // Tour Messages
     public static final String TOUR_NOT_FOUND = "Tour không tồn tại";
+    public static final String TOUR_CREATED_SUCCESSFULLY = "Tạo tour thành công";
+    public static final String TOUR_UPDATED_SUCCESSFULLY = "Cập nhật tour thành công";
+    public static final String TOUR_DELETED_SUCCESSFULLY = "Xóa tour thành công";
+    public static final String TOUR_NOT_BELONG_TO_VENDOR = "Tour không thuộc về Vendor của bạn";
+    public static final String TOUR_STATUS_NOT_EDITABLE = "Tour ở trạng thái hiện tại không thể chỉnh sửa";
+    public static final String TOUR_NAME_REQUIRED = "Tên tour không được để trống";
+    public static final String TOUR_DESCRIPTION_REQUIRED = "Mô tả không được để trống";
+    public static final String TOUR_DIFFICULTY_REQUIRED = "Độ khó không được để trống";
+    public static final String TOUR_LOCATION_REQUIRED = "Địa điểm không được để trống";
+    public static final String TOUR_DURATION_REQUIRED = "Số ngày không được để trống";
+    public static final String TOUR_DURATION_MIN = "Thời gian tour phải ít nhất 1 ngày";
+    public static final String TOUR_BASE_PRICE_REQUIRED = "Giá cơ bản không được để trống";
+    public static final String TOUR_BASE_PRICE_MIN = "Giá cơ bản phải lớn hơn 0";
+    public static final String TOUR_MIN_CAPACITY_REQUIRED = "Sức chứa tối thiểu không được để trống";
+    public static final String TOUR_MIN_CAPACITY_MIN = "Sức chứa tối thiểu phải ít nhất là 1";
+    public static final String TOUR_MAX_CAPACITY_REQUIRED = "Sức chứa tối đa không được để trống";
+    public static final String TOUR_MAX_CAPACITY_MIN = "Sức chứa tối đa phải ít nhất là 1";
+    public static final String TOUR_SUBMITTED_FOR_APPROVAL = "Tour đã được gửi yêu cầu kiểm duyệt thành công";
+    public static final String TOUR_NOT_IN_DRAFT_OR_REJECTED = "Chỉ có thể gửi duyệt Tour ở trạng thái Nháp hoặc Bị từ chối";
 
     // Vendor Messages
     public static final String VENDOR_NOT_FOUND = "Vendor không tồn tại";
+    public static final String VENDOR_STAFF_NOT_FOUND = "Không tìm thấy nhân viên Vendor";
 
     // Blog Messages
     public static final String BLOG_NOT_FOUND = "Bài viết không tồn tại";

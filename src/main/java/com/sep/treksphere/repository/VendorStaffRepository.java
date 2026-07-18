@@ -8,6 +8,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.util.Optional;
 import java.util.UUID;
 
 @Repository
@@ -18,4 +19,7 @@ public interface VendorStaffRepository extends JpaRepository<VendorStaff, UUID> 
            "OR LOWER(vs.user.fullName) LIKE LOWER(CONCAT('%', :keyword, '%')) " +
            "OR LOWER(vs.user.email) LIKE LOWER(CONCAT('%', :keyword, '%')))")
     Page<VendorStaff> findByVendorIdAndKeyword(@Param("vendorId") UUID vendorId, @Param("keyword") String keyword, Pageable pageable);
+
+    Optional<VendorStaff> findByUser_Email(String email);
 }
+

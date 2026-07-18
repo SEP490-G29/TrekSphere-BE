@@ -1,19 +1,32 @@
 package com.sep.treksphere.service.impl;
 
+import com.sep.treksphere.dto.request.BaseFilterRequest;
+import com.sep.treksphere.dto.request.CreateTourRequest;
+import com.sep.treksphere.dto.request.UpdateTourRequest;
 import com.sep.treksphere.dto.response.*;
+import com.sep.treksphere.entity.Notification;
 import com.sep.treksphere.entity.Tour;
 import com.sep.treksphere.entity.TourImage;
 import com.sep.treksphere.entity.TourSchedule;
+import com.sep.treksphere.entity.User;
+import com.sep.treksphere.entity.Vendor;
 import com.sep.treksphere.enums.blog.ReviewStatus;
+import com.sep.treksphere.enums.system.NotificationEventType;
+import com.sep.treksphere.enums.system.ReferenceType;
 import com.sep.treksphere.enums.tour.DifficultyLevel;
 import com.sep.treksphere.enums.tour.ScheduleStatus;
 import com.sep.treksphere.enums.tour.TourStatus;
 import com.sep.treksphere.exception.AppException;
 import com.sep.treksphere.exception.ErrorCode;
+import com.sep.treksphere.mapper.TourMapper;
+import com.sep.treksphere.repository.NotificationRepository;
 import com.sep.treksphere.repository.ReviewRepository;
 import com.sep.treksphere.repository.TourImageRepository;
 import com.sep.treksphere.repository.TourRepository;
 import com.sep.treksphere.repository.TourScheduleRepository;
+import com.sep.treksphere.repository.UserRepository;
+import com.sep.treksphere.repository.VendorRepository;
+import com.sep.treksphere.repository.VendorStaffRepository;
 import com.sep.treksphere.service.TourService;
 import com.sep.treksphere.utils.PaginationUtils;
 import lombok.RequiredArgsConstructor;
@@ -36,6 +49,11 @@ public class TourServiceImpl implements TourService {
     private final TourImageRepository tourImageRepository;
     private final TourScheduleRepository tourScheduleRepository;
     private final ReviewRepository reviewRepository;
+    private final NotificationRepository notificationRepository;
+    private final VendorRepository vendorRepository;
+    private final VendorStaffRepository vendorStaffRepository;
+    private final UserRepository userRepository;
+    private final TourMapper tourMapper;
 
     @Override
     @Transactional(readOnly = true)
@@ -159,5 +177,129 @@ public class TourServiceImpl implements TourService {
                 .build();
     }
 
+    // --- Vendor Tour Management Methods ---
 
+    private Vendor resolveVendorByEmail(String email) {
+        return vendorRepository.findByManager_Email(email)
+                .orElseGet(() -> vendorStaffRepository.findByUser_Email(email)
+                        .orElseThrow(() -> new AppException(ErrorCode.VENDOR_STAFF_NOT_FOUND))
+                        .getVendor());
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public PaginationResponse<TourSummaryResponse> getVendorTours(String userEmail, BaseFilterRequest request) {
+        Vendor vendor = resolveVendorByEmail(userEmail);
+        
+        Page<Tour> tourPage = tourRepository.findByVendorIdAndKeyword(
+                vendor.getVendorId(),
+                request.getKeyword(),
+                request.getPageable()
+        );
+
+        return PaginationUtils.toPaginationResponse(tourPage.map(this::toSummaryResponse));
+    }
+
+    @Override
+    @Transactional
+    public TourDetailResponse createTour(String userEmail, CreateTourRequest request) {
+        Vendor vendor = resolveVendorByEmail(userEmail);
+        User creator = userRepository.findByEmail(userEmail)
+                .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
+
+        Tour tour = tourMapper.toTour(request);
+        tour.setStatus(TourStatus.DRAFT);
+        tour.setVendor(vendor);
+        tour.setCreator(creator);
+
+        tour = tourRepository.save(tour);
+        
+        return toDetailResponse(tour, List.of(), List.of(), 0.0, 0);
+    }
+
+    @Override
+    @Transactional
+    public TourDetailResponse updateTour(String userEmail, UUID tourId, UpdateTourRequest request) {
+        Vendor vendor = resolveVendorByEmail(userEmail);
+        
+        Tour tour = tourRepository.findByTourIdAndIsDeletedFalse(tourId)
+                .orElseThrow(() -> new AppException(ErrorCode.TOUR_NOT_FOUND));
+                
+        if (!tour.getVendor().getVendorId().equals(vendor.getVendorId())) {
+            throw new AppException(ErrorCode.TOUR_NOT_BELONG_TO_VENDOR);
+        }
+
+        if (tour.getStatus() != TourStatus.DRAFT && tour.getStatus() != TourStatus.REJECTED) {
+            throw new AppException(ErrorCode.TOUR_STATUS_NOT_EDITABLE);
+        }
+
+        tourMapper.updateTourFromRequest(request, tour);
+        tour = tourRepository.save(tour);
+
+        List<TourImage> images = tourImageRepository.findByTourOrderBySortOrderAsc(tour);
+        List<TourSchedule> schedules = tourScheduleRepository
+                .findByTourAndStatusOrderByDepartureDateAsc(tour, ScheduleStatus.OPEN);
+        Double avgRating = reviewRepository.findAverageRatingByTourAndStatus(tour, ReviewStatus.APPROVED);
+        int totalReviews = reviewRepository.countByTourAndStatusAndIsDeletedFalse(tour, ReviewStatus.APPROVED);
+        
+        return toDetailResponse(tour, images, schedules, avgRating, totalReviews);
+    }
+
+    @Override
+    @Transactional
+    public void deleteTour(String userEmail, UUID tourId) {
+        Vendor vendor = vendorRepository.findByManager_Email(userEmail)
+                .orElseThrow(() -> new AppException(ErrorCode.VENDOR_NOT_FOUND));
+
+        Tour tour = tourRepository.findByTourIdAndIsDeletedFalse(tourId)
+                .orElseThrow(() -> new AppException(ErrorCode.TOUR_NOT_FOUND));
+                
+        if (!tour.getVendor().getVendorId().equals(vendor.getVendorId())) {
+            throw new AppException(ErrorCode.TOUR_NOT_BELONG_TO_VENDOR);
+        }
+
+        tour.setIsDeleted(true);
+        tourRepository.save(tour);
+    }
+
+    // --- Tour Approval Workflow ---
+
+    @Override
+    @Transactional
+    public TourDetailResponse submitTourForApproval(String userEmail, UUID tourId) {
+        Vendor vendor = resolveVendorByEmail(userEmail);
+
+        Tour tour = tourRepository.findByTourIdAndIsDeletedFalse(tourId)
+                .orElseThrow(() -> new AppException(ErrorCode.TOUR_NOT_FOUND));
+
+        if (!tour.getVendor().getVendorId().equals(vendor.getVendorId())) {
+            throw new AppException(ErrorCode.TOUR_NOT_BELONG_TO_VENDOR);
+        }
+
+        if (tour.getStatus() != TourStatus.DRAFT && tour.getStatus() != TourStatus.REJECTED) {
+            throw new AppException(ErrorCode.TOUR_NOT_IN_DRAFT_OR_REJECTED);
+        }
+
+        tour.setStatus(TourStatus.PENDING_APPROVAL);
+        tour = tourRepository.save(tour);
+
+        // Send notification to Vendor Manager
+        User manager = vendor.getManager();
+        Notification notification = new Notification();
+        notification.setRecipient(manager);
+        notification.setTitle("Yêu cầu duyệt Tour mới");
+        notification.setEventType(NotificationEventType.TOUR_PENDING_APPROVAL);
+        notification.setContent("Tour \"" + tour.getTourName() + "\" đã được gửi yêu cầu kiểm duyệt.");
+        notification.setReferenceType(ReferenceType.TOUR);
+        notification.setReferenceId(tour.getTourId());
+        notificationRepository.save(notification);
+
+        List<TourImage> images = tourImageRepository.findByTourOrderBySortOrderAsc(tour);
+        List<TourSchedule> schedules = tourScheduleRepository
+                .findByTourAndStatusOrderByDepartureDateAsc(tour, ScheduleStatus.OPEN);
+        Double avgRating = reviewRepository.findAverageRatingByTourAndStatus(tour, ReviewStatus.APPROVED);
+        int totalReviews = reviewRepository.countByTourAndStatusAndIsDeletedFalse(tour, ReviewStatus.APPROVED);
+
+        return toDetailResponse(tour, images, schedules, avgRating, totalReviews);
+    }
 }
