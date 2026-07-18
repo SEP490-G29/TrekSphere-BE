@@ -34,7 +34,7 @@ public class VendorApplicationController {
 
     private final VendorApplicationService vendorApplicationService;
 
-    @Operation(summary = "Gửi đơn đăng ký đối tác", description = "Cho phép khách du lịch gửi hồ sơ doanh nghiệp ứng tuyển làm Vendor.")
+    @Operation(summary = "Tạo đơn đăng ký bản nháp", description = "Cho phép khách du lịch khởi tạo đơn đăng ký Vendor dưới dạng bản nháp.")
     @SecurityRequirement(name = "bearerAuth")
     @PreAuthorize("hasRole('TREKKER')")
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
@@ -47,7 +47,7 @@ public class VendorApplicationController {
         ApiResponse<VendorApplicationResponse> response = ApiResponse.success(
                 HttpStatus.CREATED,
                 data,
-                MessageConstant.VENDOR_APPLICATION_SUBMITTED
+                MessageConstant.VENDOR_APPLICATION_DRAFT_CREATED
         );
 
         return ResponseEntity.status(HttpStatus.CREATED).body(response);

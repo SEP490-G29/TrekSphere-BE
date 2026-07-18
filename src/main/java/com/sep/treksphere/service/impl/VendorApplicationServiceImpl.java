@@ -52,7 +52,7 @@ public class VendorApplicationServiceImpl implements VendorApplicationService {
     @Override
     @Transactional
     public VendorApplicationResponse submitApplication(String applicantEmail, VendorApplicationRequest request) {
-        log.info("Processing vendor application submission for user email: {}", applicantEmail);
+        log.info("Processing vendor application draft creation for user email: {}", applicantEmail);
 
         User applicant = userRepository.findByEmail(applicantEmail)
                 .orElseThrow(() -> {
@@ -93,11 +93,11 @@ public class VendorApplicationServiceImpl implements VendorApplicationService {
 
         VendorApplication vendorApplication = vendorApplicationMapper.toEntity(request);
         vendorApplication.setApplicant(applicant);
-        vendorApplication.setApplicationStatus(ApplicationStatus.PENDING);
+        vendorApplication.setApplicationStatus(ApplicationStatus.DRAFT);
         vendorApplication.setBusinessLicenseUrl(businessLicenseUrl);
 
         vendorApplication = vendorApplicationRepository.save(vendorApplication);
-        log.info("Successfully created vendor application with ID: {} for user: {}", 
+        log.info("Successfully created vendor application draft with ID: {} for user: {}", 
                 vendorApplication.getVendorApplicationId(), applicantEmail);
 
         return vendorApplicationMapper.toResponse(vendorApplication);
