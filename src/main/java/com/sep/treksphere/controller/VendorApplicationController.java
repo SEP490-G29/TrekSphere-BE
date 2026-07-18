@@ -38,11 +38,11 @@ public class VendorApplicationController {
     @SecurityRequirement(name = "bearerAuth")
     @PreAuthorize("hasRole('TREKKER')")
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    public ResponseEntity<ApiResponse<VendorApplicationResponse>> submitApplication(
+    public ResponseEntity<ApiResponse<VendorApplicationResponse>> saveDraftApplication(
             @AuthenticationPrincipal CustomUserDetails userDetails,
             @Valid @ModelAttribute VendorApplicationRequest request) {
 
-        VendorApplicationResponse data = vendorApplicationService.submitApplication(userDetails.getUsername(), request);
+        VendorApplicationResponse data = vendorApplicationService.saveDraftApplication(userDetails.getUsername(), request);
 
         ApiResponse<VendorApplicationResponse> response = ApiResponse.success(
                 HttpStatus.CREATED,
@@ -127,6 +127,25 @@ public class VendorApplicationController {
                 HttpStatus.OK, 
                 data, 
                 MessageConstant.VENDOR_APPLICATION_UPDATED
+        );
+        
+        return ResponseEntity.ok(response);
+    }
+
+    @Operation(summary = "Nộp đơn đăng ký bản nháp", description = "Cho phép Trekker nộp đơn đăng ký từ trạng thái bản nháp (DRAFT) lên PENDING để chờ duyệt.")
+    @SecurityRequirement(name = "bearerAuth")
+    @PreAuthorize("hasRole('TREKKER')")
+    @PostMapping("/{id}/submit")
+    public ResponseEntity<ApiResponse<VendorApplicationResponse>> submitDraftApplication(
+            @PathVariable UUID id,
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+        
+        VendorApplicationResponse data = vendorApplicationService.submitDraftApplication(id, userDetails.getUsername());
+        
+        ApiResponse<VendorApplicationResponse> response = ApiResponse.success(
+                HttpStatus.OK, 
+                data, 
+                MessageConstant.VENDOR_APPLICATION_SUBMITTED
         );
         
         return ResponseEntity.ok(response);

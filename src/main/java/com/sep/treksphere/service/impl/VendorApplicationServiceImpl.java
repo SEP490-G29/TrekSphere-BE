@@ -51,7 +51,7 @@ public class VendorApplicationServiceImpl implements VendorApplicationService {
 
     @Override
     @Transactional
-    public VendorApplicationResponse submitApplication(String applicantEmail, VendorApplicationRequest request) {
+    public VendorApplicationResponse saveDraftApplication(String applicantEmail, VendorApplicationRequest request) {
         log.info("Processing vendor application draft creation for user email: {}", applicantEmail);
 
         User applicant = userRepository.findByEmail(applicantEmail)
@@ -315,6 +315,61 @@ public class VendorApplicationServiceImpl implements VendorApplicationService {
 
         application = vendorApplicationRepository.save(application);
         log.info("Successfully updated and resubmitted vendor application with ID: {}", id);
+
+        return vendorApplicationMapper.toResponse(application);
+    }
+
+    @Override
+    @Transactional
+    public VendorApplicationResponse submitDraftApplication(UUID id, String applicantEmail) {
+        log.info("Submitting draft vendor application with ID: {} for user: {}", id, applicantEmail);
+
+        VendorApplication application = vendorApplicationRepository.findById(id)
+                .orElseThrow(() -> {
+                    log.error("Vendor application with ID {} not found for submission", id);
+                    return new AppException(ErrorCode.VENDOR_APPLICATION_NOT_FOUND);
+                });
+
+        if (!application.getApplicant().getEmail().equals(applicantEmail)) {
+            log.warn("User {} attempted to submit vendor application {} owned by {}", 
+                    applicantEmail, id, application.getApplicant().getEmail());
+            throw new AppException(ErrorCode.UNAUTHORIZED_APPLICATION_ACCESS);
+        }
+
+        if (application.getApplicationStatus() != ApplicationStatus.DRAFT) {
+            log.warn("Cannot submit vendor application {}. Current status is: {}", 
+                    id, application.getApplicationStatus());
+            throw new AppException(ErrorCode.CANNOT_SUBMIT_APPLICATION);
+        }
+
+        boolean isTaxCodeExistInApplications = vendorApplicationRepository
+                .existsByTaxCodeAndVendorApplicationIdNot(application.getTaxCode(), id);
+        boolean isTaxCodeExistInVendors = vendorRepository.existsByTaxCode(application.getTaxCode());
+        if (isTaxCodeExistInApplications || isTaxCodeExistInVendors) {
+            log.warn("Tax code {} already exists during submission of application {}", application.getTaxCode(), id);
+            throw new AppException(ErrorCode.TAX_CODE_ALREADY_EXISTS);
+        }
+
+        boolean isEmailExistInApplications = vendorApplicationRepository
+                .existsByContactEmailAndVendorApplicationIdNot(application.getContactEmail(), id);
+        boolean isEmailExistInVendors = vendorRepository.existsByContactEmail(application.getContactEmail());
+        if (isEmailExistInApplications || isEmailExistInVendors) {
+            log.warn("Contact email {} already exists during submission of application {}", application.getContactEmail(), id);
+            throw new AppException(ErrorCode.CONTACT_EMAIL_ALREADY_EXISTS);
+        }
+
+        boolean isPhoneExistInApplications = vendorApplicationRepository
+                .existsByContactPhoneAndVendorApplicationIdNot(application.getContactPhone(), id);
+        boolean isPhoneExistInVendors = vendorRepository.existsByContactPhone(application.getContactPhone());
+        if (isPhoneExistInApplications || isPhoneExistInVendors) {
+            log.warn("Contact phone {} already exists during submission of application {}", application.getContactPhone(), id);
+            throw new AppException(ErrorCode.CONTACT_PHONE_ALREADY_EXISTS);
+        }
+
+        application.setApplicationStatus(ApplicationStatus.PENDING);
+
+        application = vendorApplicationRepository.save(application);
+        log.info("Successfully submitted draft vendor application with ID: {}", id);
 
         return vendorApplicationMapper.toResponse(application);
     }
