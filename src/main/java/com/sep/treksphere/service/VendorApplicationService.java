@@ -3,6 +3,7 @@ package com.sep.treksphere.service;
 import com.sep.treksphere.dto.request.VendorApplicationFilterRequest;
 import com.sep.treksphere.dto.request.VendorApplicationRejectRequest;
 import com.sep.treksphere.dto.request.VendorApplicationRequest;
+import com.sep.treksphere.dto.request.VendorApplicationUpdateRequest;
 import com.sep.treksphere.dto.response.PaginationResponse;
 import com.sep.treksphere.dto.response.VendorApplicationResponse;
 import com.sep.treksphere.dto.response.VendorResponse;
@@ -16,4 +17,5 @@ public interface VendorApplicationService {
     VendorApplicationResponse getApplicationById(UUID id, CustomUserDetails userDetails);
     VendorResponse approveApplication(UUID id);
     VendorApplicationResponse rejectApplication(UUID id, VendorApplicationRejectRequest request);
+    VendorApplicationResponse updateApplication(UUID id, VendorApplicationUpdateRequest request, String applicantEmail);
 }

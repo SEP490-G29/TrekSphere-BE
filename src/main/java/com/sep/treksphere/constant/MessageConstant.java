@@ -97,4 +97,6 @@ public class MessageConstant {
     public static final String VENDOR_APPLICATION_APPROVED = "Phê duyệt đơn đăng ký và kích hoạt tài khoản Vendor thành công.";
     public static final String REJECTION_REASON_REQUIRED = "Lý do từ chối không được để trống";
     public static final String VENDOR_APPLICATION_REJECTED = "Từ chối đơn đăng ký đối tác thành công.";
+    public static final String CANNOT_UPDATE_APPLICATION = "Chỉ có thể cập nhật đơn đăng ký đã bị từ chối";
+    public static final String VENDOR_APPLICATION_UPDATED = "Cập nhật đơn đăng ký đối tác thành công. Đang chờ phê duyệt lại.";
 }

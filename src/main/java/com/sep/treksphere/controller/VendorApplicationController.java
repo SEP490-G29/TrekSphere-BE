@@ -4,6 +4,7 @@ import com.sep.treksphere.constant.MessageConstant;
 import com.sep.treksphere.dto.request.VendorApplicationFilterRequest;
 import com.sep.treksphere.dto.request.VendorApplicationRejectRequest;
 import com.sep.treksphere.dto.request.VendorApplicationRequest;
+import com.sep.treksphere.dto.request.VendorApplicationUpdateRequest;
 import com.sep.treksphere.dto.response.ApiResponse;
 import com.sep.treksphere.dto.response.PaginationResponse;
 import com.sep.treksphere.dto.response.VendorApplicationResponse;
@@ -106,6 +107,26 @@ public class VendorApplicationController {
                 HttpStatus.OK, 
                 data, 
                 MessageConstant.VENDOR_APPLICATION_REJECTED
+        );
+        
+        return ResponseEntity.ok(response);
+    }
+
+    @Operation(summary = "Cập nhật đơn đăng ký bị reject", description = "Cho phép Trekker cập nhật lại thông tin hồ sơ của đơn bị từ chối.")
+    @SecurityRequirement(name = "bearerAuth")
+    @PreAuthorize("hasRole('TREKKER')")
+    @PutMapping(value = "/{id}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<ApiResponse<VendorApplicationResponse>> updateApplication(
+            @PathVariable UUID id,
+            @AuthenticationPrincipal CustomUserDetails userDetails,
+            @Valid @ModelAttribute VendorApplicationUpdateRequest request) {
+        
+        VendorApplicationResponse data = vendorApplicationService.updateApplication(id, request, userDetails.getUsername());
+        
+        ApiResponse<VendorApplicationResponse> response = ApiResponse.success(
+                HttpStatus.OK, 
+                data, 
+                MessageConstant.VENDOR_APPLICATION_UPDATED
         );
         
         return ResponseEntity.ok(response);

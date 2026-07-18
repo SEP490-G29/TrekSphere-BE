@@ -17,6 +17,9 @@ public interface VendorApplicationRepository extends JpaRepository<VendorApplica
     boolean existsByApplicant_UserIdAndApplicationStatus(UUID applicantId, ApplicationStatus applicationStatus);
     boolean existsByContactEmail(String contactEmail);
     boolean existsByContactPhone(String contactPhone);
+    boolean existsByTaxCodeAndVendorApplicationIdNot(String taxCode, UUID vendorApplicationId);
+    boolean existsByContactEmailAndVendorApplicationIdNot(String contactEmail, UUID vendorApplicationId);
+    boolean existsByContactPhoneAndVendorApplicationIdNot(String contactPhone, UUID vendorApplicationId);
 
     @Query("SELECT va FROM VendorApplication va WHERE va.isDeleted = false " +
            "AND (:status IS NULL OR va.applicationStatus = :status) " +

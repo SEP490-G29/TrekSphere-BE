@@ -3,6 +3,7 @@ package com.sep.treksphere.service.impl;
 import com.sep.treksphere.dto.request.VendorApplicationFilterRequest;
 import com.sep.treksphere.dto.request.VendorApplicationRejectRequest;
 import com.sep.treksphere.dto.request.VendorApplicationRequest;
+import com.sep.treksphere.dto.request.VendorApplicationUpdateRequest;
 import com.sep.treksphere.dto.response.PaginationResponse;
 import com.sep.treksphere.dto.response.VendorApplicationResponse;
 import com.sep.treksphere.dto.response.VendorResponse;
@@ -29,6 +30,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
 
 import java.util.List;
 import java.util.UUID;
@@ -226,6 +228,93 @@ public class VendorApplicationServiceImpl implements VendorApplicationService {
 
         application = vendorApplicationRepository.save(application);
         log.info("Successfully rejected vendor application with ID: {}", id);
+
+        return vendorApplicationMapper.toResponse(application);
+    }
+
+    @Override
+    @Transactional
+    public VendorApplicationResponse updateApplication(UUID id, VendorApplicationUpdateRequest request, String applicantEmail) {
+        log.info("Updating vendor application with ID: {} for user: {}", id, applicantEmail);
+
+        VendorApplication application = vendorApplicationRepository.findById(id)
+                .orElseThrow(() -> {
+                    log.error("Vendor application with ID {} not found for update", id);
+                    return new AppException(ErrorCode.VENDOR_APPLICATION_NOT_FOUND);
+                });
+
+        if (!application.getApplicant().getEmail().equals(applicantEmail)) {
+            log.warn("User {} attempted to update vendor application {} owned by {}", 
+                    applicantEmail, id, application.getApplicant().getEmail());
+            throw new AppException(ErrorCode.UNAUTHORIZED_APPLICATION_ACCESS);
+        }
+
+        if (application.getApplicationStatus() != ApplicationStatus.REJECTED) {
+            log.warn("Cannot update vendor application {}. Current status is: {}", 
+                    id, application.getApplicationStatus());
+            throw new AppException(ErrorCode.CANNOT_UPDATE_APPLICATION);
+        }
+
+        if (StringUtils.hasText(request.getTaxCode())) {
+            String newTaxCode = request.getTaxCode().trim();
+            if (!newTaxCode.equals(application.getTaxCode())) {
+                boolean existsInApps = vendorApplicationRepository
+                        .existsByTaxCodeAndVendorApplicationIdNot(newTaxCode, id);
+                boolean existsInVendors = vendorRepository.existsByTaxCode(newTaxCode);
+                if (existsInApps || existsInVendors) {
+                    log.warn("Tax code {} is already registered during update of application {}", newTaxCode, id);
+                    throw new AppException(ErrorCode.TAX_CODE_ALREADY_EXISTS);
+                }
+                application.setTaxCode(newTaxCode);
+            }
+        }
+
+        if (StringUtils.hasText(request.getContactEmail())) {
+            String newEmail = request.getContactEmail().trim();
+            if (!newEmail.equalsIgnoreCase(application.getContactEmail())) {
+                boolean existsInApps = vendorApplicationRepository
+                        .existsByContactEmailAndVendorApplicationIdNot(newEmail, id);
+                boolean existsInVendors = vendorRepository.existsByContactEmail(newEmail);
+                if (existsInApps || existsInVendors) {
+                    log.warn("Contact email {} is already registered during update of application {}", newEmail, id);
+                    throw new AppException(ErrorCode.CONTACT_EMAIL_ALREADY_EXISTS);
+                }
+                application.setContactEmail(newEmail);
+            }
+        }
+
+        if (StringUtils.hasText(request.getContactPhone())) {
+            String newPhone = request.getContactPhone().trim();
+            if (!newPhone.equals(application.getContactPhone())) {
+                boolean existsInApps = vendorApplicationRepository
+                        .existsByContactPhoneAndVendorApplicationIdNot(newPhone, id);
+                boolean existsInVendors = vendorRepository.existsByContactPhone(newPhone);
+                if (existsInApps || existsInVendors) {
+                    log.warn("Contact phone {} is already registered during update of application {}", newPhone, id);
+                    throw new AppException(ErrorCode.CONTACT_PHONE_ALREADY_EXISTS);
+                }
+                application.setContactPhone(newPhone);
+            }
+        }
+
+        if (StringUtils.hasText(request.getCompanyName())) {
+            application.setCompanyName(request.getCompanyName().trim());
+        }
+        if (StringUtils.hasText(request.getBusinessDescription())) {
+            application.setBusinessDescription(request.getBusinessDescription().trim());
+        }
+
+        if (request.getBusinessLicense() != null && !request.getBusinessLicense().isEmpty()) {
+            log.info("Uploading new business license file for vendor application update");
+            String newUrl = fileService.uploadFile(request.getBusinessLicense(), "vendor-licenses");
+            application.setBusinessLicenseUrl(newUrl);
+        }
+
+        application.setApplicationStatus(ApplicationStatus.PENDING);
+        application.setRejectionReason(null);
+
+        application = vendorApplicationRepository.save(application);
+        log.info("Successfully updated and resubmitted vendor application with ID: {}", id);
 
         return vendorApplicationMapper.toResponse(application);
     }
