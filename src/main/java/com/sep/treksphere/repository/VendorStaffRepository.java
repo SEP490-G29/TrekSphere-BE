@@ -8,10 +8,13 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.util.Optional;
 import java.util.UUID;
 
 @Repository
 public interface VendorStaffRepository extends JpaRepository<VendorStaff, UUID> {
+
+    Optional<VendorStaff> findByUser_UserIdAndIsActiveTrueAndIsDeletedFalse(UUID userId);
 
     @Query("SELECT vs FROM VendorStaff vs WHERE vs.vendor.vendorId = :vendorId " +
            "AND (:keyword IS NULL OR :keyword = '' " +

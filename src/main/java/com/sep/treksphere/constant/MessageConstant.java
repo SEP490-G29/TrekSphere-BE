@@ -107,4 +107,6 @@ public class MessageConstant {
     public static final String VENDOR_APPLICATION_REJECTED = "Từ chối đơn đăng ký đối tác thành công.";
     public static final String CANNOT_UPDATE_APPLICATION = "Chỉ có thể cập nhật đơn đăng ký ở trạng thái DRAFT hoặc REJECTED";
     public static final String VENDOR_APPLICATION_UPDATED = "Cập nhật đơn đăng ký đối tác thành công.";
+    public static final String UNAUTHORIZED_VENDOR_ACCESS = "Bạn không có quyền truy cập thông tin Vendor";
+    public static final String VENDOR_PROFILE_FETCHED = "Lấy thông tin hồ sơ đối tác thành công";
 }
