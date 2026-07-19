@@ -36,6 +36,10 @@ public enum ErrorCode {
     TOUR_NOT_IN_DRAFT_OR_REJECTED(4004, HttpStatus.BAD_REQUEST, MessageConstant.TOUR_NOT_IN_DRAFT_OR_REJECTED),
     TOUR_NOT_APPROVED(4005, HttpStatus.BAD_REQUEST, MessageConstant.TOUR_NOT_APPROVED),
 
+    // Checkpoint
+    CHECKPOINT_NOT_FOUND(4101, HttpStatus.NOT_FOUND, MessageConstant.CHECKPOINT_NOT_FOUND),
+    CHECKPOINT_DUPLICATE_ORDER(4102, HttpStatus.BAD_REQUEST, MessageConstant.CHECKPOINT_DUPLICATE_ORDER),
+
     // Blog
     BLOG_NOT_FOUND(5001, HttpStatus.NOT_FOUND, MessageConstant.BLOG_NOT_FOUND),
     
