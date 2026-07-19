@@ -36,7 +36,8 @@ public enum ErrorCode {
     BLOG_NOT_FOUND(5001, HttpStatus.NOT_FOUND, MessageConstant.BLOG_NOT_FOUND),
     
     // Vendor
-    VENDOR_NOT_FOUND(6001, HttpStatus.NOT_FOUND, MessageConstant.VENDOR_NOT_FOUND);
+    VENDOR_NOT_FOUND(6001, HttpStatus.NOT_FOUND, MessageConstant.VENDOR_NOT_FOUND),
+    EQUIPMENT_NOT_FOUND(6002, HttpStatus.NOT_FOUND, MessageConstant.EQUIPMENT_NOT_FOUND);
 
 
     private final int code;
