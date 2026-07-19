@@ -30,5 +30,8 @@ public interface TourService {
 
     // Tour Approval Workflow
     TourDetailResponse submitTourForApproval(String userEmail, UUID tourId);
+
+    // Tour Moderation
+    TourDetailResponse hideTourForViolation(String userEmail, UUID tourId, String reason);
 }
 

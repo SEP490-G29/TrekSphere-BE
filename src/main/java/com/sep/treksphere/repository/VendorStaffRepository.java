@@ -14,6 +14,9 @@ import java.util.UUID;
 @Repository
 public interface VendorStaffRepository extends JpaRepository<VendorStaff, UUID> {
 
+    Optional<VendorStaff> findByUser_UserIdAndIsActiveTrueAndIsDeletedFalse(UUID userId);
+    Optional<VendorStaff> findByUser_UserId(UUID userId);
+
     @Query("SELECT vs FROM VendorStaff vs WHERE vs.vendor.vendorId = :vendorId " +
            "AND (:keyword IS NULL OR :keyword = '' " +
            "OR LOWER(vs.user.fullName) LIKE LOWER(CONCAT('%', :keyword, '%')) " +

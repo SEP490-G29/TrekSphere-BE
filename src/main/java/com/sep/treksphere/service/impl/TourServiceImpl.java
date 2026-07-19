@@ -301,5 +301,48 @@ public class TourServiceImpl implements TourService {
         int totalReviews = reviewRepository.countByTourAndStatusAndIsDeletedFalse(tour, ReviewStatus.APPROVED);
 
         return toDetailResponse(tour, images, schedules, avgRating, totalReviews);
+  }
+
+    @Override
+    @Transactional
+    public TourDetailResponse hideTourForViolation(String userEmail, UUID tourId, String reason) {
+        User currentUser = userRepository.findByEmail(userEmail)
+                .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
+
+        Tour tour = tourRepository.findByTourIdAndIsDeletedFalse(tourId)
+                .orElseThrow(() -> new AppException(ErrorCode.TOUR_NOT_FOUND));
+
+        boolean isAdmin = currentUser.getRoles().stream()
+                .anyMatch(role -> "ADMIN".equals(role.getRoleName()));
+
+        if (!isAdmin) {
+            Vendor vendor = resolveVendorByEmail(userEmail);
+            if (!tour.getVendor().getVendorId().equals(vendor.getVendorId())) {
+                throw new AppException(ErrorCode.TOUR_NOT_BELONG_TO_VENDOR);
+            }
+        }
+        if (tour.getStatus() != TourStatus.APPROVED) {
+            throw new AppException(ErrorCode.TOUR_NOT_APPROVED);
+        }
+        tour.setStatus(TourStatus.HIDDEN);
+        tour = tourRepository.save(tour);
+
+        User manager = tour.getVendor().getManager();
+        Notification notification = new Notification();
+        notification.setRecipient(manager);
+        notification.setTitle("Tour bị ẩn do vi phạm");
+        notification.setEventType(NotificationEventType.TOUR_HIDDEN_VIOLATION);
+        notification.setContent("Tour \"" + tour.getTourName() + "\" đã bị ẩn. Lý do: " + reason);
+        notification.setReferenceType(ReferenceType.TOUR);
+        notification.setReferenceId(tour.getTourId());
+        notificationRepository.save(notification);
+
+        List<TourImage> images = tourImageRepository.findByTourOrderBySortOrderAsc(tour);
+        List<TourSchedule> schedules = tourScheduleRepository
+                .findByTourAndStatusOrderByDepartureDateAsc(tour, ScheduleStatus.OPEN);
+        Double avgRating = reviewRepository.findAverageRatingByTourAndStatus(tour, ReviewStatus.APPROVED);
+        int totalReviews = reviewRepository.countByTourAndStatusAndIsDeletedFalse(tour, ReviewStatus.APPROVED);
+
+        return toDetailResponse(tour, images, schedules, avgRating, totalReviews);
     }
 }

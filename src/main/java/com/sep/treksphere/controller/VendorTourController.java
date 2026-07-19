@@ -3,6 +3,7 @@ package com.sep.treksphere.controller;
 import com.sep.treksphere.constant.MessageConstant;
 import com.sep.treksphere.dto.request.BaseFilterRequest;
 import com.sep.treksphere.dto.request.CreateTourRequest;
+import com.sep.treksphere.dto.request.HideTourRequest;
 import com.sep.treksphere.dto.request.UpdateTourRequest;
 import com.sep.treksphere.dto.response.ApiResponse;
 import com.sep.treksphere.dto.response.PaginationResponse;
@@ -85,5 +86,18 @@ public class VendorTourController {
 
         TourDetailResponse response = tourService.submitTourForApproval(userDetails.getUsername(), id);
         return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, response, MessageConstant.TOUR_SUBMITTED_FOR_APPROVAL));
+    }
+
+    @Operation(summary = "Ẩn Tour vi phạm", description = "Admin/VendorManager ẩn Tour đang bán nếu phát hiện vi phạm. Hệ thống sẽ gửi thông báo cho chủ tour.")
+    @SecurityRequirement(name = "bearerAuth")
+    @PreAuthorize("hasAnyRole('ADMIN', 'VENDOR_MANAGER')")
+    @PutMapping("/{id}/hide")
+    public ResponseEntity<ApiResponse<TourDetailResponse>> hideTour(
+            @AuthenticationPrincipal CustomUserDetails userDetails,
+            @PathVariable UUID id,
+            @Valid @RequestBody HideTourRequest request) {
+
+        TourDetailResponse response = tourService.hideTourForViolation(userDetails.getUsername(), id, request.getReason());
+        return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, response, MessageConstant.TOUR_HIDDEN_SUCCESSFULLY));
     }
 }
