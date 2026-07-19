@@ -50,6 +50,18 @@ public class EmailServiceImpl implements EmailService {
         sendEmail(toAddress, "TrekSphere - Xác minh địa chỉ email của bạn", "email-verification", context);
     }
 
+    @Override
+    public void sendStaffInvitationEmail(String toEmail, String fullName, String companyName, String password, String activationUrl) {
+        Context context = new Context();
+        context.setVariable("fullName", fullName);
+        context.setVariable("companyName", companyName);
+        context.setVariable("email", toEmail);
+        context.setVariable("password", password);
+        context.setVariable("activationUrl", activationUrl);
+
+        sendEmail(toEmail, "TrekSphere - Lời mời tham gia doanh nghiệp " + companyName, "vendor-staff-invitation", context);
+    }
+
     private void sendEmail(String toAddress, String subject, String templateName, Context context) {
         log.info("Preparing to send email [{}] to {}", templateName, toAddress);
         try {

@@ -113,4 +113,7 @@ public class MessageConstant {
     public static final String VENDOR_STATUS_REQUIRED = "Trạng thái của đối tác không được để trống";
     public static final String VENDOR_STATUS_UPDATED = "Cập nhật trạng thái đối tác thành công";
     public static final String VENDOR_REVOKED_STATUS = "Không thể thay đổi trạng thái của đối tác đã bị thu hồi quyền (REVOKED)";
+    public static final String STAFF_ALREADY_EXISTS = "Nhân viên này đã thuộc công ty của bạn";
+    public static final String STAFF_BELONGS_TO_OTHER_VENDOR = "Nhân viên này đang thuộc một công ty khác";
+    public static final String VENDOR_STAFF_ADDED = "Thêm nhân viên mới thành công";
 }
