@@ -52,6 +52,8 @@ public class SecurityConfig {
                                 "/api/v1/auth/verify",
                                 "/api/v1/tours",
                                 "/api/v1/tours/*",
+                                "/api/v1/tours/*/checkpoints",
+                                "/api/v1/tours/*/schedules",
                                 "/api/v1/blogs",
                                 "/api/v1/blogs/*",
                                 "/v2/api-docs",
