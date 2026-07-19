@@ -116,4 +116,8 @@ public class MessageConstant {
     public static final String STAFF_ALREADY_EXISTS = "Nhân viên này đã thuộc công ty của bạn";
     public static final String STAFF_BELONGS_TO_OTHER_VENDOR = "Nhân viên này đang thuộc một công ty khác";
     public static final String VENDOR_STAFF_ADDED = "Thêm nhân viên mới thành công";
+    public static final String STAFF_STATUS_REQUIRED = "Trạng thái hoạt động của nhân viên không được để trống";
+    public static final String VENDOR_STAFF_STATUS_UPDATED = "Cập nhật trạng thái nhân viên thành công";
+    public static final String VENDOR_STAFF_NOT_FOUND = "Không tìm thấy thông tin nhân viên này";
+    public static final String UNAUTHORIZED_STAFF_ACCESS = "Bạn không có quyền quản lý nhân viên này";
 }

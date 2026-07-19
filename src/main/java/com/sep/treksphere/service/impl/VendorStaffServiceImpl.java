@@ -2,6 +2,7 @@ package com.sep.treksphere.service.impl;
 
 import com.sep.treksphere.dto.request.BaseFilterRequest;
 import com.sep.treksphere.dto.request.VendorStaffAddRequest;
+import com.sep.treksphere.dto.request.VendorStaffStatusUpdateRequest;
 import com.sep.treksphere.dto.response.PaginationResponse;
 import com.sep.treksphere.dto.response.VendorStaffResponse;
 import com.sep.treksphere.entity.Role;
@@ -162,6 +163,30 @@ public class VendorStaffServiceImpl implements VendorStaffService {
             }
         }
         
+        return vendorStaffMapper.toVendorStaffResponse(staff);
+    }
+
+    @Override
+    @Transactional
+    public VendorStaffResponse updateVendorStaffStatus(String managerEmail, UUID staffId, VendorStaffStatusUpdateRequest request) {
+        log.info("Manager {} is changing status of staff ID: {} to isActive={}", managerEmail, staffId, request.getIsActive());
+
+        Vendor vendor = vendorRepository.findByManager_Email(managerEmail)
+                .orElseThrow(() -> new AppException(ErrorCode.VENDOR_NOT_FOUND));
+
+        VendorStaff staff = vendorStaffRepository.findById(staffId)
+                .orElseThrow(() -> new AppException(ErrorCode.VENDOR_STAFF_NOT_FOUND));
+
+        if (!staff.getVendor().getVendorId().equals(vendor.getVendorId())) {
+            log.error("Manager {} of vendor {} unauthorized to manage staff of vendor {}", 
+                    managerEmail, vendor.getVendorId(), staff.getVendor().getVendorId());
+            throw new AppException(ErrorCode.UNAUTHORIZED_STAFF_ACCESS);
+        }
+
+        staff.setIsActive(request.getIsActive());
+        staff = vendorStaffRepository.save(staff);
+        log.info("Successfully updated status of staff ID: {} to isActive={}", staffId, request.getIsActive());
+
         return vendorStaffMapper.toVendorStaffResponse(staff);
     }
 }

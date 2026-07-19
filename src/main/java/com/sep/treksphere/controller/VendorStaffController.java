@@ -3,11 +3,13 @@ package com.sep.treksphere.controller;
 import com.sep.treksphere.constant.MessageConstant;
 import com.sep.treksphere.dto.request.BaseFilterRequest;
 import com.sep.treksphere.dto.request.VendorStaffAddRequest;
+import com.sep.treksphere.dto.request.VendorStaffStatusUpdateRequest;
 import com.sep.treksphere.dto.response.ApiResponse;
 import com.sep.treksphere.dto.response.PaginationResponse;
 import com.sep.treksphere.dto.response.VendorStaffResponse;
 import com.sep.treksphere.security.CustomUserDetails;
 import com.sep.treksphere.service.VendorStaffService;
+import java.util.UUID;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -20,6 +22,8 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -61,5 +65,24 @@ public class VendorStaffController {
                 MessageConstant.VENDOR_STAFF_ADDED
         );
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
+    }
+
+    @Operation(summary = "Vô hiệu hóa hoặc kích hoạt lại nhân viên", description = "Cho phép Vendor Manager kích hoạt hoặc vô hiệu hóa tài khoản hoạt động của nhân viên.")
+    @SecurityRequirement(name = "bearerAuth")
+    @PreAuthorize("hasRole('VENDOR_MANAGER')")
+    @PutMapping("/{staffId}/status")
+    public ResponseEntity<ApiResponse<VendorStaffResponse>> updateVendorStaffStatus(
+            @AuthenticationPrincipal CustomUserDetails userDetails,
+            @PathVariable("staffId") UUID staffId,
+            @Valid @RequestBody VendorStaffStatusUpdateRequest request) {
+        
+        VendorStaffResponse data = vendorStaffService.updateVendorStaffStatus(userDetails.getUsername(), staffId, request);
+        
+        ApiResponse<VendorStaffResponse> response = ApiResponse.success(
+                HttpStatus.OK,
+                data,
+                MessageConstant.VENDOR_STAFF_STATUS_UPDATED
+        );
+        return ResponseEntity.ok(response);
     }
 }
