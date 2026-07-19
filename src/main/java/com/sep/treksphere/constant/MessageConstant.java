@@ -90,6 +90,7 @@ public class MessageConstant {
 
     // Vendor Messages
     public static final String VENDOR_NOT_FOUND = "Vendor không tồn tại";
+    public static final String EQUIPMENT_NOT_FOUND = "Trang bị không tồn tại";
 
     // Blog Messages
     public static final String BLOG_NOT_FOUND = "Bài viết không tồn tại";

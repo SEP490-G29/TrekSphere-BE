@@ -14,6 +14,8 @@ public interface BlogService {
     BlogDetailResponse getBlogById(UUID blogId);
 
     void hideBlog(UUID blogId, CustomUserDetails userDetails);
+    
+    void unhideBlog(UUID blogId, CustomUserDetails userDetails);
 
     void deleteBlog(UUID blogId, CustomUserDetails userDetails);
 }
