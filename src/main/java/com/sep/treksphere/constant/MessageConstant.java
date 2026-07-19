@@ -153,4 +153,20 @@ public class MessageConstant {
     public static final String VENDOR_STAFF_STATUS_UPDATED = "Cập nhật trạng thái nhân viên thành công";
     public static final String VENDOR_STAFF_NOT_FOUND = "Không tìm thấy thông tin nhân viên này";
     public static final String UNAUTHORIZED_STAFF_ACCESS = "Bạn không có quyền quản lý nhân viên này";
+
+    // Schedule Messages
+    public static final String SCHEDULE_NOT_FOUND = "Lịch khởi hành không tồn tại";
+    public static final String SCHEDULE_CREATED_SUCCESSFULLY = "Tạo lịch khởi hành thành công";
+    public static final String SCHEDULE_UPDATED_SUCCESSFULLY = "Cập nhật lịch khởi hành thành công";
+    public static final String SCHEDULE_DELETED_SUCCESSFULLY = "Huỷ lịch khởi hành thành công";
+    public static final String SCHEDULE_HAS_BOOKINGS = "Không thể huỷ lịch khởi hành đã có khách đặt";
+    public static final String SCHEDULE_DEPARTURE_REQUIRED = "Ngày khởi hành không được để trống";
+    public static final String SCHEDULE_RETURN_REQUIRED = "Ngày kết thúc không được để trống";
+    public static final String SCHEDULE_PRICE_REQUIRED = "Giá lịch trình không được để trống";
+    public static final String SCHEDULE_PRICE_MIN = "Giá lịch trình phải lớn hơn 0";
+    public static final String SCHEDULE_SLOTS_REQUIRED = "Số slot không được để trống";
+    public static final String SCHEDULE_SLOTS_MIN = "Số slot phải ít nhất là 1";
+    public static final String SCHEDULE_RETURN_BEFORE_DEPARTURE = "Ngày kết thúc phải sau ngày khởi hành";
+    public static final String SCHEDULE_DEPARTURE_IN_PAST = "Ngày khởi hành phải từ hôm nay trở đi";
 }
+

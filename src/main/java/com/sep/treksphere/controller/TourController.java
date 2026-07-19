@@ -3,9 +3,11 @@ import com.sep.treksphere.dto.response.ApiResponse;
 import com.sep.treksphere.dto.response.PaginationResponse;
 import com.sep.treksphere.dto.response.TourCheckpointResponse;
 import com.sep.treksphere.dto.response.TourDetailResponse;
+import com.sep.treksphere.dto.response.TourScheduleResponse;
 import com.sep.treksphere.dto.response.TourSummaryResponse;
 import com.sep.treksphere.enums.tour.DifficultyLevel;
 import com.sep.treksphere.service.TourCheckpointService;
+import com.sep.treksphere.service.TourScheduleService;
 import com.sep.treksphere.service.TourService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -26,6 +28,7 @@ public class TourController {
 
     private final TourService tourService;
     private final TourCheckpointService tourCheckpointService;
+    private final TourScheduleService tourScheduleService;
 
     @GetMapping
     public ResponseEntity<ApiResponse<PaginationResponse<TourSummaryResponse>>> getTours(
@@ -52,5 +55,14 @@ public class TourController {
         List<TourCheckpointResponse> result = tourCheckpointService.getCheckpointsByTourId(tourId);
         return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, result));
     }
+
+    @Operation(summary = "Xem lịch khởi hành sắp tới của một Tour", description = "Xem danh sách các lịch khởi hành sắp tới và còn hiệu lực của một Tour (public)")
+    @GetMapping("/{tourId}/schedules")
+    public ResponseEntity<ApiResponse<List<TourScheduleResponse>>> getUpcomingSchedules(
+            @Parameter(description = "UUID của tour", example = "3fa85f64-5717-4562-b3fc-2c963f66afa6") @PathVariable UUID tourId) {
+        List<TourScheduleResponse> result = tourScheduleService.getUpcomingSchedules(tourId);
+        return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, result));
+    }
 }
+
 
