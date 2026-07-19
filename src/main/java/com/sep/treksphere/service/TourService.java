@@ -1,5 +1,8 @@
 package com.sep.treksphere.service;
 
+import com.sep.treksphere.dto.request.BaseFilterRequest;
+import com.sep.treksphere.dto.request.CreateTourRequest;
+import com.sep.treksphere.dto.request.UpdateTourRequest;
 import com.sep.treksphere.dto.response.PaginationResponse;
 import com.sep.treksphere.dto.response.TourDetailResponse;
 import com.sep.treksphere.dto.response.TourSummaryResponse;
@@ -18,5 +21,17 @@ public interface TourService {
             String sortDir
     );
     TourDetailResponse getTourById(UUID tourId);
+
+    // Vendor Tour Management
+    PaginationResponse<TourSummaryResponse> getVendorTours(String userEmail, BaseFilterRequest request);
+    TourDetailResponse createTour(String userEmail, CreateTourRequest request);
+    TourDetailResponse updateTour(String userEmail, UUID tourId, UpdateTourRequest request);
+    void deleteTour(String userEmail, UUID tourId);
+
+    // Tour Approval Workflow
+    TourDetailResponse submitTourForApproval(String userEmail, UUID tourId);
+
+    // Tour Moderation
+    TourDetailResponse hideTourForViolation(String userEmail, UUID tourId, String reason);
 }
 

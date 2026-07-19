@@ -42,4 +42,20 @@ public interface TourRepository extends JpaRepository<Tour, UUID> {
                WHERE t.tourId = :tourId AND t.isDeleted = false
                """)
      Optional<Tour> findDetailById(@Param("tourId") UUID tourId);
+
+     @Query("""
+               SELECT t FROM Tour t
+               WHERE t.isDeleted = false
+                 AND t.vendor.vendorId = :vendorId
+                 AND (CAST(:keyword AS string) IS NULL 
+                      OR LOWER(t.tourName) LIKE LOWER(CONCAT('%', CAST(:keyword AS string), '%'))
+                      OR LOWER(t.location) LIKE LOWER(CONCAT('%', CAST(:keyword AS string), '%')))
+               """)
+     Page<Tour> findByVendorIdAndKeyword(
+               @Param("vendorId") UUID vendorId, 
+               @Param("keyword") String keyword,
+               Pageable pageable);
+
+     Optional<Tour> findByTourIdAndIsDeletedFalse(UUID tourId);
 }
+

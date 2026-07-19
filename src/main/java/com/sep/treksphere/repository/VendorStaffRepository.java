@@ -22,4 +22,7 @@ public interface VendorStaffRepository extends JpaRepository<VendorStaff, UUID> 
            "OR LOWER(vs.user.fullName) LIKE LOWER(CONCAT('%', :keyword, '%')) " +
            "OR LOWER(vs.user.email) LIKE LOWER(CONCAT('%', :keyword, '%')))")
     Page<VendorStaff> findByVendorIdAndKeyword(@Param("vendorId") UUID vendorId, @Param("keyword") String keyword, Pageable pageable);
+
+    Optional<VendorStaff> findByUser_Email(String email);
 }
+
