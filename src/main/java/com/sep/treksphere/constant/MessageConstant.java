@@ -94,6 +94,17 @@ public class MessageConstant {
     // Blog Messages
     public static final String BLOG_NOT_FOUND = "Bài viết không tồn tại";
 
+    // Checkpoint Messages
+    public static final String CHECKPOINT_NOT_FOUND = "Trạm dừng không tồn tại";
+    public static final String CHECKPOINT_CREATED_SUCCESSFULLY = "Thêm trạm dừng thành công";
+    public static final String CHECKPOINT_UPDATED_SUCCESSFULLY = "Cập nhật trạm dừng thành công";
+    public static final String CHECKPOINT_DELETED_SUCCESSFULLY = "Xoá trạm dừng thành công";
+    public static final String CHECKPOINT_DUPLICATE_ORDER = "Thứ tự trạm dừng đã tồn tại trong tour này";
+    public static final String CHECKPOINT_NAME_REQUIRED = "Tên trạm dừng không được để trống";
+    public static final String CHECKPOINT_ORDER_REQUIRED = "Thứ tự trạm dừng không được để trống";
+    public static final String CHECKPOINT_ORDER_POSITIVE = "Thứ tự trạm dừng phải lớn hơn 0";
+
+
     // Additional Validation Messages
     public static final String EMAIL_REQUIRED = "Vui lòng nhập email";
     public static final String EMAIL_INVALID = "Định dạng email không hợp lệ";
