@@ -26,6 +26,7 @@ public class MessageConstant {
     // Validation Messages
     public static final String CURRENT_PASSWORD_REQUIRED = "Vui lòng nhập mật khẩu hiện tại";
     public static final String NEW_PASSWORD_REQUIRED = "Vui lòng nhập mật khẩu mới";
+    public static final String PASSWORD_MESSAGE = "Mật khẩu phải dài ít nhất 8 ký tự, bao gồm ít nhất một chữ hoa, một chữ thường, một chữ số và một ký tự đặc biệt.";
     public static final String PASSWORD_MIN_LENGTH = "Mật khẩu phải có ít nhất 8 ký tự";
     public static final String CONFIRM_PASSWORD_NOT_MATCH = "Mật khẩu xác nhận không khớp";
 
@@ -91,6 +92,11 @@ public class MessageConstant {
     // Vendor Messages
     public static final String VENDOR_NOT_FOUND = "Vendor không tồn tại";
     public static final String EQUIPMENT_NOT_FOUND = "Trang bị không tồn tại";
+    public static final String EQUIPMENT_CREATED_SUCCESSFULLY = "Tạo trang bị thành công";
+    public static final String EQUIPMENT_UPDATED_SUCCESSFULLY = "Cập nhật trang bị thành công";
+    public static final String EQUIPMENT_DELETED_SUCCESSFULLY = "Xóa trang bị thành công";
+    public static final String EQUIPMENT_NAME_REQUIRED = "Tên trang bị không được để trống";
+    public static final String EQUIPMENT_QUANTITY_MIN = "Số lượng tổng không được nhỏ hơn 0";
 
     // Blog Messages
     public static final String BLOG_NOT_FOUND = "Bài viết không tồn tại";
@@ -169,5 +175,14 @@ public class MessageConstant {
     public static final String SCHEDULE_SLOTS_MIN = "Số slot phải ít nhất là 1";
     public static final String SCHEDULE_RETURN_BEFORE_DEPARTURE = "Ngày kết thúc phải sau ngày khởi hành";
     public static final String SCHEDULE_DEPARTURE_IN_PAST = "Ngày khởi hành phải từ hôm nay trở đi";
+    // Porter Profile Messages
+    public static final String PORTER_NOT_FOUND = "Không tìm thấy thông tin hồ sơ porter";
+    public static final String PORTER_NAME_REQUIRED = "Tên porter không được để trống";
+    public static final String PORTER_PHONE_REQUIRED = "Số điện thoại không được để trống";
+    public static final String PORTER_PHONE_INVALID = "Số điện thoại không hợp lệ";
+    public static final String PORTER_CREATED_SUCCESSFULLY = "Tạo hồ sơ porter thành công";
+    public static final String PORTER_UPDATED_SUCCESSFULLY = "Cập nhật hồ sơ porter thành công";
+    public static final String PORTER_DELETED_SUCCESSFULLY = "Xóa hồ sơ porter thành công";
+    public static final String PORTER_LIST_FETCHED_SUCCESSFULLY = "Lấy danh sách hồ sơ porter thành công";
 }
 

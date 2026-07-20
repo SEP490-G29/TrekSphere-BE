@@ -1,5 +1,6 @@
 package com.sep.treksphere.controller;
 
+import com.sep.treksphere.constant.MessageConstant;
 import com.sep.treksphere.dto.request.UpdateVendorEquipmentRequest;
 import com.sep.treksphere.dto.request.VendorEquipmentFilterRequest;
 import com.sep.treksphere.dto.request.VendorEquipmentRequest;
@@ -30,7 +31,7 @@ public class VendorEquipmentController {
     public ApiResponse<VendorEquipmentDto> createEquipment(
             @AuthenticationPrincipal CustomUserDetails userDetails,
             @Valid @RequestBody VendorEquipmentRequest request) {
-        return ApiResponse.success(HttpStatus.CREATED, equipmentService.createEquipment(userDetails.getUsername(), request));
+        return ApiResponse.success(HttpStatus.CREATED, equipmentService.createEquipment(userDetails.getUsername(), request), MessageConstant.EQUIPMENT_CREATED_SUCCESSFULLY);
     }
 
     @PutMapping("/{id}")
@@ -39,7 +40,7 @@ public class VendorEquipmentController {
             @AuthenticationPrincipal CustomUserDetails userDetails,
             @PathVariable("id") UUID id,
             @Valid @RequestBody UpdateVendorEquipmentRequest request) {
-        return ApiResponse.success(HttpStatus.OK, equipmentService.updateEquipment(userDetails.getUsername(), id, request));
+        return ApiResponse.success(HttpStatus.OK, equipmentService.updateEquipment(userDetails.getUsername(), id, request), MessageConstant.EQUIPMENT_UPDATED_SUCCESSFULLY);
     }
 
     @DeleteMapping("/{id}")
@@ -48,7 +49,7 @@ public class VendorEquipmentController {
             @AuthenticationPrincipal CustomUserDetails userDetails,
             @PathVariable("id") UUID id) {
         equipmentService.deleteEquipment(userDetails.getUsername(), id);
-        return ApiResponse.success(HttpStatus.OK, "Xóa trang bị thành công");
+        return ApiResponse.success(HttpStatus.OK, null, MessageConstant.EQUIPMENT_DELETED_SUCCESSFULLY);
     }
 
     @GetMapping("/{id}")
