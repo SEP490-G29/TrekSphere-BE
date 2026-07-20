@@ -14,7 +14,6 @@ import java.util.UUID;
 public interface PorterProfileRepository extends JpaRepository<PorterProfile, UUID> {
 
     @Query("SELECT p FROM PorterProfile p WHERE p.vendor.vendorId = :vendorId " +
-            "AND p.isDeleted = false " +
             "AND (LOWER(p.fullName) LIKE LOWER(CONCAT('%', :keyword, '%')) OR p.phone LIKE CONCAT('%', :keyword, '%')) " +
             "AND (:status IS NULL OR p.status = :status)")
     Page<PorterProfile> findByVendorIdAndFilters(
@@ -24,7 +23,6 @@ public interface PorterProfileRepository extends JpaRepository<PorterProfile, UU
             Pageable pageable);
 
     @Query("SELECT p FROM PorterProfile p WHERE p.vendor.vendorId = :vendorId " +
-            "AND p.isDeleted = false " +
             "AND (LOWER(p.fullName) LIKE LOWER(CONCAT('%', :keyword, '%')) OR p.phone LIKE CONCAT('%', :keyword, '%')) " +
             "AND (:status IS NULL OR p.status = :status)")
     List<PorterProfile> findAllByVendorIdAndFilters(
