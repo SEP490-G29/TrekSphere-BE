@@ -26,6 +26,6 @@ public class ChangePasswordRequest {
     @NotBlank(message = MessageConstant.NEW_PASSWORD_REQUIRED)
     @Size(min = 8, message = MessageConstant.PASSWORD_MIN_LENGTH)
     @Pattern(regexp = ValidationConstant.PASSWORD_REGEX,
-            message = ValidationConstant.PASSWORD_MESSAGE)
+            message = MessageConstant.PASSWORD_MESSAGE)
     private String newPassword;
 }

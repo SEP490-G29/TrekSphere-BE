@@ -12,9 +12,11 @@ import com.sep.treksphere.exception.AppException;
 import com.sep.treksphere.exception.ErrorCode;
 import com.sep.treksphere.repository.BlogCommentRepository;
 import com.sep.treksphere.repository.BlogRepository;
+import com.sep.treksphere.security.CustomUserDetails;
 import com.sep.treksphere.service.BlogService;
 import com.sep.treksphere.utils.PaginationUtils;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -28,6 +30,7 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class BlogServiceImpl implements BlogService {
@@ -148,5 +151,49 @@ public class BlogServiceImpl implements BlogService {
                 .build();
     }
 
+    private Blog getBlogAndVerifyOwnership(UUID blogId, CustomUserDetails userDetails) {
+        Blog blog = blogRepository.findDetailById(blogId)
+                .orElseThrow(() -> new AppException(ErrorCode.BLOG_NOT_FOUND));
+
+        boolean isAdmin = userDetails.getAuthorities().stream()
+                .anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN"));
+        boolean isAuthor = blog.getUser().getUserId().equals(userDetails.getUser().getUserId());
+
+        if (!isAdmin && !isAuthor) {
+            log.warn("User {} attempted to modify blog {} without permission", userDetails.getUser().getUserId(), blogId);
+            throw new AppException(ErrorCode.ACCESS_DENIED);
+        }
+        return blog;
+    }
+
+    @Override
+    @Transactional
+    public void hideBlog(UUID blogId, CustomUserDetails userDetails) {
+        Blog blog = getBlogAndVerifyOwnership(blogId, userDetails);
+        blog.setStatus(BlogStatus.HIDDEN);
+        blogRepository.save(blog);
+        log.info("User {} successfully hid blog {}. New status: {}", userDetails.getUser().getUserId(), blogId, blog.getStatus());
+    }
+
+    @Override
+    @Transactional
+    public void unhideBlog(UUID blogId, CustomUserDetails userDetails) {
+        Blog blog = getBlogAndVerifyOwnership(blogId, userDetails);
+        blog.setStatus(BlogStatus.PUBLISHED);
+        blogRepository.save(blog);
+        log.info("User {} successfully unhid blog {}. New status: {}", userDetails.getUser().getUserId(), blogId, blog.getStatus());
+    }
+
+    @Override
+    @Transactional
+    public void deleteBlog(UUID blogId, CustomUserDetails userDetails) {
+        Blog blog = getBlogAndVerifyOwnership(blogId, userDetails);
+        blog.setStatus(BlogStatus.DELETED);
+        blog.setIsDeleted(true);
+        blog.setDeletedAt(java.time.LocalDateTime.now());
+        blog.setDeletedBy(userDetails.getUser().getUserId().toString());
+        blogRepository.save(blog);
+        log.info("User {} successfully deleted blog {}. New status: {}, isDeleted: {}", userDetails.getUser().getUserId(), blogId, blog.getStatus(), blog.getIsDeleted());
+    }
 
 }

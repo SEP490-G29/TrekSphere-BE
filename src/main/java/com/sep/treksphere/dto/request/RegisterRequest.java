@@ -23,7 +23,7 @@ public class RegisterRequest {
     @NotBlank(message = MessageConstant.PASSWORD_REQUIRED)
     @Pattern(
             regexp = ValidationConstant.PASSWORD_REGEX,
-            message = ValidationConstant.PASSWORD_MESSAGE
+            message = MessageConstant.PASSWORD_MESSAGE
     )
     private String password;
 
