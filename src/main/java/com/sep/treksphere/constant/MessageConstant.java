@@ -184,5 +184,34 @@ public class MessageConstant {
     public static final String PORTER_UPDATED_SUCCESSFULLY = "Cập nhật hồ sơ porter thành công";
     public static final String PORTER_DELETED_SUCCESSFULLY = "Xóa hồ sơ porter thành công";
     public static final String PORTER_LIST_FETCHED_SUCCESSFULLY = "Lấy danh sách hồ sơ porter thành công";
+
+    // Booking Messages
+    public static final String BOOKING_NOT_FOUND = "Đơn đặt tour không tồn tại";
+    public static final String BOOKING_CREATED_SUCCESSFULLY = "Đặt tour thành công";
+    public static final String BOOKING_CANCELLED_SUCCESSFULLY = "Huỷ đơn đặt tour thành công";
+    public static final String PAYMENT_PROOF_SUBMITTED = "Gửi minh chứng thanh toán thành công";
+    public static final String NOT_ENOUGH_SLOTS = "Số lượng chỗ trống không đủ";
+    public static final String BOOKING_CANNOT_CANCEL = "Không thể huỷ đơn đặt tour ở trạng thái này";
+    public static final String INVALID_BOOKING_STATUS = "Trạng thái đơn đặt tour không hợp lệ";
+
+    // Voucher Messages
+    public static final String VOUCHER_NOT_FOUND = "Mã giảm giá không tồn tại";
+    public static final String VOUCHER_EXPIRED = "Mã giảm giá đã hết hạn hoặc chưa có hiệu lực";
+    public static final String VOUCHER_MAX_USAGE_REACHED = "Mã giảm giá đã hết lượt sử dụng";
+    public static final String VOUCHER_MIN_ORDER_VALUE_NOT_MET = "Đơn đặt tour chưa đạt giá trị tối thiểu để sử dụng mã giảm giá";
+    public static final String VOUCHER_VENDOR_MISMATCH = "Mã giảm giá không thuộc nhà cung cấp của tour này";
+
+    // Booking Validation Messages
+    public static final String BOOKING_FULL_NAME_REQUIRED = "Họ tên người tham gia không được để trống";
+    public static final String BOOKING_DOB_REQUIRED = "Ngày sinh không được để trống";
+    public static final String BOOKING_GENDER_REQUIRED = "Giới tính không được để trống";
+    public static final String BOOKING_ID_NUMBER_REQUIRED = "Số CCCD/Hộ chiếu không được để trống";
+    public static final String BOOKING_PHONE_REQUIRED = "Số điện thoại không được để trống";
+    public static final String BOOKING_EMAIL_INVALID = "Email không đúng định dạng";
+    public static final String BOOKING_SCHEDULE_REQUIRED = "Lịch khởi hành không được để trống";
+    public static final String BOOKING_PARTICIPANTS_REQUIRED = "Danh sách người tham gia không được để trống";
+    public static final String BOOKING_CANCEL_REASON_REQUIRED = "Lý do huỷ tour không được để trống";
+    public static final String BOOKING_PROOF_IMAGE_REQUIRED = "Đường dẫn ảnh minh chứng không được để trống";
 }
+
 
