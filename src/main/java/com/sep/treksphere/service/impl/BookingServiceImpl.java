@@ -3,6 +3,7 @@ package com.sep.treksphere.service.impl;
 import com.sep.treksphere.dto.request.BookingCancelRequest;
 import com.sep.treksphere.dto.request.BookingRequest;
 import com.sep.treksphere.dto.request.PaymentProofRequest;
+import com.sep.treksphere.dto.request.VendorBookingFilterRequest;
 import com.sep.treksphere.dto.response.BookingDetailResponse;
 import com.sep.treksphere.dto.response.BookingResponse;
 import com.sep.treksphere.dto.response.PaginationResponse;
@@ -293,6 +294,86 @@ public class BookingServiceImpl implements BookingService {
         booking.setProofImageUrl(request.getProofImageUrl());
         Booking updatedBooking = bookingRepository.save(booking);
 
+        return bookingMapper.toBookingDetailResponse(updatedBooking);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public PaginationResponse<BookingResponse> getVendorBookings(String email, VendorBookingFilterRequest request) {
+        Vendor vendor = getAssociatedVendor(email);
+        Page<Booking> bookingPage = bookingRepository.findVendorBookings(
+                vendor.getVendorId(),
+                request.getBookingStatus(),
+                request.getPaymentStatus(),
+                request.getTourId(),
+                request.getKeyword(),
+                request.getPageable()
+        );
+        return PaginationUtils.toPaginationResponse(bookingPage.map(bookingMapper::toBookingResponse));
+    }
+
+    @Override
+    @Transactional
+    public BookingDetailResponse confirmVendorPayment(String email, UUID bookingId) {
+        Vendor vendor = getAssociatedVendor(email);
+        Booking booking = bookingRepository.findById(bookingId)
+                .filter(b -> !Boolean.TRUE.equals(b.getIsDeleted()))
+                .orElseThrow(() -> new AppException(ErrorCode.BOOKING_NOT_FOUND));
+
+        if (!booking.getSchedule().getTour().getVendor().getVendorId().equals(vendor.getVendorId())) {
+            throw new AppException(ErrorCode.ACCESS_DENIED);
+        }
+
+        if (booking.getBookingStatus() == BookingStatus.CANCELLED) {
+            throw new AppException(ErrorCode.INVALID_BOOKING_STATUS, "Không thể xác nhận thanh toán cho đơn đã bị huỷ.");
+        }
+
+        booking.setPaymentStatus(PaymentStatus.PAID);
+        Booking updatedBooking = bookingRepository.save(booking);
+        return bookingMapper.toBookingDetailResponse(updatedBooking);
+    }
+
+    @Override
+    @Transactional
+    public BookingDetailResponse confirmVendorBooking(String email, UUID bookingId) {
+        Vendor vendor = getAssociatedVendor(email);
+        Booking booking = bookingRepository.findById(bookingId)
+                .filter(b -> !Boolean.TRUE.equals(b.getIsDeleted()))
+                .orElseThrow(() -> new AppException(ErrorCode.BOOKING_NOT_FOUND));
+
+        if (!booking.getSchedule().getTour().getVendor().getVendorId().equals(vendor.getVendorId())) {
+            throw new AppException(ErrorCode.ACCESS_DENIED);
+        }
+
+        if (booking.getBookingStatus() != BookingStatus.PENDING) {
+            throw new AppException(ErrorCode.INVALID_BOOKING_STATUS, "Chỉ có thể xác nhận giữ chỗ cho đơn đang ở trạng thái PENDING.");
+        }
+
+        booking.setBookingStatus(BookingStatus.CONFIRMED);
+        Booking updatedBooking = bookingRepository.save(booking);
+        return bookingMapper.toBookingDetailResponse(updatedBooking);
+    }
+
+    @Override
+    @Transactional
+    public BookingDetailResponse confirmVendorRefund(String email, UUID bookingId) {
+        Vendor vendor = vendorRepository.findByManager_Email(email)
+                .orElseThrow(() -> new AppException(ErrorCode.ACCESS_DENIED));
+
+        Booking booking = bookingRepository.findById(bookingId)
+                .filter(b -> !Boolean.TRUE.equals(b.getIsDeleted()))
+                .orElseThrow(() -> new AppException(ErrorCode.BOOKING_NOT_FOUND));
+
+        if (!booking.getSchedule().getTour().getVendor().getVendorId().equals(vendor.getVendorId())) {
+            throw new AppException(ErrorCode.ACCESS_DENIED);
+        }
+
+        if (booking.getBookingStatus() != BookingStatus.CANCELLED) {
+            throw new AppException(ErrorCode.BOOKING_NOT_CANCELLED);
+        }
+
+        booking.setPaymentStatus(PaymentStatus.REFUNDED);
+        Booking updatedBooking = bookingRepository.save(booking);
         return bookingMapper.toBookingDetailResponse(updatedBooking);
     }
 
