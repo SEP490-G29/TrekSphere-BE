@@ -19,7 +19,7 @@ public class UpdateTourRequest {
     @Schema(description = "Mô tả chi tiết về tour", example = "Chinh phục đỉnh Fansipan - Nóc nhà Đông Dương")
     private String description;
 
-    @Schema(description = "Độ khó của tour (EASY, MODERATE, DIFFICULT, EXTREME)", example = "DIFFICULT")
+    @Schema(description = "Độ khó của tour (EASY, MODERATE, HARD, EXPERT)", example = "HARD")
     private DifficultyLevel difficulty;
 
     @Schema(description = "Địa điểm tổ chức tour", example = "Sapa, Lào Cai")
