@@ -212,6 +212,12 @@ public class MessageConstant {
     public static final String BOOKING_PARTICIPANTS_REQUIRED = "Danh sách người tham gia không được để trống";
     public static final String BOOKING_CANCEL_REASON_REQUIRED = "Lý do huỷ tour không được để trống";
     public static final String BOOKING_PROOF_IMAGE_REQUIRED = "Đường dẫn ảnh minh chứng không được để trống";
+
+    // Vendor Booking Messages
+    public static final String PAYMENT_CONFIRMED_SUCCESSFULLY = "Xác nhận thanh toán thành công";
+    public static final String BOOKING_CONFIRMED_SUCCESSFULLY = "Xác nhận giữ chỗ đơn đặt tour thành công";
+    public static final String REFUND_CONFIRMED_SUCCESSFULLY = "Xác nhận hoàn tiền thành công";
+    public static final String BOOKING_NOT_CANCELLED = "Đơn đặt tour chưa ở trạng thái huỷ, không thể xác nhận hoàn tiền";
 }
 
 
