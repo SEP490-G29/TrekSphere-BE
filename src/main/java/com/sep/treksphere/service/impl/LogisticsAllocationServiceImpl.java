@@ -10,13 +10,13 @@ import com.sep.treksphere.exception.ErrorCode;
 import com.sep.treksphere.repository.CoordinatorScheduleRepository;
 import com.sep.treksphere.repository.TourSessionRepository;
 import com.sep.treksphere.repository.VendorStaffRepository;
-import com.sep.treksphere.security.CustomUserDetails;
 import com.sep.treksphere.service.LogisticsAllocationService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
 import java.util.UUID;
 
 @Service
@@ -30,15 +30,13 @@ public class LogisticsAllocationServiceImpl implements LogisticsAllocationServic
 
     @Override
     @Transactional
-    public void assignCoordinator(UUID sessionId, AssignCoordinatorRequest request, CustomUserDetails user) {
+    public void assignCoordinator(UUID sessionId, AssignCoordinatorRequest request, UUID userId) {
         log.info("Assigning coordinator {} to session {}", request.getCoordinatorId(), sessionId);
 
-        TourSession session = tourSessionRepository.findByTourSessionIdAndIsDeletedFalse(sessionId)
+        TourSession session = tourSessionRepository.findByIdWithVendor(sessionId)
                 .orElseThrow(() -> new AppException(ErrorCode.TOUR_SESSION_NOT_FOUND));
 
-        VendorStaff currentUserStaff = vendorStaffRepository.findByUser_UserIdAndIsActiveTrueAndIsDeletedFalse(user.getUser().getUserId())
-                .orElseThrow(() -> new AppException(ErrorCode.UNAUTHORIZED_VENDOR_ACCESS));
-        UUID vendorId = currentUserStaff.getVendor().getVendorId();
+        UUID vendorId = resolveVendorId(userId);
 
         if (!session.getTourSchedule().getTour().getVendor().getVendorId().equals(vendorId)) {
             throw new AppException(ErrorCode.TOUR_NOT_BELONG_TO_VENDOR);
@@ -56,8 +54,8 @@ public class LogisticsAllocationServiceImpl implements LogisticsAllocationServic
         }
 
         // Check if already assigned
-        boolean alreadyAssigned = coordinatorScheduleRepository.findByTourSession_TourSessionIdAndIsDeletedFalse(sessionId)
-                .stream().anyMatch(cs -> cs.getCoordinator().getUserId().equals(request.getCoordinatorId()));
+        boolean alreadyAssigned = coordinatorScheduleRepository
+                .existsByTourSession_TourSessionIdAndCoordinator_UserIdAndIsDeletedFalse(sessionId, request.getCoordinatorId());
         if (alreadyAssigned) {
             throw new AppException(ErrorCode.COORDINATOR_ALREADY_ASSIGNED);
         }
@@ -92,7 +90,7 @@ public class LogisticsAllocationServiceImpl implements LogisticsAllocationServic
 
     @Override
     @Transactional
-    public void removeCoordinator(UUID scheduleId, CustomUserDetails user) {
+    public void removeCoordinator(UUID scheduleId, UUID userId) {
         log.info("Removing coordinator schedule {}", scheduleId);
 
         CoordinatorSchedule schedule = coordinatorScheduleRepository.findById(scheduleId)
@@ -102,9 +100,7 @@ public class LogisticsAllocationServiceImpl implements LogisticsAllocationServic
             throw new AppException(ErrorCode.SCHEDULE_NOT_FOUND);
         }
 
-        VendorStaff currentUserStaff = vendorStaffRepository.findByUser_UserIdAndIsActiveTrueAndIsDeletedFalse(user.getUser().getUserId())
-                .orElseThrow(() -> new AppException(ErrorCode.UNAUTHORIZED_VENDOR_ACCESS));
-        UUID vendorId = currentUserStaff.getVendor().getVendorId();
+        UUID vendorId = resolveVendorId(userId);
 
         if (!schedule.getTourSession().getTourSchedule().getTour().getVendor().getVendorId().equals(vendorId)) {
             throw new AppException(ErrorCode.SCHEDULE_NOT_BELONG_TO_VENDOR);
@@ -115,7 +111,15 @@ public class LogisticsAllocationServiceImpl implements LogisticsAllocationServic
         }
 
         schedule.setIsDeleted(true);
+        schedule.setDeletedAt(LocalDateTime.now());
+        schedule.setDeletedBy(userId.toString());
         coordinatorScheduleRepository.save(schedule);
         log.info("Coordinator schedule removed successfully");
+    }
+
+    private UUID resolveVendorId(UUID userId) {
+        VendorStaff staff = vendorStaffRepository.findByUser_UserIdAndIsActiveTrueAndIsDeletedFalse(userId)
+                .orElseThrow(() -> new AppException(ErrorCode.UNAUTHORIZED_VENDOR_ACCESS));
+        return staff.getVendor().getVendorId();
     }
 }

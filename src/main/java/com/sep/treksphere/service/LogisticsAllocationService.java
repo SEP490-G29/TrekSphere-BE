@@ -6,6 +6,6 @@ import com.sep.treksphere.security.CustomUserDetails;
 import java.util.UUID;
 
 public interface LogisticsAllocationService {
-    void assignCoordinator(UUID sessionId, AssignCoordinatorRequest request, CustomUserDetails user);
-    void removeCoordinator(UUID scheduleId, CustomUserDetails user);
+    void assignCoordinator(UUID sessionId, AssignCoordinatorRequest request, UUID userId);
+    void removeCoordinator(UUID scheduleId, UUID userId);
 }

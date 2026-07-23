@@ -30,7 +30,7 @@ public class VendorLogisticsController {
             @PathVariable UUID sessionId,
             @Valid @RequestBody AssignCoordinatorRequest request,
             @AuthenticationPrincipal CustomUserDetails user) {
-        logisticsAllocationService.assignCoordinator(sessionId, request, user);
+        logisticsAllocationService.assignCoordinator(sessionId, request, user.getUser().getUserId());
         return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, null, COORDINATOR_ASSIGNED_SUCCESSFULLY));
     }
 
@@ -38,7 +38,7 @@ public class VendorLogisticsController {
     public ResponseEntity<ApiResponse<Void>> removeCoordinator(
             @PathVariable UUID scheduleId,
             @AuthenticationPrincipal CustomUserDetails user) {
-        logisticsAllocationService.removeCoordinator(scheduleId, user);
+        logisticsAllocationService.removeCoordinator(scheduleId, user.getUser().getUserId());
         return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, COORDINATOR_REMOVED_SUCCESSFULLY));
     }
 }
