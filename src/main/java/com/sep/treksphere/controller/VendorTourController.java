@@ -44,6 +44,17 @@ public class VendorTourController {
         return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, response));
     }
 
+    @SecurityRequirement(name = "bearerAuth")
+    @PreAuthorize("hasAnyRole('VENDOR_MANAGER', 'VENDOR_STAFF')")
+    @GetMapping("/{id}")
+    public ResponseEntity<ApiResponse<TourDetailResponse>> getVendorTourById(
+            @AuthenticationPrincipal CustomUserDetails userDetails,
+            @PathVariable UUID id) {
+
+        TourDetailResponse response = tourService.getVendorTourById(userDetails.getUsername(), id);
+        return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, response));
+    }
+
     @PreAuthorize("hasAnyRole('VENDOR_MANAGER', 'VENDOR_STAFF')")
     @PostMapping
     public ResponseEntity<ApiResponse<TourDetailResponse>> createTour(

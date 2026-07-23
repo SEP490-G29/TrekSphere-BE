@@ -1,5 +1,6 @@
 package com.sep.treksphere.dto.request;
 
+import com.sep.treksphere.constant.MessageConstant;
 import com.sep.treksphere.enums.tour.DifficultyLevel;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.DecimalMin;
@@ -13,31 +14,31 @@ import java.math.BigDecimal;
 @Setter
 public class UpdateTourRequest {
 
-    @Schema(description = "Tên tour", example = "Tour leo núi Fansipan 2 ngày 1 đêm")
+    @Schema(description = "Tên tour")
     private String tourName;
 
-    @Schema(description = "Mô tả chi tiết về tour", example = "Chinh phục đỉnh Fansipan - Nóc nhà Đông Dương")
+    @Schema(description = "Mô tả chi tiết về tour")
     private String description;
 
-    @Schema(description = "Độ khó của tour (EASY, MODERATE, DIFFICULT, EXTREME)", example = "DIFFICULT")
+    @Schema(description = "Độ khó của tour (EASY, MODERATE, HARD, EXPERT)")
     private DifficultyLevel difficulty;
 
-    @Schema(description = "Địa điểm tổ chức tour", example = "Sapa, Lào Cai")
+    @Schema(description = "Địa điểm tổ chức tour")
     private String location;
 
-    @Min(value = 1, message = "Thời gian tour phải ít nhất 1 ngày")
-    @Schema(description = "Số ngày diễn ra tour", example = "2")
+    @Min(value = 1, message = MessageConstant.TOUR_DURATION_MIN)
+    @Schema(description = "Số ngày diễn ra tour")
     private Integer durationDays;
 
-    @DecimalMin(value = "0.0", inclusive = false, message = "Giá cơ bản phải lớn hơn 0")
+    @DecimalMin(value = "0.0", inclusive = false, message = MessageConstant.TOUR_BASE_PRICE_MIN)
     @Schema(description = "Giá cơ bản của tour", example = "1500000")
     private BigDecimal basePrice;
 
-    @Min(value = 1, message = "Sức chứa tối thiểu phải ít nhất là 1")
+    @Min(value = 1, message = MessageConstant.TOUR_MIN_CAPACITY_MIN)
     @Schema(description = "Số lượng người tối thiểu để tổ chức tour", example = "5")
     private Integer minCapacity;
 
-    @Min(value = 1, message = "Sức chứa tối đa phải ít nhất là 1")
+    @Min(value = 1, message = MessageConstant.TOUR_MAX_CAPACITY_MIN)
     @Schema(description = "Số lượng người tối đa của tour", example = "15")
     private Integer maxCapacity;
 
