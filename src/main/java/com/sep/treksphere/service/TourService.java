@@ -24,6 +24,7 @@ public interface TourService {
 
     // Vendor Tour Management
     PaginationResponse<TourSummaryResponse> getVendorTours(String userEmail, BaseFilterRequest request);
+    TourDetailResponse getVendorTourById(String userEmail, UUID tourId);
     TourDetailResponse createTour(String userEmail, CreateTourRequest request);
     TourDetailResponse updateTour(String userEmail, UUID tourId, UpdateTourRequest request);
     void deleteTour(String userEmail, UUID tourId);

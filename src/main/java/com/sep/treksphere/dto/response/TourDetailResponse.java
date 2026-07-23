@@ -24,7 +24,9 @@ public class TourDetailResponse {
     private String location;
     private Integer durationDays;
     private BigDecimal basePrice;
+    private Integer minCapacity;
     private Integer maxCapacity;
+    private BigDecimal totalDistanceKm;
     private String highlights;
     private String includes;
     private String excludes;
@@ -38,6 +40,10 @@ public class TourDetailResponse {
     private String vendorLogoUrl;
     private String vendorContactEmail;
     private String vendorContactPhone;
+
+    private String creatorId;
+    private String creatorName;
+    private String creatorEmail;
 
     private List<TourImageResponse> images;
 

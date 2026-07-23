@@ -22,7 +22,7 @@ FROM vendor v, users u
 WHERE v.company_name = 'Viettrekking' AND u.email = 'vendor1@treksphere.com';
 
 INSERT INTO tour (tour_id, vendor_id, tour_name, description, duration_days, base_price, min_capacity, max_capacity, total_distance_km, difficulty, status, cover_image_url, location, highlights, includes, excludes, creator_id, is_deleted, created_at)
-SELECT gen_random_uuid(), v.vendor_id, 'Lảo Thẩn - Nơi mặt trời thức giấc', 'Chinh phục Lảo Thẩn 2 ngày 1 đêm.', 2, 2200000.00, 5, 25, 14.0, 'MEDIUM', 'PUBLISHED', 'https://example.com/laothan.jpg', 'Y Tý, Lào Cai', 'Đỉnh Lảo Thẩn, Cây cô đơn', 'Porter, Lều trại', 'Túi ngủ cá nhân', u.user_id, false, CURRENT_TIMESTAMP
+SELECT gen_random_uuid(), v.vendor_id, 'Lảo Thẩn - Nơi mặt trời thức giấc', 'Chinh phục Lảo Thẩn 2 ngày 1 đêm.', 2, 2200000.00, 5, 25, 14.0, 'MODERATE', 'PUBLISHED', 'https://example.com/laothan.jpg', 'Y Tý, Lào Cai', 'Đỉnh Lảo Thẩn, Cây cô đơn', 'Porter, Lều trại', 'Túi ngủ cá nhân', u.user_id, false, CURRENT_TIMESTAMP
 FROM vendor v, users u
 WHERE v.company_name = 'Tổ Ong Adventure' AND u.email = 'vendor2@treksphere.com';
 
