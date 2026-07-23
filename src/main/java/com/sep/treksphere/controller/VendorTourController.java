@@ -4,6 +4,7 @@ import com.sep.treksphere.constant.MessageConstant;
 import com.sep.treksphere.dto.request.BaseFilterRequest;
 import com.sep.treksphere.dto.request.CreateTourRequest;
 import com.sep.treksphere.dto.request.HideTourRequest;
+import com.sep.treksphere.dto.request.RejectTourRequest;
 import com.sep.treksphere.dto.request.UpdateTourRequest;
 import com.sep.treksphere.dto.response.ApiResponse;
 import com.sep.treksphere.dto.response.PaginationResponse;
@@ -97,6 +98,31 @@ public class VendorTourController {
 
         TourDetailResponse response = tourService.submitTourForApproval(userDetails.getUsername(), id);
         return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, response, MessageConstant.TOUR_SUBMITTED_FOR_APPROVAL));
+    }
+
+    @Operation(summary = "Duyệt Tour (Vendor Manager)", description = "Vendor Manager phê duyệt Tour đang ở trạng thái PENDING_APPROVAL chuyển sang APPROVED.")
+    @SecurityRequirement(name = "bearerAuth")
+    @PreAuthorize("hasRole('VENDOR_MANAGER')")
+    @PutMapping("/{id}/approve")
+    public ResponseEntity<ApiResponse<TourDetailResponse>> approveTour(
+            @AuthenticationPrincipal CustomUserDetails userDetails,
+            @PathVariable UUID id) {
+
+        TourDetailResponse response = tourService.approveTour(userDetails.getUsername(), id);
+        return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, response, MessageConstant.TOUR_APPROVED_SUCCESSFULLY));
+    }
+
+    @Operation(summary = "Từ chối Tour (Vendor Manager)", description = "Vendor Manager từ chối Tour đang ở trạng thái PENDING_APPROVAL chuyển sang REJECTED kèm lý do.")
+    @SecurityRequirement(name = "bearerAuth")
+    @PreAuthorize("hasRole('VENDOR_MANAGER')")
+    @PutMapping("/{id}/reject")
+    public ResponseEntity<ApiResponse<TourDetailResponse>> rejectTour(
+            @AuthenticationPrincipal CustomUserDetails userDetails,
+            @PathVariable UUID id,
+            @Valid @RequestBody RejectTourRequest request) {
+
+        TourDetailResponse response = tourService.rejectTour(userDetails.getUsername(), id, request.getReason());
+        return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, response, MessageConstant.TOUR_REJECTED_SUCCESSFULLY));
     }
 
     @Operation(summary = "Ẩn Tour vi phạm", description = "Admin/VendorManager ẩn Tour đang bán nếu phát hiện vi phạm. Hệ thống sẽ gửi thông báo cho chủ tour.")

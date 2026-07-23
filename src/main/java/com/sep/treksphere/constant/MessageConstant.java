@@ -88,6 +88,9 @@ public class MessageConstant {
     public static final String TOUR_HIDDEN_SUCCESSFULLY = "Tour đã được ẩn thành công do vi phạm";
     public static final String TOUR_NOT_APPROVED = "Chỉ có thể ẩn Tour đang ở trạng thái đã duyệt (APPROVED)";
     public static final String HIDE_REASON_REQUIRED = "Lý do ẩn tour không được để trống";
+    public static final String TOUR_APPROVED_SUCCESSFULLY = "Duyệt tour thành công";
+    public static final String TOUR_REJECTED_SUCCESSFULLY = "Từ chối tour thành công";
+    public static final String TOUR_NOT_PENDING_APPROVAL = "Chỉ có thể duyệt hoặc từ chối Tour đang ở trạng thái Chờ duyệt (PENDING_APPROVAL)";
 
     // Vendor Messages
     public static final String VENDOR_NOT_FOUND = "Vendor không tồn tại";
