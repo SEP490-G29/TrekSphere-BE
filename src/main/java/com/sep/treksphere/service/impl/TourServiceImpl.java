@@ -334,7 +334,87 @@ public class TourServiceImpl implements TourService {
         int totalReviews = reviewRepository.countByTourAndStatusAndIsDeletedFalse(tour, ReviewStatus.APPROVED);
 
         return toDetailResponse(tour, images, schedules, avgRating, totalReviews);
-  }
+    }
+
+    @Override
+    @Transactional
+    public TourDetailResponse approveTour(String userEmail, UUID tourId) {
+        Vendor vendor = vendorRepository.findByManager_Email(userEmail)
+                .orElseThrow(() -> new AppException(ErrorCode.VENDOR_NOT_FOUND));
+
+        Tour tour = tourRepository.findByTourIdAndIsDeletedFalse(tourId)
+                .orElseThrow(() -> new AppException(ErrorCode.TOUR_NOT_FOUND));
+
+        if (!tour.getVendor().getVendorId().equals(vendor.getVendorId())) {
+            throw new AppException(ErrorCode.TOUR_NOT_BELONG_TO_VENDOR);
+        }
+
+        if (tour.getStatus() != TourStatus.PENDING_APPROVAL) {
+            throw new AppException(ErrorCode.TOUR_NOT_PENDING_APPROVAL);
+        }
+
+        tour.setStatus(TourStatus.APPROVED);
+        tour = tourRepository.save(tour);
+
+        // Gửi thông báo cho người tạo tour (Staff hoặc Manager)
+        User recipient = tour.getCreator() != null ? tour.getCreator() : vendor.getManager();
+        Notification notification = new Notification();
+        notification.setRecipient(recipient);
+        notification.setTitle("Tour đã được phê duyệt");
+        notification.setEventType(NotificationEventType.TOUR_APPROVED);
+        notification.setContent("Tour \"" + tour.getTourName() + "\" đã được phê duyệt và sẵn sàng mở bán.");
+        notification.setReferenceType(ReferenceType.TOUR);
+        notification.setReferenceId(tour.getTourId());
+        notificationRepository.save(notification);
+
+        List<TourImage> images = tourImageRepository.findByTourOrderBySortOrderAsc(tour);
+        List<TourSchedule> schedules = tourScheduleRepository
+                .findByTourAndStatusOrderByDepartureDateAsc(tour, ScheduleStatus.OPEN);
+        Double avgRating = reviewRepository.findAverageRatingByTourAndStatus(tour, ReviewStatus.APPROVED);
+        int totalReviews = reviewRepository.countByTourAndStatusAndIsDeletedFalse(tour, ReviewStatus.APPROVED);
+
+        return toDetailResponse(tour, images, schedules, avgRating, totalReviews);
+    }
+
+    @Override
+    @Transactional
+    public TourDetailResponse rejectTour(String userEmail, UUID tourId, String reason) {
+        Vendor vendor = vendorRepository.findByManager_Email(userEmail)
+                .orElseThrow(() -> new AppException(ErrorCode.VENDOR_NOT_FOUND));
+
+        Tour tour = tourRepository.findByTourIdAndIsDeletedFalse(tourId)
+                .orElseThrow(() -> new AppException(ErrorCode.TOUR_NOT_FOUND));
+
+        if (!tour.getVendor().getVendorId().equals(vendor.getVendorId())) {
+            throw new AppException(ErrorCode.TOUR_NOT_BELONG_TO_VENDOR);
+        }
+
+        if (tour.getStatus() != TourStatus.PENDING_APPROVAL) {
+            throw new AppException(ErrorCode.TOUR_NOT_PENDING_APPROVAL);
+        }
+
+        tour.setStatus(TourStatus.REJECTED);
+        tour = tourRepository.save(tour);
+
+        // Gửi thông báo từ chối cho người tạo tour
+        User recipient = tour.getCreator() != null ? tour.getCreator() : vendor.getManager();
+        Notification notification = new Notification();
+        notification.setRecipient(recipient);
+        notification.setTitle("Tour bị từ chối phê duyệt");
+        notification.setEventType(NotificationEventType.TOUR_REJECTED);
+        notification.setContent("Tour \"" + tour.getTourName() + "\" đã bị từ chối. Lý do: " + reason);
+        notification.setReferenceType(ReferenceType.TOUR);
+        notification.setReferenceId(tour.getTourId());
+        notificationRepository.save(notification);
+
+        List<TourImage> images = tourImageRepository.findByTourOrderBySortOrderAsc(tour);
+        List<TourSchedule> schedules = tourScheduleRepository
+                .findByTourAndStatusOrderByDepartureDateAsc(tour, ScheduleStatus.OPEN);
+        Double avgRating = reviewRepository.findAverageRatingByTourAndStatus(tour, ReviewStatus.APPROVED);
+        int totalReviews = reviewRepository.countByTourAndStatusAndIsDeletedFalse(tour, ReviewStatus.APPROVED);
+
+        return toDetailResponse(tour, images, schedules, avgRating, totalReviews);
+    }
 
     @Override
     @Transactional
