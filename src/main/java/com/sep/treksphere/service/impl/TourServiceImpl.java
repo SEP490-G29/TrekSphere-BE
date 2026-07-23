@@ -106,6 +106,9 @@ public class TourServiceImpl implements TourService {
                 .location(tour.getLocation())
                 .durationDays(tour.getDurationDays())
                 .basePrice(tour.getBasePrice())
+                .minCapacity(tour.getMinCapacity())
+                .maxCapacity(tour.getMaxCapacity())
+                .totalDistanceKm(tour.getTotalDistanceKm())
                 .difficulty(tour.getDifficulty())
                 .status(tour.getStatus())
                 .coverImageUrl(tour.getCoverImageUrl())
@@ -132,7 +135,9 @@ public class TourServiceImpl implements TourService {
                 .location(tour.getLocation())
                 .durationDays(tour.getDurationDays())
                 .basePrice(tour.getBasePrice())
+                .minCapacity(tour.getMinCapacity())
                 .maxCapacity(tour.getMaxCapacity())
+                .totalDistanceKm(tour.getTotalDistanceKm())
                 .highlights(tour.getHighlights())
                 .includes(tour.getIncludes())
                 .excludes(tour.getExcludes())
@@ -146,6 +151,10 @@ public class TourServiceImpl implements TourService {
                 .vendorLogoUrl(tour.getVendor().getLogoUrl())
                 .vendorContactEmail(tour.getVendor().getContactEmail())
                 .vendorContactPhone(tour.getVendor().getContactPhone())
+                // Creator info
+                .creatorId(tour.getCreator() != null ? tour.getCreator().getUserId().toString() : null)
+                .creatorName(tour.getCreator() != null ? tour.getCreator().getFullName() : null)
+                .creatorEmail(tour.getCreator() != null ? tour.getCreator().getEmail() : null)
                 // Images
                 .images(images.stream().map(this::toImageResponse).toList())
                 // Schedules
@@ -198,6 +207,27 @@ public class TourServiceImpl implements TourService {
         );
 
         return PaginationUtils.toPaginationResponse(tourPage.map(this::toSummaryResponse));
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public TourDetailResponse getVendorTourById(String userEmail, UUID tourId) {
+        Vendor vendor = resolveVendorByEmail(userEmail);
+
+        Tour tour = tourRepository.findByTourIdAndIsDeletedFalse(tourId)
+                .orElseThrow(() -> new AppException(ErrorCode.TOUR_NOT_FOUND));
+
+        if (!tour.getVendor().getVendorId().equals(vendor.getVendorId())) {
+            throw new AppException(ErrorCode.TOUR_NOT_BELONG_TO_VENDOR);
+        }
+
+        List<TourImage> images = tourImageRepository.findByTourOrderBySortOrderAsc(tour);
+        List<TourSchedule> schedules = tourScheduleRepository
+                .findByTourAndStatusOrderByDepartureDateAsc(tour, ScheduleStatus.OPEN);
+        Double avgRating = reviewRepository.findAverageRatingByTourAndStatus(tour, ReviewStatus.APPROVED);
+        int totalReviews = reviewRepository.countByTourAndStatusAndIsDeletedFalse(tour, ReviewStatus.APPROVED);
+
+        return toDetailResponse(tour, images, schedules, avgRating, totalReviews);
     }
 
     @Override
