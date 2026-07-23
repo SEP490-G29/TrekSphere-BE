@@ -1,7 +1,11 @@
 package com.sep.treksphere.service.impl;
 
+import com.sep.treksphere.constant.MessageConstant;
 import com.sep.treksphere.dto.request.LoginRequest;
+import com.sep.treksphere.dto.request.RegisterRequest;
 import com.sep.treksphere.dto.response.LoginResponse;
+import com.sep.treksphere.dto.response.RegisterResponse;
+import com.sep.treksphere.entity.Role;
 import com.sep.treksphere.entity.User;
 import com.sep.treksphere.enums.user.UserStatus;
 import com.sep.treksphere.exception.AppException;
@@ -25,6 +29,7 @@ import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import java.util.Optional;
 import java.util.UUID;
@@ -180,5 +185,160 @@ class AuthServiceImplTest {
         verify(userRepository, times(1)).findByEmail(validLoginRequest.getEmail());
         verify(authenticationManager, times(1)).authenticate(any(UsernamePasswordAuthenticationToken.class));
         verifyNoInteractions(jwtService, refreshTokenService, authMapper);
+    }
+
+    @Test
+    void UTCID06_register_Success_WithValidData() {
+        // Arrange (Thiết lập dữ liệu đầu vào và các giả lập)
+        RegisterRequest request = RegisterRequest.builder()
+                .email("newuser@treksphere.com")
+                .password("Password@123")
+                .confirmPassword("Password@123")
+                .fullName("New User")
+                .build();
+
+        Role trekkerRole = new Role();
+        trekkerRole.setRoleId(UUID.randomUUID());
+        trekkerRole.setRoleName("TREKKER");
+
+        // Sử dụng ReflectionTestUtils để tiêm giá trị frontendUrl do Mockito không tự tiêm từ config
+        ReflectionTestUtils.setField(authService, "frontendUrl", "http://localhost:3000");
+
+        when(userRepository.existsByEmail(request.getEmail())).thenReturn(false);
+        when(roleRepository.findByRoleName("TREKKER")).thenReturn(Optional.of(trekkerRole));
+        when(passwordEncoder.encode(request.getPassword())).thenReturn("encoded_new_password");
+        when(userRepository.save(any(User.class))).thenAnswer(invocation -> {
+            User u = invocation.getArgument(0);
+            u.setUserId(UUID.randomUUID());
+            return u;
+        });
+        when(tokenProvider.generateVerificationToken(request.getEmail())).thenReturn("verification_token");
+        doNothing().when(emailService).sendVerificationEmail(eq(request.getEmail()), eq(request.getFullName()), anyString());
+
+        // Act (Thực hiện hành động đăng ký)
+        RegisterResponse response = authService.register(request);
+
+        // Assert (Kiểm tra kết quả trả về và các tương tác với mock)
+        assertThat(response).isNotNull();
+        assertThat(response.getEmail()).isEqualTo(request.getEmail());
+        assertThat(response.getFullName()).isEqualTo(request.getFullName());
+        assertThat(response.getUserId()).isNotNull();
+
+        verify(userRepository, times(1)).existsByEmail(request.getEmail());
+        verify(roleRepository, times(1)).findByRoleName("TREKKER");
+        verify(passwordEncoder, times(1)).encode(request.getPassword());
+        verify(userRepository, times(1)).save(any(User.class));
+        verify(tokenProvider, times(1)).generateVerificationToken(request.getEmail());
+        verify(emailService, times(1)).sendVerificationEmail(eq(request.getEmail()), eq(request.getFullName()), eq("http://localhost:3000/verify?token=verification_token"));
+    }
+
+    @Test
+    void UTCID07_register_Fail_PasswordNotMatch() {
+        // Arrange (Thiết lập yêu cầu đăng ký có mật khẩu nhập lại không khớp)
+        RegisterRequest request = RegisterRequest.builder()
+                .email("newuser@treksphere.com")
+                .password("Password@123")
+                .confirmPassword("Password@1234")
+                .fullName("New User")
+                .build();
+
+        // Act & Assert (Kiểm tra ngoại lệ ném ra lỗi VALIDATION_ERROR)
+        assertThatThrownBy(() -> authService.register(request))
+                .isInstanceOf(AppException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.VALIDATION_ERROR)
+                .hasMessageContaining(MessageConstant.CONFIRM_PASSWORD_NOT_MATCH);
+
+        // Đảm bảo không tương tác với các Mock dịch vụ khác sau khi lỗi
+        verifyNoInteractions(userRepository, roleRepository, passwordEncoder, tokenProvider, emailService);
+    }
+
+    @Test
+    void UTCID08_register_Fail_EmailExisted() {
+        // Arrange (Thiết lập email đăng ký đã tồn tại trong database)
+        RegisterRequest request = RegisterRequest.builder()
+                .email("existed@treksphere.com")
+                .password("Password@123")
+                .confirmPassword("Password@123")
+                .fullName("Existed User")
+                .build();
+
+        when(userRepository.existsByEmail(request.getEmail())).thenReturn(true);
+
+        // Act & Assert (Kiểm tra ngoại lệ ném ra lỗi EMAIL_EXISTED)
+        assertThatThrownBy(() -> authService.register(request))
+                .isInstanceOf(AppException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.EMAIL_EXISTED);
+
+        verify(userRepository, times(1)).existsByEmail(request.getEmail());
+        verifyNoInteractions(roleRepository, passwordEncoder, tokenProvider, emailService);
+    }
+
+    @Test
+    void UTCID09_register_Fail_RoleNotFound() {
+        // Arrange (Giả lập database thiếu cấu hình role mặc định 'TREKKER')
+        RegisterRequest request = RegisterRequest.builder()
+                .email("newuser@treksphere.com")
+                .password("Password@123")
+                .confirmPassword("Password@123")
+                .fullName("New User")
+                .build();
+
+        when(userRepository.existsByEmail(request.getEmail())).thenReturn(false);
+        when(roleRepository.findByRoleName("TREKKER")).thenReturn(Optional.empty());
+
+        // Act & Assert (Kiểm tra ngoại lệ ném ra lỗi ROLE_NOT_FOUND)
+        assertThatThrownBy(() -> authService.register(request))
+                .isInstanceOf(AppException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.ROLE_NOT_FOUND);
+
+        verify(userRepository, times(1)).existsByEmail(request.getEmail());
+        verify(roleRepository, times(1)).findByRoleName("TREKKER");
+        verifyNoInteractions(passwordEncoder, tokenProvider, emailService);
+    }
+
+    @Test
+    void UTCID10_register_Success_EvenIfEmailSendingFails() {
+        // Arrange (Thiết lập giả lập khi gửi email xác thực gặp lỗi/exception)
+        RegisterRequest request = RegisterRequest.builder()
+                .email("newuser@treksphere.com")
+                .password("Password@123")
+                .confirmPassword("Password@123")
+                .fullName("New User")
+                .build();
+
+        Role trekkerRole = new Role();
+        trekkerRole.setRoleId(UUID.randomUUID());
+        trekkerRole.setRoleName("TREKKER");
+
+        ReflectionTestUtils.setField(authService, "frontendUrl", "http://localhost:3000");
+
+        when(userRepository.existsByEmail(request.getEmail())).thenReturn(false);
+        when(roleRepository.findByRoleName("TREKKER")).thenReturn(Optional.of(trekkerRole));
+        when(passwordEncoder.encode(request.getPassword())).thenReturn("encoded_new_password");
+        when(userRepository.save(any(User.class))).thenAnswer(invocation -> {
+            User u = invocation.getArgument(0);
+            u.setUserId(UUID.randomUUID());
+            return u;
+        });
+        when(tokenProvider.generateVerificationToken(request.getEmail())).thenReturn("verification_token");
+        
+        // Ném ngoại lệ khi gửi mail nhưng không làm gián đoạn quá trình đăng ký
+        doThrow(new RuntimeException("SMTP Server Down")).when(emailService).sendVerificationEmail(eq(request.getEmail()), eq(request.getFullName()), anyString());
+
+        // Act (Đăng ký thành công dù gửi mail lỗi)
+        RegisterResponse response = authService.register(request);
+
+        // Assert (Kiểm tra đăng ký vẫn thành công và kết quả đúng mong đợi)
+        assertThat(response).isNotNull();
+        assertThat(response.getEmail()).isEqualTo(request.getEmail());
+        assertThat(response.getFullName()).isEqualTo(request.getFullName());
+        assertThat(response.getUserId()).isNotNull();
+
+        verify(userRepository, times(1)).existsByEmail(request.getEmail());
+        verify(roleRepository, times(1)).findByRoleName("TREKKER");
+        verify(passwordEncoder, times(1)).encode(request.getPassword());
+        verify(userRepository, times(1)).save(any(User.class));
+        verify(tokenProvider, times(1)).generateVerificationToken(request.getEmail());
+        verify(emailService, times(1)).sendVerificationEmail(eq(request.getEmail()), eq(request.getFullName()), eq("http://localhost:3000/verify?token=verification_token"));
     }
 }
