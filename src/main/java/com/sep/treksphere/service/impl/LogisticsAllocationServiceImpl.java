@@ -3,20 +3,34 @@ package com.sep.treksphere.service.impl;
 import com.sep.treksphere.dto.request.logistics.AssignCoordinatorRequest;
 import com.sep.treksphere.entity.CoordinatorSchedule;
 import com.sep.treksphere.entity.TourSession;
+import com.sep.treksphere.entity.Vendor;
 import com.sep.treksphere.entity.VendorStaff;
 import com.sep.treksphere.enums.tour.TourSessionStatus;
 import com.sep.treksphere.exception.AppException;
 import com.sep.treksphere.exception.ErrorCode;
+import com.sep.treksphere.mapper.TourSessionMapper;
 import com.sep.treksphere.repository.CoordinatorScheduleRepository;
 import com.sep.treksphere.repository.TourSessionRepository;
+import com.sep.treksphere.repository.VendorRepository;
 import com.sep.treksphere.repository.VendorStaffRepository;
 import com.sep.treksphere.service.LogisticsAllocationService;
+import com.sep.treksphere.dto.response.TourSessionAllocationResponse;
+import com.sep.treksphere.dto.response.TourSessionSummaryResponse;
+import com.sep.treksphere.dto.response.PaginationResponse;
+import com.sep.treksphere.dto.response.CoordinatorAllocationDto;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import java.util.stream.Collectors;
+import java.util.List;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.Optional;
 import java.util.UUID;
 
 @Service
@@ -26,7 +40,9 @@ public class LogisticsAllocationServiceImpl implements LogisticsAllocationServic
 
     private final TourSessionRepository tourSessionRepository;
     private final CoordinatorScheduleRepository coordinatorScheduleRepository;
+    private final VendorRepository vendorRepository;
     private final VendorStaffRepository vendorStaffRepository;
+    private final TourSessionMapper tourSessionMapper;
 
     @Override
     @Transactional
@@ -49,7 +65,7 @@ public class LogisticsAllocationServiceImpl implements LogisticsAllocationServic
         VendorStaff coordinatorStaff = vendorStaffRepository.findByUser_UserIdAndIsActiveTrueAndIsDeletedFalse(request.getCoordinatorId())
                 .orElseThrow(() -> new AppException(ErrorCode.COORDINATOR_NOT_FOUND));
 
-        if (!coordinatorStaff.getVendor().getVendorId().equals(vendorId)) {
+        if (!coordinatorStaff.getVendor().getVendorId().equals(vendorId)) { 
             throw new AppException(ErrorCode.COORDINATOR_NOT_FOUND);
         }
 
@@ -117,7 +133,54 @@ public class LogisticsAllocationServiceImpl implements LogisticsAllocationServic
         log.info("Coordinator schedule removed successfully");
     }
 
+    @Override
+    @Transactional(readOnly = true)
+    public PaginationResponse<TourSessionSummaryResponse> getVendorSessions(UUID vendorUserId, UUID tourId, TourSessionStatus status, int page, int size) {
+        UUID vendorId = resolveVendorId(vendorUserId);
+        Pageable pageable = PageRequest.of(page - 1, size, Sort.by("startedAt").descending());
+        
+        Page<TourSession> sessionPage = tourSessionRepository.findByVendorAndFilters(vendorId, tourId, status, pageable);
+        
+        return PaginationResponse.<TourSessionSummaryResponse>builder()
+                .pageNumber(page)
+                .pageSize(size)
+                .totalPages(sessionPage.getTotalPages())
+                .totalElements(sessionPage.getTotalElements())
+                .last(sessionPage.isLast())
+                .content(sessionPage.getContent().stream()
+                        .map(tourSessionMapper::toSummaryResponse)
+                        .collect(Collectors.toList()))
+                .build();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public TourSessionAllocationResponse getAllocations(UUID sessionId, UUID vendorUserId) {
+        UUID vendorId = resolveVendorId(vendorUserId);
+        
+        TourSession session = tourSessionRepository.findByIdWithVendor(sessionId)
+                .orElseThrow(() -> new AppException(ErrorCode.TOUR_SESSION_NOT_FOUND));
+                
+        if (!session.getTourSchedule().getTour().getVendor().getVendorId().equals(vendorId)) {
+            throw new AppException(ErrorCode.TOUR_NOT_BELONG_TO_VENDOR);
+        }
+        
+        List<CoordinatorSchedule> coordinatorSchedules = coordinatorScheduleRepository.findByTourSession_TourSessionIdAndIsDeletedFalse(sessionId);
+
+        TourSessionAllocationResponse response = tourSessionMapper.toAllocationResponse(session);
+        response.setCoordinators(tourSessionMapper.toCoordinatorAllocationDtoList(coordinatorSchedules));
+        
+        return response;
+    }
+
     private UUID resolveVendorId(UUID userId) {
+        // Kiểm tra xem user có phải là Manager của Vendor không (owner)
+        Optional<Vendor> vendor = vendorRepository.findByManager_UserId(userId);
+        if (vendor.isPresent()) {
+            return vendor.get().getVendorId();
+        }
+
+        // Nếu không, kiểm tra xem user có phải là nhân viên (VendorStaff) không
         VendorStaff staff = vendorStaffRepository.findByUser_UserIdAndIsActiveTrueAndIsDeletedFalse(userId)
                 .orElseThrow(() -> new AppException(ErrorCode.UNAUTHORIZED_VENDOR_ACCESS));
         return staff.getVendor().getVendorId();
