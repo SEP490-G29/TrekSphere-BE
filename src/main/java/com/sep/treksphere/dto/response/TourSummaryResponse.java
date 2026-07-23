@@ -21,6 +21,9 @@ public class TourSummaryResponse {
     private String location;
     private Integer durationDays;
     private BigDecimal basePrice;
+    private Integer minCapacity;
+    private Integer maxCapacity;
+    private BigDecimal totalDistanceKm;
     private DifficultyLevel difficulty;
     private TourStatus status;
     private String coverImageUrl;
