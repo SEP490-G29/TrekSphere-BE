@@ -28,6 +28,10 @@ public class TourSummaryResponse {
     private TourStatus status;
     private String coverImageUrl;
 
+    private String highlights;
+    private String includes;
+    private String excludes;
+
     private String vendorId;
     private String vendorName;
 
