@@ -2,11 +2,13 @@ package com.sep.treksphere.service;
 
 import com.sep.treksphere.dto.request.logistics.AssignCoordinatorRequest;
 
+import com.sep.treksphere.dto.StaffScheduleResponse;
 import com.sep.treksphere.dto.response.TourSessionAllocationResponse;
 import com.sep.treksphere.dto.response.TourSessionSummaryResponse;
 import com.sep.treksphere.dto.response.PaginationResponse;
 import com.sep.treksphere.enums.tour.TourSessionStatus;
 
+import java.util.List;
 import java.util.UUID;
 
 public interface LogisticsAllocationService {
@@ -15,4 +17,6 @@ public interface LogisticsAllocationService {
     
     PaginationResponse<TourSessionSummaryResponse> getVendorSessions(UUID vendorUserId, UUID tourId, TourSessionStatus status, int page, int size);
     TourSessionAllocationResponse getAllocations(UUID sessionId, UUID vendorUserId);
+
+    List<StaffScheduleResponse> getCoordinatorSchedules(UUID coordinatorId, UUID vendorUserId);
 }

@@ -18,6 +18,7 @@ import com.sep.treksphere.dto.response.TourSessionAllocationResponse;
 import com.sep.treksphere.dto.response.TourSessionSummaryResponse;
 import com.sep.treksphere.dto.response.PaginationResponse;
 import com.sep.treksphere.dto.response.CoordinatorAllocationDto;
+import com.sep.treksphere.dto.StaffScheduleResponse;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -173,14 +174,29 @@ public class LogisticsAllocationServiceImpl implements LogisticsAllocationServic
         return response;
     }
 
+    @Override
+    @Transactional(readOnly = true)
+    public List<StaffScheduleResponse> getCoordinatorSchedules(UUID coordinatorId, UUID vendorUserId) {
+        UUID vendorId = resolveVendorId(vendorUserId);
+
+        VendorStaff coordinatorStaff = vendorStaffRepository.findByUser_UserIdAndIsActiveTrueAndIsDeletedFalse(coordinatorId)
+                .orElseThrow(() -> new AppException(ErrorCode.COORDINATOR_NOT_FOUND));
+
+        if (!coordinatorStaff.getVendor().getVendorId().equals(vendorId)) {
+            throw new AppException(ErrorCode.COORDINATOR_NOT_FOUND);
+        }
+
+        List<CoordinatorSchedule> schedules = coordinatorScheduleRepository.findByCoordinator_UserIdAndIsDeletedFalse(coordinatorId);
+        
+        return tourSessionMapper.toStaffScheduleResponseList(schedules);
+    }
+
     private UUID resolveVendorId(UUID userId) {
-        // Kiểm tra xem user có phải là Manager của Vendor không (owner)
         Optional<Vendor> vendor = vendorRepository.findByManager_UserId(userId);
         if (vendor.isPresent()) {
             return vendor.get().getVendorId();
         }
 
-        // Nếu không, kiểm tra xem user có phải là nhân viên (VendorStaff) không
         VendorStaff staff = vendorStaffRepository.findByUser_UserIdAndIsActiveTrueAndIsDeletedFalse(userId)
                 .orElseThrow(() -> new AppException(ErrorCode.UNAUTHORIZED_VENDOR_ACCESS));
         return staff.getVendor().getVendorId();

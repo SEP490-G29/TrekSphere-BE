@@ -39,4 +39,6 @@ public interface CoordinatorScheduleRepository extends JpaRepository<Coordinator
     List<CoordinatorSchedule> findByTourSession_TourSessionIdAndIsDeletedFalse(UUID sessionId);
 
     boolean existsByTourSession_TourSessionIdAndCoordinator_UserIdAndIsDeletedFalse(UUID sessionId, UUID coordinatorId);
+
+    List<CoordinatorSchedule> findByCoordinator_UserIdAndIsDeletedFalse(UUID coordinatorId);
 }

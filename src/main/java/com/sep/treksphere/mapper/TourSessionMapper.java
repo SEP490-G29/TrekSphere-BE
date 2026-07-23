@@ -1,5 +1,6 @@
 package com.sep.treksphere.mapper;
 
+import com.sep.treksphere.dto.StaffScheduleResponse;
 import com.sep.treksphere.dto.response.CoordinatorAllocationDto;
 import com.sep.treksphere.dto.response.TourSessionAllocationResponse;
 import com.sep.treksphere.dto.response.TourSessionSummaryResponse;
@@ -36,4 +37,13 @@ public interface TourSessionMapper {
     CoordinatorAllocationDto toCoordinatorAllocationDto(CoordinatorSchedule coordinatorSchedule);
 
     List<CoordinatorAllocationDto> toCoordinatorAllocationDtoList(List<CoordinatorSchedule> coordinatorSchedules);
+
+    @Mapping(source = "tourSession.tourSessionId", target = "tourSessionId")
+    @Mapping(source = "tourSession.tourSchedule.tour.tourName", target = "tourName")
+    @Mapping(source = "tourSession.tourSchedule.departureDate", target = "departureDate")
+    @Mapping(source = "tourSession.tourSchedule.returnDate", target = "returnDate")
+    @Mapping(source = "tourSession.status", target = "status")
+    StaffScheduleResponse toStaffScheduleResponse(CoordinatorSchedule coordinatorSchedule);
+
+    List<StaffScheduleResponse> toStaffScheduleResponseList(List<CoordinatorSchedule> coordinatorSchedules);
 }

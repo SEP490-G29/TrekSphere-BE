@@ -71,4 +71,13 @@ public class VendorLogisticsController {
         TourSessionAllocationResponse response = logisticsAllocationService.getAllocations(sessionId, user.getUser().getUserId());
         return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, response, "Lấy thông tin phân bổ thành công"));
     }
+
+    @Operation(summary = "Lấy lịch trình làm việc của Hướng dẫn viên", description = "Xem danh sách các Tour mà một Hướng dẫn viên (Coordinator) đã được phân công")
+    @GetMapping("/coordinators/{coordinatorId}/schedules")
+    public ResponseEntity<ApiResponse<java.util.List<com.sep.treksphere.dto.StaffScheduleResponse>>> getCoordinatorSchedules(
+            @PathVariable UUID coordinatorId,
+            @AuthenticationPrincipal CustomUserDetails user) {
+        java.util.List<com.sep.treksphere.dto.StaffScheduleResponse> response = logisticsAllocationService.getCoordinatorSchedules(coordinatorId, user.getUser().getUserId());
+        return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, response, "Lấy lịch trình làm việc thành công"));
+    }
 }
