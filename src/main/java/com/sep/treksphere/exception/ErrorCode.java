@@ -70,6 +70,7 @@ public enum ErrorCode {
     STAFF_BELONGS_TO_OTHER_VENDOR(6202, HttpStatus.BAD_REQUEST, MessageConstant.STAFF_BELONGS_TO_OTHER_VENDOR),
     VENDOR_STAFF_NOT_FOUND(6203, HttpStatus.NOT_FOUND, MessageConstant.VENDOR_STAFF_NOT_FOUND),
     UNAUTHORIZED_STAFF_ACCESS(6204, HttpStatus.FORBIDDEN, MessageConstant.UNAUTHORIZED_STAFF_ACCESS),
+    INVALID_DATE_RANGE(6401, HttpStatus.BAD_REQUEST, MessageConstant.INVALID_DATE_RANGE),
     // Porter
     PORTER_NOT_FOUND(6301, HttpStatus.NOT_FOUND, MessageConstant.PORTER_NOT_FOUND),
     // Booking & Voucher Error Codes
