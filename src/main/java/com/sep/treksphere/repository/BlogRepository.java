@@ -22,10 +22,13 @@ public interface BlogRepository extends JpaRepository<Blog, UUID> {
                  AND b.status = :status
                  AND (CAST(:keyword AS string) IS NULL
                       OR LOWER(b.title) LIKE LOWER(CONCAT('%', CAST(:keyword AS string), '%')))
+                 AND (CAST(:authorId AS string) IS NULL
+                      OR CAST(u.userId AS string) = CAST(:authorId AS string))
                """)
     Page<Blog> searchBlogs(
                @Param("status") BlogStatus status,
                @Param("keyword") String keyword,
+               @Param("authorId") String authorId,
                Pageable pageable);
 
     @Query("""
