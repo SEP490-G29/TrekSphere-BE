@@ -5,15 +5,18 @@ import com.sep.treksphere.dto.request.UpdateScheduleRequest;
 import com.sep.treksphere.dto.response.TourScheduleResponse;
 import com.sep.treksphere.entity.Tour;
 import com.sep.treksphere.entity.TourSchedule;
+import com.sep.treksphere.entity.TourSession;
 import com.sep.treksphere.entity.Vendor;
 import com.sep.treksphere.entity.VendorStaff;
 import com.sep.treksphere.enums.booking.BookingStatus;
 import com.sep.treksphere.enums.tour.ScheduleStatus;
+import com.sep.treksphere.enums.tour.TourSessionStatus;
 import com.sep.treksphere.exception.AppException;
 import com.sep.treksphere.exception.ErrorCode;
 import com.sep.treksphere.repository.BookingRepository;
 import com.sep.treksphere.repository.TourRepository;
 import com.sep.treksphere.repository.TourScheduleRepository;
+import com.sep.treksphere.repository.TourSessionRepository;
 import com.sep.treksphere.repository.VendorRepository;
 import com.sep.treksphere.repository.VendorStaffRepository;
 import com.sep.treksphere.service.TourScheduleService;
@@ -32,6 +35,7 @@ import java.util.UUID;
 public class TourScheduleServiceImpl implements TourScheduleService {
 
     private final TourScheduleRepository tourScheduleRepository;
+    private final TourSessionRepository tourSessionRepository;
     private final TourRepository tourRepository;
     private final VendorRepository vendorRepository;
     private final VendorStaffRepository vendorStaffRepository;
@@ -80,7 +84,14 @@ public class TourScheduleServiceImpl implements TourScheduleService {
         schedule.setBookedSlots(0);
         schedule.setStatus(ScheduleStatus.OPEN);
 
-        return toResponse(tourScheduleRepository.save(schedule));
+        TourSchedule savedSchedule = tourScheduleRepository.save(schedule);
+
+        TourSession session = new TourSession();
+        session.setTourSchedule(savedSchedule);
+        session.setStatus(TourSessionStatus.PENDING);
+        tourSessionRepository.save(session);
+
+        return toResponse(savedSchedule);
     }
 
     @Override
