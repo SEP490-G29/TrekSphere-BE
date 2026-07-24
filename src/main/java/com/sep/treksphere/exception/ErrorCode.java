@@ -48,6 +48,10 @@ public enum ErrorCode {
 
     // Blog
     BLOG_NOT_FOUND(5001, HttpStatus.NOT_FOUND, MessageConstant.BLOG_NOT_FOUND),
+    BLOG_COMMENT_NOT_FOUND(5002, HttpStatus.NOT_FOUND, MessageConstant.COMMENT_NOT_FOUND),
+    BLOG_CANNOT_EDIT(5003, HttpStatus.FORBIDDEN, MessageConstant.BLOG_CANNOT_EDIT),
+    COMMENT_CANNOT_EDIT(5004, HttpStatus.FORBIDDEN, MessageConstant.COMMENT_CANNOT_EDIT),
+    COMMENT_CANNOT_DELETE(5005, HttpStatus.FORBIDDEN, MessageConstant.COMMENT_CANNOT_DELETE),
     
     // Vendor
     VENDOR_NOT_FOUND(6001, HttpStatus.NOT_FOUND, MessageConstant.VENDOR_NOT_FOUND),

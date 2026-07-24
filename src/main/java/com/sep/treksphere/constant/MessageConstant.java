@@ -100,6 +100,22 @@ public class MessageConstant {
 
     // Blog Messages
     public static final String BLOG_NOT_FOUND = "Bài viết không tồn tại";
+    public static final String BLOG_CREATED_SUCCESSFULLY = "Đăng bài viết thành công";
+    public static final String BLOG_UPDATED_SUCCESSFULLY = "Cập nhật bài viết thành công";
+    public static final String BLOG_DELETED_SUCCESSFULLY = "Xóa bài viết thành công";
+    public static final String BLOG_HIDDEN_SUCCESSFULLY = "Ẩn bài viết thành công";
+    public static final String BLOG_TITLE_REQUIRED = "Tiêu đề bài viết không được để trống";
+    public static final String BLOG_CONTENT_REQUIRED = "Nội dung bài viết không được để trống";
+    public static final String BLOG_CANNOT_EDIT = "Bạn không có quyền chỉnh sửa bài viết này";
+
+    // Comment Messages
+    public static final String COMMENT_NOT_FOUND = "Bình luận không tồn tại";
+    public static final String COMMENT_CONTENT_REQUIRED = "Nội dung bình luận không được để trống";
+    public static final String COMMENT_ADDED_SUCCESSFULLY = "Gửi bình luận thành công";
+    public static final String COMMENT_UPDATED_SUCCESSFULLY = "Cập nhật bình luận thành công";
+    public static final String COMMENT_DELETED_SUCCESSFULLY = "Xóa bình luận thành công";
+    public static final String COMMENT_CANNOT_EDIT = "Bạn không có quyền chỉnh sửa bình luận này";
+    public static final String COMMENT_CANNOT_DELETE = "Bạn không có quyền xóa bình luận này";
 
     // Checkpoint Messages
     public static final String CHECKPOINT_NOT_FOUND = "Trạm dừng không tồn tại";
