@@ -247,6 +247,9 @@ public class MessageConstant {
     public static final String COORDINATOR_REMOVED_SUCCESSFULLY = "Gỡ bỏ phân công điều phối viên thành công";
     public static final String COORDINATOR_ID_REQUIRED = "HDV (Coordinator) không được để trống";
     public static final String IS_LEAD_REQUIRED = "Trạng thái Lead không được để trống";
+    public static final String SCHEDULE_CANCELLED_SUCCESSFULLY = "Huỷ phân công khẩn cấp thành công";
+    public static final String SCHEDULE_CANCEL_REASON_REQUIRED = "Lý do huỷ phân công không được để trống";
+    public static final String CANCEL_TOO_CLOSE_TO_DEPARTURE = "Chỉ có thể hủy lịch trình trước khi tour khởi hành tối thiểu 1 ngày";
 }
 
 
