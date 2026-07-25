@@ -19,6 +19,9 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 
 import java.util.UUID;
+import com.sep.treksphere.dto.response.StaffScheduleResponse;
+import com.sep.treksphere.dto.request.CancelScheduleRequest;
+import com.sep.treksphere.constant.MessageConstant;
 
 import static com.sep.treksphere.constant.MessageConstant.COORDINATOR_ASSIGNED_SUCCESSFULLY;
 import static com.sep.treksphere.constant.MessageConstant.COORDINATOR_REMOVED_SUCCESSFULLY;
@@ -27,13 +30,14 @@ import static com.sep.treksphere.constant.MessageConstant.COORDINATOR_REMOVED_SU
 @RequestMapping("/api/v1/vendor/sessions")
 @Tag(name = "Vendor Logistics", description = "Các API quản lý phân công hậu cần cho Vendor (Module 5C)")
 @RequiredArgsConstructor
-@PreAuthorize("hasAnyRole('VENDOR_MANAGER', 'VENDOR_STAFF')")
+@PreAuthorize("hasAnyRole('VENDOR_MANAGER', 'VENDOR_STAFF', 'COORDINATOR')")
 public class VendorLogisticsController {
 
     private final LogisticsAllocationService logisticsAllocationService;
 
     @Operation(summary = "Phân công Hướng dẫn viên", description = "Gán một Hướng dẫn viên (Coordinator) vào một Phiên Tour (Tour Session)")
     @PostMapping("/{sessionId}/coordinators")
+    @PreAuthorize("hasAnyRole('VENDOR_MANAGER', 'VENDOR_STAFF')")
     public ResponseEntity<ApiResponse<Void>> assignCoordinator(
             @PathVariable UUID sessionId,
             @Valid @RequestBody AssignCoordinatorRequest request,
@@ -44,6 +48,7 @@ public class VendorLogisticsController {
 
     @Operation(summary = "Gỡ phân công Hướng dẫn viên", description = "Xóa một Hướng dẫn viên đã được gán khỏi Phiên Tour")
     @DeleteMapping("/coordinators/{scheduleId}")
+    @PreAuthorize("hasAnyRole('VENDOR_MANAGER', 'VENDOR_STAFF')")
     public ResponseEntity<ApiResponse<Void>> removeCoordinator(
             @PathVariable UUID scheduleId,
             @AuthenticationPrincipal CustomUserDetails user) {
@@ -53,6 +58,7 @@ public class VendorLogisticsController {
 
     @Operation(summary = "Lấy danh sách Phiên Tour", description = "Lấy danh sách các Phiên Tour do Vendor quản lý (Hỗ trợ phân trang, lọc theo tourId và trạng thái)")
     @GetMapping
+    @PreAuthorize("hasAnyRole('VENDOR_MANAGER', 'VENDOR_STAFF')")
     public ResponseEntity<ApiResponse<PaginationResponse<TourSessionSummaryResponse>>> getVendorSessions(
             @RequestParam(required = false) UUID tourId,
             @RequestParam(required = false) TourSessionStatus status,
@@ -65,6 +71,7 @@ public class VendorLogisticsController {
 
     @Operation(summary = "Lấy chi tiết phân bổ", description = "Lấy thông tin chi tiết phân bổ nhân sự (Coordinator) của một Phiên Tour cụ thể")
     @GetMapping("/{sessionId}/allocations")
+    @PreAuthorize("hasAnyRole('VENDOR_MANAGER', 'VENDOR_STAFF')")
     public ResponseEntity<ApiResponse<TourSessionAllocationResponse>> getAllocations(
             @PathVariable UUID sessionId,
             @AuthenticationPrincipal CustomUserDetails user) {
@@ -72,12 +79,40 @@ public class VendorLogisticsController {
         return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, response, "Lấy thông tin phân bổ thành công"));
     }
 
-    @Operation(summary = "Lấy lịch trình làm việc của Hướng dẫn viên", description = "Xem danh sách các Tour mà một Hướng dẫn viên (Coordinator) đã được phân công")
-    @GetMapping("/coordinators/{coordinatorId}/schedules")
-    public ResponseEntity<ApiResponse<java.util.List<com.sep.treksphere.dto.StaffScheduleResponse>>> getCoordinatorSchedules(
-            @PathVariable UUID coordinatorId,
+    @Operation(summary = "Lấy lịch trình làm việc của Hướng dẫn viên", description = "Xem danh sách các Tour mà một Hướng dẫn viên (Coordinator) đã được phân công. Quản lý có thể xem tất cả.")
+    @GetMapping("/coordinators/schedules")
+    public ResponseEntity<ApiResponse<PaginationResponse<StaffScheduleResponse>>> getCoordinatorSchedules(
+            @RequestParam(required = false) UUID coordinatorId,
+            @RequestParam(required = false) TourSessionStatus status,
+            @RequestParam(defaultValue = "1") int page,
+            @RequestParam(defaultValue = "10") int size,
             @AuthenticationPrincipal CustomUserDetails user) {
-        java.util.List<com.sep.treksphere.dto.StaffScheduleResponse> response = logisticsAllocationService.getCoordinatorSchedules(coordinatorId, user.getUser().getUserId());
+            
+        boolean isManagerOrStaff = user.getAuthorities().stream()
+                .anyMatch(a -> a.getAuthority().equals("ROLE_VENDOR_MANAGER") || a.getAuthority().equals("ROLE_VENDOR_STAFF"));
+                
+        UUID targetCoordinatorId = coordinatorId;
+        
+        if (!isManagerOrStaff) {
+            // Coordinator can only view their own schedule
+            targetCoordinatorId = user.getUser().getUserId();
+        }
+        
+        PaginationResponse<StaffScheduleResponse> response = logisticsAllocationService.getCoordinatorSchedules(targetCoordinatorId, user.getUser().getUserId(), status, page, size);
         return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, response, "Lấy lịch trình làm việc thành công"));
+    }
+
+    @Operation(summary = "Hủy phân công khẩn cấp", description = "Hủy lịch trình làm việc do sự cố khẩn cấp (Phải báo trước 1 ngày)")
+    @PostMapping("/coordinators/schedules/{scheduleId}/cancel")
+    public ResponseEntity<ApiResponse<Void>> emergencyCancelSchedule(
+            @PathVariable UUID scheduleId,
+            @Valid @RequestBody CancelScheduleRequest request,
+            @AuthenticationPrincipal CustomUserDetails user) {
+            
+        boolean isManager = user.getAuthorities().stream()
+                .anyMatch(a -> a.getAuthority().equals("ROLE_VENDOR_MANAGER"));
+                
+        logisticsAllocationService.emergencyCancelSchedule(scheduleId, request, user.getUser().getUserId(), isManager);
+        return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, MessageConstant.SCHEDULE_CANCELLED_SUCCESSFULLY));
     }
 }

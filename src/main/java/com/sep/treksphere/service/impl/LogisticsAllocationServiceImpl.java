@@ -17,14 +17,16 @@ import com.sep.treksphere.service.LogisticsAllocationService;
 import com.sep.treksphere.dto.response.TourSessionAllocationResponse;
 import com.sep.treksphere.dto.response.TourSessionSummaryResponse;
 import com.sep.treksphere.dto.response.PaginationResponse;
-import com.sep.treksphere.dto.response.CoordinatorAllocationDto;
-import com.sep.treksphere.dto.StaffScheduleResponse;
+import com.sep.treksphere.dto.response.StaffScheduleResponse;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import java.util.stream.Collectors;
 import java.util.List;
+import java.util.UUID;
+import java.time.LocalDateTime;
+import com.sep.treksphere.dto.request.CancelScheduleRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -87,14 +89,14 @@ public class LogisticsAllocationServiceImpl implements LogisticsAllocationServic
             throw new AppException(ErrorCode.COORDINATOR_SCHEDULE_CONFLICT);
         }
 
-        // Check IN_PROGRESS tours
-        long inProgressCount = coordinatorScheduleRepository.countSchedulesByStatus(
-                request.getCoordinatorId(),
-                TourSessionStatus.IN_PROGRESS
-        );
-        if (inProgressCount > 0) {
-            throw new AppException(ErrorCode.COORDINATOR_IN_PROGRESS_TOUR);
-        }
+        // // Check IN_PROGRESS tours
+        // long inProgressCount = coordinatorScheduleRepository.countSchedulesByStatus(
+        //         request.getCoordinatorId(),
+        //         TourSessionStatus.IN_PROGRESS
+        // );
+        // if (inProgressCount > 0) {
+        //     throw new AppException(ErrorCode.COORDINATOR_IN_PROGRESS_TOUR);
+        // }
 
         CoordinatorSchedule newSchedule = new CoordinatorSchedule();
         newSchedule.setTourSession(session);
@@ -132,6 +134,44 @@ public class LogisticsAllocationServiceImpl implements LogisticsAllocationServic
         schedule.setDeletedBy(userId.toString());
         coordinatorScheduleRepository.save(schedule);
         log.info("Coordinator schedule removed successfully");
+    }
+
+    @Override
+    @Transactional
+    public void emergencyCancelSchedule(UUID scheduleId, CancelScheduleRequest request, UUID vendorUserId, boolean isManager) {
+        log.info("Emergency cancelling schedule {}", scheduleId);
+
+        CoordinatorSchedule schedule = coordinatorScheduleRepository.findById(scheduleId)
+                .orElseThrow(() -> new AppException(ErrorCode.SCHEDULE_NOT_FOUND));
+
+        if (schedule.getIsDeleted()) {
+            throw new AppException(ErrorCode.SCHEDULE_NOT_FOUND);
+        }
+
+        UUID vendorId = resolveVendorId(vendorUserId);
+
+        if (!schedule.getTourSession().getTourSchedule().getTour().getVendor().getVendorId().equals(vendorId)) {
+            throw new AppException(ErrorCode.SCHEDULE_NOT_BELONG_TO_VENDOR);
+        }
+
+        if (!isManager && !schedule.getCoordinator().getUserId().equals(vendorUserId)) {
+            throw new AppException(ErrorCode.UNAUTHORIZED_STAFF_ACCESS);
+        }
+
+        LocalDateTime departureDateTime = schedule.getTourSession().getTourSchedule().getDepartureDate().atStartOfDay();
+        if (LocalDateTime.now().plusDays(1).isAfter(departureDateTime)) {
+            throw new AppException(ErrorCode.CANCEL_TOO_CLOSE_TO_DEPARTURE);
+        }
+
+        if (schedule.getTourSession().getStatus() != TourSessionStatus.PENDING) {
+            throw new AppException(ErrorCode.TOUR_SESSION_ALREADY_STARTED);
+        }
+
+        schedule.setIsCancelled(true);
+        schedule.setCancelReason(request.getReason());
+        coordinatorScheduleRepository.save(schedule);
+        
+        log.info("Schedule cancelled successfully with reason: {}", request.getReason());
     }
 
     @Override
@@ -176,19 +216,23 @@ public class LogisticsAllocationServiceImpl implements LogisticsAllocationServic
 
     @Override
     @Transactional(readOnly = true)
-    public List<StaffScheduleResponse> getCoordinatorSchedules(UUID coordinatorId, UUID vendorUserId) {
+    public PaginationResponse<StaffScheduleResponse> getCoordinatorSchedules(UUID coordinatorId, UUID vendorUserId, TourSessionStatus status, int page, int size) {
         UUID vendorId = resolveVendorId(vendorUserId);
 
-        VendorStaff coordinatorStaff = vendorStaffRepository.findByUser_UserIdAndIsActiveTrueAndIsDeletedFalse(coordinatorId)
-                .orElseThrow(() -> new AppException(ErrorCode.COORDINATOR_NOT_FOUND));
-
-        if (!coordinatorStaff.getVendor().getVendorId().equals(vendorId)) {
-            throw new AppException(ErrorCode.COORDINATOR_NOT_FOUND);
-        }
-
-        List<CoordinatorSchedule> schedules = coordinatorScheduleRepository.findByCoordinator_UserIdAndIsDeletedFalse(coordinatorId);
+        Pageable pageable = PageRequest.of(page - 1, size, Sort.by(Sort.Direction.DESC, "createdAt"));
         
-        return tourSessionMapper.toStaffScheduleResponseList(schedules);
+        org.springframework.data.domain.Page<CoordinatorSchedule> schedulePage = coordinatorScheduleRepository.findSchedulesByVendor(vendorId, coordinatorId, status, pageable);
+        
+        List<StaffScheduleResponse> content = tourSessionMapper.toStaffScheduleResponseList(schedulePage.getContent());
+        
+        return PaginationResponse.<StaffScheduleResponse>builder()
+                .content(content)
+                .pageNumber(schedulePage.getNumber() + 1)
+                .pageSize(schedulePage.getSize())
+                .totalElements(schedulePage.getTotalElements())
+                .totalPages(schedulePage.getTotalPages())
+                .last(schedulePage.isLast())
+                .build();
     }
 
     private UUID resolveVendorId(UUID userId) {
