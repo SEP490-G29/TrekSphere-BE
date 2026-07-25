@@ -1,4 +1,4 @@
-package com.sep.treksphere.dto.response.logistics;
+package com.sep.treksphere.dto.response;
 
 import com.sep.treksphere.dto.response.UserResponse;
 import lombok.Data;

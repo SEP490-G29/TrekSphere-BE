@@ -1,6 +1,6 @@
 package com.sep.treksphere.mapper;
 
-import com.sep.treksphere.dto.response.logistics.CoordinatorScheduleResponse;
+import com.sep.treksphere.dto.response.CoordinatorScheduleResponse;
 import com.sep.treksphere.entity.CoordinatorSchedule;
 import com.sep.treksphere.entity.Role;
 import org.mapstruct.Mapper;
