@@ -1,5 +1,8 @@
 package com.sep.treksphere.service;
 
+import com.sep.treksphere.dto.request.BlogFilterRequest;
+import com.sep.treksphere.dto.request.CreateBlogRequest;
+import com.sep.treksphere.dto.request.UpdateBlogRequest;
 import com.sep.treksphere.dto.response.BlogDetailResponse;
 import com.sep.treksphere.dto.response.BlogSummaryResponse;
 import com.sep.treksphere.dto.response.PaginationResponse;
@@ -9,13 +12,15 @@ import java.util.UUID;
 
 public interface BlogService {
 
-    PaginationResponse<BlogSummaryResponse> getBlogs(String keyword, int page, int size, String sortBy, String sortDir);
+    PaginationResponse<BlogSummaryResponse> getBlogs(BlogFilterRequest filter);
 
     BlogDetailResponse getBlogById(UUID blogId);
 
+    BlogDetailResponse createBlog(CreateBlogRequest request, CustomUserDetails userDetails);
+
+    BlogDetailResponse updateBlog(UUID blogId, UpdateBlogRequest request, CustomUserDetails userDetails);
+
     void hideBlog(UUID blogId, CustomUserDetails userDetails);
-    
-    void unhideBlog(UUID blogId, CustomUserDetails userDetails);
 
     void deleteBlog(UUID blogId, CustomUserDetails userDetails);
 }
