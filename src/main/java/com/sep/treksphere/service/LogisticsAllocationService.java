@@ -1,6 +1,6 @@
 package com.sep.treksphere.service;
 
-import com.sep.treksphere.dto.request.logistics.AssignCoordinatorRequest;
+import com.sep.treksphere.dto.request.AssignCoordinatorRequest;
 
 import com.sep.treksphere.dto.StaffScheduleResponse;
 import com.sep.treksphere.dto.response.TourSessionAllocationResponse;

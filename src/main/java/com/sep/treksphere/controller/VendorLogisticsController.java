@@ -1,7 +1,7 @@
 package com.sep.treksphere.controller;
 
 import com.sep.treksphere.dto.response.ApiResponse;
-import com.sep.treksphere.dto.request.logistics.AssignCoordinatorRequest;
+import com.sep.treksphere.dto.request.AssignCoordinatorRequest;
 import com.sep.treksphere.dto.response.PaginationResponse;
 import com.sep.treksphere.dto.response.TourSessionSummaryResponse;
 import com.sep.treksphere.dto.response.TourSessionAllocationResponse;
