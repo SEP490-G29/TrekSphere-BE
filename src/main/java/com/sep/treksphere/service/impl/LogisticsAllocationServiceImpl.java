@@ -2,6 +2,8 @@ package com.sep.treksphere.service.impl;
 
 import com.sep.treksphere.dto.request.AssignCoordinatorRequest;
 import com.sep.treksphere.entity.CoordinatorSchedule;
+import com.sep.treksphere.entity.PorterSchedule;
+import com.sep.treksphere.entity.PorterProfile;
 import com.sep.treksphere.entity.TourSession;
 import com.sep.treksphere.entity.Vendor;
 import com.sep.treksphere.entity.VendorStaff;
@@ -10,6 +12,8 @@ import com.sep.treksphere.exception.AppException;
 import com.sep.treksphere.exception.ErrorCode;
 import com.sep.treksphere.mapper.TourSessionMapper;
 import com.sep.treksphere.repository.CoordinatorScheduleRepository;
+import com.sep.treksphere.repository.PorterScheduleRepository;
+import com.sep.treksphere.repository.PorterProfileRepository;
 import com.sep.treksphere.repository.TourSessionRepository;
 import com.sep.treksphere.repository.VendorRepository;
 import com.sep.treksphere.repository.VendorStaffRepository;
@@ -26,6 +30,7 @@ import java.util.stream.Collectors;
 import java.util.List;
 import java.util.UUID;
 import java.time.LocalDateTime;
+import com.sep.treksphere.dto.request.AssignPorterRequest;
 import com.sep.treksphere.dto.request.CancelScheduleRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -39,13 +44,99 @@ import java.util.UUID;
 @Service
 @RequiredArgsConstructor
 @Slf4j
+@Transactional(readOnly = true)
 public class LogisticsAllocationServiceImpl implements LogisticsAllocationService {
 
     private final TourSessionRepository tourSessionRepository;
     private final CoordinatorScheduleRepository coordinatorScheduleRepository;
+    private final PorterScheduleRepository porterScheduleRepository;
+    private final PorterProfileRepository porterProfileRepository;
     private final VendorRepository vendorRepository;
     private final VendorStaffRepository vendorStaffRepository;
     private final TourSessionMapper tourSessionMapper;
+
+    @Override
+    @Transactional
+    public void assignPorter(UUID sessionId, AssignPorterRequest request, UUID vendorUserId) {
+        log.info("Assigning porter {} to session {}", request.getPorterId(), sessionId);
+
+        TourSession session = tourSessionRepository.findByIdWithVendor(sessionId)
+                .orElseThrow(() -> new AppException(ErrorCode.TOUR_SESSION_NOT_FOUND));
+
+        UUID vendorId = resolveVendorId(vendorUserId);
+
+        if (!session.getTourSchedule().getTour().getVendor().getVendorId().equals(vendorId)) {
+            throw new AppException(ErrorCode.TOUR_NOT_BELONG_TO_VENDOR);
+        }
+
+        if (session.getStatus() != TourSessionStatus.PENDING) {
+            throw new AppException(ErrorCode.TOUR_SESSION_ALREADY_STARTED);
+        }
+
+        PorterProfile porter = porterProfileRepository.findById(request.getPorterId())
+                .orElseThrow(() -> new AppException(ErrorCode.PORTER_NOT_FOUND));
+
+        if (porter.getIsDeleted() || !porter.getVendor().getVendorId().equals(vendorId)) {
+            throw new AppException(ErrorCode.PORTER_NOT_FOUND);
+        }
+
+        boolean alreadyAssigned = porterScheduleRepository
+                .existsByTourSession_TourSessionIdAndPorter_PorterIdAndIsDeletedFalse(sessionId, request.getPorterId());
+        if (alreadyAssigned) {
+            throw new AppException(ErrorCode.PORTER_ALREADY_ASSIGNED);
+        }
+
+        int overlappingCount = porterScheduleRepository.countOverlappingSchedules(
+                request.getPorterId(),
+                session.getTourSchedule().getDepartureDate(),
+                session.getTourSchedule().getReturnDate()
+        );
+        if (overlappingCount > 0) {
+            throw new AppException(ErrorCode.PORTER_SCHEDULE_CONFLICT);
+        }
+
+        PorterSchedule newSchedule = new PorterSchedule();
+        newSchedule.setTourSession(session);
+        newSchedule.setPorter(porter);
+        newSchedule.setNote(request.getNote());
+
+        porterScheduleRepository.save(newSchedule);
+        log.info("Porter assigned successfully");
+    }
+
+    @Override
+    @Transactional
+    public void removePorter(UUID porterScheduleId, UUID vendorUserId) {
+        log.info("Removing porter schedule {}", porterScheduleId);
+
+        PorterSchedule schedule = porterScheduleRepository.findById(porterScheduleId)
+                .orElseThrow(() -> new AppException(ErrorCode.PORTER_SCHEDULE_NOT_FOUND));
+
+        if (schedule.getIsDeleted()) {
+            throw new AppException(ErrorCode.PORTER_SCHEDULE_NOT_FOUND);
+        }
+
+        UUID vendorId = resolveVendorId(vendorUserId);
+
+        if (!schedule.getTourSession().getTourSchedule().getTour().getVendor().getVendorId().equals(vendorId)) {
+            throw new AppException(ErrorCode.SCHEDULE_NOT_BELONG_TO_VENDOR);
+        }
+
+        if (schedule.getTourSession().getStatus() != TourSessionStatus.PENDING) {
+            throw new AppException(ErrorCode.TOUR_SESSION_ALREADY_STARTED);
+        }
+
+        LocalDateTime departureDateTime = schedule.getTourSession().getTourSchedule().getDepartureDate().atStartOfDay();
+        if (LocalDateTime.now().plusDays(1).isAfter(departureDateTime)) {
+            throw new AppException(ErrorCode.CANCEL_TOO_CLOSE_TO_DEPARTURE);
+        }
+
+        schedule.setIsDeleted(true);
+        schedule.setDeletedAt(LocalDateTime.now());
+        schedule.setDeletedBy(vendorUserId.toString());
+        porterScheduleRepository.save(schedule);
+        log.info("Porter schedule removed successfully");
+    }
 
     @Override
     @Transactional
@@ -207,9 +298,11 @@ public class LogisticsAllocationServiceImpl implements LogisticsAllocationServic
         }
         
         List<CoordinatorSchedule> coordinatorSchedules = coordinatorScheduleRepository.findByTourSession_TourSessionIdAndIsDeletedFalse(sessionId);
+        List<PorterSchedule> porterSchedules = porterScheduleRepository.findByTourSession_TourSessionIdAndIsDeletedFalse(sessionId);
 
         TourSessionAllocationResponse response = tourSessionMapper.toAllocationResponse(session);
         response.setCoordinators(tourSessionMapper.toCoordinatorAllocationDtoList(coordinatorSchedules));
+        response.setPorters(tourSessionMapper.toPorterAllocationDtoList(porterSchedules));
         
         return response;
     }

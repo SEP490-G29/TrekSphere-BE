@@ -19,6 +19,7 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 
 import java.util.UUID;
+import com.sep.treksphere.dto.request.AssignPorterRequest;
 import com.sep.treksphere.dto.response.StaffScheduleResponse;
 import com.sep.treksphere.dto.request.CancelScheduleRequest;
 import com.sep.treksphere.constant.MessageConstant;
@@ -44,6 +45,27 @@ public class VendorLogisticsController {
             @AuthenticationPrincipal CustomUserDetails user) {
         logisticsAllocationService.assignCoordinator(sessionId, request, user.getUser().getUserId());
         return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, null, COORDINATOR_ASSIGNED_SUCCESSFULLY));
+    }
+
+    @Operation(summary = "Phân công Porter", description = "Gán một Porter vào một Phiên Tour")
+    @PostMapping("/{sessionId}/porters")
+    @PreAuthorize("hasAnyRole('VENDOR_MANAGER', 'VENDOR_STAFF')")
+    public ResponseEntity<ApiResponse<Void>> assignPorter(
+            @PathVariable UUID sessionId,
+            @Valid @RequestBody AssignPorterRequest request,
+            @AuthenticationPrincipal CustomUserDetails user) {
+        logisticsAllocationService.assignPorter(sessionId, request, user.getUser().getUserId());
+        return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, null, MessageConstant.PORTER_ASSIGNED_SUCCESSFULLY));
+    }
+
+    @Operation(summary = "Gỡ phân công Porter", description = "Xóa một Porter đã được gán khỏi Phiên Tour")
+    @DeleteMapping("/porters/{porterScheduleId}")
+    @PreAuthorize("hasAnyRole('VENDOR_MANAGER', 'VENDOR_STAFF')")
+    public ResponseEntity<ApiResponse<Void>> removePorter(
+            @PathVariable UUID porterScheduleId,
+            @AuthenticationPrincipal CustomUserDetails user) {
+        logisticsAllocationService.removePorter(porterScheduleId, user.getUser().getUserId());
+        return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, MessageConstant.PORTER_REMOVED_SUCCESSFULLY));
     }
 
     @Operation(summary = "Gỡ phân công Hướng dẫn viên", description = "Xóa một Hướng dẫn viên đã được gán khỏi Phiên Tour")

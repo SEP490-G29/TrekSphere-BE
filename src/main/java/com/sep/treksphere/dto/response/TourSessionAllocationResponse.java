@@ -27,4 +27,5 @@ public class TourSessionAllocationResponse {
     private LocalDate returnDate;
     
     private List<CoordinatorAllocationDto> coordinators;
+    private List<PorterAllocationDto> porters;
 }

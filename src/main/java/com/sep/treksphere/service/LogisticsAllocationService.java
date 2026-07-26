@@ -11,8 +11,11 @@ import com.sep.treksphere.enums.tour.TourSessionStatus;
 import java.util.List;
 import java.util.UUID;
 import com.sep.treksphere.dto.request.CancelScheduleRequest;
+import com.sep.treksphere.dto.request.AssignPorterRequest;
 
 public interface LogisticsAllocationService {
+    void assignPorter(UUID sessionId, AssignPorterRequest request, UUID vendorUserId);
+    void removePorter(UUID porterScheduleId, UUID vendorUserId);
     void assignCoordinator(UUID sessionId, AssignCoordinatorRequest request, UUID userId);
     void removeCoordinator(UUID scheduleId, UUID userId);
     void emergencyCancelSchedule(UUID scheduleId, CancelScheduleRequest request, UUID vendorUserId, boolean isManager);
