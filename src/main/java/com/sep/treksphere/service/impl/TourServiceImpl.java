@@ -180,12 +180,16 @@ public class TourServiceImpl implements TourService {
     private TourScheduleResponse toScheduleResponse(TourSchedule schedule) {
         return TourScheduleResponse.builder()
                 .scheduleId(schedule.getScheduleId().toString())
+                .tourId(schedule.getTour() != null ? schedule.getTour().getTourId().toString() : null)
                 .departureDate(schedule.getDepartureDate())
                 .returnDate(schedule.getReturnDate())
                 .availableSlots(schedule.getAvailableSlots())
                 .bookedSlots(schedule.getBookedSlots())
                 .price(schedule.getPrice())
                 .status(schedule.getStatus())
+                .isDeleted(schedule.getIsDeleted())
+                .createdAt(schedule.getCreatedAt())
+                .updatedAt(schedule.getUpdatedAt())
                 .build();
     }
 

@@ -103,6 +103,22 @@ public class MessageConstant {
 
     // Blog Messages
     public static final String BLOG_NOT_FOUND = "Bài viết không tồn tại";
+    public static final String BLOG_CREATED_SUCCESSFULLY = "Đăng bài viết thành công";
+    public static final String BLOG_UPDATED_SUCCESSFULLY = "Cập nhật bài viết thành công";
+    public static final String BLOG_DELETED_SUCCESSFULLY = "Xóa bài viết thành công";
+    public static final String BLOG_HIDDEN_SUCCESSFULLY = "Ẩn bài viết thành công";
+    public static final String BLOG_TITLE_REQUIRED = "Tiêu đề bài viết không được để trống";
+    public static final String BLOG_CONTENT_REQUIRED = "Nội dung bài viết không được để trống";
+    public static final String BLOG_CANNOT_EDIT = "Bạn không có quyền chỉnh sửa bài viết này";
+
+    // Comment Messages
+    public static final String COMMENT_NOT_FOUND = "Bình luận không tồn tại";
+    public static final String COMMENT_CONTENT_REQUIRED = "Nội dung bình luận không được để trống";
+    public static final String COMMENT_ADDED_SUCCESSFULLY = "Gửi bình luận thành công";
+    public static final String COMMENT_UPDATED_SUCCESSFULLY = "Cập nhật bình luận thành công";
+    public static final String COMMENT_DELETED_SUCCESSFULLY = "Xóa bình luận thành công";
+    public static final String COMMENT_CANNOT_EDIT = "Bạn không có quyền chỉnh sửa bình luận này";
+    public static final String COMMENT_CANNOT_DELETE = "Bạn không có quyền xóa bình luận này";
 
     // Checkpoint Messages
     public static final String CHECKPOINT_NOT_FOUND = "Trạm dừng không tồn tại";
@@ -221,6 +237,22 @@ public class MessageConstant {
     public static final String BOOKING_CONFIRMED_SUCCESSFULLY = "Xác nhận giữ chỗ đơn đặt tour thành công";
     public static final String REFUND_CONFIRMED_SUCCESSFULLY = "Xác nhận hoàn tiền thành công";
     public static final String BOOKING_NOT_CANCELLED = "Đơn đặt tour chưa ở trạng thái huỷ, không thể xác nhận hoàn tiền";
+
+    // Logistics Messages
+    public static final String TOUR_SESSION_NOT_FOUND = "Phiên tour không tồn tại";
+    public static final String TOUR_SESSION_ALREADY_STARTED = "Không thể phân công khi tour đã bắt đầu hoặc hoàn thành";
+    public static final String COORDINATOR_NOT_FOUND = "Không tìm thấy điều phối viên/hướng dẫn viên";
+    public static final String COORDINATOR_SCHEDULE_CONFLICT = "Điều phối viên đã có lịch bị trùng trong khoảng thời gian này";
+    public static final String COORDINATOR_IN_PROGRESS_TOUR = "Điều phối viên đang có tour chưa hoàn thành";
+    public static final String COORDINATOR_ALREADY_ASSIGNED = "Điều phối viên đã được phân công cho phiên tour này";
+    public static final String SCHEDULE_NOT_BELONG_TO_VENDOR = "Lịch phân công không thuộc về công ty của bạn";
+    public static final String COORDINATOR_ASSIGNED_SUCCESSFULLY = "Phân công điều phối viên thành công";
+    public static final String COORDINATOR_REMOVED_SUCCESSFULLY = "Gỡ bỏ phân công điều phối viên thành công";
+    public static final String COORDINATOR_ID_REQUIRED = "HDV (Coordinator) không được để trống";
+    public static final String IS_LEAD_REQUIRED = "Trạng thái Lead không được để trống";
+    public static final String SCHEDULE_CANCELLED_SUCCESSFULLY = "Huỷ phân công khẩn cấp thành công";
+    public static final String SCHEDULE_CANCEL_REASON_REQUIRED = "Lý do huỷ phân công không được để trống";
+    public static final String CANCEL_TOO_CLOSE_TO_DEPARTURE = "Chỉ có thể hủy lịch trình trước khi tour khởi hành tối thiểu 1 ngày";
 }
 
 

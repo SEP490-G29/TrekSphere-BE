@@ -28,4 +28,10 @@ public class CoordinatorSchedule extends BaseEntity {
 
     @Column(name = "is_lead", nullable = false)
     private Boolean isLead = false;
+
+    @Column(name = "is_cancelled", nullable = false)
+    private Boolean isCancelled = false;
+
+    @Column(name = "cancel_reason", length = 500)
+    private String cancelReason;
 }
