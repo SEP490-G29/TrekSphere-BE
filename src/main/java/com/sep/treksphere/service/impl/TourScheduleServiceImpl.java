@@ -184,12 +184,20 @@ public class TourScheduleServiceImpl implements TourScheduleService {
         }
         return TourScheduleResponse.builder()
                 .scheduleId(schedule.getScheduleId().toString())
+                .tourId(schedule.getTour() != null ? schedule.getTour().getTourId().toString() : null)
                 .departureDate(schedule.getDepartureDate())
                 .returnDate(schedule.getReturnDate())
                 .availableSlots(schedule.getAvailableSlots())
                 .bookedSlots(schedule.getBookedSlots())
                 .price(schedule.getPrice())
                 .status(schedule.getStatus())
+                .isDeleted(schedule.getIsDeleted())
+                .createdAt(schedule.getCreatedAt())
+                .updatedAt(schedule.getUpdatedAt())
+                .createdBy(schedule.getCreatedBy())
+                .updatedBy(schedule.getUpdatedBy())
+                .deletedAt(schedule.getDeletedAt())
+                .deletedBy(schedule.getDeletedBy())
                 .build();
     }
 }
