@@ -4,6 +4,7 @@ import com.sep.treksphere.constant.MessageConstant;
 import com.sep.treksphere.dto.request.SessionCheckpointLogRequest;
 import com.sep.treksphere.dto.response.ApiResponse;
 import com.sep.treksphere.dto.response.SessionCheckpointLogResponse;
+import com.sep.treksphere.dto.response.TourSessionEndResponse;
 import com.sep.treksphere.dto.response.TourSessionStartResponse;
 import com.sep.treksphere.security.CustomUserDetails;
 import com.sep.treksphere.service.TrackingService;
@@ -67,6 +68,30 @@ public class TrackingController {
                 HttpStatus.OK,
                 data,
                 MessageConstant.CHECKIN_SUCCESSFUL
+        );
+
+        return ResponseEntity.ok(response);
+    }
+
+    @PostMapping("/{sessionId}/end")
+    @Operation(summary = "Kết thúc phiên đi tour thực tế", description = "Chuyển trạng thái của Tour Session sang COMPLETED, lưu thời gian kết thúc thực tế và tự động check-in trạm đích (trạm cuối cùng).")
+    @SecurityRequirement(name = "bearerAuth")
+    @PreAuthorize("hasRole('COORDINATOR')")
+    public ResponseEntity<ApiResponse<TourSessionEndResponse>> endSession(
+            @AuthenticationPrincipal CustomUserDetails userDetails,
+            @PathVariable UUID sessionId,
+            @RequestBody @Valid SessionCheckpointLogRequest request
+    ) {
+        TourSessionEndResponse data = trackingService.endSession(
+                userDetails.getUser().getUserId(),
+                sessionId,
+                request
+        );
+
+        ApiResponse<TourSessionEndResponse> response = ApiResponse.success(
+                HttpStatus.OK,
+                data,
+                MessageConstant.SESSION_ENDED_SUCCESSFULLY
         );
 
         return ResponseEntity.ok(response);

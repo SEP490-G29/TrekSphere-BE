@@ -163,6 +163,7 @@ public class MessageConstant {
     public static final String COORDINATOR_SCHEDULE_FETCHED = "Lấy danh sách lịch dẫn đoàn thành công";
     public static final String INVALID_DATE_RANGE = "Ngày bắt đầu tìm kiếm không thể lớn hơn ngày kết thúc";
     public static final String SESSION_STARTED_SUCCESSFULLY = "Bắt đầu phiên đi tour thành công";
+    public static final String SESSION_ENDED_SUCCESSFULLY = "Kết thúc phiên đi tour thành công";
     public static final String SESSION_NOT_FOUND = "Không tìm thấy phiên đi tour này";
     public static final String SESSION_ALREADY_STARTED = "Phiên đi tour này đã được bắt đầu từ trước";
     public static final String SESSION_ALREADY_COMPLETED = "Phiên đi tour này đã hoàn thành";

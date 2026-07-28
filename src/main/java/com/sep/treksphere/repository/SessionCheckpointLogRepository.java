@@ -15,4 +15,8 @@ public interface SessionCheckpointLogRepository extends JpaRepository<SessionChe
             UUID tourSessionId,
             SessionCheckpointLogStatus status
     );
+
+    List<SessionCheckpointLog> findByTourSession_TourSessionIdAndIsDeletedFalseOrderByCheckpoint_CheckpointOrderAsc(
+            UUID tourSessionId
+    );
 }

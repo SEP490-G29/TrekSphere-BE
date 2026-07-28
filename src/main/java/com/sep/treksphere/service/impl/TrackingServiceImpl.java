@@ -4,6 +4,7 @@ import com.sep.treksphere.constant.ValidationConstant;
 import com.sep.treksphere.dto.request.SessionCheckpointLogRequest;
 import com.sep.treksphere.dto.response.SessionCheckpointLogResponse;
 import com.sep.treksphere.dto.response.TourSessionStartResponse;
+import com.sep.treksphere.dto.response.TourSessionEndResponse;
 import com.sep.treksphere.entity.*;
 import com.sep.treksphere.enums.tour.SessionCheckpointLogStatus;
 import com.sep.treksphere.enums.tour.TourSessionStatus;
@@ -84,7 +85,7 @@ public class TrackingServiceImpl implements TrackingService {
             TourCheckpoint startCheckpoint = checkpoints.get(0);
             if (startCheckpoint.getLatitude() != null && startCheckpoint.getLongitude() != null) {
                 if (!GeoUtils.isWithinAllowedRadius(request.getLatitude(), request.getLongitude(), startCheckpoint.getLatitude(), startCheckpoint.getLongitude())) {
-                    log.warn("Coordinator is too far from start checkpoint. Max allowed: {} meters", com.sep.treksphere.constant.ValidationConstant.ALLOWED_CHECKIN_RADIUS_METERS);
+                    log.warn("Coordinator is too far from start checkpoint. Max allowed: {} meters", ValidationConstant.ALLOWED_CHECKIN_RADIUS_METERS);
                     throw new AppException(ErrorCode.CHECKIN_OUT_OF_RANGE);
                 }
             }
@@ -200,6 +201,89 @@ public class TrackingServiceImpl implements TrackingService {
                 .checkpointOrder(checkpoint.getCheckpointOrder())
                 .status(nextLog.getStatus())
                 .reachedAt(nextLog.getReachedAt())
+                .build();
+    }
+
+    @Override
+    @Transactional
+    public TourSessionEndResponse endSession(UUID coordinatorId, UUID sessionId, SessionCheckpointLogRequest request) {
+        log.info("Attempting to end tour session with ID: {} by coordinator ID: {} with destination coordinates: [lat: {}, lon: {}]",
+                sessionId, coordinatorId, request.getLatitude(), request.getLongitude());
+
+        TourSession tourSession = tourSessionRepository.findByTourSessionIdAndIsDeletedFalse(sessionId)
+                .orElseThrow(() -> {
+                    log.warn("Tour session with ID {} not found", sessionId);
+                    return new AppException(ErrorCode.SESSION_NOT_FOUND);
+                });
+
+        CoordinatorSchedule schedule = coordinatorScheduleRepository
+                .findByTourSession_TourSessionIdAndCoordinator_UserIdAndIsDeletedFalse(sessionId, coordinatorId)
+                .orElseThrow(() -> {
+                    log.warn("Coordinator {} is not assigned to tour session {}", coordinatorId, sessionId);
+                    return new AppException(ErrorCode.UNAUTHORIZED_SESSION_ACCESS);
+                });
+
+        if (Boolean.TRUE.equals(schedule.getIsCancelled())) {
+            log.warn("Schedule assignment for coordinator {} in session {} is cancelled", coordinatorId, sessionId);
+            throw new AppException(ErrorCode.UNAUTHORIZED_SESSION_ACCESS);
+        }
+
+        if (!Boolean.TRUE.equals(schedule.getIsLead())) {
+            log.warn("Coordinator {} is not the lead coordinator for session {}", coordinatorId, sessionId);
+            throw new AppException(ErrorCode.NOT_LEAD_COORDINATOR);
+        }
+
+        if (tourSession.getStatus() != TourSessionStatus.IN_PROGRESS) {
+            log.warn("Tour session {} is not in progress. Current status: {}", sessionId, tourSession.getStatus());
+            throw new AppException(ErrorCode.SESSION_NOT_IN_PROGRESS);
+        }
+
+        LocalDateTime now = LocalDateTime.now();
+
+        List<SessionCheckpointLog> allLogs = sessionCheckpointLogRepository
+                .findByTourSession_TourSessionIdAndIsDeletedFalseOrderByCheckpoint_CheckpointOrderAsc(sessionId);
+
+        if (!allLogs.isEmpty()) {
+            SessionCheckpointLog destinationLog = allLogs.get(allLogs.size() - 1);
+            TourCheckpoint destinationCheckpoint = destinationLog.getCheckpoint();
+
+            if (destinationCheckpoint.getLatitude() != null && destinationCheckpoint.getLongitude() != null) {
+                if (!GeoUtils.isWithinAllowedRadius(
+                        request.getLatitude(), request.getLongitude(),
+                        destinationCheckpoint.getLatitude(), destinationCheckpoint.getLongitude())) {
+                    log.warn("Coordinator is too far from destination checkpoint '{}'. Max allowed: {} meters",
+                            destinationCheckpoint.getCheckpointName(), ValidationConstant.ALLOWED_CHECKIN_RADIUS_METERS);
+                    throw new AppException(ErrorCode.CHECKIN_OUT_OF_RANGE);
+                }
+            }
+
+            destinationLog.setStatus(SessionCheckpointLogStatus.REACHED);
+            destinationLog.setReachedAt(now);
+            destinationLog.setActualLatitude(request.getLatitude());
+            destinationLog.setActualLongitude(request.getLongitude());
+            destinationLog.setNote(request.getNote());
+
+            for (int i = 0; i < allLogs.size() - 1; i++) {
+                SessionCheckpointLog logItem = allLogs.get(i);
+                if (logItem.getStatus() == SessionCheckpointLogStatus.PENDING) {
+                    logItem.setStatus(SessionCheckpointLogStatus.SKIPPED);
+                    log.info("Checkpoint '{}' (order: {}) automatically marked as SKIPPED due to session completion",
+                            logItem.getCheckpoint().getCheckpointName(), logItem.getCheckpoint().getCheckpointOrder());
+                }
+            }
+
+            sessionCheckpointLogRepository.saveAll(allLogs);
+        }
+
+        tourSession.setStatus(TourSessionStatus.COMPLETED);
+        tourSession.setEndedAt(now);
+        tourSessionRepository.save(tourSession);
+        log.info("Tour session {} successfully completed at {}", sessionId, now);
+
+        return TourSessionEndResponse.builder()
+                .tourSessionId(tourSession.getTourSessionId())
+                .status(tourSession.getStatus())
+                .endedAt(tourSession.getEndedAt())
                 .build();
     }
 }
