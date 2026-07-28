@@ -80,6 +80,17 @@ public class VendorLogisticsController {
         return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, null, MessageConstant.EQUIPMENT_REMOVED_SUCCESSFULLY));
     }
 
+    @Operation(summary = "Xác nhận trả Trang bị", description = "Cập nhật số lượng trang bị nguyên vẹn/thất lạc sau khi Tour kết thúc và trả số lượng nguyên vẹn lại kho")
+    @PutMapping("/equipments/{sessionEquipmentId}/return")
+    @PreAuthorize("hasAnyRole('VENDOR_MANAGER', 'VENDOR_STAFF')")
+    public ResponseEntity<ApiResponse<Void>> returnEquipment(
+            @PathVariable UUID sessionEquipmentId,
+            @Valid @RequestBody com.sep.treksphere.dto.request.ReturnEquipmentRequest request,
+            @AuthenticationPrincipal CustomUserDetails user) {
+        logisticsAllocationService.returnEquipment(sessionEquipmentId, request, user.getUser().getUserId());
+        return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, null, MessageConstant.EQUIPMENT_RETURNED_SUCCESSFULLY));
+    }
+
     @Operation(summary = "Gỡ phân công Porter", description = "Xóa một Porter đã được gán khỏi Phiên Tour")
     @DeleteMapping("/porters/{porterScheduleId}")
     @PreAuthorize("hasAnyRole('VENDOR_MANAGER', 'VENDOR_STAFF')")

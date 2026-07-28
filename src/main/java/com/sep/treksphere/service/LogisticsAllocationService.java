@@ -12,10 +12,12 @@ import java.util.UUID;
 import com.sep.treksphere.dto.request.CancelScheduleRequest;
 import com.sep.treksphere.dto.request.AssignPorterRequest;
 import com.sep.treksphere.dto.request.AssignEquipmentRequest;
+import com.sep.treksphere.dto.request.ReturnEquipmentRequest;
 
 public interface LogisticsAllocationService {
     void assignEquipment(UUID sessionId, AssignEquipmentRequest request, UUID vendorUserId);
     void removeEquipment(UUID sessionEquipmentId, UUID vendorUserId);
+    void returnEquipment(UUID sessionEquipmentId, ReturnEquipmentRequest request, UUID vendorUserId);
     void assignPorter(UUID sessionId, AssignPorterRequest request, UUID vendorUserId);
     void removePorter(UUID porterScheduleId, UUID vendorUserId);
     void assignCoordinator(UUID sessionId, AssignCoordinatorRequest request, UUID userId);

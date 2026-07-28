@@ -38,6 +38,7 @@ import java.time.LocalDateTime;
 import com.sep.treksphere.dto.request.AssignPorterRequest;
 import com.sep.treksphere.dto.request.AssignEquipmentRequest;
 import com.sep.treksphere.dto.request.CancelScheduleRequest;
+import com.sep.treksphere.dto.request.ReturnEquipmentRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -138,6 +139,46 @@ public class LogisticsAllocationServiceImpl implements LogisticsAllocationServic
         sessionEquipmentRepository.save(sessionEquipment);
         
         log.info("Equipment allocation removed successfully");
+    }
+
+    @Override
+    @Transactional
+    public void returnEquipment(UUID sessionEquipmentId, ReturnEquipmentRequest request, UUID vendorUserId) {
+        log.info("Returning equipment {} by vendor {}", sessionEquipmentId, vendorUserId);
+
+        SessionEquipment sessionEquipment = sessionEquipmentRepository.findById(sessionEquipmentId)
+                .orElseThrow(() -> new AppException(ErrorCode.SESSION_EQUIPMENT_NOT_FOUND));
+
+        if (sessionEquipment.getIsDeleted()) {
+            throw new AppException(ErrorCode.SESSION_EQUIPMENT_NOT_FOUND);
+        }
+
+        UUID vendorId = resolveVendorId(vendorUserId);
+
+        if (!sessionEquipment.getTourSession().getTourSchedule().getTour().getVendor().getVendorId().equals(vendorId)) {
+            throw new AppException(ErrorCode.SESSION_EQUIPMENT_NOT_BELONG_TO_VENDOR);
+        }
+
+        if (sessionEquipment.getIsReturned()) {
+            throw new AppException(ErrorCode.EQUIPMENT_ALREADY_RETURNED);
+        }
+
+        if (request.getReturnedQuantity() + request.getMissingQuantity() != sessionEquipment.getQuantity()) {
+            throw new AppException(ErrorCode.INVALID_RETURN_QUANTITY);
+        }
+
+        // Return quantity to vendor stock (only the returned intact quantity)
+        VendorEquipment equipment = sessionEquipment.getEquipment();
+        equipment.setTotalQuantity(equipment.getTotalQuantity() + request.getReturnedQuantity());
+        vendorEquipmentRepository.save(equipment);
+
+        // Update session equipment status
+        sessionEquipment.setReturnedQuantity(request.getReturnedQuantity());
+        sessionEquipment.setMissingQuantity(request.getMissingQuantity());
+        sessionEquipment.setIsReturned(true);
+        sessionEquipmentRepository.save(sessionEquipment);
+        
+        log.info("Equipment returned successfully");
     }
 
 

@@ -36,6 +36,15 @@ public class SessionEquipment extends BaseEntity {
     @JoinColumn(name = "checked_by")
     private User checkedBy;
 
+    @Column(name = "returned_quantity", nullable = false)
+    private Integer returnedQuantity = 0;
+
+    @Column(name = "missing_quantity", nullable = false)
+    private Integer missingQuantity = 0;
+
+    @Column(name = "is_returned", nullable = false)
+    private Boolean isReturned = false;
+
     @Column(columnDefinition = "TEXT")
     private String note;
 }
