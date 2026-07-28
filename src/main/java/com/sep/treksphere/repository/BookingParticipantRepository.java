@@ -1,6 +1,7 @@
 package com.sep.treksphere.repository;
 
 import com.sep.treksphere.entity.BookingParticipant;
+import com.sep.treksphere.enums.booking.BookingStatus;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -17,4 +18,12 @@ public interface BookingParticipantRepository extends JpaRepository<BookingParti
            "AND b.bookingStatus = 'CONFIRMED' " +
            "AND bp.isDeleted = false")
     List<BookingParticipant> findActiveParticipantsByScheduleId(@Param("scheduleId") UUID scheduleId);
+
+    boolean existsByEmailAndBooking_Schedule_ScheduleIdAndBooking_BookingStatusAndIsDeletedFalse(
+            String email, UUID scheduleId, BookingStatus bookingStatus
+    );
+
+    boolean existsByPhoneAndBooking_Schedule_ScheduleIdAndBooking_BookingStatusAndIsDeletedFalse(
+            String phone, UUID scheduleId, BookingStatus bookingStatus
+    );
 }

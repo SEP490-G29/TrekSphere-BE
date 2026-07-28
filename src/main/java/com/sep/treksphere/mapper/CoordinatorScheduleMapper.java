@@ -18,8 +18,6 @@ public interface CoordinatorScheduleMapper {
     @Mapping(target = "returnDate", expression = "java(schedule.getTourSession() != null && schedule.getTourSession().getTourSchedule() != null ? schedule.getTourSession().getTourSchedule().getReturnDate() : null)")
     CoordinatorScheduleResponse toResponse(CoordinatorSchedule schedule);
 
-    CoordinatorScheduleResponse toDto(CoordinatorSchedule coordinatorSchedule);
-
     default String map(Role role) {
         return role != null ? role.getRoleName() : null;
     }

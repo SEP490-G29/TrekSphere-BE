@@ -8,6 +8,8 @@ import com.sep.treksphere.dto.request.TourSessionAttendanceRequest;
 import com.sep.treksphere.dto.response.TourSessionAttendanceResponse;
 import com.sep.treksphere.dto.request.SessionEquipmentCheckRequest;
 import com.sep.treksphere.dto.response.SessionEquipmentCheckResponse;
+import com.sep.treksphere.dto.request.CreateSosAlertRequest;
+import com.sep.treksphere.dto.response.SosAlertResponse;
 import com.sep.treksphere.dto.response.TourSessionEndResponse;
 import com.sep.treksphere.dto.response.TourSessionStartResponse;
 import com.sep.treksphere.security.CustomUserDetails;
@@ -148,5 +150,27 @@ public class TrackingController {
         );
 
         return ResponseEntity.ok(response);
+    }
+
+    @PostMapping("/sos")
+    @Operation(summary = "Phát tín hiệu SOS khẩn cấp", description = "Cho phép Hướng dẫn viên được phân công hoặc Khách du lịch tham gia chuyến đi phát tín hiệu cứu hộ khẩn cấp kèm tọa độ GPS thực tế.")
+    @SecurityRequirement(name = "bearerAuth")
+    @PreAuthorize("hasAnyRole('COORDINATOR', 'TREKKER')")
+    public ResponseEntity<ApiResponse<SosAlertResponse>> createSosAlert(
+            @AuthenticationPrincipal CustomUserDetails userDetails,
+            @RequestBody @Valid CreateSosAlertRequest request
+    ) {
+        SosAlertResponse data = trackingService.createSosAlert(
+                userDetails.getUser().getUserId(),
+                request
+        );
+
+        ApiResponse<SosAlertResponse> response = ApiResponse.success(
+                HttpStatus.CREATED,
+                data,
+                MessageConstant.SOS_ALERT_CREATED_SUCCESS
+        );
+
+        return new ResponseEntity<>(response, HttpStatus.CREATED);
     }
 }

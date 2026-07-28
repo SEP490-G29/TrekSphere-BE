@@ -5,16 +5,20 @@ import com.sep.treksphere.dto.request.ParticipantAttendanceItem;
 import com.sep.treksphere.dto.request.SessionCheckpointLogRequest;
 import com.sep.treksphere.dto.request.TourSessionAttendanceRequest;
 import com.sep.treksphere.dto.request.SessionEquipmentCheckRequest;
+import com.sep.treksphere.dto.request.CreateSosAlertRequest;
 import com.sep.treksphere.dto.response.ParticipantAttendanceResponseItem;
 import com.sep.treksphere.dto.response.SessionCheckpointLogResponse;
 import com.sep.treksphere.dto.response.TourSessionAttendanceResponse;
 import com.sep.treksphere.dto.response.TourSessionEndResponse;
 import com.sep.treksphere.dto.response.TourSessionStartResponse;
 import com.sep.treksphere.dto.response.SessionEquipmentCheckResponse;
+import com.sep.treksphere.dto.response.SosAlertResponse;
 import com.sep.treksphere.entity.*;
+import com.sep.treksphere.enums.booking.BookingStatus;
 import com.sep.treksphere.enums.tour.AttendanceType;
 import com.sep.treksphere.enums.tour.SessionCheckpointLogStatus;
 import com.sep.treksphere.enums.tour.TourSessionStatus;
+import com.sep.treksphere.enums.tour.SosAlertStatus;
 import com.sep.treksphere.exception.AppException;
 import com.sep.treksphere.exception.ErrorCode;
 import com.sep.treksphere.repository.*;
@@ -42,6 +46,8 @@ public class TrackingServiceImpl implements TrackingService {
     private final SessionEquipmentRepository sessionEquipmentRepository;
     private final VendorStaffRepository vendorStaffRepository;
     private final UserRepository userRepository;
+    private final BookingRepository bookingRepository;
+    private final SosAlertRepository sosAlertRepository;
 
     @Override
     @Transactional
@@ -445,6 +451,108 @@ public class TrackingServiceImpl implements TrackingService {
                 .checkedByName(user.getFullName())
                 .note(sessionEquipment.getNote())
                 .updatedAt(sessionEquipment.getUpdatedAt())
+                .build();
+    }
+
+    @Override
+    @Transactional
+    public SosAlertResponse createSosAlert(UUID senderId, CreateSosAlertRequest request) {
+        log.info("User {} is attempting to trigger SOS alert for tour session ID: {}", senderId, request.getTourSessionId());
+
+        TourSession tourSession = tourSessionRepository.findByTourSessionIdAndIsDeletedFalse(request.getTourSessionId())
+                .orElseThrow(() -> {
+                    log.warn("Tour session with ID {} not found", request.getTourSessionId());
+                    return new AppException(ErrorCode.SESSION_NOT_FOUND);
+                });
+
+        if (tourSession.getStatus() != TourSessionStatus.IN_PROGRESS) {
+            log.warn("Tour session {} is not in progress. Current status: {}", request.getTourSessionId(), tourSession.getStatus());
+            throw new AppException(ErrorCode.SESSION_FOR_SOS_NOT_ACTIVE);
+        }
+
+        User sender = userRepository.findById(senderId)
+                .orElseThrow(() -> {
+                    log.warn("Sender User {} not found", senderId);
+                    return new AppException(ErrorCode.USER_NOT_FOUND);
+                });
+
+        UUID scheduleId = tourSession.getTourSchedule().getScheduleId();
+        boolean isAuthorized = false;
+        String senderRole = null;
+
+        Optional<CoordinatorSchedule> coordinatorScheduleOpt = coordinatorScheduleRepository
+                .findByTourSession_TourSessionIdAndCoordinator_UserIdAndIsDeletedFalse(request.getTourSessionId(), senderId);
+
+        if (coordinatorScheduleOpt.isPresent()) {
+            CoordinatorSchedule schedule = coordinatorScheduleOpt.get();
+            if (!Boolean.TRUE.equals(schedule.getIsCancelled())) {
+                isAuthorized = true;
+                senderRole = "COORDINATOR";
+                log.info("SOS sender {} authorized as COORDINATOR for session {}", senderId, request.getTourSessionId());
+            }
+        }
+
+        if (!isAuthorized) {
+            boolean isBooker = bookingRepository
+                    .existsByUser_UserIdAndSchedule_ScheduleIdAndBookingStatusAndIsDeletedFalse(
+                            senderId, scheduleId, BookingStatus.CONFIRMED);
+
+            if (isBooker) {
+                isAuthorized = true;
+                senderRole = "TREKKER";
+                log.info("SOS sender {} authorized as TREKKER (Booker) for session {}", senderId, request.getTourSessionId());
+            } else {
+                String email = sender.getEmail();
+                String phone = sender.getPhone();
+
+                boolean isParticipant = false;
+                if (email != null) {
+                    isParticipant = bookingParticipantRepository
+                            .existsByEmailAndBooking_Schedule_ScheduleIdAndBooking_BookingStatusAndIsDeletedFalse(
+                                    email, scheduleId, BookingStatus.CONFIRMED);
+                }
+
+                if (!isParticipant && phone != null) {
+                    isParticipant = bookingParticipantRepository
+                            .existsByPhoneAndBooking_Schedule_ScheduleIdAndBooking_BookingStatusAndIsDeletedFalse(
+                                    phone, scheduleId, BookingStatus.CONFIRMED);
+                }
+
+                if (isParticipant) {
+                    isAuthorized = true;
+                    senderRole = "TREKKER";
+                    log.info("SOS sender {} authorized as TREKKER (Participant) for session {}", senderId, request.getTourSessionId());
+                }
+            }
+        }
+
+        if (!isAuthorized) {
+            log.warn("User {} is not authorized to trigger SOS for session {}", senderId, request.getTourSessionId());
+            throw new AppException(ErrorCode.UNAUTHORIZED_SOS_ALERT);
+        }
+
+        SosAlert sosAlert = new SosAlert();
+        sosAlert.setTourSession(tourSession);
+        sosAlert.setSender(sender);
+        sosAlert.setLatitude(request.getLatitude());
+        sosAlert.setLongitude(request.getLongitude());
+        sosAlert.setMessage(request.getMessage());
+        sosAlert.setStatus(SosAlertStatus.PENDING);
+
+        sosAlertRepository.save(sosAlert);
+        log.info("SOS alert successfully registered with ID {} for session {}", sosAlert.getSosAlertId(), request.getTourSessionId());
+
+        return SosAlertResponse.builder()
+                .sosAlertId(sosAlert.getSosAlertId())
+                .tourSessionId(tourSession.getTourSessionId())
+                .senderId(sender.getUserId())
+                .senderName(sender.getFullName())
+                .senderRole(senderRole)
+                .latitude(sosAlert.getLatitude())
+                .longitude(sosAlert.getLongitude())
+                .message(sosAlert.getMessage())
+                .status(sosAlert.getStatus())
+                .createdAt(sosAlert.getCreatedAt())
                 .build();
     }
 }
