@@ -269,6 +269,18 @@ public class MessageConstant {
     public static final String QUANTITY_REQUIRED_AND_MIN = "Số lượng phải lớn hơn 0";
     public static final String RETURN_QUANTITY_REQUIRED = "Số lượng trả về nguyên vẹn không được để trống";
     public static final String MISSING_QUANTITY_REQUIRED = "Số lượng thất lạc/hư hỏng không được để trống";
+    // Review Messages
+    public static final String REVIEW_NOT_FOUND = "Đánh giá không tồn tại";
+    public static final String REVIEW_CREATED_SUCCESSFULLY = "Gửi đánh giá thành công";
+    public static final String REVIEW_STATUS_UPDATED_SUCCESSFULLY = "Cập nhật trạng thái đánh giá thành công";
+    public static final String REVIEW_ALREADY_EXISTS = "Bạn đã đánh giá đơn đặt tour này rồi";
+    public static final String REVIEW_BOOKING_NOT_COMPLETED = "Chỉ có thể đánh giá khi đơn đặt tour đã hoàn thành";
+    public static final String REVIEW_BOOKING_NOT_OWNED = "Bạn không có quyền đánh giá đơn đặt tour này";
+    public static final String REVIEW_INVALID_STATUS_MSG = "Trạng thái đánh giá không hợp lệ (phải là APPROVED hoặc HIDDEN)";
+    public static final String REVIEW_RATING_REQUIRED = "Điểm đánh giá không được để trống";
+    public static final String REVIEW_RATING_RANGE = "Điểm đánh giá phải từ 1 đến 5";
+    public static final String REVIEW_BOOKING_REQUIRED = "Mã đơn đặt tour không được để trống";
+    public static final String REVIEW_STATUS_REQUIRED_MSG = "Trạng thái đánh giá không được để trống";
 }
 
 
