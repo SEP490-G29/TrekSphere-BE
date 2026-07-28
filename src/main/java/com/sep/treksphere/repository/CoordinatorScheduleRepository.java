@@ -11,6 +11,7 @@ import org.springframework.stereotype.Repository;
 
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 @Repository
@@ -60,7 +61,7 @@ public interface CoordinatorScheduleRepository extends JpaRepository<Coordinator
 
     boolean existsByTourSession_TourSessionIdAndCoordinator_UserIdAndIsDeletedFalse(UUID sessionId, UUID coordinatorId);
 
-    java.util.Optional<CoordinatorSchedule> findByTourSession_TourSessionIdAndCoordinator_UserIdAndIsDeletedFalse(UUID sessionId, UUID coordinatorId);
+    Optional<CoordinatorSchedule> findByTourSession_TourSessionIdAndCoordinator_UserIdAndIsDeletedFalse(UUID sessionId, UUID coordinatorId);
 
     List<CoordinatorSchedule> findByCoordinator_UserIdAndIsDeletedFalse(UUID coordinatorId);
 
@@ -73,7 +74,7 @@ public interface CoordinatorScheduleRepository extends JpaRepository<Coordinator
             "AND c.isDeleted = false " +
             "AND (:coordinatorId IS NULL OR coord.userId = :coordinatorId) " +
             "AND (:status IS NULL OR ts.status = :status)")
-    org.springframework.data.domain.Page<CoordinatorSchedule> findSchedulesByVendor(
+    Page<CoordinatorSchedule> findSchedulesByVendor(
             @Param("vendorId") UUID vendorId,
             @Param("coordinatorId") UUID coordinatorId,
             @Param("status") TourSessionStatus status,
