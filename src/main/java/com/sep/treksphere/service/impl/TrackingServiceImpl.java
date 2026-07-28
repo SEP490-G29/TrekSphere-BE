@@ -1,11 +1,16 @@
 package com.sep.treksphere.service.impl;
 
 import com.sep.treksphere.constant.ValidationConstant;
+import com.sep.treksphere.dto.request.ParticipantAttendanceItem;
 import com.sep.treksphere.dto.request.SessionCheckpointLogRequest;
+import com.sep.treksphere.dto.request.TourSessionAttendanceRequest;
+import com.sep.treksphere.dto.response.ParticipantAttendanceResponseItem;
 import com.sep.treksphere.dto.response.SessionCheckpointLogResponse;
-import com.sep.treksphere.dto.response.TourSessionStartResponse;
+import com.sep.treksphere.dto.response.TourSessionAttendanceResponse;
 import com.sep.treksphere.dto.response.TourSessionEndResponse;
+import com.sep.treksphere.dto.response.TourSessionStartResponse;
 import com.sep.treksphere.entity.*;
+import com.sep.treksphere.enums.tour.AttendanceType;
 import com.sep.treksphere.enums.tour.SessionCheckpointLogStatus;
 import com.sep.treksphere.enums.tour.TourSessionStatus;
 import com.sep.treksphere.exception.AppException;
@@ -21,7 +26,9 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -32,6 +39,7 @@ public class TrackingServiceImpl implements TrackingService {
     private final CoordinatorScheduleRepository coordinatorScheduleRepository;
     private final TourCheckpointRepository tourCheckpointRepository;
     private final SessionCheckpointLogRepository sessionCheckpointLogRepository;
+    private final BookingParticipantRepository bookingParticipantRepository;
 
     @Override
     @Transactional
@@ -284,6 +292,82 @@ public class TrackingServiceImpl implements TrackingService {
                 .tourSessionId(tourSession.getTourSessionId())
                 .status(tourSession.getStatus())
                 .endedAt(tourSession.getEndedAt())
+                .build();
+    }
+
+    @Override
+    @Transactional
+    public TourSessionAttendanceResponse recordAttendance(UUID coordinatorId, UUID sessionId, TourSessionAttendanceRequest request) {
+        log.info("Attempting to record attendance (type: {}) for tour session ID: {} by coordinator ID: {}",
+                request.getAttendanceType(), sessionId, coordinatorId);
+
+        TourSession tourSession = tourSessionRepository.findByTourSessionIdAndIsDeletedFalse(sessionId)
+                .orElseThrow(() -> {
+                    log.warn("Tour session with ID {} not found", sessionId);
+                    return new AppException(ErrorCode.SESSION_NOT_FOUND);
+                });
+
+        CoordinatorSchedule schedule = coordinatorScheduleRepository
+                .findByTourSession_TourSessionIdAndCoordinator_UserIdAndIsDeletedFalse(sessionId, coordinatorId)
+                .orElseThrow(() -> {
+                    log.warn("Coordinator {} is not assigned to tour session {}", coordinatorId, sessionId);
+                    return new AppException(ErrorCode.UNAUTHORIZED_SESSION_ACCESS);
+                });
+
+        if (Boolean.TRUE.equals(schedule.getIsCancelled())) {
+            log.warn("Schedule assignment for coordinator {} in session {} is cancelled", coordinatorId, sessionId);
+            throw new AppException(ErrorCode.UNAUTHORIZED_SESSION_ACCESS);
+        }
+
+        if (tourSession.getStatus() != TourSessionStatus.IN_PROGRESS) {
+            log.warn("Tour session {} is not in progress. Current status: {}", sessionId, tourSession.getStatus());
+            throw new AppException(ErrorCode.SESSION_NOT_IN_PROGRESS);
+        }
+
+        List<BookingParticipant> activeParticipants = bookingParticipantRepository
+                .findActiveParticipantsByScheduleId(tourSession.getTourSchedule().getScheduleId());
+
+        Map<UUID, BookingParticipant> activeParticipantMap = activeParticipants.stream()
+                .collect(Collectors.toMap(BookingParticipant::getParticipantId, p -> p));
+
+        LocalDateTime now = LocalDateTime.now();
+        List<ParticipantAttendanceResponseItem> responseItems = new ArrayList<>();
+        List<BookingParticipant> toSave = new ArrayList<>();
+
+        for (ParticipantAttendanceItem item : request.getParticipants()) {
+            BookingParticipant participant = activeParticipantMap.get(item.getParticipantId());
+            if (participant == null) {
+                log.warn("Participant with ID {} is not part of tour session {}", item.getParticipantId(), sessionId);
+                throw new AppException(ErrorCode.PARTICIPANT_NOT_FOUND_IN_SESSION);
+            }
+
+            if (request.getAttendanceType() == AttendanceType.START) {
+                participant.setIsPresentStart(item.getIsPresent());
+                participant.setStartAttendedAt(now);
+            } else if (request.getAttendanceType() == AttendanceType.END) {
+                participant.setIsPresentEnd(item.getIsPresent());
+                participant.setEndAttendedAt(now);
+            } else {
+                throw new AppException(ErrorCode.INVALID_ATTENDANCE_TYPE);
+            }
+
+            toSave.add(participant);
+
+            responseItems.add(ParticipantAttendanceResponseItem.builder()
+                    .participantId(participant.getParticipantId())
+                    .fullName(participant.getFullName())
+                    .isPresent(item.getIsPresent())
+                    .build());
+        }
+
+        bookingParticipantRepository.saveAll(toSave);
+        log.info("Successfully recorded {} attendance records for session {}", toSave.size(), sessionId);
+
+        return TourSessionAttendanceResponse.builder()
+                .tourSessionId(tourSession.getTourSessionId())
+                .attendanceType(request.getAttendanceType())
+                .recordedAt(now)
+                .participants(responseItems)
                 .build();
     }
 }

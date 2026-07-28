@@ -4,6 +4,8 @@ import com.sep.treksphere.constant.MessageConstant;
 import com.sep.treksphere.dto.request.SessionCheckpointLogRequest;
 import com.sep.treksphere.dto.response.ApiResponse;
 import com.sep.treksphere.dto.response.SessionCheckpointLogResponse;
+import com.sep.treksphere.dto.request.TourSessionAttendanceRequest;
+import com.sep.treksphere.dto.response.TourSessionAttendanceResponse;
 import com.sep.treksphere.dto.response.TourSessionEndResponse;
 import com.sep.treksphere.dto.response.TourSessionStartResponse;
 import com.sep.treksphere.security.CustomUserDetails;
@@ -92,6 +94,30 @@ public class TrackingController {
                 HttpStatus.OK,
                 data,
                 MessageConstant.SESSION_ENDED_SUCCESSFULLY
+        );
+
+        return ResponseEntity.ok(response);
+    }
+
+    @PostMapping("/{sessionId}/attendance")
+    @Operation(summary = "Điểm danh danh sách Trekkers", description = "Hướng dẫn viên thực hiện điểm danh danh sách Trekkers tham gia chuyến đi tại điểm xuất phát (START) hoặc điểm kết thúc (END).")
+    @SecurityRequirement(name = "bearerAuth")
+    @PreAuthorize("hasRole('COORDINATOR')")
+    public ResponseEntity<ApiResponse<TourSessionAttendanceResponse>> recordAttendance(
+            @AuthenticationPrincipal CustomUserDetails userDetails,
+            @PathVariable UUID sessionId,
+            @RequestBody @Valid TourSessionAttendanceRequest request
+    ) {
+        TourSessionAttendanceResponse data = trackingService.recordAttendance(
+                userDetails.getUser().getUserId(),
+                sessionId,
+                request
+        );
+
+        ApiResponse<TourSessionAttendanceResponse> response = ApiResponse.success(
+                HttpStatus.OK,
+                data,
+                MessageConstant.ATTENDANCE_RECORDED_SUCCESSFULLY
         );
 
         return ResponseEntity.ok(response);
