@@ -3,6 +3,7 @@ package com.sep.treksphere.controller;
 import com.sep.treksphere.constant.MessageConstant;
 import com.sep.treksphere.dto.request.SessionCheckpointLogRequest;
 import com.sep.treksphere.dto.response.ApiResponse;
+import com.sep.treksphere.dto.response.SessionCheckpointLogResponse;
 import com.sep.treksphere.dto.response.TourSessionStartResponse;
 import com.sep.treksphere.security.CustomUserDetails;
 import com.sep.treksphere.service.TrackingService;
@@ -43,6 +44,30 @@ public class TrackingController {
         TourSessionStartResponse data = trackingService.startSession(userDetails.getUser().getUserId(), sessionId, request);
 
         ApiResponse<TourSessionStartResponse> response = ApiResponse.success(HttpStatus.OK, data, MessageConstant.SESSION_STARTED_SUCCESSFULLY);
+
+        return ResponseEntity.ok(response);
+    }
+
+    @PostMapping("/{sessionId}/checkpoint-logs")
+    @Operation(summary = "Ghi nhận checkpoint trạm dừng chân tiếp theo", description = "Hướng dẫn viên thực hiện check-in trạm dừng kế tiếp dọc hành trình theo đúng thứ tự. Hệ thống tự động so khớp và kiểm tra toạ độ GPS trong bán kính 200m.")
+    @SecurityRequirement(name = "bearerAuth")
+    @PreAuthorize("hasRole('COORDINATOR')")
+    public ResponseEntity<ApiResponse<SessionCheckpointLogResponse>> checkinCheckpoint(
+            @AuthenticationPrincipal CustomUserDetails userDetails,
+            @PathVariable UUID sessionId,
+            @RequestBody @Valid SessionCheckpointLogRequest request
+    ) {
+        SessionCheckpointLogResponse data = trackingService.checkinCheckpoint(
+                userDetails.getUser().getUserId(),
+                sessionId,
+                request
+        );
+
+        ApiResponse<SessionCheckpointLogResponse> response = ApiResponse.success(
+                HttpStatus.OK,
+                data,
+                MessageConstant.CHECKIN_SUCCESSFUL
+        );
 
         return ResponseEntity.ok(response);
     }

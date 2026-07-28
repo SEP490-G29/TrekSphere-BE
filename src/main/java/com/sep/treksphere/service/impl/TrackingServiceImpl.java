@@ -1,6 +1,8 @@
 package com.sep.treksphere.service.impl;
 
+import com.sep.treksphere.constant.ValidationConstant;
 import com.sep.treksphere.dto.request.SessionCheckpointLogRequest;
+import com.sep.treksphere.dto.response.SessionCheckpointLogResponse;
 import com.sep.treksphere.dto.response.TourSessionStartResponse;
 import com.sep.treksphere.entity.*;
 import com.sep.treksphere.enums.tour.SessionCheckpointLogStatus;
@@ -125,6 +127,79 @@ public class TrackingServiceImpl implements TrackingService {
                 .tourSessionId(tourSession.getTourSessionId())
                 .status(tourSession.getStatus())
                 .startedAt(tourSession.getStartedAt())
+                .build();
+    }
+
+    @Override
+    @Transactional
+    public SessionCheckpointLogResponse checkinCheckpoint(UUID coordinatorId, UUID sessionId, SessionCheckpointLogRequest request) {
+        log.info("Attempting checkpoint check-in for tour session ID: {} by coordinator ID: {} with coordinates: [lat: {}, lon: {}]",
+                sessionId, coordinatorId, request.getLatitude(), request.getLongitude());
+
+        TourSession tourSession = tourSessionRepository.findByTourSessionIdAndIsDeletedFalse(sessionId)
+                .orElseThrow(() -> {
+                    log.warn("Tour session with ID {} not found", sessionId);
+                    return new AppException(ErrorCode.SESSION_NOT_FOUND);
+                });
+
+        CoordinatorSchedule schedule = coordinatorScheduleRepository
+                .findByTourSession_TourSessionIdAndCoordinator_UserIdAndIsDeletedFalse(sessionId, coordinatorId)
+                .orElseThrow(() -> {
+                    log.warn("Coordinator {} is not assigned to tour session {}", coordinatorId, sessionId);
+                    return new AppException(ErrorCode.UNAUTHORIZED_SESSION_ACCESS);
+                });
+
+        if (Boolean.TRUE.equals(schedule.getIsCancelled())) {
+            log.warn("Schedule assignment for coordinator {} in session {} is cancelled", coordinatorId, sessionId);
+            throw new AppException(ErrorCode.UNAUTHORIZED_SESSION_ACCESS);
+        }
+
+        if (tourSession.getStatus() != TourSessionStatus.IN_PROGRESS) {
+            log.warn("Tour session {} is not in progress. Current status: {}", sessionId, tourSession.getStatus());
+            throw new AppException(ErrorCode.SESSION_NOT_IN_PROGRESS);
+        }
+
+        List<SessionCheckpointLog> pendingLogs = sessionCheckpointLogRepository
+                .findByTourSession_TourSessionIdAndStatusAndIsDeletedFalseOrderByCheckpoint_CheckpointOrderAsc(
+                        sessionId, SessionCheckpointLogStatus.PENDING
+                );
+
+        if (pendingLogs.isEmpty()) {
+            log.warn("All checkpoints have already been reached for tour session {}", sessionId);
+            throw new AppException(ErrorCode.NO_PENDING_CHECKPOINTS);
+        }
+
+        SessionCheckpointLog nextLog = pendingLogs.get(0);
+        TourCheckpoint checkpoint = nextLog.getCheckpoint();
+
+        if (checkpoint.getLatitude() != null && checkpoint.getLongitude() != null) {
+            if (!GeoUtils.isWithinAllowedRadius(
+                    request.getLatitude(), request.getLongitude(),
+                    checkpoint.getLatitude(), checkpoint.getLongitude())) {
+                log.warn("Coordinator {} is too far from checkpoint '{}' (order: {}). Max allowed: {} meters",
+                        coordinatorId, checkpoint.getCheckpointName(), checkpoint.getCheckpointOrder(), ValidationConstant.ALLOWED_CHECKIN_RADIUS_METERS);
+                throw new AppException(ErrorCode.CHECKIN_OUT_OF_RANGE);
+            }
+        }
+
+        LocalDateTime now = LocalDateTime.now();
+        nextLog.setStatus(SessionCheckpointLogStatus.REACHED);
+        nextLog.setReachedAt(now);
+        nextLog.setActualLatitude(request.getLatitude());
+        nextLog.setActualLongitude(request.getLongitude());
+        nextLog.setNote(request.getNote());
+
+        sessionCheckpointLogRepository.save(nextLog);
+        log.info("Checkpoint '{}' (order: {}) for session {} successfully marked as REACHED at {}",
+                checkpoint.getCheckpointName(), checkpoint.getCheckpointOrder(), sessionId, now);
+
+        return SessionCheckpointLogResponse.builder()
+                .sessionCheckpointLogId(nextLog.getSessionCheckpointLogId())
+                .checkpointId(checkpoint.getCheckpointId())
+                .checkpointName(checkpoint.getCheckpointName())
+                .checkpointOrder(checkpoint.getCheckpointOrder())
+                .status(nextLog.getStatus())
+                .reachedAt(nextLog.getReachedAt())
                 .build();
     }
 }

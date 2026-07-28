@@ -176,6 +176,9 @@ public class MessageConstant {
     public static final String GPS_COORDINATES_REQUIRED = "Tọa độ GPS không được để trống";
     public static final String LATITUDE_OUT_OF_BOUNDS = "Vĩ độ (latitude) phải nằm trong khoảng từ -90 đến 90 độ";
     public static final String LONGITUDE_OUT_OF_BOUNDS = "Kinh độ (longitude) phải nằm trong khoảng từ -180 đến 180 độ";
+    public static final String NO_PENDING_CHECKPOINTS = "Tất cả các trạm dừng của chuyến đi này đã hoàn thành check-in";
+    public static final String SESSION_NOT_IN_PROGRESS = "Phiên đi tour này hiện tại không hoạt động";
+    public static final String CHECKIN_SUCCESSFUL = "Ghi nhận trạm dừng thành công";
 
     // Schedule Messages
     public static final String SCHEDULE_NOT_FOUND = "Lịch khởi hành không tồn tại";
