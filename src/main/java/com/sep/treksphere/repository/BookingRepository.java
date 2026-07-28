@@ -18,6 +18,10 @@ import java.util.UUID;
 public interface BookingRepository extends JpaRepository<Booking, UUID> {
     boolean existsByScheduleAndBookingStatusNotAndIsDeletedFalse(TourSchedule schedule, BookingStatus bookingStatus);
 
+    boolean existsByUser_UserIdAndSchedule_ScheduleIdAndBookingStatusAndIsDeletedFalse(
+            UUID userId, UUID scheduleId, BookingStatus bookingStatus
+    );
+
     @Query("SELECT b FROM Booking b WHERE b.user = :user AND (:status IS NULL OR b.bookingStatus = :status) AND b.isDeleted = false")
     Page<Booking> findByUserAndFilters(@Param("user") User user, @Param("status") BookingStatus status, Pageable pageable);
 

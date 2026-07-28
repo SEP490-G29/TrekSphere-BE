@@ -2,6 +2,8 @@ package com.sep.treksphere.repository;
 
 import com.sep.treksphere.entity.CoordinatorSchedule;
 import com.sep.treksphere.enums.tour.TourSessionStatus;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -9,15 +11,34 @@ import org.springframework.stereotype.Repository;
 
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 @Repository
 public interface CoordinatorScheduleRepository extends JpaRepository<CoordinatorSchedule, UUID> {
 
+    @Query("SELECT cs FROM CoordinatorSchedule cs " +
+           "JOIN cs.tourSession ts " +
+           "JOIN ts.tourSchedule tsch " +
+           "WHERE cs.coordinator.userId = :coordinatorId " +
+           "AND cs.isDeleted = false " +
+           "AND (:status IS NULL OR ts.status = :status) " +
+           "AND (:isCancelled IS NULL OR cs.isCancelled = :isCancelled) " +
+           "AND (:departureDateFrom IS NULL OR tsch.departureDate >= :departureDateFrom) " +
+           "AND (:departureDateTo IS NULL OR tsch.departureDate <= :departureDateTo)")
+    Page<CoordinatorSchedule> findByCoordinatorIdAndFilters(
+            @Param("coordinatorId") UUID coordinatorId,
+            @Param("status") TourSessionStatus status,
+            @Param("isCancelled") Boolean isCancelled,
+            @Param("departureDateFrom") LocalDate departureDateFrom,
+            @Param("departureDateTo") LocalDate departureDateTo,
+            Pageable pageable
+    );
+
     @Query("SELECT COUNT(c) FROM CoordinatorSchedule c " +
             "JOIN c.tourSession ts " +
             "JOIN ts.tourSchedule sch " +
-            "WHERE c.coordinator.id = :coordinatorId " +
+            "WHERE c.coordinator.userId = :coordinatorId " +
             "AND c.isDeleted = false " +
             "AND ts.isDeleted = false " +
             "AND sch.isDeleted = false " +
@@ -29,7 +50,7 @@ public interface CoordinatorScheduleRepository extends JpaRepository<Coordinator
 
     @Query("SELECT COUNT(c) FROM CoordinatorSchedule c " +
             "JOIN c.tourSession ts " +
-            "WHERE c.coordinator.id = :coordinatorId " +
+            "WHERE c.coordinator.userId = :coordinatorId " +
             "AND c.isDeleted = false " +
             "AND ts.isDeleted = false " +
             "AND ts.status = :status")
@@ -39,6 +60,8 @@ public interface CoordinatorScheduleRepository extends JpaRepository<Coordinator
     List<CoordinatorSchedule> findByTourSession_TourSessionIdAndIsDeletedFalse(UUID sessionId);
 
     boolean existsByTourSession_TourSessionIdAndCoordinator_UserIdAndIsDeletedFalse(UUID sessionId, UUID coordinatorId);
+
+    Optional<CoordinatorSchedule> findByTourSession_TourSessionIdAndCoordinator_UserIdAndIsDeletedFalse(UUID sessionId, UUID coordinatorId);
 
     List<CoordinatorSchedule> findByCoordinator_UserIdAndIsDeletedFalse(UUID coordinatorId);
 
@@ -51,9 +74,9 @@ public interface CoordinatorScheduleRepository extends JpaRepository<Coordinator
             "AND c.isDeleted = false " +
             "AND (:coordinatorId IS NULL OR coord.userId = :coordinatorId) " +
             "AND (:status IS NULL OR ts.status = :status)")
-    org.springframework.data.domain.Page<CoordinatorSchedule> findSchedulesByVendor(
+    Page<CoordinatorSchedule> findSchedulesByVendor(
             @Param("vendorId") UUID vendorId,
             @Param("coordinatorId") UUID coordinatorId,
             @Param("status") TourSessionStatus status,
-            org.springframework.data.domain.Pageable pageable);
+            Pageable pageable);
 }
