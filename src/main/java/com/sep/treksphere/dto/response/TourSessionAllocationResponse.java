@@ -28,4 +28,5 @@ public class TourSessionAllocationResponse {
     
     private List<CoordinatorAllocationDto> coordinators;
     private List<PorterAllocationDto> porters;
+    private List<EquipmentAllocationDto> equipments;
 }

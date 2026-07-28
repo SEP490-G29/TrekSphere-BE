@@ -20,6 +20,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 
 import java.util.UUID;
 import com.sep.treksphere.dto.request.AssignPorterRequest;
+import com.sep.treksphere.dto.request.AssignEquipmentRequest;
 import com.sep.treksphere.dto.response.StaffScheduleResponse;
 import com.sep.treksphere.dto.request.CancelScheduleRequest;
 import com.sep.treksphere.constant.MessageConstant;
@@ -56,6 +57,17 @@ public class VendorLogisticsController {
             @AuthenticationPrincipal CustomUserDetails user) {
         logisticsAllocationService.assignPorter(sessionId, request, user.getUser().getUserId());
         return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, null, MessageConstant.PORTER_ASSIGNED_SUCCESSFULLY));
+    }
+
+    @Operation(summary = "Phân bổ Trang bị", description = "Phân bổ trang bị từ kho vào một Phiên Tour")
+    @PostMapping("/{sessionId}/equipments")
+    @PreAuthorize("hasAnyRole('VENDOR_MANAGER', 'VENDOR_STAFF')")
+    public ResponseEntity<ApiResponse<Void>> assignEquipment(
+            @PathVariable UUID sessionId,
+            @Valid @RequestBody AssignEquipmentRequest request,
+            @AuthenticationPrincipal CustomUserDetails user) {
+        logisticsAllocationService.assignEquipment(sessionId, request, user.getUser().getUserId());
+        return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, null, MessageConstant.EQUIPMENT_ASSIGNED_SUCCESSFULLY));
     }
 
     @Operation(summary = "Gỡ phân công Porter", description = "Xóa một Porter đã được gán khỏi Phiên Tour")
