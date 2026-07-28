@@ -6,6 +6,8 @@ import com.sep.treksphere.dto.response.ApiResponse;
 import com.sep.treksphere.dto.response.SessionCheckpointLogResponse;
 import com.sep.treksphere.dto.request.TourSessionAttendanceRequest;
 import com.sep.treksphere.dto.response.TourSessionAttendanceResponse;
+import com.sep.treksphere.dto.request.SessionEquipmentCheckRequest;
+import com.sep.treksphere.dto.response.SessionEquipmentCheckResponse;
 import com.sep.treksphere.dto.response.TourSessionEndResponse;
 import com.sep.treksphere.dto.response.TourSessionStartResponse;
 import com.sep.treksphere.security.CustomUserDetails;
@@ -21,6 +23,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -118,6 +121,30 @@ public class TrackingController {
                 HttpStatus.OK,
                 data,
                 MessageConstant.ATTENDANCE_RECORDED_SUCCESSFULLY
+        );
+
+        return ResponseEntity.ok(response);
+    }
+
+    @PutMapping("/equipments/{id}/check")
+    @Operation(summary = "Kiểm tra dụng cụ đi tour", description = "Cho phép Hướng dẫn viên được phân công hoặc Nhân viên của nhà cung cấp sở hữu dụng cụ đánh dấu đã kiểm tra/mang theo dụng cụ đi tour thành công.")
+    @SecurityRequirement(name = "bearerAuth")
+    @PreAuthorize("hasAnyRole('COORDINATOR', 'VENDOR_STAFF')")
+    public ResponseEntity<ApiResponse<SessionEquipmentCheckResponse>> checkEquipment(
+            @AuthenticationPrincipal CustomUserDetails userDetails,
+            @PathVariable("id") UUID sessionEquipmentId,
+            @RequestBody @Valid SessionEquipmentCheckRequest request
+    ) {
+        SessionEquipmentCheckResponse data = trackingService.checkEquipment(
+                userDetails.getUser().getUserId(),
+                sessionEquipmentId,
+                request
+        );
+
+        ApiResponse<SessionEquipmentCheckResponse> response = ApiResponse.success(
+                HttpStatus.OK,
+                data,
+                MessageConstant.SESSION_EQUIPMENT_CHECKED_SUCCESS
         );
 
         return ResponseEntity.ok(response);

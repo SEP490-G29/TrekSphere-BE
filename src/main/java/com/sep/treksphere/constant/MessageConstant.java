@@ -203,6 +203,9 @@ public class MessageConstant {
     public static final String ATTENDANCE_STATUS_REQUIRED = "Trạng thái điểm danh có mặt/vắng mặt không được để trống";
     public static final String ATTENDANCE_TYPE_REQUIRED = "Loại điểm danh (attendanceType) không được để trống";
     public static final String ATTENDANCE_LIST_REQUIRED = "Danh sách điểm danh thành viên (participants) không được rỗng";
+    public static final String SESSION_EQUIPMENT_CHECKED_SUCCESS = "Đánh dấu kiểm tra dụng cụ đi tour thành công";
+    public static final String UNAUTHORIZED_EQUIPMENT_CHECK = "Bạn không có quyền kiểm tra dụng cụ của phiên đi tour này";
+    public static final String EQUIPMENT_CHECK_STATUS_REQUIRED = "Trạng thái kiểm tra không được để trống";
 
     // Schedule Messages
     public static final String SCHEDULE_NOT_FOUND = "Lịch khởi hành không tồn tại";

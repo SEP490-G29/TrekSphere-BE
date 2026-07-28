@@ -4,11 +4,13 @@ import com.sep.treksphere.constant.ValidationConstant;
 import com.sep.treksphere.dto.request.ParticipantAttendanceItem;
 import com.sep.treksphere.dto.request.SessionCheckpointLogRequest;
 import com.sep.treksphere.dto.request.TourSessionAttendanceRequest;
+import com.sep.treksphere.dto.request.SessionEquipmentCheckRequest;
 import com.sep.treksphere.dto.response.ParticipantAttendanceResponseItem;
 import com.sep.treksphere.dto.response.SessionCheckpointLogResponse;
 import com.sep.treksphere.dto.response.TourSessionAttendanceResponse;
 import com.sep.treksphere.dto.response.TourSessionEndResponse;
 import com.sep.treksphere.dto.response.TourSessionStartResponse;
+import com.sep.treksphere.dto.response.SessionEquipmentCheckResponse;
 import com.sep.treksphere.entity.*;
 import com.sep.treksphere.enums.tour.AttendanceType;
 import com.sep.treksphere.enums.tour.SessionCheckpointLogStatus;
@@ -24,10 +26,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-import java.util.UUID;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @Service
@@ -40,6 +39,9 @@ public class TrackingServiceImpl implements TrackingService {
     private final TourCheckpointRepository tourCheckpointRepository;
     private final SessionCheckpointLogRepository sessionCheckpointLogRepository;
     private final BookingParticipantRepository bookingParticipantRepository;
+    private final SessionEquipmentRepository sessionEquipmentRepository;
+    private final VendorStaffRepository vendorStaffRepository;
+    private final UserRepository userRepository;
 
     @Override
     @Transactional
@@ -368,6 +370,81 @@ public class TrackingServiceImpl implements TrackingService {
                 .attendanceType(request.getAttendanceType())
                 .recordedAt(now)
                 .participants(responseItems)
+                .build();
+    }
+
+    @Override
+    @Transactional
+    public SessionEquipmentCheckResponse checkEquipment(UUID userId, UUID sessionEquipmentId, SessionEquipmentCheckRequest request) {
+        log.info("User {} is attempting to check session equipment allocation {}", userId, sessionEquipmentId);
+
+        SessionEquipment sessionEquipment = sessionEquipmentRepository
+                .findBySessionEquipmentIdAndIsDeletedFalse(sessionEquipmentId)
+                .orElseThrow(() -> {
+                    log.warn("Session equipment allocation {} not found", sessionEquipmentId);
+                    return new AppException(ErrorCode.SESSION_EQUIPMENT_NOT_FOUND);
+                });
+
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> {
+                    log.warn("User {} not found", userId);
+                    return new AppException(ErrorCode.USER_NOT_FOUND);
+                });
+
+        boolean isAuthorized = false;
+
+        Optional<VendorStaff> staffOpt = vendorStaffRepository
+                .findByUser_UserIdAndIsActiveTrueAndIsDeletedFalse(userId);
+        if (staffOpt.isPresent()) {
+            VendorStaff staff = staffOpt.get();
+            UUID staffVendorId = staff.getVendor().getVendorId();
+            UUID equipmentVendorId = sessionEquipment.getEquipment().getVendor().getVendorId();
+
+            if (staffVendorId.equals(equipmentVendorId)) {
+                isAuthorized = true;
+                log.info("User {} authorized as VENDOR_STAFF for vendor {}", userId, staffVendorId);
+            }
+        }
+
+        if (!isAuthorized) {
+            UUID sessionId = sessionEquipment.getTourSession().getTourSessionId();
+            Optional<CoordinatorSchedule> scheduleOpt = coordinatorScheduleRepository
+                    .findByTourSession_TourSessionIdAndCoordinator_UserIdAndIsDeletedFalse(sessionId, userId);
+
+            if (scheduleOpt.isPresent()) {
+                CoordinatorSchedule schedule = scheduleOpt.get();
+                if (!Boolean.TRUE.equals(schedule.getIsCancelled())) {
+                    isAuthorized = true;
+                    log.info("User {} authorized as COORDINATOR for session {}", userId, sessionId);
+                }
+            }
+        }
+
+        if (!isAuthorized) {
+            log.warn("User {} is not authorized to check session equipment allocation {}", userId, sessionEquipmentId);
+            throw new AppException(ErrorCode.UNAUTHORIZED_EQUIPMENT_CHECK);
+        }
+
+        sessionEquipment.setIsChecked(request.getIsChecked());
+        sessionEquipment.setNote(request.getNote());
+        sessionEquipment.setCheckedBy(user);
+        sessionEquipment.setUpdatedAt(LocalDateTime.now());
+
+        sessionEquipmentRepository.save(sessionEquipment);
+        log.info("Session equipment allocation {} checked status successfully set to {} by user {}",
+                sessionEquipmentId, request.getIsChecked(), userId);
+
+        return SessionEquipmentCheckResponse.builder()
+                .sessionEquipmentId(sessionEquipment.getSessionEquipmentId())
+                .tourSessionId(sessionEquipment.getTourSession().getTourSessionId())
+                .equipmentId(sessionEquipment.getEquipment().getEquipmentId())
+                .equipmentName(sessionEquipment.getEquipment().getEquipmentName())
+                .quantity(sessionEquipment.getQuantity())
+                .isChecked(sessionEquipment.getIsChecked())
+                .checkedById(user.getUserId())
+                .checkedByName(user.getFullName())
+                .note(sessionEquipment.getNote())
+                .updatedAt(sessionEquipment.getUpdatedAt())
                 .build();
     }
 }

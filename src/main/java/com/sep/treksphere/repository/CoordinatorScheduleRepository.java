@@ -78,5 +78,5 @@ public interface CoordinatorScheduleRepository extends JpaRepository<Coordinator
             @Param("vendorId") UUID vendorId,
             @Param("coordinatorId") UUID coordinatorId,
             @Param("status") TourSessionStatus status,
-            org.springframework.data.domain.Pageable pageable);
+            Pageable pageable);
 }
