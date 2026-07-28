@@ -61,4 +61,21 @@ public interface CoordinatorScheduleRepository extends JpaRepository<Coordinator
     boolean existsByTourSession_TourSessionIdAndCoordinator_UserIdAndIsDeletedFalse(UUID sessionId, UUID coordinatorId);
 
     java.util.Optional<CoordinatorSchedule> findByTourSession_TourSessionIdAndCoordinator_UserIdAndIsDeletedFalse(UUID sessionId, UUID coordinatorId);
+
+    List<CoordinatorSchedule> findByCoordinator_UserIdAndIsDeletedFalse(UUID coordinatorId);
+
+    @Query("SELECT c FROM CoordinatorSchedule c " +
+            "JOIN c.tourSession ts " +
+            "JOIN c.coordinator coord " +
+            "JOIN VendorStaff vs ON vs.user.userId = coord.userId " +
+            "WHERE vs.vendor.vendorId = :vendorId " +
+            "AND vs.isDeleted = false " +
+            "AND c.isDeleted = false " +
+            "AND (:coordinatorId IS NULL OR coord.userId = :coordinatorId) " +
+            "AND (:status IS NULL OR ts.status = :status)")
+    org.springframework.data.domain.Page<CoordinatorSchedule> findSchedulesByVendor(
+            @Param("vendorId") UUID vendorId,
+            @Param("coordinatorId") UUID coordinatorId,
+            @Param("status") TourSessionStatus status,
+            org.springframework.data.domain.Pageable pageable);
 }
