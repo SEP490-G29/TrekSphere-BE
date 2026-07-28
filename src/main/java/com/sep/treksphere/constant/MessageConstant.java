@@ -214,6 +214,7 @@ public class MessageConstant {
     public static final String SOS_ALERT_NOT_FOUND = "Yêu cầu cứu hộ SOS không tồn tại";
     public static final String SOS_ALERT_ALREADY_RESOLVED = "Yêu cầu cứu hộ SOS đã được giải quyết trước đó";
     public static final String UNAUTHORIZED_RESOLVE_SOS = "Bạn không có quyền giải quyết yêu cầu cứu hộ SOS này";
+    public static final String MATCHING_GROUPS_FETCHED_SUCCESS = "Lấy danh sách nhóm ghép bạn đồng hành thành công";
 
     // Schedule Messages
     public static final String SCHEDULE_NOT_FOUND = "Lịch khởi hành không tồn tại";
