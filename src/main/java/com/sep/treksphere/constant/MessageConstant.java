@@ -251,6 +251,25 @@ public class MessageConstant {
     public static final String SCHEDULE_CANCEL_REASON_REQUIRED = "Lý do huỷ phân công không được để trống";
     public static final String CANCEL_TOO_CLOSE_TO_DEPARTURE = "Chỉ có thể hủy lịch trình trước khi tour khởi hành tối thiểu 1 ngày";
 
+    public static final String PORTER_ASSIGNED_SUCCESSFULLY = "Phân công porter thành công";
+    public static final String PORTER_REMOVED_SUCCESSFULLY = "Gỡ bỏ phân công porter thành công";
+    public static final String PORTER_ALREADY_ASSIGNED = "Porter này đã được phân công cho phiên tour này";
+    public static final String PORTER_SCHEDULE_CONFLICT = "Porter đã có lịch trùng trong thời gian này";
+    public static final String PORTER_SCHEDULE_NOT_FOUND = "Lịch phân công porter không tồn tại";
+    public static final String PORTER_ID_REQUIRED = "Porter không được để trống";
+
+    public static final String EQUIPMENT_ASSIGNED_SUCCESSFULLY = "Phân bổ trang bị thành công";
+    public static final String EQUIPMENT_REMOVED_SUCCESSFULLY = "Hủy phân bổ trang bị thành công";
+    public static final String EQUIPMENT_RETURNED_SUCCESSFULLY = "Xác nhận trả trang bị thành công";
+    public static final String EQUIPMENT_ALREADY_ASSIGNED = "Trang bị này đã được phân bổ cho phiên tour này";
+    public static final String NOT_ENOUGH_EQUIPMENT_IN_STOCK = "Số lượng tồn kho trang bị không đủ";
+    public static final String SESSION_EQUIPMENT_NOT_FOUND = "Không tìm thấy thông tin phân bổ trang bị";
+    public static final String SESSION_EQUIPMENT_NOT_BELONG_TO_VENDOR = "Thông tin phân bổ trang bị không thuộc về công ty của bạn";
+    public static final String INVALID_RETURN_QUANTITY = "Số lượng trả về không hợp lệ (tổng vượt quá số lượng mượn)";
+    public static final String EQUIPMENT_ID_REQUIRED = "Trang bị không được để trống";
+    public static final String QUANTITY_REQUIRED_AND_MIN = "Số lượng phải lớn hơn 0";
+    public static final String RETURN_QUANTITY_REQUIRED = "Số lượng trả về nguyên vẹn không được để trống";
+    public static final String MISSING_QUANTITY_REQUIRED = "Số lượng thất lạc/hư hỏng không được để trống";
     // Review Messages
     public static final String REVIEW_NOT_FOUND = "Đánh giá không tồn tại";
     public static final String REVIEW_CREATED_SUCCESSFULLY = "Gửi đánh giá thành công";

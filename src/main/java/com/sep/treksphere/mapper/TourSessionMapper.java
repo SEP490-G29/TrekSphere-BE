@@ -5,7 +5,11 @@ import com.sep.treksphere.dto.response.CoordinatorAllocationDto;
 import com.sep.treksphere.dto.response.TourSessionAllocationResponse;
 import com.sep.treksphere.dto.response.TourSessionSummaryResponse;
 import com.sep.treksphere.entity.CoordinatorSchedule;
+import com.sep.treksphere.entity.PorterSchedule;
 import com.sep.treksphere.entity.TourSession;
+import com.sep.treksphere.entity.SessionEquipment;
+import com.sep.treksphere.dto.response.PorterAllocationDto;
+import com.sep.treksphere.dto.response.EquipmentAllocationDto;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
 import org.mapstruct.ReportingPolicy;
@@ -38,6 +42,13 @@ public interface TourSessionMapper {
 
     List<CoordinatorAllocationDto> toCoordinatorAllocationDtoList(List<CoordinatorSchedule> coordinatorSchedules);
 
+    @Mapping(source = "porter.porterId", target = "porterId")
+    @Mapping(source = "porter.fullName", target = "fullName")
+    @Mapping(source = "porter.phone", target = "phone")
+    PorterAllocationDto toPorterAllocationDto(PorterSchedule porterSchedule);
+
+    List<PorterAllocationDto> toPorterAllocationDtoList(List<PorterSchedule> porterSchedules);
+
     @Mapping(source = "coordinator.userId", target = "coordinatorId")
     @Mapping(source = "coordinator.fullName", target = "coordinatorName")
     @Mapping(source = "tourSession.tourSessionId", target = "tourSessionId")
@@ -48,4 +59,13 @@ public interface TourSessionMapper {
     StaffScheduleResponse toStaffScheduleResponse(CoordinatorSchedule coordinatorSchedule);
 
     List<StaffScheduleResponse> toStaffScheduleResponseList(List<CoordinatorSchedule> coordinatorSchedules);
+
+    @Mapping(source = "sessionEquipmentId", target = "sessionEquipmentId")
+    @Mapping(source = "equipment.equipmentId", target = "equipmentId")
+    @Mapping(source = "equipment.equipmentName", target = "equipmentName")
+    @Mapping(source = "quantity", target = "quantity")
+    @Mapping(source = "note", target = "note")
+    EquipmentAllocationDto toEquipmentAllocationDto(SessionEquipment sessionEquipment);
+
+    List<EquipmentAllocationDto> toEquipmentAllocationDtoList(List<SessionEquipment> sessionEquipments);
 }
