@@ -198,4 +198,26 @@ public class TrackingController {
 
         return ResponseEntity.ok(response);
     }
+
+    @PutMapping("/sos/{sosId}/resolve")
+    @Operation(summary = "Giải quyết yêu cầu cứu hộ SOS", description = "Cho phép Vendor Manager (thuộc Vendor quản lý) hoặc Hướng dẫn viên (được phân công dẫn đoàn) giải quyết yêu cầu cứu hộ SOS.")
+    @SecurityRequirement(name = "bearerAuth")
+    @PreAuthorize("hasAnyRole('VENDOR_MANAGER', 'COORDINATOR')")
+    public ResponseEntity<ApiResponse<SosAlertResponse>> resolveSosAlert(
+            @PathVariable UUID sosId,
+            @AuthenticationPrincipal CustomUserDetails userDetails
+    ) {
+        SosAlertResponse data = trackingService.resolveSosAlert(
+                userDetails.getUser().getUserId(),
+                sosId
+        );
+
+        ApiResponse<SosAlertResponse> response = ApiResponse.success(
+                HttpStatus.OK,
+                data,
+                MessageConstant.SOS_ALERT_RESOLVED_SUCCESS
+        );
+
+        return ResponseEntity.ok(response);
+    }
 }

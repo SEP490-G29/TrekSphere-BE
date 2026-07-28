@@ -57,4 +57,9 @@ public interface TrackingService {
             UUID userId,
             Pageable pageable
     );
+
+    SosAlertResponse resolveSosAlert(
+            UUID userId,
+            UUID sosId
+    );
 }

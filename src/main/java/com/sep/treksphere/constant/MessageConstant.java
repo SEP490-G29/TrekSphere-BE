@@ -210,6 +210,10 @@ public class MessageConstant {
     public static final String UNAUTHORIZED_SOS_ALERT = "Bạn không có quyền phát tín hiệu SOS cho phiên đi tour này";
     public static final String SESSION_FOR_SOS_NOT_ACTIVE = "Phiên đi tour này hiện tại không hoạt động để phát tín hiệu SOS";
     public static final String ACTIVE_SOS_ALERTS_FETCHED = "Lấy danh sách cuộc gọi SOS hoạt động thành công";
+    public static final String SOS_ALERT_RESOLVED_SUCCESS = "Yêu cầu cứu hộ SOS đã được giải quyết thành công";
+    public static final String SOS_ALERT_NOT_FOUND = "Yêu cầu cứu hộ SOS không tồn tại";
+    public static final String SOS_ALERT_ALREADY_RESOLVED = "Yêu cầu cứu hộ SOS đã được giải quyết trước đó";
+    public static final String UNAUTHORIZED_RESOLVE_SOS = "Bạn không có quyền giải quyết yêu cầu cứu hộ SOS này";
 
     // Schedule Messages
     public static final String SCHEDULE_NOT_FOUND = "Lịch khởi hành không tồn tại";

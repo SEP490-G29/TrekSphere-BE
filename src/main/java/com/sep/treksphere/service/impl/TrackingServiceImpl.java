@@ -578,9 +578,74 @@ public class TrackingServiceImpl implements TrackingService {
             log.info("Filtering active SOS alerts for vendor {}", filterVendorId);
         }
 
-        Page<SosAlert> alerts = sosAlertRepository.findPendingAlerts(filterVendorId, pageable);
+        Page<SosAlert> alerts = sosAlertRepository.findAlertsByStatus(SosAlertStatus.PENDING, filterVendorId, pageable);
 
         return alerts.map(this::mapToSosAlertResponse);
+    }
+
+    @Override
+    @Transactional
+    public SosAlertResponse resolveSosAlert(UUID userId, UUID sosId) {
+        log.info("User {} is attempting to resolve SOS alert {}", userId, sosId);
+
+        SosAlert sosAlert = sosAlertRepository.findById(sosId)
+                .orElseThrow(() -> {
+                    log.warn("SosAlert {} not found", sosId);
+                    return new AppException(ErrorCode.SOS_ALERT_NOT_FOUND);
+                });
+
+        if (sosAlert.getStatus() == SosAlertStatus.RESOLVED) {
+            log.warn("SosAlert {} is already resolved", sosId);
+            throw new AppException(ErrorCode.SOS_ALERT_ALREADY_RESOLVED);
+        }
+
+        User currentUser = userRepository.findById(userId)
+                .orElseThrow(() -> {
+                    log.warn("User {} not found", userId);
+                    return new AppException(ErrorCode.USER_NOT_FOUND);
+                });
+
+        boolean isAdmin = currentUser.getRoles().stream()
+                .anyMatch(r -> r.getRoleName().equals("ADMIN"));
+        boolean isVendorManager = currentUser.getRoles().stream()
+                .anyMatch(r -> r.getRoleName().equals("VENDOR_MANAGER"));
+        boolean isCoordinator = currentUser.getRoles().stream()
+                .anyMatch(r -> r.getRoleName().equals("COORDINATOR"));
+
+        boolean isAuthorized = false;
+
+        if (isAdmin) {
+            isAuthorized = true;
+        } else if (isVendorManager) {
+            Vendor vendor = vendorRepository.findByManager_UserId(userId)
+                    .orElse(null);
+            if (vendor != null) {
+                UUID sosVendorId = sosAlert.getTourSession().getTourSchedule().getTour().getVendor().getVendorId();
+                if (vendor.getVendorId().equals(sosVendorId)) {
+                    isAuthorized = true;
+                }
+            }
+        } else if (isCoordinator) {
+            UUID sessionId = sosAlert.getTourSession().getTourSessionId();
+            Optional<CoordinatorSchedule> scheduleOpt = coordinatorScheduleRepository
+                    .findByTourSession_TourSessionIdAndCoordinator_UserIdAndIsDeletedFalse(sessionId, userId);
+            if (scheduleOpt.isPresent() && !Boolean.TRUE.equals(scheduleOpt.get().getIsCancelled())) {
+                isAuthorized = true;
+            }
+        }
+
+        if (!isAuthorized) {
+            log.warn("User {} is not authorized to resolve SOS alert {}", userId, sosId);
+            throw new AppException(ErrorCode.UNAUTHORIZED_RESOLVE_SOS);
+        }
+
+        sosAlert.setStatus(SosAlertStatus.RESOLVED);
+        sosAlert.setResolvedBy(currentUser);
+
+        sosAlertRepository.save(sosAlert);
+        log.info("SOS alert {} successfully resolved by user {}", sosId, userId);
+
+        return mapToSosAlertResponse(sosAlert);
     }
 
     private SosAlertResponse mapToSosAlertResponse(SosAlert sosAlert) {
@@ -597,6 +662,13 @@ public class TrackingServiceImpl implements TrackingService {
             }
         }
 
+        UUID resolvedById = null;
+        String resolvedByName = null;
+        if (sosAlert.getResolvedBy() != null) {
+            resolvedById = sosAlert.getResolvedBy().getUserId();
+            resolvedByName = sosAlert.getResolvedBy().getFullName();
+        }
+
         return SosAlertResponse.builder()
                 .sosAlertId(sosAlert.getSosAlertId())
                 .tourSessionId(sosAlert.getTourSession().getTourSessionId())
@@ -609,6 +681,8 @@ public class TrackingServiceImpl implements TrackingService {
                 .message(sosAlert.getMessage())
                 .status(sosAlert.getStatus())
                 .createdAt(sosAlert.getCreatedAt())
+                .resolvedById(resolvedById)
+                .resolvedByName(resolvedByName)
                 .build();
     }
 }

@@ -27,4 +27,6 @@ public class SosAlertResponse {
     private String message;
     private SosAlertStatus status;
     private LocalDateTime createdAt;
+    private UUID resolvedById;
+    private String resolvedByName;
 }
