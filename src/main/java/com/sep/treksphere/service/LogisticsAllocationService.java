@@ -8,7 +8,6 @@ import com.sep.treksphere.dto.response.TourSessionSummaryResponse;
 import com.sep.treksphere.dto.response.PaginationResponse;
 import com.sep.treksphere.enums.tour.TourSessionStatus;
 
-import java.util.List;
 import java.util.UUID;
 import com.sep.treksphere.dto.request.CancelScheduleRequest;
 import com.sep.treksphere.dto.request.AssignPorterRequest;
@@ -16,6 +15,7 @@ import com.sep.treksphere.dto.request.AssignEquipmentRequest;
 
 public interface LogisticsAllocationService {
     void assignEquipment(UUID sessionId, AssignEquipmentRequest request, UUID vendorUserId);
+    void removeEquipment(UUID sessionEquipmentId, UUID vendorUserId);
     void assignPorter(UUID sessionId, AssignPorterRequest request, UUID vendorUserId);
     void removePorter(UUID porterScheduleId, UUID vendorUserId);
     void assignCoordinator(UUID sessionId, AssignCoordinatorRequest request, UUID userId);

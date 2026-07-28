@@ -108,6 +108,41 @@ public class LogisticsAllocationServiceImpl implements LogisticsAllocationServic
 
     @Override
     @Transactional
+    public void removeEquipment(UUID sessionEquipmentId, UUID vendorUserId) {
+        log.info("Removing equipment allocation {} by vendor {}", sessionEquipmentId, vendorUserId);
+
+        SessionEquipment sessionEquipment = sessionEquipmentRepository.findById(sessionEquipmentId)
+                .orElseThrow(() -> new AppException(ErrorCode.SESSION_EQUIPMENT_NOT_FOUND));
+
+        if (sessionEquipment.getIsDeleted()) {
+            throw new AppException(ErrorCode.SESSION_EQUIPMENT_NOT_FOUND);
+        }
+
+        UUID vendorId = resolveVendorId(vendorUserId);
+
+        if (!sessionEquipment.getTourSession().getTourSchedule().getTour().getVendor().getVendorId().equals(vendorId)) {
+            throw new AppException(ErrorCode.SESSION_EQUIPMENT_NOT_BELONG_TO_VENDOR);
+        }
+
+        if (sessionEquipment.getTourSession().getStatus() != TourSessionStatus.PENDING) {
+            throw new AppException(ErrorCode.TOUR_SESSION_ALREADY_STARTED);
+        }
+
+        // Return quantity to vendor stock
+        VendorEquipment equipment = sessionEquipment.getEquipment();
+        equipment.setTotalQuantity(equipment.getTotalQuantity() + sessionEquipment.getQuantity());
+        vendorEquipmentRepository.save(equipment);
+
+        // Mark as deleted
+        sessionEquipment.setIsDeleted(true);
+        sessionEquipmentRepository.save(sessionEquipment);
+        
+        log.info("Equipment allocation removed successfully");
+    }
+
+
+    @Override
+    @Transactional
     public void assignPorter(UUID sessionId, AssignPorterRequest request, UUID vendorUserId) {
         log.info("Assigning porter {} to session {}", request.getPorterId(), sessionId);
 

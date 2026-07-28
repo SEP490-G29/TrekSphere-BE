@@ -70,6 +70,16 @@ public class VendorLogisticsController {
         return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, null, MessageConstant.EQUIPMENT_ASSIGNED_SUCCESSFULLY));
     }
 
+    @Operation(summary = "Hủy phân bổ Trang bị", description = "Xóa một trang bị đã được phân bổ khỏi Phiên Tour và hoàn trả lại kho")
+    @DeleteMapping("/equipments/{sessionEquipmentId}")
+    @PreAuthorize("hasAnyRole('VENDOR_MANAGER', 'VENDOR_STAFF')")
+    public ResponseEntity<ApiResponse<Void>> removeEquipment(
+            @PathVariable UUID sessionEquipmentId,
+            @AuthenticationPrincipal CustomUserDetails user) {
+        logisticsAllocationService.removeEquipment(sessionEquipmentId, user.getUser().getUserId());
+        return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, null, MessageConstant.EQUIPMENT_REMOVED_SUCCESSFULLY));
+    }
+
     @Operation(summary = "Gỡ phân công Porter", description = "Xóa một Porter đã được gán khỏi Phiên Tour")
     @DeleteMapping("/porters/{porterScheduleId}")
     @PreAuthorize("hasAnyRole('VENDOR_MANAGER', 'VENDOR_STAFF')")

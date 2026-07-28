@@ -264,6 +264,7 @@ public class MessageConstant {
     public static final String EQUIPMENT_ALREADY_ASSIGNED = "Trang bị này đã được phân bổ cho phiên tour này";
     public static final String NOT_ENOUGH_EQUIPMENT_IN_STOCK = "Số lượng tồn kho trang bị không đủ";
     public static final String SESSION_EQUIPMENT_NOT_FOUND = "Không tìm thấy thông tin phân bổ trang bị";
+    public static final String SESSION_EQUIPMENT_NOT_BELONG_TO_VENDOR = "Thông tin phân bổ trang bị không thuộc về công ty của bạn";
     public static final String INVALID_RETURN_QUANTITY = "Số lượng trả về không hợp lệ (tổng vượt quá số lượng mượn)";
     public static final String EQUIPMENT_ID_REQUIRED = "Trang bị không được để trống";
     public static final String QUANTITY_REQUIRED_AND_MIN = "Số lượng phải lớn hơn 0";
