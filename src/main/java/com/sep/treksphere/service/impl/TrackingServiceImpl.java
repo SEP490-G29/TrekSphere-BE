@@ -28,6 +28,8 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 
 import java.time.LocalDateTime;
 import java.util.*;
@@ -37,6 +39,8 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 @Slf4j
 public class TrackingServiceImpl implements TrackingService {
+
+    private final VendorRepository vendorRepository;
 
     private final TourSessionRepository tourSessionRepository;
     private final CoordinatorScheduleRepository coordinatorScheduleRepository;
@@ -542,11 +546,63 @@ public class TrackingServiceImpl implements TrackingService {
         sosAlertRepository.save(sosAlert);
         log.info("SOS alert successfully registered with ID {} for session {}", sosAlert.getSosAlertId(), request.getTourSessionId());
 
+        return mapToSosAlertResponse(sosAlert);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Page<SosAlertResponse> getActiveSosAlerts(UUID userId, Pageable pageable) {
+        log.info("User {} is requesting active SOS alerts", userId);
+
+        User currentUser = userRepository.findById(userId)
+                .orElseThrow(() -> {
+                    log.warn("User {} not found", userId);
+                    return new AppException(ErrorCode.USER_NOT_FOUND);
+                });
+
+        boolean isAdmin = currentUser.getRoles().stream()
+                .anyMatch(r -> r.getRoleName().equals("ADMIN"));
+        boolean isVendorManager = currentUser.getRoles().stream()
+                .anyMatch(r -> r.getRoleName().equals("VENDOR_MANAGER"));
+
+        UUID filterVendorId = null;
+
+        if (!isAdmin && isVendorManager) {
+            Vendor vendor = vendorRepository.findByManager_UserId(userId)
+                    .orElse(null);
+            if (vendor == null) {
+                log.warn("Vendor manager User {} does not manage any vendor", userId);
+                return Page.empty(pageable);
+            }
+            filterVendorId = vendor.getVendorId();
+            log.info("Filtering active SOS alerts for vendor {}", filterVendorId);
+        }
+
+        Page<SosAlert> alerts = sosAlertRepository.findPendingAlerts(filterVendorId, pageable);
+
+        return alerts.map(this::mapToSosAlertResponse);
+    }
+
+    private SosAlertResponse mapToSosAlertResponse(SosAlert sosAlert) {
+        String senderRole = "TREKKER";
+        UUID senderId = sosAlert.getSender().getUserId();
+        UUID sessionId = sosAlert.getTourSession().getTourSessionId();
+
+        Optional<CoordinatorSchedule> coordinatorScheduleOpt = coordinatorScheduleRepository
+                .findByTourSession_TourSessionIdAndCoordinator_UserIdAndIsDeletedFalse(sessionId, senderId);
+        if (coordinatorScheduleOpt.isPresent()) {
+            CoordinatorSchedule schedule = coordinatorScheduleOpt.get();
+            if (!Boolean.TRUE.equals(schedule.getIsCancelled())) {
+                senderRole = "COORDINATOR";
+            }
+        }
+
         return SosAlertResponse.builder()
                 .sosAlertId(sosAlert.getSosAlertId())
-                .tourSessionId(tourSession.getTourSessionId())
-                .senderId(sender.getUserId())
-                .senderName(sender.getFullName())
+                .tourSessionId(sosAlert.getTourSession().getTourSessionId())
+                .tourName(sosAlert.getTourSession().getTourSchedule().getTour().getTourName())
+                .senderId(sosAlert.getSender().getUserId())
+                .senderName(sosAlert.getSender().getFullName())
                 .senderRole(senderRole)
                 .latitude(sosAlert.getLatitude())
                 .longitude(sosAlert.getLongitude())

@@ -18,6 +18,7 @@ public class SosAlertResponse {
 
     private UUID sosAlertId;
     private UUID tourSessionId;
+    private String tourName;
     private UUID senderId;
     private String senderName;
     private String senderRole;
