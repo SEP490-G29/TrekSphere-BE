@@ -10,6 +10,7 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.time.LocalDate;
+import java.util.Optional;
 import java.util.UUID;
 
 @Repository
@@ -36,4 +37,16 @@ public interface MatchingGroupRepository extends JpaRepository<MatchingGroup, UU
             @Param("targetDate") LocalDate targetDate,
             Pageable pageable
     );
+
+    @Query("""
+        SELECT mg FROM MatchingGroup mg
+        JOIN FETCH mg.tour t
+        JOIN FETCH mg.owner o
+        LEFT JOIN FETCH mg.members m
+        LEFT JOIN FETCH m.user mu
+        WHERE mg.matchingGroupId = :id
+          AND mg.isDeleted = false
+    """)
+    Optional<MatchingGroup> findDetailById(@Param("id") UUID id);
 }
+

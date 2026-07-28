@@ -3,20 +3,21 @@ package com.sep.treksphere.controller;
 import com.sep.treksphere.constant.MessageConstant;
 import com.sep.treksphere.dto.request.MatchingGroupFilterRequest;
 import com.sep.treksphere.dto.response.ApiResponse;
+import com.sep.treksphere.dto.response.MatchingGroupDetailResponse;
 import com.sep.treksphere.dto.response.MatchingGroupResponse;
 import com.sep.treksphere.dto.response.PaginationResponse;
 import com.sep.treksphere.service.MatchingGroupService;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springdoc.core.annotations.ParameterObject;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.ModelAttribute;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/v1/matching-groups")
@@ -36,4 +37,16 @@ public class MatchingGroupController {
         PaginationResponse<MatchingGroupResponse> result = matchingGroupService.getMatchingGroups(filter);
         return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, result, MessageConstant.MATCHING_GROUPS_FETCHED_SUCCESS));
     }
+
+    @Operation(
+        summary = "Xem chi tiết nhóm ghép bạn đồng hành",
+        description = "Lấy thông tin chi tiết của nhóm ghép bao gồm danh sách thành viên đã được duyệt (ACCEPTED)."
+    )
+    @GetMapping("/{id}")
+    public ResponseEntity<ApiResponse<MatchingGroupDetailResponse>> getMatchingGroupById(
+            @Parameter(description = "UUID của nhóm ghép") @PathVariable UUID id) {
+        MatchingGroupDetailResponse result = matchingGroupService.getMatchingGroupById(id);
+        return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, result, MessageConstant.MATCHING_GROUP_FETCHED_SUCCESS));
+    }
 }
+
