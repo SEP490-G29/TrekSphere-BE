@@ -130,6 +130,9 @@ public enum ErrorCode {
 
     // Matching Group
     MATCHING_GROUP_NOT_FOUND(8101, HttpStatus.NOT_FOUND, MessageConstant.MATCHING_GROUP_NOT_FOUND),
+    INVALID_TARGET_DATE(8102, HttpStatus.BAD_REQUEST, MessageConstant.INVALID_TARGET_DATE),
+    INVALID_DEADLINE(8103, HttpStatus.BAD_REQUEST, MessageConstant.INVALID_DEADLINE),
+    ALREADY_HAS_ACTIVE_GROUP(8104, HttpStatus.BAD_REQUEST, MessageConstant.ALREADY_HAS_ACTIVE_GROUP),
 
     // Review
     REVIEW_NOT_FOUND(9101, HttpStatus.NOT_FOUND, MessageConstant.REVIEW_NOT_FOUND),

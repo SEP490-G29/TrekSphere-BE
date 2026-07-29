@@ -217,6 +217,10 @@ public class MessageConstant {
     public static final String MATCHING_GROUPS_FETCHED_SUCCESS = "Lấy danh sách nhóm ghép bạn đồng hành thành công";
     public static final String MATCHING_GROUP_FETCHED_SUCCESS = "Lấy chi tiết nhóm ghép bạn đồng hành thành công";
     public static final String MATCHING_GROUP_NOT_FOUND = "Nhóm ghép bạn đồng hành không tồn tại";
+    public static final String MATCHING_GROUP_CREATED_SUCCESS = "Tạo nhóm ghép bạn đồng hành thành công";
+    public static final String INVALID_TARGET_DATE = "Ngày đi mong muốn phải ở tương lai";
+    public static final String INVALID_DEADLINE = "Hạn chót ghép nhóm phải ở tương lai và trước hoặc trong ngày khởi hành";
+    public static final String ALREADY_HAS_ACTIVE_GROUP = "Bạn đang là trưởng nhóm của một nhóm ghép khác đang hoạt động";
 
     // Schedule Messages
     public static final String SCHEDULE_NOT_FOUND = "Lịch khởi hành không tồn tại";

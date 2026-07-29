@@ -1,6 +1,7 @@
 package com.sep.treksphere.repository;
 
 import com.sep.treksphere.entity.MatchingGroup;
+import com.sep.treksphere.entity.User;
 import com.sep.treksphere.enums.matching.MatchingGroupStatus;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -15,6 +16,8 @@ import java.util.UUID;
 
 @Repository
 public interface MatchingGroupRepository extends JpaRepository<MatchingGroup, UUID> {
+
+    boolean existsByOwnerAndStatusAndIsDeletedFalse(User owner, MatchingGroupStatus status);
 
     @Query(value = """
         SELECT mg FROM MatchingGroup mg
