@@ -179,6 +179,44 @@ public class MessageConstant {
     public static final String VENDOR_STAFF_STATUS_UPDATED = "Cập nhật trạng thái nhân viên thành công";
     public static final String VENDOR_STAFF_NOT_FOUND = "Không tìm thấy thông tin nhân viên này";
     public static final String UNAUTHORIZED_STAFF_ACCESS = "Bạn không có quyền quản lý nhân viên này";
+    public static final String COORDINATOR_SCHEDULE_FETCHED = "Lấy danh sách lịch dẫn đoàn thành công";
+    public static final String INVALID_DATE_RANGE = "Ngày bắt đầu tìm kiếm không thể lớn hơn ngày kết thúc";
+    public static final String SESSION_STARTED_SUCCESSFULLY = "Bắt đầu phiên đi tour thành công";
+    public static final String SESSION_ENDED_SUCCESSFULLY = "Kết thúc phiên đi tour thành công";
+    public static final String SESSION_NOT_FOUND = "Không tìm thấy phiên đi tour này";
+    public static final String SESSION_ALREADY_STARTED = "Phiên đi tour này đã được bắt đầu từ trước";
+    public static final String SESSION_ALREADY_COMPLETED = "Phiên đi tour này đã hoàn thành";
+    public static final String SESSION_ALREADY_CANCELLED = "Phiên đi tour này đã bị hủy";
+    public static final String NOT_LEAD_COORDINATOR = "Chỉ hướng dẫn viên trưởng mới được quyền bắt đầu tour";
+    public static final String UNAUTHORIZED_SESSION_ACCESS = "Bạn không có quyền truy cập phiên đi tour này";
+    public static final String LATITUDE_REQUIRED = "Tọa độ vĩ độ (latitude) không được để trống";
+    public static final String LONGITUDE_REQUIRED = "Tọa độ kinh độ (longitude) không được để trống";
+    public static final String CHECKIN_OUT_OF_RANGE = "Bạn đang ở quá xa vị trí trạm dừng để thực hiện check-in";
+    public static final String INVALID_GPS_COORDINATES = "Tọa độ GPS không hợp lệ (Vĩ độ phải từ -90 đến 90, Kinh độ phải từ -180 đến 180)";
+    public static final String GPS_COORDINATES_REQUIRED = "Tọa độ GPS không được để trống";
+    public static final String LATITUDE_OUT_OF_BOUNDS = "Vĩ độ (latitude) phải nằm trong khoảng từ -90 đến 90 độ";
+    public static final String LONGITUDE_OUT_OF_BOUNDS = "Kinh độ (longitude) phải nằm trong khoảng từ -180 đến 180 độ";
+    public static final String NO_PENDING_CHECKPOINTS = "Tất cả các trạm dừng của chuyến đi này đã hoàn thành check-in";
+    public static final String SESSION_NOT_IN_PROGRESS = "Phiên đi tour này hiện tại không hoạt động";
+    public static final String CHECKIN_SUCCESSFUL = "Ghi nhận trạm dừng thành công";
+    public static final String ATTENDANCE_RECORDED_SUCCESSFULLY = "Ghi nhận điểm danh thành công";
+    public static final String INVALID_ATTENDANCE_TYPE = "Loại điểm danh không hợp lệ (phải là START hoặc END)";
+    public static final String PARTICIPANT_NOT_FOUND_IN_SESSION = "Thành viên tham gia không thuộc phiên đi tour này";
+    public static final String PARTICIPANT_ID_REQUIRED = "ID thành viên tham gia không được để trống";
+    public static final String ATTENDANCE_STATUS_REQUIRED = "Trạng thái điểm danh có mặt/vắng mặt không được để trống";
+    public static final String ATTENDANCE_TYPE_REQUIRED = "Loại điểm danh (attendanceType) không được để trống";
+    public static final String ATTENDANCE_LIST_REQUIRED = "Danh sách điểm danh thành viên (participants) không được rỗng";
+    public static final String SESSION_EQUIPMENT_CHECKED_SUCCESS = "Đánh dấu kiểm tra dụng cụ đi tour thành công";
+    public static final String UNAUTHORIZED_EQUIPMENT_CHECK = "Bạn không có quyền kiểm tra dụng cụ của phiên đi tour này";
+    public static final String EQUIPMENT_CHECK_STATUS_REQUIRED = "Trạng thái kiểm tra không được để trống";
+    public static final String SOS_ALERT_CREATED_SUCCESS = "Phát tín hiệu SOS khẩn cấp thành công";
+    public static final String UNAUTHORIZED_SOS_ALERT = "Bạn không có quyền phát tín hiệu SOS cho phiên đi tour này";
+    public static final String SESSION_FOR_SOS_NOT_ACTIVE = "Phiên đi tour này hiện tại không hoạt động để phát tín hiệu SOS";
+    public static final String ACTIVE_SOS_ALERTS_FETCHED = "Lấy danh sách cuộc gọi SOS hoạt động thành công";
+    public static final String SOS_ALERT_RESOLVED_SUCCESS = "Yêu cầu cứu hộ SOS đã được giải quyết thành công";
+    public static final String SOS_ALERT_NOT_FOUND = "Yêu cầu cứu hộ SOS không tồn tại";
+    public static final String SOS_ALERT_ALREADY_RESOLVED = "Yêu cầu cứu hộ SOS đã được giải quyết trước đó";
+    public static final String UNAUTHORIZED_RESOLVE_SOS = "Bạn không có quyền giải quyết yêu cầu cứu hộ SOS này";
 
     // Schedule Messages
     public static final String SCHEDULE_NOT_FOUND = "Lịch khởi hành không tồn tại";
@@ -253,6 +291,38 @@ public class MessageConstant {
     public static final String SCHEDULE_CANCELLED_SUCCESSFULLY = "Huỷ phân công khẩn cấp thành công";
     public static final String SCHEDULE_CANCEL_REASON_REQUIRED = "Lý do huỷ phân công không được để trống";
     public static final String CANCEL_TOO_CLOSE_TO_DEPARTURE = "Chỉ có thể hủy lịch trình trước khi tour khởi hành tối thiểu 1 ngày";
+
+    public static final String PORTER_ASSIGNED_SUCCESSFULLY = "Phân công porter thành công";
+    public static final String PORTER_REMOVED_SUCCESSFULLY = "Gỡ bỏ phân công porter thành công";
+    public static final String PORTER_ALREADY_ASSIGNED = "Porter này đã được phân công cho phiên tour này";
+    public static final String PORTER_SCHEDULE_CONFLICT = "Porter đã có lịch trùng trong thời gian này";
+    public static final String PORTER_SCHEDULE_NOT_FOUND = "Lịch phân công porter không tồn tại";
+    public static final String PORTER_ID_REQUIRED = "Porter không được để trống";
+
+    public static final String EQUIPMENT_ASSIGNED_SUCCESSFULLY = "Phân bổ trang bị thành công";
+    public static final String EQUIPMENT_REMOVED_SUCCESSFULLY = "Hủy phân bổ trang bị thành công";
+    public static final String EQUIPMENT_RETURNED_SUCCESSFULLY = "Xác nhận trả trang bị thành công";
+    public static final String EQUIPMENT_ALREADY_ASSIGNED = "Trang bị này đã được phân bổ cho phiên tour này";
+    public static final String NOT_ENOUGH_EQUIPMENT_IN_STOCK = "Số lượng tồn kho trang bị không đủ";
+    public static final String SESSION_EQUIPMENT_NOT_FOUND = "Không tìm thấy thông tin phân bổ trang bị";
+    public static final String SESSION_EQUIPMENT_NOT_BELONG_TO_VENDOR = "Thông tin phân bổ trang bị không thuộc về công ty của bạn";
+    public static final String INVALID_RETURN_QUANTITY = "Số lượng trả về không hợp lệ (tổng vượt quá số lượng mượn)";
+    public static final String EQUIPMENT_ID_REQUIRED = "Trang bị không được để trống";
+    public static final String QUANTITY_REQUIRED_AND_MIN = "Số lượng phải lớn hơn 0";
+    public static final String RETURN_QUANTITY_REQUIRED = "Số lượng trả về nguyên vẹn không được để trống";
+    public static final String MISSING_QUANTITY_REQUIRED = "Số lượng thất lạc/hư hỏng không được để trống";
+    // Review Messages
+    public static final String REVIEW_NOT_FOUND = "Đánh giá không tồn tại";
+    public static final String REVIEW_CREATED_SUCCESSFULLY = "Gửi đánh giá thành công";
+    public static final String REVIEW_STATUS_UPDATED_SUCCESSFULLY = "Cập nhật trạng thái đánh giá thành công";
+    public static final String REVIEW_ALREADY_EXISTS = "Bạn đã đánh giá đơn đặt tour này rồi";
+    public static final String REVIEW_BOOKING_NOT_COMPLETED = "Chỉ có thể đánh giá khi đơn đặt tour đã hoàn thành";
+    public static final String REVIEW_BOOKING_NOT_OWNED = "Bạn không có quyền đánh giá đơn đặt tour này";
+    public static final String REVIEW_INVALID_STATUS_MSG = "Trạng thái đánh giá không hợp lệ (phải là APPROVED hoặc HIDDEN)";
+    public static final String REVIEW_RATING_REQUIRED = "Điểm đánh giá không được để trống";
+    public static final String REVIEW_RATING_RANGE = "Điểm đánh giá phải từ 1 đến 5";
+    public static final String REVIEW_BOOKING_REQUIRED = "Mã đơn đặt tour không được để trống";
+    public static final String REVIEW_STATUS_REQUIRED_MSG = "Trạng thái đánh giá không được để trống";
 }
 
 

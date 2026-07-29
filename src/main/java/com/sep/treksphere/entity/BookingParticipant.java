@@ -7,6 +7,7 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.UUID;
 
 @Entity
@@ -50,4 +51,16 @@ public class BookingParticipant extends BaseEntity {
 
     @Column(columnDefinition = "TEXT")
     private String specialRequirements;
+
+    @Column(name = "is_present_start")
+    private Boolean isPresentStart;
+
+    @Column(name = "start_attended_at")
+    private LocalDateTime startAttendedAt;
+
+    @Column(name = "is_present_end")
+    private Boolean isPresentEnd;
+
+    @Column(name = "end_attended_at")
+    private LocalDateTime endAttendedAt;
 }
