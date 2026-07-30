@@ -19,6 +19,7 @@ import com.sep.treksphere.repository.VendorStaffRepository;
 import com.sep.treksphere.security.JwtTokenProvider;
 import com.sep.treksphere.service.EmailService;
 import com.sep.treksphere.service.VendorStaffService;
+import com.sep.treksphere.utils.PaginationUtils;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -60,18 +61,9 @@ public class VendorStaffServiceImpl implements VendorStaffService {
                 request.getPageable()
         );
 
-        List<VendorStaffResponse> responses = staffPage.getContent().stream()
-                .map(vendorStaffMapper::toVendorStaffResponse)
-                .toList();
+        Page<VendorStaffResponse> responsePage = staffPage.map(vendorStaffMapper::toVendorStaffResponse);
 
-        return PaginationResponse.<VendorStaffResponse>builder()
-                .content(responses)
-                .pageNumber(staffPage.getNumber())
-                .pageSize(staffPage.getSize())
-                .totalElements(staffPage.getTotalElements())
-                .totalPages(staffPage.getTotalPages())
-                .last(staffPage.isLast())
-                .build();
+        return PaginationUtils.toPaginationResponse(responsePage);
     }
 
     @Override
