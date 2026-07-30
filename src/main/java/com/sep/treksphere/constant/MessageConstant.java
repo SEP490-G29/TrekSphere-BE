@@ -232,6 +232,9 @@ public class MessageConstant {
     public static final String MEMBER_ALREADY_APPROVED = "Thành viên này đã được duyệt vào nhóm trước đó";
     public static final String INVALID_MEMBER_STATUS = "Trạng thái yêu cầu của thành viên không hợp lệ để duyệt";
     public static final String MATCHING_MEMBER_APPROVED_SUCCESS = "Duyệt thành viên vào nhóm ghép thành công";
+    public static final String UNAUTHORIZED_REJECT_MEMBER = "Bạn không có quyền từ chối thành viên cho nhóm ghép này";
+    public static final String MEMBER_ALREADY_REJECTED = "Thành viên này đã bị từ chối trước đó";
+    public static final String MATCHING_MEMBER_REJECTED_SUCCESS = "Từ chối thành viên tham gia nhóm ghép thành công";
 
     // Schedule Messages
     public static final String SCHEDULE_NOT_FOUND = "Lịch khởi hành không tồn tại";

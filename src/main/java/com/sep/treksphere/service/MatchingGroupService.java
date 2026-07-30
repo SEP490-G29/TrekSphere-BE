@@ -20,5 +20,7 @@ public interface MatchingGroupService {
     MatchingMemberResponse joinMatchingGroup(UUID groupId, CustomUserDetails userDetails);
 
     MatchingMemberResponse approveMember(UUID memberId, CustomUserDetails userDetails);
+
+    MatchingMemberResponse rejectMember(UUID memberId, CustomUserDetails userDetails);
 }
 

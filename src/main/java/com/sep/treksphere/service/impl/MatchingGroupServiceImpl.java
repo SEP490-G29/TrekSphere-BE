@@ -239,4 +239,41 @@ public class MatchingGroupServiceImpl implements MatchingGroupService {
 
         return matchingGroupMapper.toMemberResponse(member);
     }
+
+    @Override
+    @Transactional
+    public MatchingMemberResponse rejectMember(UUID memberId, CustomUserDetails userDetails) {
+        User currentUser = userDetails.getUser();
+        log.info("Rejecting member: memberId={}, requesterId={}", memberId, currentUser.getUserId());
+
+        MatchingMember member = matchingMemberRepository.findDetailByMemberId(memberId)
+                .orElseThrow(() -> new AppException(ErrorCode.MATCHING_MEMBER_NOT_FOUND));
+
+        MatchingGroup matchingGroup = member.getMatchingGroup();
+
+        if (matchingGroup.getStatus() == MatchingGroupStatus.CLOSED || matchingGroup.getStatus() == MatchingGroupStatus.HIDDEN) {
+            throw new AppException(ErrorCode.MATCHING_GROUP_NOT_OPEN);
+        }
+
+        if (LocalDateTime.now().isAfter(matchingGroup.getMatchingDeadline())) {
+            throw new AppException(ErrorCode.MATCHING_DEADLINE_PASSED);
+        }
+
+        if (!matchingGroup.getOwner().getUserId().equals(currentUser.getUserId())) {
+            throw new AppException(ErrorCode.UNAUTHORIZED_REJECT_MEMBER);
+        }
+
+        if (member.getStatus() == JoinStatus.REJECTED) {
+            throw new AppException(ErrorCode.MEMBER_ALREADY_REJECTED);
+        }
+        if (member.getStatus() != JoinStatus.PENDING) {
+            throw new AppException(ErrorCode.INVALID_MEMBER_STATUS);
+        }
+
+        member.setStatus(JoinStatus.REJECTED);
+
+        MatchingMember savedMember = matchingMemberRepository.save(member);
+
+        return matchingGroupMapper.toMemberResponse(savedMember);
+    }
 }
