@@ -187,4 +187,56 @@ public class MatchingGroupServiceImpl implements MatchingGroupService {
 
         return matchingGroupMapper.toMemberResponse(savedMember);
     }
+
+    @Override
+    @Transactional
+    public MatchingMemberResponse approveMember(UUID memberId, CustomUserDetails userDetails) {
+        User currentUser = userDetails.getUser();
+        log.info("Approving member: memberId={}, requesterId={}", memberId, currentUser.getUserId());
+
+        MatchingMember member = matchingMemberRepository.findDetailByMemberId(memberId)
+                .orElseThrow(() -> new AppException(ErrorCode.MATCHING_MEMBER_NOT_FOUND));
+
+        MatchingGroup matchingGroup = member.getMatchingGroup();
+
+        if (matchingGroup.getStatus() != MatchingGroupStatus.OPEN) {
+            throw new AppException(ErrorCode.MATCHING_GROUP_NOT_OPEN);
+        }
+
+        if (LocalDateTime.now().isAfter(matchingGroup.getMatchingDeadline())) {
+            throw new AppException(ErrorCode.MATCHING_DEADLINE_PASSED);
+        }
+
+        if (!matchingGroup.getOwner().getUserId().equals(currentUser.getUserId())) {
+            throw new AppException(ErrorCode.UNAUTHORIZED_APPROVE_MEMBER);
+        }
+
+        if (member.getStatus() == JoinStatus.ACCEPTED) {
+            throw new AppException(ErrorCode.MEMBER_ALREADY_APPROVED);
+        }
+        if (member.getStatus() != JoinStatus.PENDING) {
+            throw new AppException(ErrorCode.INVALID_MEMBER_STATUS);
+        }
+
+        long acceptedCount = matchingGroup.getMembers().stream()
+                .filter(m -> m.getStatus() == JoinStatus.ACCEPTED && !Boolean.TRUE.equals(m.getIsDeleted()))
+                .count();
+        if (acceptedCount >= matchingGroup.getMaxSize()) {
+            throw new AppException(ErrorCode.MATCHING_GROUP_FULL);
+        }
+
+        member.setStatus(JoinStatus.ACCEPTED);
+        int newSize = (int) (acceptedCount + 1);
+        matchingGroup.setCurrentSize(newSize);
+
+        if (newSize == matchingGroup.getMaxSize()) {
+            matchingGroup.setStatus(MatchingGroupStatus.FULL);
+            log.info("Matching group is now FULL: groupId={}", matchingGroup.getMatchingGroupId());
+        }
+
+        matchingMemberRepository.save(member);
+        matchingGroupRepository.save(matchingGroup);
+
+        return matchingGroupMapper.toMemberResponse(member);
+    }
 }

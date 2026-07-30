@@ -80,4 +80,17 @@ public class MatchingGroupController {
         MatchingMemberResponse result = matchingGroupService.joinMatchingGroup(groupId, userDetails);
         return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, result, MessageConstant.MATCHING_GROUP_JOIN_REQUESTED_SUCCESS));
     }
+
+    @Operation(
+        summary = "Duyệt thành viên xin vào nhóm",
+        description = "Cho phép Trưởng nhóm (Leader/Owner) phê duyệt yêu cầu tham gia nhóm ghép của thành viên đang ở trạng thái PENDING."
+    )
+    @PutMapping("/members/{memberId}/approve")
+    @PreAuthorize("hasRole('TREKKER')")
+    public ResponseEntity<ApiResponse<MatchingMemberResponse>> approveMember(
+            @Parameter(description = "UUID của bản ghi thành viên cần duyệt") @PathVariable UUID memberId,
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+        MatchingMemberResponse result = matchingGroupService.approveMember(memberId, userDetails);
+        return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, result, MessageConstant.MATCHING_MEMBER_APPROVED_SUCCESS));
+    }
 }

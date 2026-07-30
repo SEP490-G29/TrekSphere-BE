@@ -18,5 +18,7 @@ public interface MatchingGroupService {
     MatchingGroupDetailResponse createMatchingGroup(MatchingGroupCreateRequest request, CustomUserDetails userDetails);
 
     MatchingMemberResponse joinMatchingGroup(UUID groupId, CustomUserDetails userDetails);
+
+    MatchingMemberResponse approveMember(UUID memberId, CustomUserDetails userDetails);
 }
 

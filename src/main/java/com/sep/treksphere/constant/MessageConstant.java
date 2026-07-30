@@ -227,6 +227,11 @@ public class MessageConstant {
     public static final String MATCHING_GROUP_FULL = "Nhóm ghép bạn đồng hành đã đầy thành viên";
     public static final String ALREADY_MEMBER = "Bạn đã là thành viên của nhóm ghép này";
     public static final String JOIN_REQUEST_PENDING = "Yêu cầu gia nhập nhóm của bạn đang chờ duyệt";
+    public static final String MATCHING_MEMBER_NOT_FOUND = "Yêu cầu tham gia của thành viên không tồn tại";
+    public static final String UNAUTHORIZED_APPROVE_MEMBER = "Bạn không có quyền duyệt thành viên cho nhóm ghép này";
+    public static final String MEMBER_ALREADY_APPROVED = "Thành viên này đã được duyệt vào nhóm trước đó";
+    public static final String INVALID_MEMBER_STATUS = "Trạng thái yêu cầu của thành viên không hợp lệ để duyệt";
+    public static final String MATCHING_MEMBER_APPROVED_SUCCESS = "Duyệt thành viên vào nhóm ghép thành công";
 
     // Schedule Messages
     public static final String SCHEDULE_NOT_FOUND = "Lịch khởi hành không tồn tại";
