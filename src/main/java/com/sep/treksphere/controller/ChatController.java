@@ -2,6 +2,7 @@ package com.sep.treksphere.controller;
 
 import com.sep.treksphere.constant.MessageConstant;
 import com.sep.treksphere.dto.request.ConversationCreateRequest;
+import com.sep.treksphere.dto.request.MessageCreateRequest;
 import com.sep.treksphere.dto.response.ApiResponse;
 import com.sep.treksphere.dto.response.ConversationResponse;
 import com.sep.treksphere.dto.response.MessageResponse;
@@ -100,5 +101,25 @@ public class ChatController {
                 result,
                 MessageConstant.MESSAGES_FETCHED_SUCCESS
         ));
+    }
+
+    @Operation(
+            summary = "Gửi tin nhắn",
+            description = "Gửi tin nhắn mới vào một cuộc hội thoại mà người dùng đang tham gia."
+    )
+    @PostMapping("/messages")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<ApiResponse<MessageResponse>> sendMessage(
+            @Valid @RequestBody MessageCreateRequest request,
+            @AuthenticationPrincipal CustomUserDetails userDetails
+    ) {
+        MessageResponse result = conversationService.sendMessage(request, userDetails);
+
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(ApiResponse.success(
+                        HttpStatus.CREATED,
+                        result,
+                        MessageConstant.MESSAGE_SENT_SUCCESS
+                ));
     }
 }

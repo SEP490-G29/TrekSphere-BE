@@ -2,6 +2,7 @@ package com.sep.treksphere.service.impl;
 
 import com.sep.treksphere.constant.MessageConstant;
 import com.sep.treksphere.dto.request.ConversationCreateRequest;
+import com.sep.treksphere.dto.request.MessageCreateRequest;
 import com.sep.treksphere.dto.response.ConversationResponse;
 import com.sep.treksphere.dto.response.MessageResponse;
 import com.sep.treksphere.dto.response.PaginationResponse;
@@ -20,8 +21,11 @@ import com.sep.treksphere.service.ConversationService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -35,6 +39,7 @@ public class ConversationServiceImpl implements ConversationService {
     private final ConversationRepository conversationRepository;
     private final MessageRepository messageRepository;
     private final UserRepository userRepository;
+    private final SimpMessagingTemplate messagingTemplate;
 
     @Override
     @Transactional(readOnly = true)
@@ -133,6 +138,51 @@ public class ConversationServiceImpl implements ConversationService {
                 .totalPages(messagePage.getTotalPages())
                 .last(messagePage.isLast())
                 .build();
+    }
+
+    @Override
+    @Transactional
+    public MessageResponse sendMessage(
+            MessageCreateRequest request,
+            CustomUserDetails userDetails
+    ) {
+        User currentUser = userDetails.getUser();
+        Conversation conversation = conversationRepository
+                .findActiveConversationByIdAndParticipantId(
+                        request.getConversationId(),
+                        currentUser.getUserId()
+                )
+                .orElseThrow(() -> new AppException(ErrorCode.CONVERSATION_NOT_FOUND));
+
+        Message message = new Message();
+        message.setConversation(conversation);
+        message.setSender(currentUser);
+        message.setContent(request.getContent().trim());
+        message.setIsRead(false);
+
+        Message savedMessage = messageRepository.saveAndFlush(message);
+        conversation.setLastMessageAt(savedMessage.getCreatedAt());
+        conversationRepository.save(conversation);
+
+        MessageResponse response = toMessageResponse(savedMessage);
+        broadcastMessageAfterCommit(response);
+        return response;
+    }
+
+    private void broadcastMessageAfterCommit(MessageResponse response) {
+        TransactionSynchronizationManager.registerSynchronization(
+                new TransactionSynchronization() {
+                    @Override
+                    public void afterCommit() {
+                        messagingTemplate.convertAndSend(
+                                "/topic/chat/conversations/"
+                                        + response.getConversationId()
+                                        + "/messages",
+                                response
+                        );
+                    }
+                }
+        );
     }
 
     private void validateParticipantCount(ConversationType conversationType, int participantCount) {

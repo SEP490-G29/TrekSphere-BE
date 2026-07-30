@@ -1,6 +1,7 @@
 package com.sep.treksphere.service;
 
 import com.sep.treksphere.dto.request.ConversationCreateRequest;
+import com.sep.treksphere.dto.request.MessageCreateRequest;
 import com.sep.treksphere.dto.response.ConversationResponse;
 import com.sep.treksphere.dto.response.MessageResponse;
 import com.sep.treksphere.dto.response.PaginationResponse;
@@ -25,6 +26,11 @@ public interface ConversationService {
             UUID conversationId,
             int page,
             int size,
+            CustomUserDetails userDetails
+    );
+
+    MessageResponse sendMessage(
+            MessageCreateRequest request,
             CustomUserDetails userDetails
     );
 }
