@@ -214,6 +214,32 @@ public class MessageConstant {
     public static final String SOS_ALERT_NOT_FOUND = "Yêu cầu cứu hộ SOS không tồn tại";
     public static final String SOS_ALERT_ALREADY_RESOLVED = "Yêu cầu cứu hộ SOS đã được giải quyết trước đó";
     public static final String UNAUTHORIZED_RESOLVE_SOS = "Bạn không có quyền giải quyết yêu cầu cứu hộ SOS này";
+    public static final String MATCHING_GROUPS_FETCHED_SUCCESS = "Lấy danh sách nhóm ghép bạn đồng hành thành công";
+    public static final String MATCHING_GROUP_FETCHED_SUCCESS = "Lấy chi tiết nhóm ghép bạn đồng hành thành công";
+    public static final String MATCHING_GROUP_NOT_FOUND = "Nhóm ghép bạn đồng hành không tồn tại";
+    public static final String MATCHING_GROUP_CREATED_SUCCESS = "Tạo nhóm ghép bạn đồng hành thành công";
+    public static final String INVALID_TARGET_DATE = "Ngày đi mong muốn phải ở tương lai";
+    public static final String INVALID_DEADLINE = "Hạn chót ghép nhóm phải ở tương lai và trước hoặc trong ngày khởi hành";
+    public static final String ALREADY_HAS_ACTIVE_GROUP = "Bạn đang là trưởng nhóm của một nhóm ghép khác đang hoạt động";
+    public static final String MATCHING_GROUP_JOIN_REQUESTED_SUCCESS = "Gửi yêu cầu tham gia nhóm ghép bạn đồng hành thành công";
+    public static final String MATCHING_GROUP_NOT_OPEN = "Nhóm ghép không còn mở để xin gia nhập";
+    public static final String MATCHING_DEADLINE_PASSED = "Đã quá hạn chót ghép nhóm";
+    public static final String MATCHING_GROUP_FULL = "Nhóm ghép bạn đồng hành đã đầy thành viên";
+    public static final String ALREADY_MEMBER = "Bạn đã là thành viên của nhóm ghép này";
+    public static final String JOIN_REQUEST_PENDING = "Yêu cầu gia nhập nhóm của bạn đang chờ duyệt";
+    public static final String MATCHING_MEMBER_NOT_FOUND = "Yêu cầu tham gia của thành viên không tồn tại";
+    public static final String UNAUTHORIZED_APPROVE_MEMBER = "Bạn không có quyền duyệt thành viên cho nhóm ghép này";
+    public static final String MEMBER_ALREADY_APPROVED = "Thành viên này đã được duyệt vào nhóm trước đó";
+    public static final String INVALID_MEMBER_STATUS = "Trạng thái yêu cầu của thành viên không hợp lệ để duyệt";
+    public static final String MATCHING_MEMBER_APPROVED_SUCCESS = "Duyệt thành viên vào nhóm ghép thành công";
+    public static final String UNAUTHORIZED_REJECT_MEMBER = "Bạn không có quyền từ chối thành viên cho nhóm ghép này";
+    public static final String MEMBER_ALREADY_REJECTED = "Thành viên này đã bị từ chối trước đó";
+    public static final String MATCHING_MEMBER_REJECTED_SUCCESS = "Từ chối thành viên tham gia nhóm ghép thành công";
+    public static final String OWNER_CANNOT_LEAVE = "Trưởng nhóm không thể rời nhóm ghép, hãy sử dụng tính năng giải tán nhóm";
+    public static final String NOT_A_MEMBER = "Bạn không phải là thành viên hoạt động của nhóm ghép này";
+    public static final String MATCHING_MEMBER_LEFT_SUCCESS = "Rời khỏi nhóm ghép bạn đồng hành thành công";
+    public static final String UNAUTHORIZED_DISBAND_GROUP = "Bạn không có quyền giải tán nhóm ghép này";
+    public static final String MATCHING_GROUP_DISBANDED_SUCCESS = "Giải tán nhóm ghép bạn đồng hành thành công";
 
     // Schedule Messages
     public static final String SCHEDULE_NOT_FOUND = "Lịch khởi hành không tồn tại";
