@@ -346,6 +346,8 @@ public class MessageConstant {
     public static final String REVIEW_RATING_RANGE = "Điểm đánh giá phải từ 1 đến 5";
     public static final String REVIEW_BOOKING_REQUIRED = "Mã đơn đặt tour không được để trống";
     public static final String REVIEW_STATUS_REQUIRED_MSG = "Trạng thái đánh giá không được để trống";
+    // Chat Messages
+    public static final String CONVERSATIONS_FETCHED_SUCCESS = "Lấy danh sách cuộc hội thoại thành công";
 }
 
 
