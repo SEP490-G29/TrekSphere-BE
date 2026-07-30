@@ -349,6 +349,23 @@ public class MessageConstant {
     public static final String REVIEW_RATING_RANGE = "Điểm đánh giá phải từ 1 đến 5";
     public static final String REVIEW_BOOKING_REQUIRED = "Mã đơn đặt tour không được để trống";
     public static final String REVIEW_STATUS_REQUIRED_MSG = "Trạng thái đánh giá không được để trống";
+    // Chat Messages
+    public static final String CONVERSATIONS_FETCHED_SUCCESS = "Lấy danh sách cuộc hội thoại thành công";
+    public static final String CONVERSATION_CREATED_SUCCESS = "Tạo cuộc hội thoại thành công";
+    public static final String CONVERSATION_NOT_FOUND = "Cuộc hội thoại không tồn tại";
+    public static final String CONVERSATION_ALREADY_EXISTS = "Cuộc hội thoại 1-1 với người dùng này đã tồn tại";
+    public static final String MESSAGES_FETCHED_SUCCESS = "Lấy lịch sử tin nhắn thành công";
+    public static final String MESSAGE_SENT_SUCCESS = "Gửi tin nhắn thành công";
+    public static final String MESSAGES_MARKED_READ_SUCCESS = "Đánh dấu đã đọc tin nhắn thành công";
+    public static final String RECIPIENT_NOT_FOUND = "Người nhận tin nhắn không tồn tại";
+    public static final String CANNOT_CHAT_WITH_SELF = "Bạn không thể tạo cuộc hội thoại với chính mình";
+    public static final String CONVERSATION_TYPE_REQUIRED = "Loại cuộc hội thoại không được để trống";
+    public static final String CONVERSATION_PARTICIPANTS_REQUIRED = "Danh sách người tham gia không được để trống";
+    public static final String MESSAGE_CONVERSATION_ID_REQUIRED = "Mã cuộc hội thoại không được để trống";
+    public static final String MESSAGE_CONTENT_REQUIRED = "Nội dung tin nhắn không được để trống";
+    public static final String DIRECT_PARTICIPANT_COUNT_INVALID = "Cuộc hội thoại 1-1 phải có đúng một người nhận";
+    public static final String GROUP_PARTICIPANT_COUNT_INVALID = "Cuộc hội thoại nhóm phải có ít nhất hai người tham gia";
+    public static final String GROUP_TITLE_REQUIRED = "Tên cuộc hội thoại nhóm không được để trống";
 }
 
 
