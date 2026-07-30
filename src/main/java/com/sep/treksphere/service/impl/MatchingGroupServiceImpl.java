@@ -276,4 +276,53 @@ public class MatchingGroupServiceImpl implements MatchingGroupService {
 
         return matchingGroupMapper.toMemberResponse(savedMember);
     }
+
+    @Override
+    @Transactional
+    public MatchingMemberResponse leaveMatchingGroup(UUID groupId, CustomUserDetails userDetails) {
+        User currentUser = userDetails.getUser();
+        log.info("Request to leave matching group: groupId={}, userId={}", groupId, currentUser.getUserId());
+
+        MatchingGroup matchingGroup = matchingGroupRepository.findDetailById(groupId)
+                .orElseThrow(() -> new AppException(ErrorCode.MATCHING_GROUP_NOT_FOUND));
+
+        if (matchingGroup.getStatus() == MatchingGroupStatus.CLOSED || matchingGroup.getStatus() == MatchingGroupStatus.HIDDEN) {
+            throw new AppException(ErrorCode.MATCHING_GROUP_NOT_OPEN);
+        }
+
+        if (matchingGroup.getOwner().getUserId().equals(currentUser.getUserId())) {
+            throw new AppException(ErrorCode.OWNER_CANNOT_LEAVE);
+        }
+
+        MatchingMember member = matchingMemberRepository.findByMatchingGroupAndUser(matchingGroup, currentUser)
+                .orElseThrow(() -> new AppException(ErrorCode.NOT_A_MEMBER));
+
+        if (member.getStatus() == JoinStatus.LEFT || member.getStatus() == JoinStatus.REJECTED) {
+            throw new AppException(ErrorCode.NOT_A_MEMBER);
+        }
+
+        if (member.getStatus() == JoinStatus.ACCEPTED) {
+            member.setStatus(JoinStatus.LEFT);
+
+            long acceptedCount = matchingGroup.getMembers().stream()
+                    .filter(m -> m.getStatus() == JoinStatus.ACCEPTED && !Boolean.TRUE.equals(m.getIsDeleted()))
+                    .count();
+            int newSize = (int) (acceptedCount - 1);
+            if (newSize < 1) newSize = 1;
+            matchingGroup.setCurrentSize(newSize);
+
+            if (matchingGroup.getStatus() == MatchingGroupStatus.FULL) {
+                matchingGroup.setStatus(MatchingGroupStatus.OPEN);
+                log.info("Matching group is reopened (OPEN) because a member left: groupId={}", groupId);
+            }
+
+            matchingGroupRepository.save(matchingGroup);
+        } else if (member.getStatus() == JoinStatus.PENDING) {
+            member.setStatus(JoinStatus.LEFT);
+        }
+
+        MatchingMember savedMember = matchingMemberRepository.save(member);
+
+        return matchingGroupMapper.toMemberResponse(savedMember);
+    }
 }

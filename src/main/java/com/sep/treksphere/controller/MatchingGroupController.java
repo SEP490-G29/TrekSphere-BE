@@ -106,4 +106,17 @@ public class MatchingGroupController {
         MatchingMemberResponse result = matchingGroupService.rejectMember(memberId, userDetails);
         return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, result, MessageConstant.MATCHING_MEMBER_REJECTED_SUCCESS));
     }
+
+    @Operation(
+        summary = "Rời khỏi nhóm ghép hiện tại",
+        description = "Cho phép thành viên (ACCEPTED hoặc PENDING) rời khỏi nhóm ghép. Nếu trước đó nhóm đầy (FULL), nhóm sẽ tự động mở lại (OPEN) để tiếp tục ghép."
+    )
+    @PostMapping("/{groupId}/leave")
+    @PreAuthorize("hasRole('TREKKER')")
+    public ResponseEntity<ApiResponse<MatchingMemberResponse>> leaveMatchingGroup(
+            @Parameter(description = "UUID của nhóm ghép") @PathVariable UUID groupId,
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+        MatchingMemberResponse result = matchingGroupService.leaveMatchingGroup(groupId, userDetails);
+        return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, result, MessageConstant.MATCHING_MEMBER_LEFT_SUCCESS));
+    }
 }
