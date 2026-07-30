@@ -17,6 +17,7 @@ import com.sep.treksphere.exception.AppException;
 import com.sep.treksphere.exception.ErrorCode;
 import com.sep.treksphere.mapper.MatchingGroupMapper;
 import com.sep.treksphere.repository.MatchingGroupRepository;
+import com.sep.treksphere.repository.MatchingMemberRepository;
 import com.sep.treksphere.repository.TourRepository;
 import com.sep.treksphere.security.CustomUserDetails;
 import com.sep.treksphere.service.MatchingGroupService;
@@ -38,6 +39,7 @@ import java.util.UUID;
 public class MatchingGroupServiceImpl implements MatchingGroupService {
 
     private final MatchingGroupRepository matchingGroupRepository;
+    private final MatchingMemberRepository matchingMemberRepository;
     private final TourRepository tourRepository;
     private final MatchingGroupMapper matchingGroupMapper;
 
@@ -47,7 +49,6 @@ public class MatchingGroupServiceImpl implements MatchingGroupService {
         log.info("Fetching available matching groups with filters: tourId={}, targetDate={}",
                 filter.getTourId(), filter.getTargetDate());
 
-        // Tìm kiếm các nhóm ghép bạn đồng hành đang mở (OPEN) và chưa bị xóa
         Page<MatchingGroup> groups = matchingGroupRepository.findAvailableMatchingGroups(
                 MatchingGroupStatus.OPEN,
                 filter.getTourId(),
@@ -63,14 +64,11 @@ public class MatchingGroupServiceImpl implements MatchingGroupService {
     public MatchingGroupDetailResponse getMatchingGroupById(UUID id) {
         log.info("Fetching matching group detail: id={}", id);
 
-        // Tìm kiếm nhóm ghép theo ID (JOIN FETCH tour, owner, members)
         MatchingGroup matchingGroup = matchingGroupRepository.findDetailById(id)
                 .orElseThrow(() -> new AppException(ErrorCode.MATCHING_GROUP_NOT_FOUND));
 
-        // Ánh xạ thông tin cơ bản của nhóm ghép sang DTO (không bao gồm members)
         MatchingGroupDetailResponse response = matchingGroupMapper.toDetailResponse(matchingGroup);
 
-        // Lọc danh sách thành viên: Chỉ giữ lại các thành viên đã được ACCEPTED và chưa bị xóa mềm
         List<MatchingMemberResponse> acceptedMembers = matchingGroup.getMembers().stream()
                 .filter(member -> member.getStatus() == JoinStatus.ACCEPTED
                         && !Boolean.TRUE.equals(member.getIsDeleted()))
@@ -88,22 +86,18 @@ public class MatchingGroupServiceImpl implements MatchingGroupService {
         User currentUser = userDetails.getUser();
         log.info("Creating matching group: ownerId={}, groupName={}", currentUser.getUserId(), request.getGroupName());
 
-        // 1. Kiểm tra chống spam: xem user có đang là OWNER của nhóm ghép nào status OPEN hay chưa
         boolean hasActiveGroup = matchingGroupRepository.existsByOwnerAndStatusAndIsDeletedFalse(currentUser, MatchingGroupStatus.OPEN);
         if (hasActiveGroup) {
             throw new AppException(ErrorCode.ALREADY_HAS_ACTIVE_GROUP);
         }
 
-        // 2. Tìm Tour
         Tour tour = tourRepository.findByTourIdAndIsDeletedFalse(request.getTourId())
                 .orElseThrow(() -> new AppException(ErrorCode.TOUR_NOT_FOUND));
 
-        // 3. Kiểm tra ngày khởi hành dự kiến
         if (request.getTargetDate().isBefore(LocalDate.now()) || request.getTargetDate().isEqual(LocalDate.now())) {
             throw new AppException(ErrorCode.INVALID_TARGET_DATE);
         }
 
-        // 4. Kiểm tra deadline
         if (request.getMatchingDeadline().isBefore(LocalDateTime.now())) {
             throw new AppException(ErrorCode.INVALID_DEADLINE);
         }
@@ -111,7 +105,6 @@ public class MatchingGroupServiceImpl implements MatchingGroupService {
             throw new AppException(ErrorCode.INVALID_DEADLINE);
         }
 
-        // 5. Khởi tạo MatchingGroup
         MatchingGroup matchingGroup = new MatchingGroup();
         matchingGroup.setTour(tour);
         matchingGroup.setOwner(currentUser);
@@ -123,23 +116,18 @@ public class MatchingGroupServiceImpl implements MatchingGroupService {
         matchingGroup.setMatchingDeadline(request.getMatchingDeadline());
         matchingGroup.setStatus(MatchingGroupStatus.OPEN);
 
-        // 6. Tạo thành viên trưởng nhóm (OWNER)
         MatchingMember ownerMember = new MatchingMember();
         ownerMember.setMatchingGroup(matchingGroup);
         ownerMember.setUser(currentUser);
         ownerMember.setRole(MatchingRole.OWNER);
         ownerMember.setStatus(JoinStatus.ACCEPTED);
 
-        // Thêm vào list members của matchingGroup để JPA tự động cascade save
         matchingGroup.getMembers().add(ownerMember);
 
-        // 7. Lưu vào DB
         MatchingGroup savedGroup = matchingGroupRepository.save(matchingGroup);
 
-        // 8. Map kết quả trả về
         MatchingGroupDetailResponse response = matchingGroupMapper.toDetailResponse(savedGroup);
 
-        // Gán members của response (chỉ chứa chính owner vừa được tạo)
         List<MatchingMemberResponse> memberResponses = savedGroup.getMembers().stream()
                 .filter(m -> m.getStatus() == JoinStatus.ACCEPTED && !Boolean.TRUE.equals(m.getIsDeleted()))
                 .map(matchingGroupMapper::toMemberResponse)
@@ -147,5 +135,56 @@ public class MatchingGroupServiceImpl implements MatchingGroupService {
         response.setMembers(memberResponses);
 
         return response;
+    }
+
+    @Override
+    @Transactional
+    public MatchingMemberResponse joinMatchingGroup(UUID groupId, CustomUserDetails userDetails) {
+        User currentUser = userDetails.getUser();
+        log.info("Request to join matching group: groupId={}, userId={}", groupId, currentUser.getUserId());
+
+        MatchingGroup matchingGroup = matchingGroupRepository.findDetailById(groupId)
+                .orElseThrow(() -> new AppException(ErrorCode.MATCHING_GROUP_NOT_FOUND));
+
+        if (matchingGroup.getStatus() != MatchingGroupStatus.OPEN) {
+            throw new AppException(ErrorCode.MATCHING_GROUP_NOT_OPEN);
+        }
+
+        if (LocalDateTime.now().isAfter(matchingGroup.getMatchingDeadline())) {
+            throw new AppException(ErrorCode.MATCHING_DEADLINE_PASSED);
+        }
+
+        long acceptedCount = matchingGroup.getMembers().stream()
+                .filter(m -> m.getStatus() == JoinStatus.ACCEPTED && !Boolean.TRUE.equals(m.getIsDeleted()))
+                .count();
+        if (acceptedCount >= matchingGroup.getMaxSize()) {
+            throw new AppException(ErrorCode.MATCHING_GROUP_FULL);
+        }
+
+        MatchingMember member = matchingMemberRepository.findByMatchingGroupAndUser(matchingGroup, currentUser)
+                .map(existingMember -> {
+                    if (existingMember.getStatus() == JoinStatus.ACCEPTED) {
+                        throw new AppException(ErrorCode.ALREADY_MEMBER);
+                    }
+                    if (existingMember.getStatus() == JoinStatus.PENDING) {
+                        throw new AppException(ErrorCode.JOIN_REQUEST_PENDING);
+                    }
+                    existingMember.setStatus(JoinStatus.PENDING);
+                    existingMember.setIsDeleted(false);
+                    existingMember.setRole(MatchingRole.MEMBER);
+                    return existingMember;
+                })
+                .orElseGet(() -> {
+                    MatchingMember newMember = new MatchingMember();
+                    newMember.setMatchingGroup(matchingGroup);
+                    newMember.setUser(currentUser);
+                    newMember.setRole(MatchingRole.MEMBER);
+                    newMember.setStatus(JoinStatus.PENDING);
+                    return newMember;
+                });
+
+        MatchingMember savedMember = matchingMemberRepository.save(member);
+
+        return matchingGroupMapper.toMemberResponse(savedMember);
     }
 }

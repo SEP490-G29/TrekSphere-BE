@@ -221,6 +221,12 @@ public class MessageConstant {
     public static final String INVALID_TARGET_DATE = "Ngày đi mong muốn phải ở tương lai";
     public static final String INVALID_DEADLINE = "Hạn chót ghép nhóm phải ở tương lai và trước hoặc trong ngày khởi hành";
     public static final String ALREADY_HAS_ACTIVE_GROUP = "Bạn đang là trưởng nhóm của một nhóm ghép khác đang hoạt động";
+    public static final String MATCHING_GROUP_JOIN_REQUESTED_SUCCESS = "Gửi yêu cầu tham gia nhóm ghép bạn đồng hành thành công";
+    public static final String MATCHING_GROUP_NOT_OPEN = "Nhóm ghép không còn mở để xin gia nhập";
+    public static final String MATCHING_DEADLINE_PASSED = "Đã quá hạn chót ghép nhóm";
+    public static final String MATCHING_GROUP_FULL = "Nhóm ghép bạn đồng hành đã đầy thành viên";
+    public static final String ALREADY_MEMBER = "Bạn đã là thành viên của nhóm ghép này";
+    public static final String JOIN_REQUEST_PENDING = "Yêu cầu gia nhập nhóm của bạn đang chờ duyệt";
 
     // Schedule Messages
     public static final String SCHEDULE_NOT_FOUND = "Lịch khởi hành không tồn tại";
