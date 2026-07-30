@@ -276,6 +276,7 @@ public class MessageConstant {
 
     // Voucher Messages
     public static final String VOUCHER_NOT_FOUND = "Mã giảm giá không tồn tại";
+    public static final String VOUCHER_NOT_ACTIVE = "Mã giảm giá không hoạt động";
     public static final String VOUCHER_EXPIRED = "Mã giảm giá đã hết hạn hoặc chưa có hiệu lực";
     public static final String VOUCHER_MAX_USAGE_REACHED = "Mã giảm giá đã hết lượt sử dụng";
     public static final String VOUCHER_MIN_ORDER_VALUE_NOT_MET = "Đơn đặt tour chưa đạt giá trị tối thiểu để sử dụng mã giảm giá";
@@ -286,6 +287,8 @@ public class MessageConstant {
     public static final String VOUCHER_CREATED_SUCCESSFULLY = "Tạo mã giảm giá thành công";
     public static final String VOUCHER_UPDATED_SUCCESSFULLY = "Cập nhật mã giảm giá thành công";
     public static final String VOUCHER_DELETED_SUCCESSFULLY = "Hủy mã giảm giá thành công";
+    public static final String VOUCHER_NOT_YET_VALID = "Mã giảm giá chưa đến thời gian sử dụng";
+    public static final String VOUCHER_VALIDATION_SUCCESS = "Áp dụng mã giảm giá thành công!";
 
     public static final String VOUCHER_CODE_REQUIRED = "Mã voucher không được để trống";
     public static final String VOUCHER_DISCOUNT_TYPE_REQUIRED = "Loại giảm giá không được để trống";

@@ -9,6 +9,8 @@ import java.util.UUID;
 
 import com.sep.treksphere.dto.request.CreateVoucherRequest;
 import com.sep.treksphere.dto.request.UpdateVoucherRequest;
+import com.sep.treksphere.dto.request.ValidateVoucherRequest;
+import com.sep.treksphere.dto.response.VoucherValidationResponse;
 
 public interface VoucherService {
     Page<VoucherResponse> getVendorVouchers(UUID vendorId, PublicVoucherFilterRequest request);
@@ -20,4 +22,6 @@ public interface VoucherService {
     VoucherResponse updateVoucher(UUID userId, UUID voucherId, UpdateVoucherRequest request);
 
     void deleteVoucher(UUID userId, UUID voucherId);
+
+    VoucherValidationResponse validateVoucher(ValidateVoucherRequest request);
 }
