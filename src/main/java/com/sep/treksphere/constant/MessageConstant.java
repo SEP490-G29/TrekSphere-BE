@@ -280,6 +280,24 @@ public class MessageConstant {
     public static final String VOUCHER_MAX_USAGE_REACHED = "Mã giảm giá đã hết lượt sử dụng";
     public static final String VOUCHER_MIN_ORDER_VALUE_NOT_MET = "Đơn đặt tour chưa đạt giá trị tối thiểu để sử dụng mã giảm giá";
     public static final String VOUCHER_VENDOR_MISMATCH = "Mã giảm giá không thuộc nhà cung cấp của tour này";
+    public static final String VOUCHER_CODE_ALREADY_EXISTS = "Mã giảm giá đã tồn tại";
+    public static final String VOUCHER_VALID_DATE_ERROR = "Ngày bắt đầu phải nhỏ hơn ngày kết thúc";
+    public static final String INVALID_DISCOUNT_VALUE = "Giá trị giảm giá phần trăm không hợp lệ (phải <= 100)";
+    public static final String VOUCHER_CREATED_SUCCESSFULLY = "Tạo mã giảm giá thành công";
+    public static final String VOUCHER_UPDATED_SUCCESSFULLY = "Cập nhật mã giảm giá thành công";
+    public static final String VOUCHER_DELETED_SUCCESSFULLY = "Hủy mã giảm giá thành công";
+
+    public static final String VOUCHER_CODE_REQUIRED = "Mã voucher không được để trống";
+    public static final String VOUCHER_DISCOUNT_TYPE_REQUIRED = "Loại giảm giá không được để trống";
+    public static final String VOUCHER_DISCOUNT_VALUE_REQUIRED = "Giá trị giảm không được để trống";
+    public static final String VOUCHER_DISCOUNT_VALUE_MIN = "Giá trị giảm phải lớn hơn hoặc bằng 0";
+    public static final String VOUCHER_MIN_ORDER_VALUE_MIN = "Giá trị đơn hàng tối thiểu phải lớn hơn hoặc bằng 0";
+    public static final String VOUCHER_MAX_USAGE_REQUIRED = "Số lượng giới hạn không được để trống";
+    public static final String VOUCHER_MAX_USAGE_MIN = "Số lượng giới hạn phải lớn hơn 0";
+    public static final String VOUCHER_VALID_FROM_REQUIRED = "Ngày bắt đầu không được để trống";
+    public static final String VOUCHER_VALID_FROM_FUTURE = "Ngày bắt đầu phải từ hiện tại trở đi";
+    public static final String VOUCHER_VALID_UNTIL_REQUIRED = "Ngày kết thúc không được để trống";
+    public static final String VOUCHER_VALID_UNTIL_FUTURE = "Ngày kết thúc phải từ hiện tại trở đi";
 
     // Booking Validation Messages
     public static final String BOOKING_FULL_NAME_REQUIRED = "Họ tên người tham gia không được để trống";

@@ -26,7 +26,7 @@ import java.util.UUID;
 @RestController
 @RequestMapping("/api/v1/vouchers")
 @RequiredArgsConstructor
-@Tag(name = "12. Public Vouchers", description = "APIs for public users to interact with vouchers")
+@Tag(name = "Public Vouchers")
 public class PublicVoucherController {
 
     private final VoucherService voucherService;
