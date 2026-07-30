@@ -325,4 +325,28 @@ public class MatchingGroupServiceImpl implements MatchingGroupService {
 
         return matchingGroupMapper.toMemberResponse(savedMember);
     }
+
+    @Override
+    @Transactional
+    public void disbandMatchingGroup(UUID groupId, CustomUserDetails userDetails) {
+        User currentUser = userDetails.getUser();
+        log.info("Request to disband matching group: groupId={}, userId={}", groupId, currentUser.getUserId());
+
+        MatchingGroup matchingGroup = matchingGroupRepository.findDetailById(groupId)
+                .orElseThrow(() -> new AppException(ErrorCode.MATCHING_GROUP_NOT_FOUND));
+
+        if (!matchingGroup.getOwner().getUserId().equals(currentUser.getUserId())) {
+            throw new AppException(ErrorCode.UNAUTHORIZED_DISBAND_GROUP);
+        }
+
+        matchingGroup.setIsDeleted(true);
+        matchingGroup.setStatus(MatchingGroupStatus.CLOSED);
+
+        if (matchingGroup.getMembers() != null) {
+            matchingGroup.getMembers().forEach(member -> member.setIsDeleted(true));
+        }
+
+        matchingGroupRepository.save(matchingGroup);
+        log.info("Matching group disbanded successfully: groupId={}", groupId);
+    }
 }

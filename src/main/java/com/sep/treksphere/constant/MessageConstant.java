@@ -238,6 +238,8 @@ public class MessageConstant {
     public static final String OWNER_CANNOT_LEAVE = "Trưởng nhóm không thể rời nhóm ghép, hãy sử dụng tính năng giải tán nhóm";
     public static final String NOT_A_MEMBER = "Bạn không phải là thành viên hoạt động của nhóm ghép này";
     public static final String MATCHING_MEMBER_LEFT_SUCCESS = "Rời khỏi nhóm ghép bạn đồng hành thành công";
+    public static final String UNAUTHORIZED_DISBAND_GROUP = "Bạn không có quyền giải tán nhóm ghép này";
+    public static final String MATCHING_GROUP_DISBANDED_SUCCESS = "Giải tán nhóm ghép bạn đồng hành thành công";
 
     // Schedule Messages
     public static final String SCHEDULE_NOT_FOUND = "Lịch khởi hành không tồn tại";

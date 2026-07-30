@@ -119,4 +119,17 @@ public class MatchingGroupController {
         MatchingMemberResponse result = matchingGroupService.leaveMatchingGroup(groupId, userDetails);
         return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, result, MessageConstant.MATCHING_MEMBER_LEFT_SUCCESS));
     }
+
+    @Operation(
+        summary = "Giải tán/Ẩn nhóm ghép",
+        description = "Cho phép Trưởng nhóm (Leader/Owner) giải tán nhóm ghép bạn đồng hành. Hệ thống sẽ ẩn nhóm và các thành viên bằng cơ chế soft-delete."
+    )
+    @DeleteMapping("/{groupId}")
+    @PreAuthorize("hasRole('TREKKER')")
+    public ResponseEntity<ApiResponse<Void>> disbandMatchingGroup(
+            @Parameter(description = "UUID của nhóm ghép") @PathVariable UUID groupId,
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+        matchingGroupService.disbandMatchingGroup(groupId, userDetails);
+        return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, null, MessageConstant.MATCHING_GROUP_DISBANDED_SUCCESS));
+    }
 }

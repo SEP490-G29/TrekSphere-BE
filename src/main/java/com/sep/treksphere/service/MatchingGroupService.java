@@ -24,5 +24,7 @@ public interface MatchingGroupService {
     MatchingMemberResponse rejectMember(UUID memberId, CustomUserDetails userDetails);
 
     MatchingMemberResponse leaveMatchingGroup(UUID groupId, CustomUserDetails userDetails);
+
+    void disbandMatchingGroup(UUID groupId, CustomUserDetails userDetails);
 }
 
