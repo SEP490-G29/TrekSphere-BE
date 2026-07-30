@@ -1,13 +1,19 @@
 package com.sep.treksphere.service.impl;
 
+import com.sep.treksphere.constant.MessageConstant;
+import com.sep.treksphere.dto.request.ConversationCreateRequest;
 import com.sep.treksphere.dto.response.ConversationResponse;
 import com.sep.treksphere.dto.response.PaginationResponse;
 import com.sep.treksphere.entity.Conversation;
 import com.sep.treksphere.entity.Message;
 import com.sep.treksphere.entity.User;
 import com.sep.treksphere.enums.chat.ConversationType;
+import com.sep.treksphere.enums.user.UserStatus;
+import com.sep.treksphere.exception.AppException;
+import com.sep.treksphere.exception.ErrorCode;
 import com.sep.treksphere.repository.ConversationRepository;
 import com.sep.treksphere.repository.MessageRepository;
+import com.sep.treksphere.repository.UserRepository;
 import com.sep.treksphere.security.CustomUserDetails;
 import com.sep.treksphere.service.ConversationService;
 import lombok.RequiredArgsConstructor;
@@ -16,6 +22,9 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 
 @Service
@@ -24,6 +33,7 @@ public class ConversationServiceImpl implements ConversationService {
 
     private final ConversationRepository conversationRepository;
     private final MessageRepository messageRepository;
+    private final UserRepository userRepository;
 
     @Override
     @Transactional(readOnly = true)
@@ -47,6 +57,104 @@ public class ConversationServiceImpl implements ConversationService {
                 .totalElements(conversationPage.getTotalElements())
                 .totalPages(conversationPage.getTotalPages())
                 .last(conversationPage.isLast())
+                .build();
+    }
+
+    @Override
+    @Transactional
+    public ConversationResponse createConversation(
+            ConversationCreateRequest request,
+            CustomUserDetails userDetails
+    ) {
+        User currentUser = userDetails.getUser();
+        UUID currentUserId = currentUser.getUserId();
+        Set<UUID> participantIds = new LinkedHashSet<>(request.getParticipantIds());
+
+        if (participantIds.contains(currentUserId)) {
+            throw new AppException(ErrorCode.CANNOT_CHAT_WITH_SELF);
+        }
+
+        validateParticipantCount(request.getConversationType(), participantIds.size());
+        String title = validateAndNormalizeTitle(request);
+
+        List<User> participants = userRepository.findAllByUserIdInAndStatusAndIsDeletedFalse(
+                participantIds,
+                UserStatus.ACTIVE
+        );
+        if (participants.size() != participantIds.size()) {
+            throw new AppException(ErrorCode.RECIPIENT_NOT_FOUND);
+        }
+
+        if (request.getConversationType() == ConversationType.DIRECT) {
+            UUID recipientId = participantIds.iterator().next();
+            if (conversationRepository.findDirectConversation(currentUserId, recipientId).isPresent()) {
+                throw new AppException(ErrorCode.CONVERSATION_ALREADY_EXISTS);
+            }
+        }
+
+        Conversation conversation = new Conversation();
+        conversation.setConversationType(request.getConversationType());
+        conversation.setTitle(title);
+        conversation.getParticipants().add(currentUser);
+        conversation.getParticipants().addAll(participants);
+
+        Conversation savedConversation = conversationRepository.save(conversation);
+        return toCreatedConversationResponse(savedConversation, currentUserId);
+    }
+
+    private void validateParticipantCount(ConversationType conversationType, int participantCount) {
+        if (conversationType == ConversationType.DIRECT && participantCount != 1) {
+            throw new AppException(
+                    ErrorCode.VALIDATION_ERROR,
+                    MessageConstant.DIRECT_PARTICIPANT_COUNT_INVALID
+            );
+        }
+
+        if (conversationType == ConversationType.GROUP && participantCount < 2) {
+            throw new AppException(
+                    ErrorCode.VALIDATION_ERROR,
+                    MessageConstant.GROUP_PARTICIPANT_COUNT_INVALID
+            );
+        }
+    }
+
+    private String validateAndNormalizeTitle(ConversationCreateRequest request) {
+        if (request.getConversationType() == ConversationType.DIRECT) {
+            return null;
+        }
+
+        if (request.getTitle() == null || request.getTitle().isBlank()) {
+            throw new AppException(
+                    ErrorCode.VALIDATION_ERROR,
+                    MessageConstant.GROUP_TITLE_REQUIRED
+            );
+        }
+        return request.getTitle().trim();
+    }
+
+    private ConversationResponse toCreatedConversationResponse(
+            Conversation conversation,
+            UUID currentUserId
+    ) {
+        User otherParticipant = conversation.getConversationType() == ConversationType.DIRECT
+                ? conversation.getParticipants().stream()
+                        .filter(participant -> !participant.getUserId().equals(currentUserId))
+                        .findFirst()
+                        .orElse(null)
+                : null;
+
+        return ConversationResponse.builder()
+                .conversationId(conversation.getConversationId())
+                .title(otherParticipant != null
+                        ? otherParticipant.getFullName()
+                        : conversation.getTitle())
+                .avatarUrl(otherParticipant != null
+                        ? otherParticipant.getAvatarUrl()
+                        : null)
+                .conversationType(conversation.getConversationType())
+                .lastMessageAt(null)
+                .lastMessageContent(null)
+                .unreadCount(0L)
                 .build();
     }
 

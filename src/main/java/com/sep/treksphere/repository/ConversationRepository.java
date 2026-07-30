@@ -8,6 +8,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.util.Optional;
 import java.util.UUID;
 
 @Repository
@@ -24,5 +25,20 @@ public interface ConversationRepository extends JpaRepository<Conversation, UUID
     Page<Conversation> findActiveConversationsByUserId(
             @Param("userId") UUID userId,
             Pageable pageable
+    );
+
+    @Query("""
+            SELECT DISTINCT c
+            FROM Conversation c
+            JOIN c.participants firstParticipant
+            JOIN c.participants secondParticipant
+            WHERE c.conversationType = com.sep.treksphere.enums.chat.ConversationType.DIRECT
+              AND c.isDeleted = false
+              AND firstParticipant.userId = :firstUserId
+              AND secondParticipant.userId = :secondUserId
+            """)
+    Optional<Conversation> findDirectConversation(
+            @Param("firstUserId") UUID firstUserId,
+            @Param("secondUserId") UUID secondUserId
     );
 }

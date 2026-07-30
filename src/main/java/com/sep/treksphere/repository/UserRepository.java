@@ -10,6 +10,8 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.util.Optional;
+import java.util.Collection;
+import java.util.List;
 import com.sep.treksphere.enums.user.UserStatus;
 import java.util.UUID;
 
@@ -20,6 +22,11 @@ public interface UserRepository extends JpaRepository<User, UUID> {
     Optional<User> findByEmail(String email);
     
     boolean existsByEmail(String email);
+
+    List<User> findAllByUserIdInAndStatusAndIsDeletedFalse(
+            Collection<UUID> userIds,
+            UserStatus status
+    );
 
     @Query("SELECT DISTINCT u FROM User u LEFT JOIN u.roles r " +
            "WHERE u.isDeleted = false " +
