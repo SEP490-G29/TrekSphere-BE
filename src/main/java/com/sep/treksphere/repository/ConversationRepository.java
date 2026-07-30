@@ -41,4 +41,17 @@ public interface ConversationRepository extends JpaRepository<Conversation, UUID
             @Param("firstUserId") UUID firstUserId,
             @Param("secondUserId") UUID secondUserId
     );
+
+    @Query("""
+            SELECT c
+            FROM Conversation c
+            JOIN c.participants participant
+            WHERE c.conversationId = :conversationId
+              AND participant.userId = :userId
+              AND c.isDeleted = false
+            """)
+    Optional<Conversation> findActiveConversationByIdAndParticipantId(
+            @Param("conversationId") UUID conversationId,
+            @Param("userId") UUID userId
+    );
 }

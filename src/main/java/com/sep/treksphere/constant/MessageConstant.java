@@ -349,7 +349,9 @@ public class MessageConstant {
     // Chat Messages
     public static final String CONVERSATIONS_FETCHED_SUCCESS = "Lấy danh sách cuộc hội thoại thành công";
     public static final String CONVERSATION_CREATED_SUCCESS = "Tạo cuộc hội thoại thành công";
+    public static final String CONVERSATION_NOT_FOUND = "Cuộc hội thoại không tồn tại";
     public static final String CONVERSATION_ALREADY_EXISTS = "Cuộc hội thoại 1-1 với người dùng này đã tồn tại";
+    public static final String MESSAGES_FETCHED_SUCCESS = "Lấy lịch sử tin nhắn thành công";
     public static final String RECIPIENT_NOT_FOUND = "Người nhận tin nhắn không tồn tại";
     public static final String CANNOT_CHAT_WITH_SELF = "Bạn không thể tạo cuộc hội thoại với chính mình";
     public static final String CONVERSATION_TYPE_REQUIRED = "Loại cuộc hội thoại không được để trống";

@@ -3,6 +3,7 @@ package com.sep.treksphere.service.impl;
 import com.sep.treksphere.constant.MessageConstant;
 import com.sep.treksphere.dto.request.ConversationCreateRequest;
 import com.sep.treksphere.dto.response.ConversationResponse;
+import com.sep.treksphere.dto.response.MessageResponse;
 import com.sep.treksphere.dto.response.PaginationResponse;
 import com.sep.treksphere.entity.Conversation;
 import com.sep.treksphere.entity.Message;
@@ -102,6 +103,38 @@ public class ConversationServiceImpl implements ConversationService {
         return toCreatedConversationResponse(savedConversation, currentUserId);
     }
 
+    @Override
+    @Transactional(readOnly = true)
+    public PaginationResponse<MessageResponse> getMessages(
+            UUID conversationId,
+            int page,
+            int size,
+            CustomUserDetails userDetails
+    ) {
+        UUID currentUserId = userDetails.getUser().getUserId();
+        conversationRepository.findActiveConversationByIdAndParticipantId(
+                conversationId,
+                currentUserId
+        ).orElseThrow(() -> new AppException(ErrorCode.CONVERSATION_NOT_FOUND));
+
+        Page<Message> messagePage =
+                messageRepository.findByConversationConversationIdAndIsDeletedFalseOrderByCreatedAtDesc(
+                        conversationId,
+                        PageRequest.of(page - 1, size)
+                );
+
+        return PaginationResponse.<MessageResponse>builder()
+                .content(messagePage.getContent().stream()
+                        .map(this::toMessageResponse)
+                        .toList())
+                .pageNumber(messagePage.getNumber() + 1)
+                .pageSize(messagePage.getSize())
+                .totalElements(messagePage.getTotalElements())
+                .totalPages(messagePage.getTotalPages())
+                .last(messagePage.isLast())
+                .build();
+    }
+
     private void validateParticipantCount(ConversationType conversationType, int participantCount) {
         if (conversationType == ConversationType.DIRECT && participantCount != 1) {
             throw new AppException(
@@ -155,6 +188,21 @@ public class ConversationServiceImpl implements ConversationService {
                 .lastMessageAt(null)
                 .lastMessageContent(null)
                 .unreadCount(0L)
+                .build();
+    }
+
+    private MessageResponse toMessageResponse(Message message) {
+        User sender = message.getSender();
+
+        return MessageResponse.builder()
+                .messageId(message.getMessageId())
+                .conversationId(message.getConversation().getConversationId())
+                .senderId(sender.getUserId())
+                .senderName(sender.getFullName())
+                .senderAvatarUrl(sender.getAvatarUrl())
+                .content(message.getContent())
+                .isRead(message.getIsRead())
+                .createdAt(message.getCreatedAt())
                 .build();
     }
 
