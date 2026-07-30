@@ -212,10 +212,10 @@ public class LogisticsAllocationServiceImpl implements LogisticsAllocationServic
             throw new AppException(ErrorCode.TOUR_SESSION_ALREADY_STARTED);
         }
 
-        LocalDateTime departureDateTime = schedule.getTourSession().getTourSchedule().getDepartureDate().atStartOfDay();
-        if (LocalDateTime.now().plusDays(1).isAfter(departureDateTime)) {
-            throw new AppException(ErrorCode.CANCEL_TOO_CLOSE_TO_DEPARTURE);
-        }
+        // LocalDateTime departureDateTime = schedule.getTourSession().getTourSchedule().getDepartureDate().atStartOfDay();
+        // if (LocalDateTime.now().plusDays(1).isAfter(departureDateTime)) {
+        //     throw new AppException(ErrorCode.CANCEL_TOO_CLOSE_TO_DEPARTURE);
+        // }
 
         schedule.setIsDeleted(true);
         schedule.setDeletedAt(LocalDateTime.now());
@@ -335,10 +335,10 @@ public class LogisticsAllocationServiceImpl implements LogisticsAllocationServic
             throw new AppException(ErrorCode.UNAUTHORIZED_STAFF_ACCESS);
         }
 
-        LocalDateTime departureDateTime = schedule.getTourSession().getTourSchedule().getDepartureDate().atStartOfDay();
-        if (LocalDateTime.now().plusDays(1).isAfter(departureDateTime)) {
-            throw new AppException(ErrorCode.CANCEL_TOO_CLOSE_TO_DEPARTURE);
-        }
+        // LocalDateTime departureDateTime = schedule.getTourSession().getTourSchedule().getDepartureDate().atStartOfDay();
+        // if (LocalDateTime.now().plusDays(1).isAfter(departureDateTime)) {
+        //     throw new AppException(ErrorCode.CANCEL_TOO_CLOSE_TO_DEPARTURE);
+        // }
 
         if (schedule.getTourSession().getStatus() != TourSessionStatus.PENDING) {
             throw new AppException(ErrorCode.TOUR_SESSION_ALREADY_STARTED);
