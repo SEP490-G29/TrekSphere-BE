@@ -353,6 +353,7 @@ public class MessageConstant {
     public static final String CONVERSATION_ALREADY_EXISTS = "Cuộc hội thoại 1-1 với người dùng này đã tồn tại";
     public static final String MESSAGES_FETCHED_SUCCESS = "Lấy lịch sử tin nhắn thành công";
     public static final String MESSAGE_SENT_SUCCESS = "Gửi tin nhắn thành công";
+    public static final String MESSAGES_MARKED_READ_SUCCESS = "Đánh dấu đã đọc tin nhắn thành công";
     public static final String RECIPIENT_NOT_FOUND = "Người nhận tin nhắn không tồn tại";
     public static final String CANNOT_CHAT_WITH_SELF = "Bạn không thể tạo cuộc hội thoại với chính mình";
     public static final String CONVERSATION_TYPE_REQUIRED = "Loại cuộc hội thoại không được để trống";

@@ -169,6 +169,21 @@ public class ConversationServiceImpl implements ConversationService {
         return response;
     }
 
+    @Override
+    @Transactional
+    public void markMessagesAsRead(
+            UUID conversationId,
+            CustomUserDetails userDetails
+    ) {
+        UUID currentUserId = userDetails.getUser().getUserId();
+        conversationRepository.findActiveConversationByIdAndParticipantId(
+                conversationId,
+                currentUserId
+        ).orElseThrow(() -> new AppException(ErrorCode.CONVERSATION_NOT_FOUND));
+
+        messageRepository.markMessagesAsRead(conversationId, currentUserId);
+    }
+
     private void broadcastMessageAfterCommit(MessageResponse response) {
         TransactionSynchronizationManager.registerSynchronization(
                 new TransactionSynchronization() {

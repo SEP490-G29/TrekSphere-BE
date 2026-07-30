@@ -33,4 +33,9 @@ public interface ConversationService {
             MessageCreateRequest request,
             CustomUserDetails userDetails
     );
+
+    void markMessagesAsRead(
+            UUID conversationId,
+            CustomUserDetails userDetails
+    );
 }

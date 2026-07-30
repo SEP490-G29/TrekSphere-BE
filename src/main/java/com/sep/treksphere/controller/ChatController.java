@@ -21,6 +21,7 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -121,5 +122,24 @@ public class ChatController {
                         result,
                         MessageConstant.MESSAGE_SENT_SUCCESS
                 ));
+    }
+
+    @Operation(
+            summary = "Đánh dấu tin nhắn đã đọc",
+            description = "Đánh dấu tất cả tin nhắn chưa đọc do người khác gửi trong cuộc hội thoại là đã đọc."
+    )
+    @PutMapping("/conversations/{id}/read")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<ApiResponse<Void>> markMessagesAsRead(
+            @PathVariable UUID id,
+            @AuthenticationPrincipal CustomUserDetails userDetails
+    ) {
+        conversationService.markMessagesAsRead(id, userDetails);
+
+        return ResponseEntity.ok(ApiResponse.success(
+                HttpStatus.OK,
+                null,
+                MessageConstant.MESSAGES_MARKED_READ_SUCCESS
+        ));
     }
 }
