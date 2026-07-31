@@ -8,6 +8,7 @@ import com.sep.treksphere.dto.response.MatchingGroupDetailResponse;
 import com.sep.treksphere.dto.response.MatchingGroupResponse;
 import com.sep.treksphere.dto.response.MatchingMemberResponse;
 import com.sep.treksphere.dto.response.PaginationResponse;
+import com.sep.treksphere.enums.matching.JoinStatus;
 import com.sep.treksphere.security.CustomUserDetails;
 import com.sep.treksphere.service.MatchingGroupService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -82,6 +83,27 @@ public class MatchingGroupController {
     }
 
     @Operation(
+        summary = "Lấy danh sách yêu cầu tham gia nhóm ghép",
+        description = "Cho phép Trưởng nhóm (Owner) xem danh sách yêu cầu tham gia của một nhóm cụ thể để duyệt hoặc từ chối."
+    )
+    @GetMapping("/{groupId}/join-requests")
+    @PreAuthorize("hasRole('TREKKER')")
+    public ResponseEntity<ApiResponse<PaginationResponse<MatchingMemberResponse>>> getJoinRequests(
+            @Parameter(description = "UUID của nhóm ghép") @PathVariable UUID groupId,
+            @RequestParam(defaultValue = "PENDING") JoinStatus status,
+            @RequestParam(defaultValue = "1") int page,
+            @RequestParam(defaultValue = "10") int size,
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+        PaginationResponse<MatchingMemberResponse> result =
+                matchingGroupService.getJoinRequests(groupId, status, page, size, userDetails);
+        return ResponseEntity.ok(ApiResponse.success(
+                HttpStatus.OK,
+                result,
+                MessageConstant.MATCHING_JOIN_REQUESTS_FETCHED_SUCCESS
+        ));
+    }
+
+    @Operation(
         summary = "Duyệt thành viên xin vào nhóm",
         description = "Cho phép Trưởng nhóm (Leader/Owner) phê duyệt yêu cầu tham gia nhóm ghép của thành viên đang ở trạng thái PENDING."
     )
@@ -121,8 +143,8 @@ public class MatchingGroupController {
     }
 
     @Operation(
-        summary = "Giải tán/Ẩn nhóm ghép",
-        description = "Cho phép Trưởng nhóm (Leader/Owner) giải tán nhóm ghép bạn đồng hành. Hệ thống sẽ ẩn nhóm và các thành viên bằng cơ chế soft-delete."
+        summary = "Giải tán nhóm ghép",
+        description = "Cho phép Trưởng nhóm (Owner) giải tán nhóm ghép bạn đồng hành. Hệ thống sẽ ẩn nhóm và các thành viên bằng cơ chế soft-delete."
     )
     @DeleteMapping("/{groupId}")
     @PreAuthorize("hasRole('TREKKER')")

@@ -25,6 +25,8 @@ import com.sep.treksphere.utils.PaginationUtils;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -186,6 +188,34 @@ public class MatchingGroupServiceImpl implements MatchingGroupService {
         MatchingMember savedMember = matchingMemberRepository.save(member);
 
         return matchingGroupMapper.toMemberResponse(savedMember);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public PaginationResponse<MatchingMemberResponse> getJoinRequests(
+            UUID groupId,
+            JoinStatus status,
+            int page,
+            int size,
+            CustomUserDetails userDetails
+    ) {
+        User currentUser = userDetails.getUser();
+        log.info("Fetching matching group join requests: groupId={}, status={}, requesterId={}",
+                groupId, status, currentUser.getUserId());
+
+        MatchingGroup matchingGroup = matchingGroupRepository.findWithOwnerById(groupId)
+                .orElseThrow(() -> new AppException(ErrorCode.MATCHING_GROUP_NOT_FOUND));
+
+        if (!matchingGroup.getOwner().getUserId().equals(currentUser.getUserId())) {
+            throw new AppException(ErrorCode.UNAUTHORIZED_VIEW_JOIN_REQUESTS);
+        }
+
+        Pageable pageable = PageRequest.of(Math.max(page - 1, 0), size);
+        Page<MatchingMemberResponse> joinRequests = matchingMemberRepository
+                .findJoinRequests(groupId, status, pageable)
+                .map(matchingGroupMapper::toMemberResponse);
+
+        return PaginationUtils.toPaginationResponse(joinRequests);
     }
 
     @Override
