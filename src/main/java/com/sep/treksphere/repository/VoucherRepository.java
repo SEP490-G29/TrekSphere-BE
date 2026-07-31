@@ -17,15 +17,19 @@ import java.util.UUID;
 @Repository
 public interface VoucherRepository extends JpaRepository<Voucher, UUID> {
     Optional<Voucher> findByCodeAndIsDeletedFalse(String code);
+    boolean existsByCodeAndIsDeletedFalse(String code);
 
     Page<Voucher> findByVendor_VendorIdAndStatusAndIsDeletedFalse(UUID vendorId, VoucherStatus status, Pageable pageable);
 
     Page<Voucher> findByVendor_VendorIdAndIsDeletedFalse(UUID vendorId, Pageable pageable);
 
+    Optional<Voucher> findByVoucherIdAndVendor_VendorIdAndIsDeletedFalse(UUID voucherId, UUID vendorId);
+
+    Optional<Voucher> findByVoucherIdAndVendor_VendorId(UUID voucherId, UUID vendorId);
+
     @Query("""
             SELECT v FROM Voucher v
-            WHERE v.isDeleted = false
-              AND v.vendor.vendorId = :vendorId
+            WHERE v.vendor.vendorId = :vendorId
               AND (CAST(:keyword AS string) IS NULL 
                    OR LOWER(v.code) LIKE LOWER(CONCAT('%', CAST(:keyword AS string), '%')))
               AND (:discountType IS NULL OR v.discountType = :discountType)

@@ -51,5 +51,13 @@ public interface MatchingGroupRepository extends JpaRepository<MatchingGroup, UU
           AND mg.isDeleted = false
     """)
     Optional<MatchingGroup> findDetailById(@Param("id") UUID id);
+
+    @Query("""
+        SELECT mg FROM MatchingGroup mg
+        JOIN FETCH mg.owner o
+        WHERE mg.matchingGroupId = :id
+          AND mg.isDeleted = false
+    """)
+    Optional<MatchingGroup> findWithOwnerById(@Param("id") UUID id);
 }
 

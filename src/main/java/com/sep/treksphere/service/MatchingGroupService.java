@@ -6,6 +6,7 @@ import com.sep.treksphere.dto.response.MatchingGroupDetailResponse;
 import com.sep.treksphere.dto.response.MatchingGroupResponse;
 import com.sep.treksphere.dto.response.MatchingMemberResponse;
 import com.sep.treksphere.dto.response.PaginationResponse;
+import com.sep.treksphere.enums.matching.JoinStatus;
 import com.sep.treksphere.security.CustomUserDetails;
 
 import java.util.UUID;
@@ -18,6 +19,14 @@ public interface MatchingGroupService {
     MatchingGroupDetailResponse createMatchingGroup(MatchingGroupCreateRequest request, CustomUserDetails userDetails);
 
     MatchingMemberResponse joinMatchingGroup(UUID groupId, CustomUserDetails userDetails);
+
+    PaginationResponse<MatchingMemberResponse> getJoinRequests(
+            UUID groupId,
+            JoinStatus status,
+            int page,
+            int size,
+            CustomUserDetails userDetails
+    );
 
     MatchingMemberResponse approveMember(UUID memberId, CustomUserDetails userDetails);
 
