@@ -1,32 +1,35 @@
 package com.sep.treksphere.controller;
 
+import com.sep.treksphere.dto.request.PublicVoucherFilterRequest;
+import com.sep.treksphere.dto.request.ValidateVoucherRequest;
 import com.sep.treksphere.dto.response.ApiResponse;
 import com.sep.treksphere.dto.response.PaginationResponse;
 import com.sep.treksphere.dto.response.VoucherResponse;
+import com.sep.treksphere.dto.response.VoucherValidationResponse;
 import com.sep.treksphere.service.VoucherService;
+import com.sep.treksphere.utils.PaginationUtils;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-import com.sep.treksphere.utils.PaginationUtils;
+import org.springdoc.core.annotations.ParameterObject;
 import org.springframework.data.domain.Page;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
-import org.springframework.web.bind.annotation.ModelAttribute;
-
-import jakarta.validation.Valid;
-import org.springdoc.core.annotations.ParameterObject;
-import com.sep.treksphere.dto.request.PublicVoucherFilterRequest;
 
 import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/v1/vouchers")
 @RequiredArgsConstructor
-@Tag(name = "12. Public Vouchers", description = "APIs for public users to interact with vouchers")
+@Tag(name = "Public Vouchers")
 public class PublicVoucherController {
 
     private final VoucherService voucherService;
@@ -38,5 +41,13 @@ public class PublicVoucherController {
             @Valid @ParameterObject @ModelAttribute PublicVoucherFilterRequest request) {
         Page<VoucherResponse> voucherPage = voucherService.getVendorVouchers(vendorId, request);
         return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, PaginationUtils.toPaginationResponse(voucherPage)));
+    }
+
+    @Operation(summary = "Validate voucher code before checkout")
+    @PostMapping("/validate")
+    public ResponseEntity<ApiResponse<VoucherValidationResponse>> validateVoucher(
+            @Valid @RequestBody ValidateVoucherRequest request) {
+        VoucherValidationResponse response = voucherService.validateVoucher(request);
+        return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, response));
     }
 }

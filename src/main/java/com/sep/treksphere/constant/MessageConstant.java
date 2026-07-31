@@ -278,10 +278,31 @@ public class MessageConstant {
 
     // Voucher Messages
     public static final String VOUCHER_NOT_FOUND = "Mã giảm giá không tồn tại";
+    public static final String VOUCHER_NOT_ACTIVE = "Mã giảm giá không hoạt động";
     public static final String VOUCHER_EXPIRED = "Mã giảm giá đã hết hạn hoặc chưa có hiệu lực";
     public static final String VOUCHER_MAX_USAGE_REACHED = "Mã giảm giá đã hết lượt sử dụng";
     public static final String VOUCHER_MIN_ORDER_VALUE_NOT_MET = "Đơn đặt tour chưa đạt giá trị tối thiểu để sử dụng mã giảm giá";
     public static final String VOUCHER_VENDOR_MISMATCH = "Mã giảm giá không thuộc nhà cung cấp của tour này";
+    public static final String VOUCHER_CODE_ALREADY_EXISTS = "Mã giảm giá đã tồn tại";
+    public static final String VOUCHER_VALID_DATE_ERROR = "Ngày bắt đầu phải nhỏ hơn ngày kết thúc";
+    public static final String INVALID_DISCOUNT_VALUE = "Giá trị giảm giá phần trăm không hợp lệ (phải <= 100)";
+    public static final String VOUCHER_CREATED_SUCCESSFULLY = "Tạo mã giảm giá thành công";
+    public static final String VOUCHER_UPDATED_SUCCESSFULLY = "Cập nhật mã giảm giá thành công";
+    public static final String VOUCHER_DELETED_SUCCESSFULLY = "Hủy mã giảm giá thành công";
+    public static final String VOUCHER_NOT_YET_VALID = "Mã giảm giá chưa đến thời gian sử dụng";
+    public static final String VOUCHER_VALIDATION_SUCCESS = "Áp dụng mã giảm giá thành công!";
+
+    public static final String VOUCHER_CODE_REQUIRED = "Mã voucher không được để trống";
+    public static final String VOUCHER_DISCOUNT_TYPE_REQUIRED = "Loại giảm giá không được để trống";
+    public static final String VOUCHER_DISCOUNT_VALUE_REQUIRED = "Giá trị giảm không được để trống";
+    public static final String VOUCHER_DISCOUNT_VALUE_MIN = "Giá trị giảm phải lớn hơn hoặc bằng 0";
+    public static final String VOUCHER_MIN_ORDER_VALUE_MIN = "Giá trị đơn hàng tối thiểu phải lớn hơn hoặc bằng 0";
+    public static final String VOUCHER_MAX_USAGE_REQUIRED = "Số lượng giới hạn không được để trống";
+    public static final String VOUCHER_MAX_USAGE_MIN = "Số lượng giới hạn phải lớn hơn 0";
+    public static final String VOUCHER_VALID_FROM_REQUIRED = "Ngày bắt đầu không được để trống";
+    public static final String VOUCHER_VALID_FROM_FUTURE = "Ngày bắt đầu phải từ hiện tại trở đi";
+    public static final String VOUCHER_VALID_UNTIL_REQUIRED = "Ngày kết thúc không được để trống";
+    public static final String VOUCHER_VALID_UNTIL_FUTURE = "Ngày kết thúc phải từ hiện tại trở đi";
 
     // Booking Validation Messages
     public static final String BOOKING_FULL_NAME_REQUIRED = "Họ tên người tham gia không được để trống";
@@ -348,6 +369,23 @@ public class MessageConstant {
     public static final String REVIEW_RATING_RANGE = "Điểm đánh giá phải từ 1 đến 5";
     public static final String REVIEW_BOOKING_REQUIRED = "Mã đơn đặt tour không được để trống";
     public static final String REVIEW_STATUS_REQUIRED_MSG = "Trạng thái đánh giá không được để trống";
+    // Chat Messages
+    public static final String CONVERSATIONS_FETCHED_SUCCESS = "Lấy danh sách cuộc hội thoại thành công";
+    public static final String CONVERSATION_CREATED_SUCCESS = "Tạo cuộc hội thoại thành công";
+    public static final String CONVERSATION_NOT_FOUND = "Cuộc hội thoại không tồn tại";
+    public static final String CONVERSATION_ALREADY_EXISTS = "Cuộc hội thoại 1-1 với người dùng này đã tồn tại";
+    public static final String MESSAGES_FETCHED_SUCCESS = "Lấy lịch sử tin nhắn thành công";
+    public static final String MESSAGE_SENT_SUCCESS = "Gửi tin nhắn thành công";
+    public static final String MESSAGES_MARKED_READ_SUCCESS = "Đánh dấu đã đọc tin nhắn thành công";
+    public static final String RECIPIENT_NOT_FOUND = "Người nhận tin nhắn không tồn tại";
+    public static final String CANNOT_CHAT_WITH_SELF = "Bạn không thể tạo cuộc hội thoại với chính mình";
+    public static final String CONVERSATION_TYPE_REQUIRED = "Loại cuộc hội thoại không được để trống";
+    public static final String CONVERSATION_PARTICIPANTS_REQUIRED = "Danh sách người tham gia không được để trống";
+    public static final String MESSAGE_CONVERSATION_ID_REQUIRED = "Mã cuộc hội thoại không được để trống";
+    public static final String MESSAGE_CONTENT_REQUIRED = "Nội dung tin nhắn không được để trống";
+    public static final String DIRECT_PARTICIPANT_COUNT_INVALID = "Cuộc hội thoại 1-1 phải có đúng một người nhận";
+    public static final String GROUP_PARTICIPANT_COUNT_INVALID = "Cuộc hội thoại nhóm phải có ít nhất hai người tham gia";
+    public static final String GROUP_TITLE_REQUIRED = "Tên cuộc hội thoại nhóm không được để trống";
 }
 
 

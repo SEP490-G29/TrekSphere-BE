@@ -1,11 +1,57 @@
 package com.sep.treksphere.repository;
 
 import com.sep.treksphere.entity.Conversation;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.util.Optional;
 import java.util.UUID;
 
 @Repository
 public interface ConversationRepository extends JpaRepository<Conversation, UUID> {
+
+    @Query("""
+            SELECT c
+            FROM Conversation c
+            JOIN c.participants p
+            WHERE p.userId = :userId
+              AND c.isDeleted = false
+            ORDER BY c.lastMessageAt DESC NULLS LAST
+            """)
+    Page<Conversation> findActiveConversationsByUserId(
+            @Param("userId") UUID userId,
+            Pageable pageable
+    );
+
+    @Query("""
+            SELECT DISTINCT c
+            FROM Conversation c
+            JOIN c.participants firstParticipant
+            JOIN c.participants secondParticipant
+            WHERE c.conversationType = com.sep.treksphere.enums.chat.ConversationType.DIRECT
+              AND c.isDeleted = false
+              AND firstParticipant.userId = :firstUserId
+              AND secondParticipant.userId = :secondUserId
+            """)
+    Optional<Conversation> findDirectConversation(
+            @Param("firstUserId") UUID firstUserId,
+            @Param("secondUserId") UUID secondUserId
+    );
+
+    @Query("""
+            SELECT c
+            FROM Conversation c
+            JOIN c.participants participant
+            WHERE c.conversationId = :conversationId
+              AND participant.userId = :userId
+              AND c.isDeleted = false
+            """)
+    Optional<Conversation> findActiveConversationByIdAndParticipantId(
+            @Param("conversationId") UUID conversationId,
+            @Param("userId") UUID userId
+    );
 }
