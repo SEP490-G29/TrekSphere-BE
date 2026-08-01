@@ -13,6 +13,7 @@ import java.util.UUID;
 public interface VendorApplicationService {
     VendorApplicationResponse saveDraftApplication(UUID applicantId, VendorApplicationRequest request);
     PaginationResponse<VendorApplicationResponse> getApplications(VendorApplicationFilterRequest request);
+    PaginationResponse<VendorApplicationResponse> getMyApplicationHistory(UUID applicantId, VendorApplicationFilterRequest request);
     VendorApplicationResponse getApplicationById(UUID id, CustomUserDetails userDetails);
     VendorApplicationResponse updateApplication(UUID id, VendorApplicationUpdateRequest request, UUID applicantId);
     VendorApplicationResponse submitDraftApplication(UUID id, UUID applicantId);

@@ -63,6 +63,21 @@ public class VendorApplicationController {
         return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, data));
     }
 
+    @Operation(summary = "Xem lịch sử đơn đăng ký của tôi", description = "Cho phép Trekker xem lịch sử các đơn đăng ký làm Vendor do chính mình tạo.")
+    @SecurityRequirement(name = "bearerAuth")
+    @PreAuthorize("hasRole('TREKKER')")
+    @GetMapping("/my-history")
+    public ResponseEntity<ApiResponse<PaginationResponse<VendorApplicationResponse>>> getMyApplicationHistory(
+            @AuthenticationPrincipal CustomUserDetails userDetails,
+            @Valid @ParameterObject @ModelAttribute VendorApplicationFilterRequest request) {
+
+        PaginationResponse<VendorApplicationResponse> data = vendorApplicationService.getMyApplicationHistory(
+                userDetails.getUser().getUserId(),
+                request
+        );
+        return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, data));
+    }
+
     @Operation(summary = "Xem chi tiết đơn đăng ký", description = "Admin hoặc Trekker nộp đơn có thể xem chi tiết hồ sơ đơn ứng tuyển.")
     @SecurityRequirement(name = "bearerAuth")
     @PreAuthorize("isAuthenticated()")
