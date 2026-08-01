@@ -12,5 +12,9 @@ import java.util.UUID;
 public interface SessionEquipmentRepository extends JpaRepository<SessionEquipment, UUID> {
     List<SessionEquipment> findByTourSession_TourSessionIdAndIsDeletedFalse(UUID sessionId);
 
+    boolean existsByTourSession_TourSessionIdAndEquipment_EquipmentIdAndIsDeletedFalse(UUID sessionId, UUID equipmentId);
+
+    Optional<SessionEquipment> findByTourSession_TourSessionIdAndEquipment_EquipmentIdAndIsDeletedFalse(UUID sessionId, UUID equipmentId);
+
     Optional<SessionEquipment> findBySessionEquipmentIdAndIsDeletedFalse(UUID sessionEquipmentId);
 }
