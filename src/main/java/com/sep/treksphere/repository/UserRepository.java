@@ -28,6 +28,20 @@ public interface UserRepository extends JpaRepository<User, UUID> {
             UserStatus status
     );
 
+    Optional<User> findByUserIdAndStatusAndIsDeletedFalse(UUID userId, UserStatus status);
+
+    @Query("""
+        SELECT DISTINCT u FROM User u
+        JOIN u.roles r
+        WHERE r.roleName = :roleName
+          AND u.status = :status
+          AND u.isDeleted = false
+    """)
+    List<User> findActiveUsersByRole(
+            @Param("roleName") String roleName,
+            @Param("status") UserStatus status
+    );
+
     @Query("SELECT DISTINCT u FROM User u LEFT JOIN u.roles r " +
            "WHERE u.isDeleted = false " +
            "AND (r.roleName IS NULL OR r.roleName <> 'ADMIN') " +

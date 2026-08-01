@@ -243,6 +243,14 @@ public class MessageConstant {
     public static final String UNAUTHORIZED_DISBAND_GROUP = "Bạn không có quyền giải tán nhóm ghép này";
     public static final String MATCHING_GROUP_DISBANDED_SUCCESS = "Giải tán nhóm ghép bạn đồng hành thành công";
 
+    // Notification Messages
+    public static final String NOTIFICATIONS_FETCHED_SUCCESS = "Lấy danh sách thông báo thành công";
+    public static final String NOTIFICATION_UNREAD_COUNT_FETCHED_SUCCESS = "Lấy số thông báo chưa đọc thành công";
+    public static final String NOTIFICATION_MARKED_READ_SUCCESS = "Đánh dấu thông báo đã đọc thành công";
+    public static final String NOTIFICATIONS_MARKED_READ_SUCCESS = "Đánh dấu tất cả thông báo đã đọc thành công";
+    public static final String NOTIFICATION_DELETED_SUCCESS = "Xóa thông báo thành công";
+    public static final String NOTIFICATION_NOT_FOUND = "Thông báo không tồn tại";
+
     // Schedule Messages
     public static final String SCHEDULE_NOT_FOUND = "Lịch khởi hành không tồn tại";
     public static final String SCHEDULE_CREATED_SUCCESSFULLY = "Tạo lịch khởi hành thành công";

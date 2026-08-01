@@ -2,6 +2,7 @@ package com.sep.treksphere.service.impl;
 
 import com.sep.treksphere.dto.request.MatchingGroupCreateRequest;
 import com.sep.treksphere.dto.request.MatchingGroupFilterRequest;
+import com.sep.treksphere.dto.request.NotificationCreateCommand;
 import com.sep.treksphere.dto.response.MatchingGroupDetailResponse;
 import com.sep.treksphere.dto.response.MatchingGroupResponse;
 import com.sep.treksphere.dto.response.MatchingMemberResponse;
@@ -13,6 +14,8 @@ import com.sep.treksphere.entity.User;
 import com.sep.treksphere.enums.matching.JoinStatus;
 import com.sep.treksphere.enums.matching.MatchingGroupStatus;
 import com.sep.treksphere.enums.matching.MatchingRole;
+import com.sep.treksphere.enums.system.NotificationEventType;
+import com.sep.treksphere.enums.system.ReferenceType;
 import com.sep.treksphere.exception.AppException;
 import com.sep.treksphere.exception.ErrorCode;
 import com.sep.treksphere.mapper.MatchingGroupMapper;
@@ -21,6 +24,7 @@ import com.sep.treksphere.repository.MatchingMemberRepository;
 import com.sep.treksphere.repository.TourRepository;
 import com.sep.treksphere.security.CustomUserDetails;
 import com.sep.treksphere.service.MatchingGroupService;
+import com.sep.treksphere.service.NotificationService;
 import com.sep.treksphere.utils.PaginationUtils;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -44,6 +48,7 @@ public class MatchingGroupServiceImpl implements MatchingGroupService {
     private final MatchingMemberRepository matchingMemberRepository;
     private final TourRepository tourRepository;
     private final MatchingGroupMapper matchingGroupMapper;
+    private final NotificationService notificationService;
 
     @Override
     @Transactional(readOnly = true)
@@ -187,6 +192,16 @@ public class MatchingGroupServiceImpl implements MatchingGroupService {
 
         MatchingMember savedMember = matchingMemberRepository.save(member);
 
+        notificationService.createNotification(NotificationCreateCommand.builder()
+                .recipientId(matchingGroup.getOwner().getUserId())
+                .title("Yêu cầu tham gia nhóm mới")
+                .content(currentUser.getFullName() + " muốn tham gia nhóm " + matchingGroup.getGroupName() + ".")
+                .eventType(NotificationEventType.GROUP_JOIN_REQUEST)
+                .referenceType(ReferenceType.MATCHING_GROUP)
+                .referenceId(groupId)
+                .actionUrl("/matching-groups/" + groupId + "/join-requests")
+                .build());
+
         return matchingGroupMapper.toMemberResponse(savedMember);
     }
 
@@ -267,6 +282,16 @@ public class MatchingGroupServiceImpl implements MatchingGroupService {
         matchingMemberRepository.save(member);
         matchingGroupRepository.save(matchingGroup);
 
+        notificationService.createNotification(NotificationCreateCommand.builder()
+                .recipientId(member.getUser().getUserId())
+                .title("Yêu cầu tham gia nhóm đã được duyệt")
+                .content("Bạn đã được duyệt vào nhóm " + matchingGroup.getGroupName() + ".")
+                .eventType(NotificationEventType.GROUP_JOIN_APPROVED)
+                .referenceType(ReferenceType.MATCHING_GROUP)
+                .referenceId(matchingGroup.getMatchingGroupId())
+                .actionUrl("/matching-groups/" + matchingGroup.getMatchingGroupId())
+                .build());
+
         return matchingGroupMapper.toMemberResponse(member);
     }
 
@@ -303,6 +328,16 @@ public class MatchingGroupServiceImpl implements MatchingGroupService {
         member.setStatus(JoinStatus.REJECTED);
 
         MatchingMember savedMember = matchingMemberRepository.save(member);
+
+        notificationService.createNotification(NotificationCreateCommand.builder()
+                .recipientId(member.getUser().getUserId())
+                .title("Yêu cầu tham gia nhóm đã bị từ chối")
+                .content("Yêu cầu tham gia nhóm " + matchingGroup.getGroupName() + " của bạn đã bị từ chối.")
+                .eventType(NotificationEventType.GROUP_JOIN_REJECTED)
+                .referenceType(ReferenceType.MATCHING_GROUP)
+                .referenceId(matchingGroup.getMatchingGroupId())
+                .actionUrl("/matching-groups/" + matchingGroup.getMatchingGroupId())
+                .build());
 
         return matchingGroupMapper.toMemberResponse(savedMember);
     }
@@ -369,6 +404,22 @@ public class MatchingGroupServiceImpl implements MatchingGroupService {
             throw new AppException(ErrorCode.UNAUTHORIZED_DISBAND_GROUP);
         }
 
+        List<NotificationCreateCommand> notifications = matchingGroup.getMembers().stream()
+                .filter(member -> !member.getUser().getUserId().equals(currentUser.getUserId()))
+                .filter(member -> member.getStatus() == JoinStatus.ACCEPTED
+                        || member.getStatus() == JoinStatus.PENDING)
+                .filter(member -> !Boolean.TRUE.equals(member.getIsDeleted()))
+                .map(member -> NotificationCreateCommand.builder()
+                        .recipientId(member.getUser().getUserId())
+                        .title("Nhóm ghép đã giải tán")
+                        .content("Nhóm " + matchingGroup.getGroupName() + " đã được trưởng nhóm giải tán.")
+                        .eventType(NotificationEventType.GROUP_DISBANDED)
+                        .referenceType(ReferenceType.MATCHING_GROUP)
+                        .referenceId(groupId)
+                        .actionUrl("/matching-groups")
+                        .build())
+                .toList();
+
         matchingGroup.setIsDeleted(true);
         matchingGroup.setStatus(MatchingGroupStatus.CLOSED);
 
@@ -377,6 +428,7 @@ public class MatchingGroupServiceImpl implements MatchingGroupService {
         }
 
         matchingGroupRepository.save(matchingGroup);
+        notificationService.createNotifications(notifications);
         log.info("Matching group disbanded successfully: groupId={}", groupId);
     }
 }

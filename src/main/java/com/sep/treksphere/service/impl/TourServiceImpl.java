@@ -2,9 +2,9 @@ package com.sep.treksphere.service.impl;
 
 import com.sep.treksphere.dto.request.BaseFilterRequest;
 import com.sep.treksphere.dto.request.CreateTourRequest;
+import com.sep.treksphere.dto.request.NotificationCreateCommand;
 import com.sep.treksphere.dto.request.UpdateTourRequest;
 import com.sep.treksphere.dto.response.*;
-import com.sep.treksphere.entity.Notification;
 import com.sep.treksphere.entity.Tour;
 import com.sep.treksphere.entity.TourImage;
 import com.sep.treksphere.entity.TourSchedule;
@@ -19,7 +19,6 @@ import com.sep.treksphere.enums.tour.TourStatus;
 import com.sep.treksphere.exception.AppException;
 import com.sep.treksphere.exception.ErrorCode;
 import com.sep.treksphere.mapper.TourMapper;
-import com.sep.treksphere.repository.NotificationRepository;
 import com.sep.treksphere.repository.ReviewRepository;
 import com.sep.treksphere.repository.TourImageRepository;
 import com.sep.treksphere.repository.TourRepository;
@@ -28,6 +27,7 @@ import com.sep.treksphere.repository.UserRepository;
 import com.sep.treksphere.repository.VendorRepository;
 import com.sep.treksphere.repository.VendorStaffRepository;
 import com.sep.treksphere.service.TourService;
+import com.sep.treksphere.service.NotificationService;
 import com.sep.treksphere.utils.PaginationUtils;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -49,7 +49,7 @@ public class TourServiceImpl implements TourService {
     private final TourImageRepository tourImageRepository;
     private final TourScheduleRepository tourScheduleRepository;
     private final ReviewRepository reviewRepository;
-    private final NotificationRepository notificationRepository;
+    private final NotificationService notificationService;
     private final VendorRepository vendorRepository;
     private final VendorStaffRepository vendorStaffRepository;
     private final UserRepository userRepository;
@@ -320,16 +320,14 @@ public class TourServiceImpl implements TourService {
         tour.setStatus(TourStatus.PENDING_APPROVAL);
         tour = tourRepository.save(tour);
 
-        // Send notification to Vendor Manager
-        User manager = vendor.getManager();
-        Notification notification = new Notification();
-        notification.setRecipient(manager);
-        notification.setTitle("Yêu cầu duyệt Tour mới");
-        notification.setEventType(NotificationEventType.TOUR_PENDING_APPROVAL);
-        notification.setContent("Tour \"" + tour.getTourName() + "\" đã được gửi yêu cầu kiểm duyệt.");
-        notification.setReferenceType(ReferenceType.TOUR);
-        notification.setReferenceId(tour.getTourId());
-        notificationRepository.save(notification);
+        notificationService.createAdminNotifications(NotificationCreateCommand.builder()
+                .title("Yêu cầu duyệt Tour mới")
+                .eventType(NotificationEventType.TOUR_PENDING_APPROVAL)
+                .content("Tour \"" + tour.getTourName() + "\" đã được gửi yêu cầu kiểm duyệt.")
+                .referenceType(ReferenceType.TOUR)
+                .referenceId(tour.getTourId())
+                .actionUrl("/admin/tours/" + tour.getTourId())
+                .build());
 
         List<TourImage> images = tourImageRepository.findByTourOrderBySortOrderAsc(tour);
         List<TourSchedule> schedules = tourScheduleRepository
@@ -365,14 +363,15 @@ public class TourServiceImpl implements TourService {
         tour = tourRepository.save(tour);
 
         User manager = tour.getVendor().getManager();
-        Notification notification = new Notification();
-        notification.setRecipient(manager);
-        notification.setTitle("Tour bị ẩn do vi phạm");
-        notification.setEventType(NotificationEventType.TOUR_HIDDEN_VIOLATION);
-        notification.setContent("Tour \"" + tour.getTourName() + "\" đã bị ẩn. Lý do: " + reason);
-        notification.setReferenceType(ReferenceType.TOUR);
-        notification.setReferenceId(tour.getTourId());
-        notificationRepository.save(notification);
+        notificationService.createNotification(NotificationCreateCommand.builder()
+                .recipientId(manager.getUserId())
+                .title("Tour bị ẩn do vi phạm")
+                .eventType(NotificationEventType.TOUR_HIDDEN_VIOLATION)
+                .content("Tour \"" + tour.getTourName() + "\" đã bị ẩn. Lý do: " + reason)
+                .referenceType(ReferenceType.TOUR)
+                .referenceId(tour.getTourId())
+                .actionUrl("/vendor/tours/" + tour.getTourId())
+                .build());
 
         List<TourImage> images = tourImageRepository.findByTourOrderBySortOrderAsc(tour);
         List<TourSchedule> schedules = tourScheduleRepository
