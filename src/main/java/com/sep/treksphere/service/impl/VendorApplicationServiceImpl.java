@@ -132,6 +132,37 @@ public class VendorApplicationServiceImpl implements VendorApplicationService {
 
     @Override
     @Transactional(readOnly = true)
+    public PaginationResponse<VendorApplicationResponse> getMyApplicationHistory(
+            UUID applicantId,
+            VendorApplicationFilterRequest request
+    ) {
+        log.info("Fetching vendor application history for applicant: {}, status: {}, keyword: {}",
+                applicantId, request.getStatus(), request.getKeyword());
+
+        Pageable pageable = request.getPageable();
+        Page<VendorApplication> pageResult = vendorApplicationRepository.findMyApplicationsWithFilter(
+                applicantId,
+                request.getStatus(),
+                request.getKeyword(),
+                pageable
+        );
+
+        List<VendorApplicationResponse> content = pageResult.getContent().stream()
+                .map(vendorApplicationMapper::toResponse)
+                .collect(Collectors.toList());
+
+        return PaginationResponse.<VendorApplicationResponse>builder()
+                .content(content)
+                .pageNumber(pageResult.getNumber())
+                .pageSize(pageResult.getSize())
+                .totalElements(pageResult.getTotalElements())
+                .totalPages(pageResult.getTotalPages())
+                .last(pageResult.isLast())
+                .build();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
     public VendorApplicationResponse getApplicationById(UUID id, CustomUserDetails userDetails) {
         log.info("Fetching details of vendor application with ID: {} for user: {}", id, userDetails.getUsername());
 

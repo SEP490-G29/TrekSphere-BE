@@ -34,4 +34,18 @@ public interface VendorApplicationRepository extends JpaRepository<VendorApplica
             @Param("status") ApplicationStatus status,
             @Param("keyword") String keyword,
             Pageable pageable);
+
+    @Query("SELECT va FROM VendorApplication va WHERE va.isDeleted = false " +
+           "AND va.applicant.userId = :applicantId " +
+           "AND (:status IS NULL OR va.applicationStatus = :status) " +
+           "AND (:keyword IS NULL OR :keyword = '' OR " +
+           "LOWER(va.companyName) LIKE LOWER(CONCAT('%', :keyword, '%')) OR " +
+           "LOWER(va.taxCode) LIKE LOWER(CONCAT('%', :keyword, '%')) OR " +
+           "LOWER(va.contactEmail) LIKE LOWER(CONCAT('%', :keyword, '%')) OR " +
+           "LOWER(va.contactPhone) LIKE LOWER(CONCAT('%', :keyword, '%'))) ")
+    Page<VendorApplication> findMyApplicationsWithFilter(
+            @Param("applicantId") UUID applicantId,
+            @Param("status") ApplicationStatus status,
+            @Param("keyword") String keyword,
+            Pageable pageable);
 }
