@@ -348,6 +348,7 @@ public class MessageConstant {
     public static final String PORTER_ID_REQUIRED = "Porter không được để trống";
 
     public static final String EQUIPMENT_ASSIGNED_SUCCESSFULLY = "Phân bổ trang bị thành công";
+    public static final String EQUIPMENT_QUANTITY_UPDATED_SUCCESSFULLY = "Cộng dồn số lượng trang bị thành công";
     public static final String EQUIPMENT_REMOVED_SUCCESSFULLY = "Hủy phân bổ trang bị thành công";
     public static final String EQUIPMENT_RETURNED_SUCCESSFULLY = "Xác nhận trả trang bị thành công";
     public static final String EQUIPMENT_ALREADY_ASSIGNED = "Trang bị này đã được phân bổ cho phiên tour này";

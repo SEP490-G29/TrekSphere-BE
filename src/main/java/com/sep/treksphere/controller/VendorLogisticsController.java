@@ -66,8 +66,8 @@ public class VendorLogisticsController {
             @PathVariable UUID sessionId,
             @Valid @RequestBody AssignEquipmentRequest request,
             @AuthenticationPrincipal CustomUserDetails user) {
-        logisticsAllocationService.assignEquipment(sessionId, request, user.getUser().getUserId());
-        return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, null, MessageConstant.EQUIPMENT_ASSIGNED_SUCCESSFULLY));
+        String message = logisticsAllocationService.assignEquipment(sessionId, request, user.getUser().getUserId());
+        return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, null, message));
     }
 
     @Operation(summary = "Hủy phân bổ Trang bị", description = "Xóa một trang bị đã được phân bổ khỏi Phiên Tour và hoàn trả lại kho")
