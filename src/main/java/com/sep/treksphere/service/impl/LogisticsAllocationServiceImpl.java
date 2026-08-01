@@ -387,14 +387,20 @@ public class LogisticsAllocationServiceImpl implements LogisticsAllocationServic
 
     @Override
     @Transactional(readOnly = true)
-    public TourSessionAllocationResponse getAllocations(UUID sessionId, UUID vendorUserId) {
-        UUID vendorId = resolveVendorId(vendorUserId);
-        
+    public TourSessionAllocationResponse getAllocations(UUID sessionId, UUID userId, boolean isCoordinator) {
         TourSession session = tourSessionRepository.findByIdWithVendor(sessionId)
                 .orElseThrow(() -> new AppException(ErrorCode.TOUR_SESSION_NOT_FOUND));
-                
-        if (!session.getTourSchedule().getTour().getVendor().getVendorId().equals(vendorId)) {
-            throw new AppException(ErrorCode.TOUR_NOT_BELONG_TO_VENDOR);
+
+        if (isCoordinator) {
+            boolean isAssigned = coordinatorScheduleRepository.existsByTourSession_TourSessionIdAndCoordinator_UserIdAndIsDeletedFalse(sessionId, userId);
+            if (!isAssigned) {
+                throw new AppException(ErrorCode.UNAUTHORIZED_SESSION_ACCESS);
+            }
+        } else {
+            UUID vendorId = resolveVendorId(userId);
+            if (!session.getTourSchedule().getTour().getVendor().getVendorId().equals(vendorId)) {
+                throw new AppException(ErrorCode.TOUR_NOT_BELONG_TO_VENDOR);
+            }
         }
         
         List<CoordinatorSchedule> coordinatorSchedules = coordinatorScheduleRepository.findByTourSession_TourSessionIdAndIsDeletedFalse(sessionId);
