@@ -105,12 +105,14 @@ public class MessageConstant {
     public static final String BLOG_DELETED_SUCCESSFULLY = "Xóa bài viết thành công";
     public static final String BLOG_HIDDEN_SUCCESSFULLY = "Ẩn bài viết thành công";
     public static final String BLOG_TITLE_REQUIRED = "Tiêu đề bài viết không được để trống";
+    public static final String BLOG_TITLE_MAX_LENGTH = "Tiêu đề bài viết không được vượt quá 500 ký tự";
     public static final String BLOG_CONTENT_REQUIRED = "Nội dung bài viết không được để trống";
     public static final String BLOG_CANNOT_EDIT = "Bạn không có quyền chỉnh sửa bài viết này";
 
     // Comment Messages
     public static final String COMMENT_NOT_FOUND = "Bình luận không tồn tại";
     public static final String COMMENT_CONTENT_REQUIRED = "Nội dung bình luận không được để trống";
+    public static final String COMMENT_CONTENT_MAX_LENGTH = "Nội dung bình luận không được vượt quá 1000 ký tự";
     public static final String COMMENT_ADDED_SUCCESSFULLY = "Gửi bình luận thành công";
     public static final String COMMENT_UPDATED_SUCCESSFULLY = "Cập nhật bình luận thành công";
     public static final String COMMENT_DELETED_SUCCESSFULLY = "Xóa bình luận thành công";

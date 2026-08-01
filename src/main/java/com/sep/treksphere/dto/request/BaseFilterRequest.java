@@ -7,6 +7,8 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 
+import org.springframework.util.StringUtils;
+
 @Getter
 @Setter
 public class BaseFilterRequest {
@@ -26,7 +28,16 @@ public class BaseFilterRequest {
     private String sortDir = "desc";
 
     public Pageable getPageable() {
-        Sort sort = sortDir.equalsIgnoreCase(Sort.Direction.ASC.name()) ? Sort.by(sortBy).ascending() : Sort.by(sortBy).descending();
-        return PageRequest.of(page, size, sort);
+        String validSortBy = StringUtils.hasText(sortBy) ? sortBy.trim() : "createdAt";
+        String validSortDir = StringUtils.hasText(sortDir) ? sortDir.trim() : "desc";
+
+        Sort sort = validSortDir.equalsIgnoreCase(Sort.Direction.ASC.name())
+                ? Sort.by(validSortBy).ascending()
+                : Sort.by(validSortBy).descending();
+
+        int validPage = page < 0 ? 0 : page;
+        int validSize = size <= 0 ? 10 : size;
+
+        return PageRequest.of(validPage, validSize, sort);
     }
 }

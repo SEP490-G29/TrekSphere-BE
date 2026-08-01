@@ -19,11 +19,14 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springdoc.core.annotations.ParameterObject;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
+import java.util.List;
 import java.util.UUID;
 
 @RestController
@@ -56,24 +59,29 @@ public class VendorTourController {
     }
 
     @PreAuthorize("hasAnyRole('VENDOR_MANAGER', 'VENDOR_STAFF')")
-    @PostMapping
+    @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<ApiResponse<TourDetailResponse>> createTour(
             @AuthenticationPrincipal CustomUserDetails userDetails,
-            @Valid @RequestBody CreateTourRequest request) {
+            @Valid @ModelAttribute CreateTourRequest request,
+            @RequestParam(value = "coverImage", required = false) MultipartFile coverImage,
+            @RequestParam(value = "tourImages", required = false) List<MultipartFile> tourImages) {
 
-        TourDetailResponse response = tourService.createTour(userDetails.getUsername(), request);
+        TourDetailResponse response = tourService.createTour(userDetails.getUsername(), request, coverImage, tourImages);
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(ApiResponse.success(HttpStatus.CREATED, response, MessageConstant.TOUR_CREATED_SUCCESSFULLY));
     }
 
     @SecurityRequirement(name = "bearerAuth")
     @PreAuthorize("hasAnyRole('VENDOR_MANAGER', 'VENDOR_STAFF')")
-    @PutMapping("/{id}")
+    @PutMapping(value = "/{id}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<ApiResponse<TourDetailResponse>> updateTour(
             @AuthenticationPrincipal CustomUserDetails userDetails,
-            @PathVariable UUID id,@Valid @RequestBody UpdateTourRequest request) {
+            @PathVariable UUID id,
+            @Valid @ModelAttribute UpdateTourRequest request,
+            @RequestParam(value = "coverImage", required = false) MultipartFile coverImage,
+            @RequestParam(value = "tourImages", required = false) List<MultipartFile> tourImages) {
 
-        TourDetailResponse response = tourService.updateTour(userDetails.getUsername(), id, request);
+        TourDetailResponse response = tourService.updateTour(userDetails.getUsername(), id, request, coverImage, tourImages);
         return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, response, MessageConstant.TOUR_UPDATED_SUCCESSFULLY));
     }
 

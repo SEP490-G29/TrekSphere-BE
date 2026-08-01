@@ -20,10 +20,12 @@ import lombok.RequiredArgsConstructor;
 import org.springdoc.core.annotations.ParameterObject;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.UUID;
 
@@ -85,13 +87,13 @@ public class BookingController {
 
     @Operation(summary = "Gửi minh chứng chuyển khoản ngân hàng", description = "Cập nhật ảnh chụp giao dịch thanh toán cho đơn hàng đang chờ")
     @PreAuthorize("hasRole('TREKKER')")
-    @PutMapping("/{id}/payment-proof")
+    @PostMapping(value = "/{id}/payment-proof", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<ApiResponse<BookingDetailResponse>> submitPaymentProof(
             @AuthenticationPrincipal CustomUserDetails userDetails,
             @PathVariable UUID id,
-            @Valid @RequestBody PaymentProofRequest request
+            @RequestParam("file") MultipartFile file
     ) {
-        BookingDetailResponse result = bookingService.submitPaymentProof(userDetails.getUsername(), id, request);
+        BookingDetailResponse result = bookingService.submitPaymentProof(userDetails.getUsername(), id, file);
         return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, result, MessageConstant.PAYMENT_PROOF_SUBMITTED));
     }
 }

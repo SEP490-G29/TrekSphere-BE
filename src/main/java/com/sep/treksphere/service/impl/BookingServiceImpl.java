@@ -2,7 +2,6 @@ package com.sep.treksphere.service.impl;
 
 import com.sep.treksphere.dto.request.BookingCancelRequest;
 import com.sep.treksphere.dto.request.BookingRequest;
-import com.sep.treksphere.dto.request.PaymentProofRequest;
 import com.sep.treksphere.dto.request.VendorBookingFilterRequest;
 import com.sep.treksphere.dto.response.BookingDetailResponse;
 import com.sep.treksphere.dto.response.BookingResponse;
@@ -18,6 +17,7 @@ import com.sep.treksphere.exception.ErrorCode;
 import com.sep.treksphere.mapper.BookingMapper;
 import com.sep.treksphere.repository.*;
 import com.sep.treksphere.service.BookingService;
+import com.sep.treksphere.service.FileService;
 import com.sep.treksphere.utils.PaginationUtils;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -25,6 +25,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -49,6 +50,7 @@ public class BookingServiceImpl implements BookingService {
     private final VendorStaffRepository vendorStaffRepository;
     private final CancellationPolicyRepository cancellationPolicyRepository;
     private final BookingMapper bookingMapper;
+    private final FileService fileService;
 
     @Override
     @Transactional(readOnly = true)
@@ -275,7 +277,7 @@ public class BookingServiceImpl implements BookingService {
 
     @Override
     @Transactional
-    public BookingDetailResponse submitPaymentProof(String email, UUID bookingId, PaymentProofRequest request) {
+    public BookingDetailResponse submitPaymentProof(String email, UUID bookingId, MultipartFile proofImage) {
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
 
@@ -291,7 +293,17 @@ public class BookingServiceImpl implements BookingService {
             throw new AppException(ErrorCode.INVALID_BOOKING_STATUS, "Chỉ có thể gửi minh chứng thanh toán cho đơn đang chờ.");
         }
 
-        booking.setProofImageUrl(request.getProofImageUrl());
+        // Xoá ảnh minh chứng cũ trên storage khi ghi đè nếu có
+        if (StringUtils.hasText(booking.getProofImageUrl())) {
+            String oldPublicId = extractPublicIdFromUrl(booking.getProofImageUrl());
+            if (oldPublicId != null) {
+                fileService.deleteFile(oldPublicId);
+            }
+        }
+
+        // Upload ảnh minh chứng mới
+        String proofUrl = fileService.uploadFile(proofImage, "payment-proofs");
+        booking.setProofImageUrl(proofUrl);
         Booking updatedBooking = bookingRepository.save(booking);
 
         return bookingMapper.toBookingDetailResponse(updatedBooking);
@@ -393,5 +405,17 @@ public class BookingServiceImpl implements BookingService {
         String timestamp = DateTimeFormatter.ofPattern("yyMMddHHmmss").format(LocalDateTime.now());
         int randomNum = (int) (Math.random() * 900) + 100;
         return "BK-" + timestamp + "-" + randomNum;
+    }
+
+    private String extractPublicIdFromUrl(String url) {
+        if (!StringUtils.hasText(url) || !url.contains("/upload/")) {
+            return null;
+        }
+        String afterUpload = url.substring(url.indexOf("/upload/") + 8);
+        if (afterUpload.startsWith("v") && afterUpload.contains("/")) {
+            afterUpload = afterUpload.substring(afterUpload.indexOf("/") + 1);
+        }
+        int dotIndex = afterUpload.lastIndexOf(".");
+        return dotIndex > 0 ? afterUpload.substring(0, dotIndex) : afterUpload;
     }
 }
