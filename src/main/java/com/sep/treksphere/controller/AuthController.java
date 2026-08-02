@@ -62,8 +62,20 @@ public class AuthController {
 
     @GetMapping("/verify")
     public ResponseEntity<ApiResponse<String>> verifyEmail(@RequestParam("token") String token) {
-        log.info("Attempting to verify email with token: {}", token);
+        log.info("Attempting to verify email");
         return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, authService.verifyEmail(token)));
+    }
+
+    @Operation(summary = "Gửi lại email xác minh", description = "Gửi link xác minh mới nếu tài khoản tồn tại và chưa được xác minh")
+    @PostMapping("/resend-verification")
+    public ResponseEntity<ApiResponse<Void>> resendVerification(
+            @Valid @RequestBody ResendVerificationRequest request) {
+        authService.resendVerificationEmail(request.getEmail());
+        return ResponseEntity.ok(ApiResponse.success(
+                HttpStatus.OK,
+                null,
+                MessageConstant.VERIFICATION_EMAIL_RESENT
+        ));
     }
 
     @PostMapping("/refresh-token")

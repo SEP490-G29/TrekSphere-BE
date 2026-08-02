@@ -17,8 +17,12 @@ import com.sep.treksphere.security.CustomUserDetails;
 import com.sep.treksphere.security.JwtService;
 import com.sep.treksphere.security.JwtTokenProvider;
 import com.sep.treksphere.service.EmailService;
+import com.sep.treksphere.service.EmailVerificationRateLimiter;
 import com.sep.treksphere.service.RefreshTokenService;
 import com.sep.treksphere.service.TokenBlacklistService;
+import io.jsonwebtoken.Claims;
+import io.jsonwebtoken.ExpiredJwtException;
+import io.jsonwebtoken.Header;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -58,6 +62,9 @@ class AuthServiceImplTest {
 
     @Mock
     private EmailService emailService;
+
+    @Mock
+    private EmailVerificationRateLimiter emailVerificationRateLimiter;
 
     @Mock
     private PasswordEncoder passwordEncoder;
@@ -226,6 +233,48 @@ class AuthServiceImplTest {
         CustomUserDetails deactivatedUser = new CustomUserDetails(mockUser);
         assertThat(deactivatedUser.isAccountNonLocked()).isTrue();
         assertThat(deactivatedUser.isEnabled()).isFalse();
+    }
+
+    @Test
+    void resendVerificationEmail_SendsNewLink_ForUnverifiedActiveUser() {
+        mockUser.setEmailVerified(false);
+        when(userRepository.findByEmail(mockUser.getEmail())).thenReturn(Optional.of(mockUser));
+        when(tokenProvider.generateVerificationToken(mockUser.getEmail())).thenReturn("new_verification_token");
+        ReflectionTestUtils.setField(authService, "frontendUrl", "http://localhost:3000");
+
+        authService.resendVerificationEmail(mockUser.getEmail());
+
+        verify(emailVerificationRateLimiter).checkAllowed(mockUser.getEmail());
+        verify(emailService).sendVerificationEmail(
+                mockUser.getEmail(),
+                mockUser.getFullName(),
+                "http://localhost:3000/verify?token=new_verification_token"
+        );
+    }
+
+    @Test
+    void resendVerificationEmail_DoesNotSend_ForVerifiedUser() {
+        when(userRepository.findByEmail(mockUser.getEmail())).thenReturn(Optional.of(mockUser));
+
+        authService.resendVerificationEmail(mockUser.getEmail());
+
+        verify(emailVerificationRateLimiter).checkAllowed(mockUser.getEmail());
+        verifyNoInteractions(tokenProvider, emailService);
+    }
+
+    @Test
+    void verifyEmail_ReturnsSpecificError_WhenTokenExpired() {
+        String expiredToken = "expired_token";
+        when(tokenProvider.getEmailFromToken(expiredToken)).thenThrow(
+                new ExpiredJwtException(mock(Header.class), mock(Claims.class), "expired")
+        );
+
+        assertThatThrownBy(() -> authService.verifyEmail(expiredToken))
+                .isInstanceOf(AppException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.VERIFICATION_TOKEN_EXPIRED)
+                .hasMessage(MessageConstant.VERIFICATION_TOKEN_EXPIRED);
+
+        verifyNoInteractions(userRepository);
     }
 
     @Test

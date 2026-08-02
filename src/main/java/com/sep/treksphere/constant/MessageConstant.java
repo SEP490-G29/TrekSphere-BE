@@ -51,6 +51,9 @@ public class MessageConstant {
     public static final String USER_NOT_ACTIVE_OR_LOCKED = "Tài khoản chưa được kích hoạt hoặc bị khóa";
     public static final String ACCOUNT_LOCKED = "Tài khoản đã bị khóa. Vui lòng liên hệ quản trị viên.";
     public static final String ACCOUNT_DEACTIVATED = "Tài khoản đã bị vô hiệu hóa.";
+    public static final String VERIFICATION_TOKEN_EXPIRED = "Liên kết xác minh đã hết hạn. Vui lòng yêu cầu gửi lại email xác minh.";
+    public static final String VERIFICATION_RESEND_RATE_LIMITED = "Bạn đã yêu cầu gửi lại email quá nhiều lần. Vui lòng thử lại sau.";
+    public static final String VERIFICATION_EMAIL_RESENT = "Nếu tài khoản tồn tại và chưa được xác minh, email xác minh mới đã được gửi.";
     public static final String EMAIL_NOT_VERIFIED = "Vui lòng xác thực email trước khi đăng nhập";
     public static final String INVALID_TOKEN = "Token không hợp lệ hoặc đã hết hạn";
     public static final String ROLE_NOT_FOUND = "Không tìm thấy vai trò mặc định trong hệ thống";
