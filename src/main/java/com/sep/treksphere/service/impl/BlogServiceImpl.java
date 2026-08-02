@@ -17,6 +17,7 @@ import com.sep.treksphere.repository.BlogCommentRepository;
 import com.sep.treksphere.repository.BlogRepository;
 import com.sep.treksphere.security.CustomUserDetails;
 import com.sep.treksphere.service.BlogService;
+import com.sep.treksphere.service.FileService;
 import com.sep.treksphere.utils.PaginationUtils;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -24,6 +25,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -39,6 +41,7 @@ public class BlogServiceImpl implements BlogService {
 
     private final BlogRepository blogRepository;
     private final BlogCommentRepository blogCommentRepository;
+    private final FileService fileService;
 
     @Override
     @Transactional(readOnly = true)
@@ -61,6 +64,10 @@ public class BlogServiceImpl implements BlogService {
         Blog blog = blogRepository.findDetailById(blogId)
                 .orElseThrow(() -> new AppException(ErrorCode.BLOG_NOT_FOUND));
 
+        if (blog.getStatus() != BlogStatus.PUBLISHED) {
+            throw new AppException(ErrorCode.BLOG_NOT_FOUND);
+        }
+
         blog.setViewCount(blog.getViewCount() + 1);
         blogRepository.save(blog);
 
@@ -74,14 +81,19 @@ public class BlogServiceImpl implements BlogService {
 
     @Override
     @Transactional
-    public BlogDetailResponse createBlog(CreateBlogRequest request, CustomUserDetails userDetails) {
+    public BlogDetailResponse createBlog(CreateBlogRequest request, CustomUserDetails userDetails, MultipartFile coverImage) {
         Blog blog = new Blog();
         blog.setUser(userDetails.getUser());
         blog.setTitle(request.getTitle());
         blog.setContent(request.getContent());
-        blog.setCoverImageUrl(request.getCoverImageUrl());
         blog.setStatus(BlogStatus.PUBLISHED);
         blog.setViewCount(0);
+
+        // Upload cover image if provided
+        if (coverImage != null && !coverImage.isEmpty()) {
+            String coverUrl = fileService.uploadFile(coverImage, "blogs");
+            blog.setCoverImageUrl(coverUrl);
+        }
 
         blogRepository.save(blog);
         log.info("User {} created blog '{}'", userDetails.getUser().getUserId(), request.getTitle());
@@ -91,9 +103,13 @@ public class BlogServiceImpl implements BlogService {
 
     @Override
     @Transactional
-    public BlogDetailResponse updateBlog(UUID blogId, UpdateBlogRequest request, CustomUserDetails userDetails) {
+    public BlogDetailResponse updateBlog(UUID blogId, UpdateBlogRequest request, CustomUserDetails userDetails, MultipartFile coverImage) {
         Blog blog = blogRepository.findDetailById(blogId)
                 .orElseThrow(() -> new AppException(ErrorCode.BLOG_NOT_FOUND));
+
+        if (blog.getStatus() != BlogStatus.PUBLISHED) {
+            throw new AppException(ErrorCode.BLOG_CANNOT_EDIT);
+        }
 
         boolean isAuthor = blog.getUser().getUserId().equals(userDetails.getUser().getUserId());
         if (!isAuthor) {
@@ -107,8 +123,11 @@ public class BlogServiceImpl implements BlogService {
         if (StringUtils.hasText(request.getContent())) {
             blog.setContent(request.getContent());
         }
-        if (request.getCoverImageUrl() != null) {
-            blog.setCoverImageUrl(request.getCoverImageUrl());
+
+        // Upload cover image if provided
+        if (coverImage != null && !coverImage.isEmpty()) {
+            String coverUrl = fileService.uploadFile(coverImage, "blogs");
+            blog.setCoverImageUrl(coverUrl);
         }
 
         blogRepository.save(blog);

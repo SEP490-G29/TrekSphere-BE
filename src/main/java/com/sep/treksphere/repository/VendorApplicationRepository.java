@@ -9,6 +9,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.util.Set;
 import java.util.UUID;
 
 @Repository
@@ -24,6 +25,7 @@ public interface VendorApplicationRepository extends JpaRepository<VendorApplica
     boolean existsByContactPhoneAndApplicant_UserIdNot(String contactPhone, UUID applicantId);
 
     @Query("SELECT va FROM VendorApplication va WHERE va.isDeleted = false " +
+           "AND va.applicationStatus IN :visibleStatuses " +
            "AND (:status IS NULL OR va.applicationStatus = :status) " +
            "AND (:keyword IS NULL OR :keyword = '' OR " +
            "LOWER(va.companyName) LIKE LOWER(CONCAT('%', :keyword, '%')) OR " +
@@ -31,6 +33,7 @@ public interface VendorApplicationRepository extends JpaRepository<VendorApplica
            "LOWER(va.contactEmail) LIKE LOWER(CONCAT('%', :keyword, '%')) OR " +
            "LOWER(va.contactPhone) LIKE LOWER(CONCAT('%', :keyword, '%')))")
     Page<VendorApplication> findAllApplicationsWithFilter(
+            @Param("visibleStatuses") Set<ApplicationStatus> visibleStatuses,
             @Param("status") ApplicationStatus status,
             @Param("keyword") String keyword,
             Pageable pageable);

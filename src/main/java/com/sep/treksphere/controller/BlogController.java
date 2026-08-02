@@ -23,10 +23,12 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springdoc.core.annotations.ParameterObject;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.UUID;
 
@@ -68,11 +70,12 @@ public class BlogController {
     )
     @SecurityRequirement(name = "bearerAuth")
     @PreAuthorize("hasAnyRole('TREKKER', 'VENDOR_STAFF', 'VENDOR')")
-    @PostMapping
+    @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<ApiResponse<BlogDetailResponse>> createBlog(
-            @Valid @RequestBody CreateBlogRequest request,
-            @AuthenticationPrincipal CustomUserDetails userDetails) {
-        BlogDetailResponse result = blogService.createBlog(request, userDetails);
+            @Valid @ModelAttribute CreateBlogRequest request,
+            @AuthenticationPrincipal CustomUserDetails userDetails,
+            @RequestParam(value = "coverImage", required = false) MultipartFile coverImage) {
+        BlogDetailResponse result = blogService.createBlog(request, userDetails, coverImage);
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(ApiResponse.success(HttpStatus.CREATED, result, MessageConstant.BLOG_CREATED_SUCCESSFULLY));
     }
@@ -83,12 +86,13 @@ public class BlogController {
     )
     @SecurityRequirement(name = "bearerAuth")
     @PreAuthorize("isAuthenticated()")
-    @PutMapping("/{id}")
+    @PutMapping(value = "/{id}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<ApiResponse<BlogDetailResponse>> updateBlog(
             @Parameter(description = "UUID của bài viết") @PathVariable UUID id,
-            @Valid @RequestBody UpdateBlogRequest request,
-            @AuthenticationPrincipal CustomUserDetails userDetails) {
-        BlogDetailResponse result = blogService.updateBlog(id, request, userDetails);
+            @Valid @ModelAttribute UpdateBlogRequest request,
+            @AuthenticationPrincipal CustomUserDetails userDetails,
+            @RequestParam(value = "coverImage", required = false) MultipartFile coverImage) {
+        BlogDetailResponse result = blogService.updateBlog(id, request, userDetails, coverImage);
         return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, result, MessageConstant.BLOG_UPDATED_SUCCESSFULLY));
     }
 

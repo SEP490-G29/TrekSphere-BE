@@ -26,7 +26,6 @@ public class TourMapper {
         tour.setHighlights(request.getHighlights());
         tour.setIncludes(request.getIncludes());
         tour.setExcludes(request.getExcludes());
-        tour.setCoverImageUrl(request.getCoverImageUrl());
         
         return tour;
     }
@@ -71,9 +70,6 @@ public class TourMapper {
         }
         if (request.getExcludes() != null) {
             tour.setExcludes(request.getExcludes());
-        }
-        if (request.getCoverImageUrl() != null) {
-            tour.setCoverImageUrl(request.getCoverImageUrl());
         }
     }
 }

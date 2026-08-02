@@ -7,6 +7,7 @@ import com.sep.treksphere.dto.response.BlogCommentResponse;
 import com.sep.treksphere.dto.response.PaginationResponse;
 import com.sep.treksphere.entity.Blog;
 import com.sep.treksphere.entity.BlogComment;
+import com.sep.treksphere.enums.blog.BlogStatus;
 import com.sep.treksphere.enums.blog.CommentStatus;
 import com.sep.treksphere.exception.AppException;
 import com.sep.treksphere.exception.ErrorCode;
@@ -39,8 +40,12 @@ public class BlogCommentServiceImpl implements BlogCommentService {
     @Override
     @Transactional(readOnly = true)
     public PaginationResponse<BlogCommentResponse> getCommentsByBlogId(UUID blogId, BlogCommentFilterRequest filter) {
-        blogRepository.findDetailById(blogId)
+        Blog blog = blogRepository.findDetailById(blogId)
                 .orElseThrow(() -> new AppException(ErrorCode.BLOG_NOT_FOUND));
+
+        if (blog.getStatus() != BlogStatus.PUBLISHED) {
+            throw new AppException(ErrorCode.BLOG_NOT_FOUND);
+        }
 
         // Lấy top-level comments có phân trang
         Page<BlogComment> topLevelPage = blogCommentRepository
@@ -64,6 +69,10 @@ public class BlogCommentServiceImpl implements BlogCommentService {
         Blog blog = blogRepository.findDetailById(blogId)
                 .orElseThrow(() -> new AppException(ErrorCode.BLOG_NOT_FOUND));
 
+        if (blog.getStatus() != BlogStatus.PUBLISHED) {
+            throw new AppException(ErrorCode.BLOG_NOT_FOUND);
+        }
+
         BlogComment comment = new BlogComment();
         comment.setBlog(blog);
         comment.setUser(userDetails.getUser());
@@ -73,6 +82,12 @@ public class BlogCommentServiceImpl implements BlogCommentService {
         if (request.getParentCommentId() != null) {
             BlogComment parentComment = blogCommentRepository.findById(request.getParentCommentId())
                     .orElseThrow(() -> new AppException(ErrorCode.BLOG_COMMENT_NOT_FOUND));
+
+            if (parentComment.getStatus() != CommentStatus.ACTIVE 
+                    || Boolean.TRUE.equals(parentComment.getIsDeleted())
+                    || !parentComment.getBlog().getBlogId().equals(blogId)) {
+                throw new AppException(ErrorCode.BLOG_COMMENT_NOT_FOUND);
+            }
             comment.setParentComment(parentComment);
         }
 
@@ -87,6 +102,10 @@ public class BlogCommentServiceImpl implements BlogCommentService {
     public BlogCommentResponse updateComment(UUID commentId, UpdateCommentRequest request, CustomUserDetails userDetails) {
         BlogComment comment = blogCommentRepository.findById(commentId)
                 .orElseThrow(() -> new AppException(ErrorCode.BLOG_COMMENT_NOT_FOUND));
+
+        if (comment.getStatus() != CommentStatus.ACTIVE || Boolean.TRUE.equals(comment.getIsDeleted())) {
+            throw new AppException(ErrorCode.BLOG_COMMENT_NOT_FOUND);
+        }
 
         boolean isOwner = comment.getUser().getUserId().equals(userDetails.getUser().getUserId());
         if (!isOwner) {
@@ -106,6 +125,10 @@ public class BlogCommentServiceImpl implements BlogCommentService {
     public void deleteComment(UUID commentId, CustomUserDetails userDetails) {
         BlogComment comment = blogCommentRepository.findById(commentId)
                 .orElseThrow(() -> new AppException(ErrorCode.BLOG_COMMENT_NOT_FOUND));
+
+        if (comment.getStatus() != CommentStatus.ACTIVE || Boolean.TRUE.equals(comment.getIsDeleted())) {
+            throw new AppException(ErrorCode.BLOG_COMMENT_NOT_FOUND);
+        }
 
         boolean isOwner = comment.getUser().getUserId().equals(userDetails.getUser().getUserId());
         boolean isAdmin = userDetails.getAuthorities().stream()

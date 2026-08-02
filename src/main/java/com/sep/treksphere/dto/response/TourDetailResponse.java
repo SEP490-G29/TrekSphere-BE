@@ -47,6 +47,8 @@ public class TourDetailResponse {
 
     private List<TourImageResponse> images;
 
+    private List<TourCheckpointResponse> checkpoints;
+
     private List<TourScheduleResponse> schedules;
 
     private Double averageRating;

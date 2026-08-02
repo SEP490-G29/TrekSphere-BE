@@ -12,6 +12,7 @@ import com.sep.treksphere.entity.SessionEquipment;
 import com.sep.treksphere.enums.tour.TourSessionStatus;
 import com.sep.treksphere.exception.AppException;
 import com.sep.treksphere.exception.ErrorCode;
+import com.sep.treksphere.constant.MessageConstant;
 import com.sep.treksphere.mapper.SessionEquipmentMapper;
 import com.sep.treksphere.mapper.TourSessionMapper;
 import com.sep.treksphere.repository.CoordinatorScheduleRepository;
@@ -66,7 +67,7 @@ public class LogisticsAllocationServiceImpl implements LogisticsAllocationServic
 
     @Override
     @Transactional
-    public void assignEquipment(UUID sessionId, AssignEquipmentRequest request, UUID vendorUserId) {
+    public String assignEquipment(UUID sessionId, AssignEquipmentRequest request, UUID vendorUserId) {
         log.info("Assigning equipment {} to session {}", request.getEquipmentId(), sessionId);
 
         TourSession session = tourSessionRepository.findByIdWithVendor(sessionId)
@@ -97,13 +98,26 @@ public class LogisticsAllocationServiceImpl implements LogisticsAllocationServic
         equipment.setTotalQuantity(equipment.getTotalQuantity() - request.getQuantity());
         vendorEquipmentRepository.save(equipment);
 
-        // Create session equipment allocation
-        SessionEquipment sessionEquipment = sessionEquipmentMapper.toEntity(request);
-        sessionEquipment.setTourSession(session);
-        sessionEquipment.setEquipment(equipment);
+        Optional<SessionEquipment> existingEqOpt = sessionEquipmentRepository
+                .findByTourSession_TourSessionIdAndEquipment_EquipmentIdAndIsDeletedFalse(sessionId, request.getEquipmentId());
 
-        sessionEquipmentRepository.save(sessionEquipment);
-        log.info("Equipment assigned successfully");
+        if (existingEqOpt.isPresent()) {
+            SessionEquipment existingEq = existingEqOpt.get();
+            existingEq.setQuantity(existingEq.getQuantity() + request.getQuantity());
+            if (request.getNote() != null && !request.getNote().isEmpty()) {
+                existingEq.setNote(existingEq.getNote() + "\n" + request.getNote());
+            }
+            sessionEquipmentRepository.save(existingEq);
+            log.info("Equipment quantity updated successfully");
+            return MessageConstant.EQUIPMENT_QUANTITY_UPDATED_SUCCESSFULLY;
+        } else {
+            SessionEquipment sessionEquipment = sessionEquipmentMapper.toEntity(request);
+            sessionEquipment.setTourSession(session);
+            sessionEquipment.setEquipment(equipment);
+            sessionEquipmentRepository.save(sessionEquipment);
+            log.info("Equipment assigned successfully");
+            return MessageConstant.EQUIPMENT_ASSIGNED_SUCCESSFULLY;
+        }
     }
 
     @Override
@@ -373,14 +387,20 @@ public class LogisticsAllocationServiceImpl implements LogisticsAllocationServic
 
     @Override
     @Transactional(readOnly = true)
-    public TourSessionAllocationResponse getAllocations(UUID sessionId, UUID vendorUserId) {
-        UUID vendorId = resolveVendorId(vendorUserId);
-        
+    public TourSessionAllocationResponse getAllocations(UUID sessionId, UUID userId, boolean isCoordinator) {
         TourSession session = tourSessionRepository.findByIdWithVendor(sessionId)
                 .orElseThrow(() -> new AppException(ErrorCode.TOUR_SESSION_NOT_FOUND));
-                
-        if (!session.getTourSchedule().getTour().getVendor().getVendorId().equals(vendorId)) {
-            throw new AppException(ErrorCode.TOUR_NOT_BELONG_TO_VENDOR);
+
+        if (isCoordinator) {
+            boolean isAssigned = coordinatorScheduleRepository.existsByTourSession_TourSessionIdAndCoordinator_UserIdAndIsDeletedFalse(sessionId, userId);
+            if (!isAssigned) {
+                throw new AppException(ErrorCode.UNAUTHORIZED_SESSION_ACCESS);
+            }
+        } else {
+            UUID vendorId = resolveVendorId(userId);
+            if (!session.getTourSchedule().getTour().getVendor().getVendorId().equals(vendorId)) {
+                throw new AppException(ErrorCode.TOUR_NOT_BELONG_TO_VENDOR);
+            }
         }
         
         List<CoordinatorSchedule> coordinatorSchedules = coordinatorScheduleRepository.findByTourSession_TourSessionIdAndIsDeletedFalse(sessionId);
@@ -402,7 +422,7 @@ public class LogisticsAllocationServiceImpl implements LogisticsAllocationServic
 
         Pageable pageable = PageRequest.of(page - 1, size, Sort.by(Sort.Direction.DESC, "createdAt"));
         
-        org.springframework.data.domain.Page<CoordinatorSchedule> schedulePage = coordinatorScheduleRepository.findSchedulesByVendor(vendorId, coordinatorId, status, pageable);
+        Page<CoordinatorSchedule> schedulePage = coordinatorScheduleRepository.findSchedulesByVendor(vendorId, coordinatorId, status, pageable);
         
         List<StaffScheduleResponse> content = tourSessionMapper.toStaffScheduleResponseList(schedulePage.getContent());
         

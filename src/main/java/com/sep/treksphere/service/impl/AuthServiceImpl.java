@@ -24,16 +24,21 @@ import com.sep.treksphere.security.JwtService;
 import com.sep.treksphere.security.JwtTokenProvider;
 import com.sep.treksphere.service.AuthService;
 import com.sep.treksphere.service.EmailService;
+import com.sep.treksphere.service.EmailVerificationRateLimiter;
 import com.sep.treksphere.service.RefreshTokenService;
 import com.sep.treksphere.service.TokenBlacklistService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.DisabledException;
+import org.springframework.security.authentication.LockedException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import io.jsonwebtoken.ExpiredJwtException;
+import io.jsonwebtoken.JwtException;
 
 import java.util.Collections;
 import java.util.Date;
@@ -48,6 +53,7 @@ public class AuthServiceImpl implements AuthService {
     private final RefreshTokenService refreshTokenService;
     private final TokenBlacklistService tokenBlacklistService;
     private final EmailService emailService;
+    private final EmailVerificationRateLimiter emailVerificationRateLimiter;
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
     private final JwtTokenProvider tokenProvider;
@@ -68,11 +74,12 @@ public class AuthServiceImpl implements AuthService {
     public LoginResponse login(LoginRequest request) {
         User user = userRepository.findByEmail(request.getEmail()).orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
 
-        authenticationManager.authenticate(new UsernamePasswordAuthenticationToken(request.getEmail(), request.getPassword()));
-
-
-        if (user.getStatus() != UserStatus.ACTIVE) {
-            throw new AppException(ErrorCode.USER_NOT_ACTIVE);
+        try {
+            authenticationManager.authenticate(new UsernamePasswordAuthenticationToken(request.getEmail(), request.getPassword()));
+        } catch (LockedException ex) {
+            throw new AppException(ErrorCode.ACCOUNT_LOCKED);
+        } catch (DisabledException ex) {
+            throw new AppException(ErrorCode.ACCOUNT_DEACTIVATED);
         }
 
         if (!user.isEmailVerified()) {
@@ -139,12 +146,17 @@ public class AuthServiceImpl implements AuthService {
     @Transactional
     public String verifyEmail(String token) {
         log.info("Starting email verification process with token...");
-        if (!tokenProvider.validateToken(token)) {
-            log.error("Invalid or expired verification token.");
+        String email;
+        try {
+            email = tokenProvider.getEmailFromToken(token);
+        } catch (ExpiredJwtException ex) {
+            log.info("Email verification token has expired.");
+            throw new AppException(ErrorCode.VERIFICATION_TOKEN_EXPIRED);
+        } catch (JwtException | IllegalArgumentException ex) {
+            log.warn("Invalid email verification token: {}", ex.getMessage());
             throw new AppException(ErrorCode.INVALID_TOKEN);
         }
 
-        String email = tokenProvider.getEmailFromToken(token);
         log.info("Token validated for email: {}", email);
 
         User user = userRepository.findByEmail(email).orElseThrow(() -> {
@@ -161,6 +173,23 @@ public class AuthServiceImpl implements AuthService {
         log.info("Email {} has been successfully verified.", email);
 
         return MessageConstant.EMAIL_VERIFIED_SUCCESSFULLY;
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public void resendVerificationEmail(String email) {
+        String normalizedEmail = email.trim().toLowerCase();
+        emailVerificationRateLimiter.checkAllowed(normalizedEmail);
+
+        User user = userRepository.findByEmail(normalizedEmail).orElse(null);
+        if (user == null || user.isEmailVerified() || user.getStatus() != UserStatus.ACTIVE) {
+            return;
+        }
+
+        String verificationToken = tokenProvider.generateVerificationToken(user.getEmail());
+        String verificationUrl = frontendUrl + "/verify?token=" + verificationToken;
+        emailService.sendVerificationEmail(user.getEmail(), user.getFullName(), verificationUrl);
+        log.info("Verification email resent to: {}", user.getEmail());
     }
 
     @Override
@@ -194,6 +223,7 @@ public class AuthServiceImpl implements AuthService {
         refreshTokenService.validateAndConsume(userEmail, jti);
         
         User user = userRepository.findByEmail(userEmail).orElseThrow(() -> new AppException(ErrorCode.INVALID_TOKEN, "User không tồn tại"));
+        validateAccountStatus(user);
         CustomUserDetails userDetails = new CustomUserDetails(user);
         
         if (!jwtService.isTokenValid(refreshTokenStr, userDetails)) {
@@ -296,15 +326,15 @@ public class AuthServiceImpl implements AuthService {
                     }
                 }
 
-                if (user.getStatus() != UserStatus.ACTIVE) {
-            throw new AppException(ErrorCode.USER_NOT_ACTIVE);
-                }
+                validateAccountStatus(user);
 
                 CustomUserDetails userDetails = new CustomUserDetails(user);
                 return issueTokens(userDetails, user);
             } else {
                 throw new AppException(ErrorCode.INVALID_TOKEN, MessageConstant.INVALID_GOOGLE_ID_TOKEN);
             }
+        } catch (AppException e) {
+            throw e;
         } catch (Exception e) {
             log.error("Google login failed", e);
             throw new AppException(ErrorCode.INVALID_TOKEN, "Google login failed: " + e.getMessage());
@@ -335,6 +365,15 @@ public class AuthServiceImpl implements AuthService {
         refreshTokenService.store(user.getEmail(), refreshJti, refreshExpiration);
 
         return authMapper.toLoginResponse(user, accessToken, refreshToken);
+    }
+
+    private void validateAccountStatus(User user) {
+        if (user.getStatus() == UserStatus.LOCKED) {
+            throw new AppException(ErrorCode.ACCOUNT_LOCKED);
+        }
+        if (user.getStatus() == UserStatus.DEACTIVATED) {
+            throw new AppException(ErrorCode.ACCOUNT_DEACTIVATED);
+        }
     }
 
     private void blacklistIfValid(String token, String expectedType) {

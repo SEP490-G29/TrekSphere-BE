@@ -84,3 +84,7 @@ application:
     same-site: Strict
   frontend:
     url: ${FRONTEND_URL}
+  email-verification:
+    rate-limit:
+      cooldown-seconds: 60
+      max-per-hour: 5

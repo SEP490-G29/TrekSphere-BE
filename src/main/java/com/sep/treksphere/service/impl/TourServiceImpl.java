@@ -6,6 +6,7 @@ import com.sep.treksphere.dto.request.UpdateTourRequest;
 import com.sep.treksphere.dto.response.*;
 import com.sep.treksphere.entity.Notification;
 import com.sep.treksphere.entity.Tour;
+import com.sep.treksphere.entity.TourCheckpoint;
 import com.sep.treksphere.entity.TourImage;
 import com.sep.treksphere.entity.TourSchedule;
 import com.sep.treksphere.entity.User;
@@ -14,19 +15,20 @@ import com.sep.treksphere.enums.blog.ReviewStatus;
 import com.sep.treksphere.enums.system.NotificationEventType;
 import com.sep.treksphere.enums.system.ReferenceType;
 import com.sep.treksphere.enums.tour.DifficultyLevel;
-import com.sep.treksphere.enums.tour.ScheduleStatus;
 import com.sep.treksphere.enums.tour.TourStatus;
 import com.sep.treksphere.exception.AppException;
 import com.sep.treksphere.exception.ErrorCode;
 import com.sep.treksphere.mapper.TourMapper;
 import com.sep.treksphere.repository.NotificationRepository;
 import com.sep.treksphere.repository.ReviewRepository;
+import com.sep.treksphere.repository.TourCheckpointRepository;
 import com.sep.treksphere.repository.TourImageRepository;
 import com.sep.treksphere.repository.TourRepository;
 import com.sep.treksphere.repository.TourScheduleRepository;
 import com.sep.treksphere.repository.UserRepository;
 import com.sep.treksphere.repository.VendorRepository;
 import com.sep.treksphere.repository.VendorStaffRepository;
+import com.sep.treksphere.service.FileService;
 import com.sep.treksphere.service.TourService;
 import com.sep.treksphere.utils.PaginationUtils;
 import lombok.RequiredArgsConstructor;
@@ -37,7 +39,9 @@ import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
+import org.springframework.web.multipart.MultipartFile;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
@@ -47,6 +51,7 @@ public class TourServiceImpl implements TourService {
 
     private final TourRepository tourRepository;
     private final TourImageRepository tourImageRepository;
+    private final TourCheckpointRepository tourCheckpointRepository;
     private final TourScheduleRepository tourScheduleRepository;
     private final ReviewRepository reviewRepository;
     private final NotificationRepository notificationRepository;
@@ -54,6 +59,7 @@ public class TourServiceImpl implements TourService {
     private final VendorStaffRepository vendorStaffRepository;
     private final UserRepository userRepository;
     private final TourMapper tourMapper;
+    private final FileService fileService;
 
     @Override
     @Transactional(readOnly = true)
@@ -65,9 +71,10 @@ public class TourServiceImpl implements TourService {
             int size,
             String sortBy,
             String sortDir) {
+        String validSortBy = StringUtils.hasText(sortBy) ? sortBy.trim() : "createdAt";
         Sort sort = "asc".equalsIgnoreCase(sortDir)
-                ? Sort.by(sortBy).ascending()
-                : Sort.by(sortBy).descending();
+                ? Sort.by(validSortBy).ascending()
+                : Sort.by(validSortBy).descending();
 
         Pageable pageable = PageRequest.of(page, size, sort);
         String normalizedKeyword = StringUtils.hasText(keyword) ? keyword.trim() : null;
@@ -89,11 +96,11 @@ public class TourServiceImpl implements TourService {
         Tour tour = tourRepository.findDetailById(tourId)
                 .orElseThrow(() -> new AppException(ErrorCode.TOUR_NOT_FOUND));
         List<TourImage> images = tourImageRepository.findByTourOrderBySortOrderAsc(tour);
-        List<TourSchedule> schedules = tourScheduleRepository
-                .findByTourAndStatusOrderByDepartureDateAsc(tour, ScheduleStatus.OPEN);
+        List<TourCheckpoint> checkpoints = tourCheckpointRepository.findByTourAndIsDeletedFalseOrderByCheckpointOrderAsc(tour);
+        List<TourSchedule> schedules = tourScheduleRepository.findByTourAndIsDeletedFalseOrderByDepartureDateAsc(tour);
         Double avgRating = reviewRepository.findAverageRatingByTourAndStatus(tour, ReviewStatus.APPROVED);
         int totalReviews = reviewRepository.countByTourAndStatusAndIsDeletedFalse(tour, ReviewStatus.APPROVED);
-        return toDetailResponse(tour, images, schedules, avgRating, totalReviews);
+        return toDetailResponse(tour, images, checkpoints, schedules, avgRating, totalReviews);
     }
 
     private TourSummaryResponse toSummaryResponse(Tour tour) {
@@ -126,6 +133,7 @@ public class TourServiceImpl implements TourService {
     private TourDetailResponse toDetailResponse(
             Tour tour,
             List<TourImage> images,
+            List<TourCheckpoint> checkpoints,
             List<TourSchedule> schedules,
             Double avgRating,
             int totalReviews) {
@@ -160,11 +168,27 @@ public class TourServiceImpl implements TourService {
                 .creatorEmail(tour.getCreator() != null ? tour.getCreator().getEmail() : null)
                 // Images
                 .images(images.stream().map(this::toImageResponse).toList())
+                // Checkpoints
+                .checkpoints(checkpoints.stream().map(this::toCheckpointResponse).toList())
                 // Schedules
                 .schedules(schedules.stream().map(this::toScheduleResponse).toList())
                 // Review stats
                 .averageRating(avgRating)
                 .totalReviews(totalReviews)
+                .build();
+    }
+
+    private TourCheckpointResponse toCheckpointResponse(TourCheckpoint checkpoint) {
+        return TourCheckpointResponse.builder()
+                .checkpointId(checkpoint.getCheckpointId().toString())
+                .tourId(checkpoint.getTour() != null ? checkpoint.getTour().getTourId().toString() : null)
+                .checkpointName(checkpoint.getCheckpointName())
+                .description(checkpoint.getDescription())
+                .latitude(checkpoint.getLatitude())
+                .longitude(checkpoint.getLongitude())
+                .altitude(checkpoint.getAltitude())
+                .checkpointOrder(checkpoint.getCheckpointOrder())
+                .checkpointImageUrl(checkpoint.getCheckpointImageUrl())
                 .build();
     }
 
@@ -229,17 +253,18 @@ public class TourServiceImpl implements TourService {
         }
 
         List<TourImage> images = tourImageRepository.findByTourOrderBySortOrderAsc(tour);
-        List<TourSchedule> schedules = tourScheduleRepository
-                .findByTourAndStatusOrderByDepartureDateAsc(tour, ScheduleStatus.OPEN);
+        List<TourCheckpoint> checkpoints = tourCheckpointRepository.findByTourAndIsDeletedFalseOrderByCheckpointOrderAsc(tour);
+        List<TourSchedule> schedules = tourScheduleRepository.findByTourAndIsDeletedFalseOrderByDepartureDateAsc(tour);
         Double avgRating = reviewRepository.findAverageRatingByTourAndStatus(tour, ReviewStatus.APPROVED);
         int totalReviews = reviewRepository.countByTourAndStatusAndIsDeletedFalse(tour, ReviewStatus.APPROVED);
 
-        return toDetailResponse(tour, images, schedules, avgRating, totalReviews);
+        return toDetailResponse(tour, images, checkpoints, schedules, avgRating, totalReviews);
     }
 
     @Override
     @Transactional
-    public TourDetailResponse createTour(String userEmail, CreateTourRequest request) {
+    public TourDetailResponse createTour(String userEmail, CreateTourRequest request,
+                                          MultipartFile coverImage, List<MultipartFile> tourImages) {
         Vendor vendor = resolveVendorByEmail(userEmail);
         User creator = userRepository.findByEmail(userEmail)
                 .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
@@ -249,14 +274,35 @@ public class TourServiceImpl implements TourService {
         tour.setVendor(vendor);
         tour.setCreator(creator);
 
+        // Upload cover image
+        if (coverImage != null && !coverImage.isEmpty()) {
+            String coverUrl = fileService.uploadFile(coverImage, "tours");
+            tour.setCoverImageUrl(coverUrl);
+        }
+
         tour = tourRepository.save(tour);
-        
-        return toDetailResponse(tour, List.of(), List.of(), 0.0, 0);
+
+        // Upload tour gallery images (batch)
+        List<TourImage> savedImages = new ArrayList<>();
+        if (tourImages != null && !tourImages.isEmpty()) {
+            List<String> imageUrls = fileService.uploadFiles(tourImages, "tours");
+            for (int i = 0; i < imageUrls.size(); i++) {
+                TourImage tourImage = new TourImage();
+                tourImage.setTour(tour);
+                tourImage.setImageUrl(imageUrls.get(i));
+                tourImage.setSortOrder(i);
+                savedImages.add(tourImage);
+            }
+            tourImageRepository.saveAll(savedImages);
+        }
+
+        return toDetailResponse(tour, savedImages, List.of(), List.of(), 0.0, 0);
     }
 
     @Override
     @Transactional
-    public TourDetailResponse updateTour(String userEmail, UUID tourId, UpdateTourRequest request) {
+    public TourDetailResponse updateTour(String userEmail, UUID tourId, UpdateTourRequest request,
+                                          MultipartFile coverImage, List<MultipartFile> tourImages) {
         Vendor vendor = resolveVendorByEmail(userEmail);
         
         Tour tour = tourRepository.findByTourIdAndIsDeletedFalse(tourId)
@@ -271,15 +317,48 @@ public class TourServiceImpl implements TourService {
         }
 
         tourMapper.updateTourFromRequest(request, tour);
+
+        // Upload cover image if provided
+        if (coverImage != null && !coverImage.isEmpty()) {
+            String coverUrl = fileService.uploadFile(coverImage, "tours");
+            tour.setCoverImageUrl(coverUrl);
+        }
+
         tour = tourRepository.save(tour);
 
+        // Smart replace tour gallery images:
+        // - tourImages == null  → không gửi field → giữ nguyên ảnh cũ
+        // - tourImages is empty → gửi mảng rỗng → xoá hết ảnh cũ
+        // - tourImages has files → thay thế ảnh cũ bằng ảnh mới
+        if (tourImages != null) {
+            // Xoá tất cả ảnh cũ
+            List<TourImage> existingImages = tourImageRepository.findByTourOrderBySortOrderAsc(tour);
+            if (!existingImages.isEmpty()) {
+                tourImageRepository.deleteAll(existingImages);
+            }
+
+            // Upload ảnh mới (nếu có)
+            if (!tourImages.isEmpty()) {
+                List<String> imageUrls = fileService.uploadFiles(tourImages, "tours");
+                List<TourImage> newImages = new ArrayList<>();
+                for (int i = 0; i < imageUrls.size(); i++) {
+                    TourImage tourImage = new TourImage();
+                    tourImage.setTour(tour);
+                    tourImage.setImageUrl(imageUrls.get(i));
+                    tourImage.setSortOrder(i);
+                    newImages.add(tourImage);
+                }
+                tourImageRepository.saveAll(newImages);
+            }
+        }
+
         List<TourImage> images = tourImageRepository.findByTourOrderBySortOrderAsc(tour);
-        List<TourSchedule> schedules = tourScheduleRepository
-                .findByTourAndStatusOrderByDepartureDateAsc(tour, ScheduleStatus.OPEN);
+        List<TourCheckpoint> checkpoints = tourCheckpointRepository.findByTourAndIsDeletedFalseOrderByCheckpointOrderAsc(tour);
+        List<TourSchedule> schedules = tourScheduleRepository.findByTourAndIsDeletedFalseOrderByDepartureDateAsc(tour);
         Double avgRating = reviewRepository.findAverageRatingByTourAndStatus(tour, ReviewStatus.APPROVED);
         int totalReviews = reviewRepository.countByTourAndStatusAndIsDeletedFalse(tour, ReviewStatus.APPROVED);
         
-        return toDetailResponse(tour, images, schedules, avgRating, totalReviews);
+        return toDetailResponse(tour, images, checkpoints, schedules, avgRating, totalReviews);
     }
 
     @Override
@@ -332,12 +411,12 @@ public class TourServiceImpl implements TourService {
         notificationRepository.save(notification);
 
         List<TourImage> images = tourImageRepository.findByTourOrderBySortOrderAsc(tour);
-        List<TourSchedule> schedules = tourScheduleRepository
-                .findByTourAndStatusOrderByDepartureDateAsc(tour, ScheduleStatus.OPEN);
+        List<TourCheckpoint> checkpoints = tourCheckpointRepository.findByTourAndIsDeletedFalseOrderByCheckpointOrderAsc(tour);
+        List<TourSchedule> schedules = tourScheduleRepository.findByTourAndIsDeletedFalseOrderByDepartureDateAsc(tour);
         Double avgRating = reviewRepository.findAverageRatingByTourAndStatus(tour, ReviewStatus.APPROVED);
         int totalReviews = reviewRepository.countByTourAndStatusAndIsDeletedFalse(tour, ReviewStatus.APPROVED);
 
-        return toDetailResponse(tour, images, schedules, avgRating, totalReviews);
+        return toDetailResponse(tour, images, checkpoints, schedules, avgRating, totalReviews);
     }
 
     @Override
@@ -372,12 +451,14 @@ public class TourServiceImpl implements TourService {
         notificationRepository.save(notification);
 
         List<TourImage> images = tourImageRepository.findByTourOrderBySortOrderAsc(tour);
+        List<TourCheckpoint> checkpoints = tourCheckpointRepository
+                .findByTourAndIsDeletedFalseOrderByCheckpointOrderAsc(tour);
         List<TourSchedule> schedules = tourScheduleRepository
-                .findByTourAndStatusOrderByDepartureDateAsc(tour, ScheduleStatus.OPEN);
+                .findByTourAndIsDeletedFalseOrderByDepartureDateAsc(tour);
         Double avgRating = reviewRepository.findAverageRatingByTourAndStatus(tour, ReviewStatus.APPROVED);
         int totalReviews = reviewRepository.countByTourAndStatusAndIsDeletedFalse(tour, ReviewStatus.APPROVED);
 
-        return toDetailResponse(tour, images, schedules, avgRating, totalReviews);
+        return toDetailResponse(tour, images, checkpoints, schedules, avgRating, totalReviews);
     }
 
     @Override
@@ -412,12 +493,14 @@ public class TourServiceImpl implements TourService {
         notificationRepository.save(notification);
 
         List<TourImage> images = tourImageRepository.findByTourOrderBySortOrderAsc(tour);
+        List<TourCheckpoint> checkpoints = tourCheckpointRepository
+                .findByTourAndIsDeletedFalseOrderByCheckpointOrderAsc(tour);
         List<TourSchedule> schedules = tourScheduleRepository
-                .findByTourAndStatusOrderByDepartureDateAsc(tour, ScheduleStatus.OPEN);
+                .findByTourAndIsDeletedFalseOrderByDepartureDateAsc(tour);
         Double avgRating = reviewRepository.findAverageRatingByTourAndStatus(tour, ReviewStatus.APPROVED);
         int totalReviews = reviewRepository.countByTourAndStatusAndIsDeletedFalse(tour, ReviewStatus.APPROVED);
 
-        return toDetailResponse(tour, images, schedules, avgRating, totalReviews);
+        return toDetailResponse(tour, images, checkpoints, schedules, avgRating, totalReviews);
     }
 
     @Override
@@ -455,11 +538,11 @@ public class TourServiceImpl implements TourService {
         notificationRepository.save(notification);
 
         List<TourImage> images = tourImageRepository.findByTourOrderBySortOrderAsc(tour);
-        List<TourSchedule> schedules = tourScheduleRepository
-                .findByTourAndStatusOrderByDepartureDateAsc(tour, ScheduleStatus.OPEN);
+        List<TourCheckpoint> checkpoints = tourCheckpointRepository.findByTourAndIsDeletedFalseOrderByCheckpointOrderAsc(tour);
+        List<TourSchedule> schedules = tourScheduleRepository.findByTourAndIsDeletedFalseOrderByDepartureDateAsc(tour);
         Double avgRating = reviewRepository.findAverageRatingByTourAndStatus(tour, ReviewStatus.APPROVED);
         int totalReviews = reviewRepository.countByTourAndStatusAndIsDeletedFalse(tour, ReviewStatus.APPROVED);
 
-        return toDetailResponse(tour, images, schedules, avgRating, totalReviews);
+        return toDetailResponse(tour, images, checkpoints, schedules, avgRating, totalReviews);
     }
 }

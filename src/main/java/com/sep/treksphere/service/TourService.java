@@ -8,6 +8,9 @@ import com.sep.treksphere.dto.response.TourDetailResponse;
 import com.sep.treksphere.dto.response.TourSummaryResponse;
 import com.sep.treksphere.enums.tour.DifficultyLevel;
 
+import org.springframework.web.multipart.MultipartFile;
+
+import java.util.List;
 import java.util.UUID;
 
 public interface TourService {
@@ -25,8 +28,8 @@ public interface TourService {
     // Vendor Tour Management
     PaginationResponse<TourSummaryResponse> getVendorTours(String userEmail, BaseFilterRequest request);
     TourDetailResponse getVendorTourById(String userEmail, UUID tourId);
-    TourDetailResponse createTour(String userEmail, CreateTourRequest request);
-    TourDetailResponse updateTour(String userEmail, UUID tourId, UpdateTourRequest request);
+    TourDetailResponse createTour(String userEmail, CreateTourRequest request, MultipartFile coverImage, List<MultipartFile> tourImages);
+    TourDetailResponse updateTour(String userEmail, UUID tourId, UpdateTourRequest request, MultipartFile coverImage, List<MultipartFile> tourImages);
     void deleteTour(String userEmail, UUID tourId);
 
     // Tour Approval Workflow

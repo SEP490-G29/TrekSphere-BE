@@ -33,6 +33,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -40,6 +41,12 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 @Slf4j
 public class VendorApplicationServiceImpl implements VendorApplicationService {
+
+    private static final Set<ApplicationStatus> ADMIN_VISIBLE_STATUSES = Set.of(
+            ApplicationStatus.PENDING,
+            ApplicationStatus.APPROVED,
+            ApplicationStatus.REJECTED
+    );
 
     private final VendorApplicationRepository vendorApplicationRepository;
     private final UserRepository userRepository;
@@ -111,6 +118,7 @@ public class VendorApplicationServiceImpl implements VendorApplicationService {
 
         Pageable pageable = request.getPageable();
         Page<VendorApplication> pageResult = vendorApplicationRepository.findAllApplicationsWithFilter(
+                ADMIN_VISIBLE_STATUSES,
                 request.getStatus(),
                 request.getKeyword(),
                 pageable
