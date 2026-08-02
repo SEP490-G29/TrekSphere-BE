@@ -11,6 +11,12 @@ import com.sep.treksphere.mapper.CoordinatorScheduleMapper;
 import com.sep.treksphere.repository.CoordinatorScheduleRepository;
 import com.sep.treksphere.repository.UserRepository;
 import com.sep.treksphere.service.CoordinatorScheduleService;
+import com.sep.treksphere.repository.BookingParticipantRepository;
+import com.sep.treksphere.mapper.LogisticsInfoMapper;
+import com.sep.treksphere.dto.request.LogisticsInfoFilterRequest;
+import com.sep.treksphere.dto.response.LogisticsPassengerResponse;
+import com.sep.treksphere.entity.BookingParticipant;
+import com.sep.treksphere.enums.booking.BookingStatus;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -18,6 +24,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -27,6 +34,8 @@ public class CoordinatorScheduleServiceImpl implements CoordinatorScheduleServic
     private final CoordinatorScheduleRepository coordinatorScheduleRepository;
     private final UserRepository userRepository;
     private final CoordinatorScheduleMapper coordinatorScheduleMapper;
+    private final BookingParticipantRepository bookingParticipantRepository;
+    private final LogisticsInfoMapper logisticsInfoMapper;
 
     @Override
     @Transactional(readOnly = true)
@@ -71,6 +80,57 @@ public class CoordinatorScheduleServiceImpl implements CoordinatorScheduleServic
                 .totalElements(page.getTotalElements())
                 .totalPages(page.getTotalPages())
                 .last(page.isLast())
+                .build();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public PaginationResponse<LogisticsPassengerResponse> getLogisticsInfo(
+            String email,
+            UUID tourSessionId,
+            LogisticsInfoFilterRequest request
+    ) {
+        log.info("Coordinator {} requesting logistics info for tourSessionId {}", email, tourSessionId);
+
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
+
+        // Validate coordinator assignment
+        boolean isAssigned = coordinatorScheduleRepository.existsByTourSession_TourSessionIdAndCoordinator_UserIdAndIsDeletedFalse(
+                tourSessionId, user.getUserId()
+        );
+        if (!isAssigned) {
+            log.error("Coordinator {} is not assigned to tourSessionId {}", email, tourSessionId);
+            throw new AppException(ErrorCode.ACCESS_DENIED);
+        }
+
+        // Only fetch CONFIRMED and COMPLETED participants
+        List<BookingStatus> validStatuses = List.of(
+                BookingStatus.CONFIRMED,
+                BookingStatus.COMPLETED
+        );
+
+        Page<BookingParticipant> participantPage = 
+                bookingParticipantRepository.findParticipantsByTourSessionIdAndFilters(
+                        tourSessionId,
+                        validStatuses,
+                        request.getKeyword(),
+                        request.getIsPresentStart(),
+                        request.getIsPresentEnd(),
+                        request.getPageable()
+                );
+
+        List<LogisticsPassengerResponse> responses = participantPage.getContent().stream()
+                .map(logisticsInfoMapper::toLogisticsPassengerResponse)
+                .toList();
+
+        return PaginationResponse.<LogisticsPassengerResponse>builder()
+                .content(responses)
+                .pageNumber(participantPage.getNumber())
+                .pageSize(participantPage.getSize())
+                .totalElements(participantPage.getTotalElements())
+                .totalPages(participantPage.getTotalPages())
+                .last(participantPage.isLast())
                 .build();
     }
 }
