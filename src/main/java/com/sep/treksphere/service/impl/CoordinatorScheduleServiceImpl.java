@@ -64,6 +64,7 @@ public class CoordinatorScheduleServiceImpl implements CoordinatorScheduleServic
                 request.getIsCancelled(),
                 request.getDepartureDateFrom(),
                 request.getDepartureDateTo(),
+                request.getKeyword(),
                 request.getPageable()
         );
 
