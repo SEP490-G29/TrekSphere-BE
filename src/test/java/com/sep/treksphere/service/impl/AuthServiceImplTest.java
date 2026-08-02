@@ -27,6 +27,8 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.BadCredentialsException;
+import org.springframework.security.authentication.DisabledException;
+import org.springframework.security.authentication.LockedException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.util.ReflectionTestUtils;
@@ -154,16 +156,18 @@ class AuthServiceImplTest {
     }
 
     @Test
-    void UTCID04_login_Fail_UserNotActive() {
+    void UTCID04_login_Fail_AccountLocked() {
         // Arrange
         mockUser.setStatus(UserStatus.LOCKED);
         when(userRepository.findByEmail(validLoginRequest.getEmail())).thenReturn(Optional.of(mockUser));
-        when(authenticationManager.authenticate(any(UsernamePasswordAuthenticationToken.class))).thenReturn(null);
+        when(authenticationManager.authenticate(any(UsernamePasswordAuthenticationToken.class)))
+                .thenThrow(new LockedException("User account is locked"));
 
         // Act & Assert
         assertThatThrownBy(() -> authService.login(validLoginRequest))
                 .isInstanceOf(AppException.class)
-                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.USER_NOT_ACTIVE);
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.ACCOUNT_LOCKED)
+                .hasMessage(MessageConstant.ACCOUNT_LOCKED);
 
         verify(userRepository, times(1)).findByEmail(validLoginRequest.getEmail());
         verify(authenticationManager, times(1)).authenticate(any(UsernamePasswordAuthenticationToken.class));
@@ -171,7 +175,26 @@ class AuthServiceImplTest {
     }
 
     @Test
-    void UTCID05_login_Fail_EmailNotVerified() {
+    void UTCID05_login_Fail_AccountDeactivated() {
+        // Arrange
+        mockUser.setStatus(UserStatus.DEACTIVATED);
+        when(userRepository.findByEmail(validLoginRequest.getEmail())).thenReturn(Optional.of(mockUser));
+        when(authenticationManager.authenticate(any(UsernamePasswordAuthenticationToken.class)))
+                .thenThrow(new DisabledException("User is disabled"));
+
+        // Act & Assert
+        assertThatThrownBy(() -> authService.login(validLoginRequest))
+                .isInstanceOf(AppException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.ACCOUNT_DEACTIVATED)
+                .hasMessage(MessageConstant.ACCOUNT_DEACTIVATED);
+
+        verify(userRepository, times(1)).findByEmail(validLoginRequest.getEmail());
+        verify(authenticationManager, times(1)).authenticate(any(UsernamePasswordAuthenticationToken.class));
+        verifyNoInteractions(jwtService, refreshTokenService, authMapper);
+    }
+
+    @Test
+    void UTCID06_login_Fail_EmailNotVerified() {
         // Arrange
         mockUser.setEmailVerified(false);
         when(userRepository.findByEmail(validLoginRequest.getEmail())).thenReturn(Optional.of(mockUser));
@@ -185,6 +208,24 @@ class AuthServiceImplTest {
         verify(userRepository, times(1)).findByEmail(validLoginRequest.getEmail());
         verify(authenticationManager, times(1)).authenticate(any(UsernamePasswordAuthenticationToken.class));
         verifyNoInteractions(jwtService, refreshTokenService, authMapper);
+    }
+
+    @Test
+    void customUserDetails_MapsAccountStatusesCorrectly() {
+        mockUser.setStatus(UserStatus.ACTIVE);
+        CustomUserDetails activeUser = new CustomUserDetails(mockUser);
+        assertThat(activeUser.isAccountNonLocked()).isTrue();
+        assertThat(activeUser.isEnabled()).isTrue();
+
+        mockUser.setStatus(UserStatus.LOCKED);
+        CustomUserDetails lockedUser = new CustomUserDetails(mockUser);
+        assertThat(lockedUser.isAccountNonLocked()).isFalse();
+        assertThat(lockedUser.isEnabled()).isTrue();
+
+        mockUser.setStatus(UserStatus.DEACTIVATED);
+        CustomUserDetails deactivatedUser = new CustomUserDetails(mockUser);
+        assertThat(deactivatedUser.isAccountNonLocked()).isTrue();
+        assertThat(deactivatedUser.isEnabled()).isFalse();
     }
 
     @Test

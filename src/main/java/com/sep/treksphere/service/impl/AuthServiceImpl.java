@@ -30,6 +30,8 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.DisabledException;
+import org.springframework.security.authentication.LockedException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -68,11 +70,12 @@ public class AuthServiceImpl implements AuthService {
     public LoginResponse login(LoginRequest request) {
         User user = userRepository.findByEmail(request.getEmail()).orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
 
-        authenticationManager.authenticate(new UsernamePasswordAuthenticationToken(request.getEmail(), request.getPassword()));
-
-
-        if (user.getStatus() != UserStatus.ACTIVE) {
-            throw new AppException(ErrorCode.USER_NOT_ACTIVE);
+        try {
+            authenticationManager.authenticate(new UsernamePasswordAuthenticationToken(request.getEmail(), request.getPassword()));
+        } catch (LockedException ex) {
+            throw new AppException(ErrorCode.ACCOUNT_LOCKED);
+        } catch (DisabledException ex) {
+            throw new AppException(ErrorCode.ACCOUNT_DEACTIVATED);
         }
 
         if (!user.isEmailVerified()) {
@@ -194,6 +197,7 @@ public class AuthServiceImpl implements AuthService {
         refreshTokenService.validateAndConsume(userEmail, jti);
         
         User user = userRepository.findByEmail(userEmail).orElseThrow(() -> new AppException(ErrorCode.INVALID_TOKEN, "User không tồn tại"));
+        validateAccountStatus(user);
         CustomUserDetails userDetails = new CustomUserDetails(user);
         
         if (!jwtService.isTokenValid(refreshTokenStr, userDetails)) {
@@ -296,15 +300,15 @@ public class AuthServiceImpl implements AuthService {
                     }
                 }
 
-                if (user.getStatus() != UserStatus.ACTIVE) {
-            throw new AppException(ErrorCode.USER_NOT_ACTIVE);
-                }
+                validateAccountStatus(user);
 
                 CustomUserDetails userDetails = new CustomUserDetails(user);
                 return issueTokens(userDetails, user);
             } else {
                 throw new AppException(ErrorCode.INVALID_TOKEN, MessageConstant.INVALID_GOOGLE_ID_TOKEN);
             }
+        } catch (AppException e) {
+            throw e;
         } catch (Exception e) {
             log.error("Google login failed", e);
             throw new AppException(ErrorCode.INVALID_TOKEN, "Google login failed: " + e.getMessage());
@@ -335,6 +339,15 @@ public class AuthServiceImpl implements AuthService {
         refreshTokenService.store(user.getEmail(), refreshJti, refreshExpiration);
 
         return authMapper.toLoginResponse(user, accessToken, refreshToken);
+    }
+
+    private void validateAccountStatus(User user) {
+        if (user.getStatus() == UserStatus.LOCKED) {
+            throw new AppException(ErrorCode.ACCOUNT_LOCKED);
+        }
+        if (user.getStatus() == UserStatus.DEACTIVATED) {
+            throw new AppException(ErrorCode.ACCOUNT_DEACTIVATED);
+        }
     }
 
     private void blacklistIfValid(String token, String expectedType) {
