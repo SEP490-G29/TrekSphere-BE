@@ -20,18 +20,23 @@ public interface CoordinatorScheduleRepository extends JpaRepository<Coordinator
     @Query("SELECT cs FROM CoordinatorSchedule cs " +
            "JOIN cs.tourSession ts " +
            "JOIN ts.tourSchedule tsch " +
+           "JOIN tsch.tour t " +
            "WHERE cs.coordinator.userId = :coordinatorId " +
            "AND cs.isDeleted = false " +
            "AND (:status IS NULL OR ts.status = :status) " +
            "AND (:isCancelled IS NULL OR cs.isCancelled = :isCancelled) " +
            "AND (:departureDateFrom IS NULL OR tsch.departureDate >= :departureDateFrom) " +
-           "AND (:departureDateTo IS NULL OR tsch.departureDate <= :departureDateTo)")
+           "AND (:departureDateTo IS NULL OR tsch.departureDate <= :departureDateTo) " +
+           "AND (CAST(:keyword AS String) IS NULL " +
+           "     OR LOWER(t.tourName) LIKE LOWER(CONCAT('%', CAST(:keyword AS String), '%')) " +
+           "     OR LOWER(t.location) LIKE LOWER(CONCAT('%', CAST(:keyword AS String), '%')))")
     Page<CoordinatorSchedule> findByCoordinatorIdAndFilters(
             @Param("coordinatorId") UUID coordinatorId,
             @Param("status") TourSessionStatus status,
             @Param("isCancelled") Boolean isCancelled,
             @Param("departureDateFrom") LocalDate departureDateFrom,
             @Param("departureDateTo") LocalDate departureDateTo,
+            @Param("keyword") String keyword,
             Pageable pageable
     );
 
