@@ -57,6 +57,7 @@ public class MessageConstant {
     public static final String EMAIL_NOT_VERIFIED = "Vui lòng xác thực email trước khi đăng nhập";
     public static final String INVALID_TOKEN = "Token không hợp lệ hoặc đã hết hạn";
     public static final String ROLE_NOT_FOUND = "Không tìm thấy vai trò mặc định trong hệ thống";
+    public static final String FORGOT_PASSWORD_RATE_LIMITED = "Bạn đã yêu cầu gửi email khôi phục mật khẩu quá nhiều lần. Vui lòng thử lại sau 5 phút.";
 
     // Upload Error Messages
     public static final String UPLOAD_FAILED = "Lỗi tải file lên hệ thống";
