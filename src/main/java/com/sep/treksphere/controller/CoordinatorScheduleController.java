@@ -17,8 +17,12 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import com.sep.treksphere.dto.request.LogisticsInfoFilterRequest;
+import com.sep.treksphere.dto.response.LogisticsPassengerResponse;
+import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/v1/coordinator/schedules")
@@ -45,6 +49,30 @@ public class CoordinatorScheduleController {
                 HttpStatus.OK,
                 data,
                 MessageConstant.COORDINATOR_SCHEDULE_FETCHED
+        );
+
+        return ResponseEntity.ok(response);
+    }
+
+    @GetMapping("/{tourSessionId}/logistics-info")
+    @Operation(summary = "Xem thông tin logistics của đoàn", description = "Lấy danh sách thành viên đoàn để phục vụ hậu cần.")
+    @SecurityRequirement(name = "bearerAuth")
+    @PreAuthorize("hasRole('COORDINATOR')")
+    public ResponseEntity<ApiResponse<PaginationResponse<LogisticsPassengerResponse>>> getLogisticsInfo(
+            @AuthenticationPrincipal CustomUserDetails userDetails,
+            @PathVariable UUID tourSessionId,
+            @ParameterObject LogisticsInfoFilterRequest request
+    ) {
+        PaginationResponse<LogisticsPassengerResponse> data = coordinatorScheduleService.getLogisticsInfo(
+                userDetails.getUsername(),
+                tourSessionId,
+                request
+        );
+
+        ApiResponse<PaginationResponse<LogisticsPassengerResponse>> response = ApiResponse.success(
+                HttpStatus.OK,
+                data,
+                MessageConstant.COORDINATOR_LOGISTICS_FETCHED
         );
 
         return ResponseEntity.ok(response);
