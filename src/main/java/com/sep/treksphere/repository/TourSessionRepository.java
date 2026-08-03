@@ -15,6 +15,7 @@ import com.sep.treksphere.enums.tour.TourSessionStatus;
 @Repository
 public interface TourSessionRepository extends JpaRepository<TourSession, UUID> {
     Optional<TourSession> findByTourSessionIdAndIsDeletedFalse(UUID tourSessionId);
+    Optional<TourSession> findByTourSchedule_ScheduleIdAndIsDeletedFalse(UUID scheduleId);
 
     @Query("SELECT ts FROM TourSession ts " +
            "JOIN FETCH ts.tourSchedule sch " +

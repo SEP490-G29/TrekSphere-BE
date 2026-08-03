@@ -37,7 +37,14 @@ public interface TourService {
     TourDetailResponse approveTour(String userEmail, UUID tourId);
     TourDetailResponse rejectTour(String userEmail, UUID tourId, String reason);
 
+    // Revert REJECTED → DRAFT (Staff) hoặc REJECTED → PENDING_APPROVAL (Manager)
+    TourDetailResponse revertTour(String userEmail, UUID tourId);
+
+    // Khôi phục Tour đã xóa mềm
+    TourDetailResponse restoreTour(String userEmail, UUID tourId);
+
     // Tour Moderation
     TourDetailResponse hideTourForViolation(String userEmail, UUID tourId, String reason);
+    TourDetailResponse unhideTour(String userEmail, UUID tourId);
 }
 

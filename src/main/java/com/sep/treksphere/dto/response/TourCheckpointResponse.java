@@ -6,6 +6,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
+import java.util.List;
 
 @Data
 @Builder
@@ -22,4 +23,5 @@ public class TourCheckpointResponse {
     private BigDecimal altitude;
     private Integer checkpointOrder;
     private String checkpointImageUrl;
+    private List<String> checkpointImageUrls;
 }

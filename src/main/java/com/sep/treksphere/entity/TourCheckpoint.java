@@ -41,6 +41,6 @@ public class TourCheckpoint extends BaseEntity {
     @Column(nullable = false)
     private Integer checkpointOrder;
 
-    @Column(length = 500)
+    @Column(columnDefinition = "TEXT")
     private String checkpointImageUrl;
 }

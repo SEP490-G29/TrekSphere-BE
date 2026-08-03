@@ -12,11 +12,14 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
+import java.util.List;
 import java.util.UUID;
 
 @RestController
@@ -27,32 +30,34 @@ public class VendorTourCheckpointController {
 
     private final TourCheckpointService tourCheckpointService;
 
-    @Operation(summary = "Thêm trạm dừng", description = "Thiết lập/Thêm các trạm dừng chặn (vị trí Lat, Lng, thứ tự trạm)")
+    @Operation(summary = "Thêm trạm dừng", description = "Thiết lập/Thêm các trạm dừng chặn (vị trí Lat, Lng, thứ tự trạm, kèm danh sách ảnh)")
     @SecurityRequirement(name = "bearerAuth")
     @PreAuthorize("hasAnyRole('VENDOR_MANAGER', 'VENDOR_STAFF')")
-    @PostMapping("/{tourId}/checkpoints")
+    @PostMapping(value = "/{tourId}/checkpoints", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<ApiResponse<TourCheckpointResponse>> createCheckpoint(
             @PathVariable UUID tourId,
-            @Valid @RequestBody TourCheckpointRequest request,
+            @Valid @ModelAttribute TourCheckpointRequest request,
+            @RequestParam(value = "images", required = false) List<MultipartFile> images,
             @AuthenticationPrincipal CustomUserDetails userDetails) {
 
         TourCheckpointResponse response = tourCheckpointService.createCheckpoint(
-                tourId, request, userDetails.getUsername());
+                tourId, request, images, userDetails.getUsername());
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(ApiResponse.success(HttpStatus.CREATED, response, MessageConstant.CHECKPOINT_CREATED_SUCCESSFULLY));
     }
 
-    @Operation(summary = "Sửa trạm dừng", description = "Sửa thông tin trạm dừng (toạ độ, mô tả, thứ tự...)")
+    @Operation(summary = "Sửa trạm dừng", description = "Sửa thông tin trạm dừng (toạ độ, mô tả, thứ tự, kèm danh sách ảnh mới)")
     @SecurityRequirement(name = "bearerAuth")
     @PreAuthorize("hasAnyRole('VENDOR_MANAGER', 'VENDOR_STAFF')")
-    @PutMapping("/checkpoints/{checkpointId}")
+    @PutMapping(value = "/checkpoints/{checkpointId}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<ApiResponse<TourCheckpointResponse>> updateCheckpoint(
             @PathVariable UUID checkpointId,
-            @Valid @RequestBody TourCheckpointRequest request,
+            @Valid @ModelAttribute TourCheckpointRequest request,
+            @RequestParam(value = "images", required = false) List<MultipartFile> images,
             @AuthenticationPrincipal CustomUserDetails userDetails) {
 
         TourCheckpointResponse response = tourCheckpointService.updateCheckpoint(
-                checkpointId, request, userDetails.getUsername());
+                checkpointId, request, images, userDetails.getUsername());
         return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, response, MessageConstant.CHECKPOINT_UPDATED_SUCCESSFULLY));
     }
 
