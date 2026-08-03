@@ -94,9 +94,17 @@ public class MessageConstant {
     public static final String TOUR_HIDDEN_SUCCESSFULLY = "Tour đã được ẩn thành công do vi phạm";
     public static final String TOUR_NOT_APPROVED = "Chỉ có thể ẩn Tour đang ở trạng thái đã duyệt (APPROVED)";
     public static final String HIDE_REASON_REQUIRED = "Lý do ẩn tour không được để trống";
+    public static final String TOUR_HAS_ACTIVE_BOOKINGS = "Tour đang có đặt chỗ chưa huỷ, không thể xóa hoặc ẩn";
+    public static final String TOUR_NOT_IN_REJECTED_STATUS = "Tour phải ở trạng thái REJECTED để chuyển về bản nháp";
+    public static final String TOUR_UPDATE_NOT_ALLOWED = "Bạn không có quyền chỉnh sửa Tour ở trạng thái này";
+    public static final String TOUR_REVERTED_TO_DRAFT = "Tour đã được chuyển về trạng thái Bản nháp thành công";
+    public static final String TOUR_NOT_DELETED = "Tour chưa bị xóa, không thể khôi phục";
+    public static final String TOUR_RESTORED_SUCCESSFULLY = "Khôi phục tour thành công. Tour đã được chuyển về trạng thái bản nháp";
     public static final String TOUR_APPROVED_SUCCESSFULLY = "Duyệt tour thành công";
     public static final String TOUR_REJECTED_SUCCESSFULLY = "Từ chối tour thành công";
     public static final String TOUR_NOT_PENDING_APPROVAL = "Chỉ có thể duyệt hoặc từ chối Tour đang ở trạng thái Chờ duyệt (PENDING_APPROVAL)";
+    public static final String TOUR_UNHIDDEN_SUCCESSFULLY = "Mở lại (bỏ ẩn) Tour thành công";
+    public static final String TOUR_NOT_HIDDEN = "Chỉ có thể mở lại Tour đang ở trạng thái Bị ẩn (HIDDEN)";
 
     // Vendor Messages
     public static final String VENDOR_NOT_FOUND = "Vendor không tồn tại";
@@ -134,6 +142,8 @@ public class MessageConstant {
     public static final String CHECKPOINT_UPDATED_SUCCESSFULLY = "Cập nhật trạm dừng thành công";
     public static final String CHECKPOINT_DELETED_SUCCESSFULLY = "Xoá trạm dừng thành công";
     public static final String CHECKPOINT_DUPLICATE_ORDER = "Thứ tự trạm dừng đã tồn tại trong tour này";
+    public static final String CHECKPOINT_DUPLICATE_NAME = "Tên trạm dừng đã tồn tại trong tour này";
+    public static final String CHECKPOINT_DUPLICATE_COORDINATES = "Tọa độ (vĩ độ, kinh độ) của trạm dừng đã tồn tại trong tour này";
     public static final String CHECKPOINT_NAME_REQUIRED = "Tên trạm dừng không được để trống";
     public static final String CHECKPOINT_ORDER_REQUIRED = "Thứ tự trạm dừng không được để trống";
     public static final String CHECKPOINT_ORDER_POSITIVE = "Thứ tự trạm dừng phải lớn hơn 0";
@@ -269,6 +279,11 @@ public class MessageConstant {
     public static final String SCHEDULE_SLOTS_MIN = "Số slot phải ít nhất là 1";
     public static final String SCHEDULE_RETURN_BEFORE_DEPARTURE = "Ngày kết thúc phải sau ngày khởi hành";
     public static final String SCHEDULE_DEPARTURE_IN_PAST = "Ngày khởi hành phải từ hôm nay trở đi";
+    public static final String SCHEDULE_NOT_EDITABLE = "Lịch khởi hành đã hoàn thành hoặc đã huỷ, không thể chỉnh sửa hoặc xóa";
+    public static final String TOUR_NOT_APPROVED_FOR_SCHEDULE = "Chỉ có thể tạo hoặc quản lý lịch khởi hành cho Tour đã được duyệt (APPROVED) hoặc tạm ẩn (HIDDEN)";
+    public static final String SCHEDULE_CHANGE_REASON_REQUIRED = "Vui lòng nhập lý do điều chỉnh lịch trình đã có khách đặt";
+    public static final String SCHEDULE_SLOTS_LESS_THAN_BOOKED = "Số chỗ mở bán không thể nhỏ hơn số chỗ khách đã đặt";
+    public static final String SCHEDULE_SLOTS_EXCEED_MAX_CAPACITY = "Số chỗ mở bán không thể vượt quá sức chứa tối đa của Tour";
     // Porter Profile Messages
     public static final String PORTER_NOT_FOUND = "Không tìm thấy thông tin hồ sơ porter";
     public static final String PORTER_NAME_REQUIRED = "Tên porter không được để trống";

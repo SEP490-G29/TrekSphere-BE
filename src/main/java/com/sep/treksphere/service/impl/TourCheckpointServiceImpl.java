@@ -12,10 +12,12 @@ import com.sep.treksphere.repository.TourCheckpointRepository;
 import com.sep.treksphere.repository.TourRepository;
 import com.sep.treksphere.repository.VendorRepository;
 import com.sep.treksphere.repository.VendorStaffRepository;
+import com.sep.treksphere.service.FileService;
 import com.sep.treksphere.service.TourCheckpointService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -30,6 +32,7 @@ public class TourCheckpointServiceImpl implements TourCheckpointService {
     private final TourRepository tourRepository;
     private final VendorRepository vendorRepository;
     private final VendorStaffRepository vendorStaffRepository;
+    private final FileService fileService;
 
     @Override
     @Transactional(readOnly = true)
@@ -46,7 +49,7 @@ public class TourCheckpointServiceImpl implements TourCheckpointService {
 
     @Override
     @Transactional
-    public TourCheckpointResponse createCheckpoint(UUID tourId, TourCheckpointRequest request, String userEmail) {
+    public TourCheckpointResponse createCheckpoint(UUID tourId, TourCheckpointRequest request, List<MultipartFile> images, String userEmail) {
         Tour tour = tourRepository.findById(tourId)
                 .filter(t -> !t.getIsDeleted())
                 .orElseThrow(() -> new AppException(ErrorCode.TOUR_NOT_FOUND));
@@ -54,26 +57,44 @@ public class TourCheckpointServiceImpl implements TourCheckpointService {
         Vendor vendor = resolveVendorByUser(userEmail);
         validateTourBelongsToVendor(tour, vendor);
 
+        // Validations
         if (tourCheckpointRepository.existsByTourAndCheckpointOrderAndIsDeletedFalse(tour, request.getCheckpointOrder())) {
             throw new AppException(ErrorCode.CHECKPOINT_DUPLICATE_ORDER);
         }
 
+        if (tourCheckpointRepository.existsByTourAndCheckpointNameIgnoreCaseAndIsDeletedFalse(tour, request.getCheckpointName().trim())) {
+            throw new AppException(ErrorCode.CHECKPOINT_DUPLICATE_NAME);
+        }
+
+        if (request.getLatitude() != null && request.getLongitude() != null) {
+            if (tourCheckpointRepository.existsByTourAndLatitudeAndLongitudeAndIsDeletedFalse(tour, request.getLatitude(), request.getLongitude())) {
+                throw new AppException(ErrorCode.CHECKPOINT_DUPLICATE_COORDINATES);
+            }
+        }
+
         TourCheckpoint checkpoint = new TourCheckpoint();
         checkpoint.setTour(tour);
-        checkpoint.setCheckpointName(request.getCheckpointName());
+        checkpoint.setCheckpointName(request.getCheckpointName().trim());
         checkpoint.setDescription(request.getDescription());
         checkpoint.setLatitude(request.getLatitude());
         checkpoint.setLongitude(request.getLongitude());
         checkpoint.setAltitude(request.getAltitude());
         checkpoint.setCheckpointOrder(request.getCheckpointOrder());
-        checkpoint.setCheckpointImageUrl(request.getCheckpointImageUrl());
+
+        // Process images
+        if (images != null && !images.isEmpty()) {
+            List<String> imageUrls = fileService.uploadFiles(images, "checkpoints");
+            checkpoint.setCheckpointImageUrl(String.join(",", imageUrls));
+        } else if (request.getCheckpointImageUrl() != null) {
+            checkpoint.setCheckpointImageUrl(request.getCheckpointImageUrl());
+        }
 
         return toResponse(tourCheckpointRepository.save(checkpoint));
     }
 
     @Override
     @Transactional
-    public TourCheckpointResponse updateCheckpoint(UUID checkpointId, TourCheckpointRequest request, String userEmail) {
+    public TourCheckpointResponse updateCheckpoint(UUID checkpointId, TourCheckpointRequest request, List<MultipartFile> images, String userEmail) {
         TourCheckpoint checkpoint = tourCheckpointRepository.findById(checkpointId)
                 .filter(cp -> !cp.getIsDeleted())
                 .orElseThrow(() -> new AppException(ErrorCode.CHECKPOINT_NOT_FOUND));
@@ -81,18 +102,40 @@ public class TourCheckpointServiceImpl implements TourCheckpointService {
         Vendor vendor = resolveVendorByUser(userEmail);
         validateTourBelongsToVendor(checkpoint.getTour(), vendor);
 
+        Tour tour = checkpoint.getTour();
+
+        // Validations
         if (tourCheckpointRepository.existsByTourAndCheckpointOrderAndCheckpointIdNotAndIsDeletedFalse(
-                checkpoint.getTour(), request.getCheckpointOrder(), checkpointId)) {
+                tour, request.getCheckpointOrder(), checkpointId)) {
             throw new AppException(ErrorCode.CHECKPOINT_DUPLICATE_ORDER);
         }
 
-        checkpoint.setCheckpointName(request.getCheckpointName());
+        if (tourCheckpointRepository.existsByTourAndCheckpointNameIgnoreCaseAndCheckpointIdNotAndIsDeletedFalse(
+                tour, request.getCheckpointName().trim(), checkpointId)) {
+            throw new AppException(ErrorCode.CHECKPOINT_DUPLICATE_NAME);
+        }
+
+        if (request.getLatitude() != null && request.getLongitude() != null) {
+            if (tourCheckpointRepository.existsByTourAndLatitudeAndLongitudeAndCheckpointIdNotAndIsDeletedFalse(
+                    tour, request.getLatitude(), request.getLongitude(), checkpointId)) {
+                throw new AppException(ErrorCode.CHECKPOINT_DUPLICATE_COORDINATES);
+            }
+        }
+
+        checkpoint.setCheckpointName(request.getCheckpointName().trim());
         checkpoint.setDescription(request.getDescription());
         checkpoint.setLatitude(request.getLatitude());
         checkpoint.setLongitude(request.getLongitude());
         checkpoint.setAltitude(request.getAltitude());
         checkpoint.setCheckpointOrder(request.getCheckpointOrder());
-        checkpoint.setCheckpointImageUrl(request.getCheckpointImageUrl());
+
+        // Process images
+        if (images != null && !images.isEmpty()) {
+            List<String> imageUrls = fileService.uploadFiles(images, "checkpoints");
+            checkpoint.setCheckpointImageUrl(String.join(",", imageUrls));
+        } else if (request.getCheckpointImageUrl() != null) {
+            checkpoint.setCheckpointImageUrl(request.getCheckpointImageUrl());
+        }
 
         return toResponse(tourCheckpointRepository.save(checkpoint));
     }
@@ -137,6 +180,11 @@ public class TourCheckpointServiceImpl implements TourCheckpointService {
     }
 
     private TourCheckpointResponse toResponse(TourCheckpoint checkpoint) {
+        String rawUrls = checkpoint.getCheckpointImageUrl();
+        List<String> imageUrlList = (rawUrls != null && !rawUrls.isBlank())
+                ? List.of(rawUrls.split(","))
+                : List.of();
+
         return TourCheckpointResponse.builder()
                 .checkpointId(checkpoint.getCheckpointId().toString())
                 .tourId(checkpoint.getTour().getTourId().toString())
@@ -146,7 +194,8 @@ public class TourCheckpointServiceImpl implements TourCheckpointService {
                 .longitude(checkpoint.getLongitude())
                 .altitude(checkpoint.getAltitude())
                 .checkpointOrder(checkpoint.getCheckpointOrder())
-                .checkpointImageUrl(checkpoint.getCheckpointImageUrl())
+                .checkpointImageUrl(rawUrls)
+                .checkpointImageUrls(imageUrlList)
                 .build();
     }
 }

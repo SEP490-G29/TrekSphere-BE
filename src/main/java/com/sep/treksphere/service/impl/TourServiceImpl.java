@@ -20,6 +20,7 @@ import com.sep.treksphere.exception.AppException;
 import com.sep.treksphere.exception.ErrorCode;
 import com.sep.treksphere.mapper.TourMapper;
 import com.sep.treksphere.repository.NotificationRepository;
+import com.sep.treksphere.repository.BookingRepository;
 import com.sep.treksphere.repository.ReviewRepository;
 import com.sep.treksphere.repository.TourCheckpointRepository;
 import com.sep.treksphere.repository.TourImageRepository;
@@ -41,6 +42,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -55,6 +57,7 @@ public class TourServiceImpl implements TourService {
     private final TourScheduleRepository tourScheduleRepository;
     private final ReviewRepository reviewRepository;
     private final NotificationRepository notificationRepository;
+    private final BookingRepository bookingRepository;
     private final VendorRepository vendorRepository;
     private final VendorStaffRepository vendorStaffRepository;
     private final UserRepository userRepository;
@@ -179,6 +182,11 @@ public class TourServiceImpl implements TourService {
     }
 
     private TourCheckpointResponse toCheckpointResponse(TourCheckpoint checkpoint) {
+        String rawUrls = checkpoint.getCheckpointImageUrl();
+        List<String> imageUrlList = (rawUrls != null && !rawUrls.isBlank())
+                ? List.of(rawUrls.split(","))
+                : List.of();
+
         return TourCheckpointResponse.builder()
                 .checkpointId(checkpoint.getCheckpointId().toString())
                 .tourId(checkpoint.getTour() != null ? checkpoint.getTour().getTourId().toString() : null)
@@ -188,7 +196,8 @@ public class TourServiceImpl implements TourService {
                 .longitude(checkpoint.getLongitude())
                 .altitude(checkpoint.getAltitude())
                 .checkpointOrder(checkpoint.getCheckpointOrder())
-                .checkpointImageUrl(checkpoint.getCheckpointImageUrl())
+                .checkpointImageUrl(rawUrls)
+                .checkpointImageUrls(imageUrlList)
                 .build();
     }
 
@@ -230,12 +239,35 @@ public class TourServiceImpl implements TourService {
     @Transactional(readOnly = true)
     public PaginationResponse<TourSummaryResponse> getVendorTours(String userEmail, BaseFilterRequest request) {
         Vendor vendor = resolveVendorByEmail(userEmail);
-        
-        Page<Tour> tourPage = tourRepository.findByVendorIdAndKeyword(
-                vendor.getVendorId(),
-                request.getKeyword(),
-                request.getPageable()
-        );
+
+        Page<Tour> tourPage;
+        boolean isManager = vendorRepository.findByManager_Email(userEmail).isPresent();
+
+        if (isManager) {
+            // Manager thấy: PENDING_APPROVAL, APPROVED, HIDDEN, REJECTED — không thấy DRAFT của staff
+            java.util.List<TourStatus> managerStatuses = java.util.List.of(
+                    TourStatus.PENDING_APPROVAL,
+                    TourStatus.APPROVED,
+                    TourStatus.HIDDEN,
+                    TourStatus.REJECTED
+            );
+            tourPage = tourRepository.findByVendorIdForManager(
+                    vendor.getVendorId(),
+                    managerStatuses,
+                    request.getKeyword(),
+                    request.getPageable()
+            );
+        } else {
+            // Staff: thấy DRAFT, REJECTED của chính mình và APPROVED, HIDDEN của Vendor (để tạo Schedule)
+            User staffUser = userRepository.findByEmail(userEmail)
+                    .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
+            tourPage = tourRepository.findByVendorIdForStaff(
+                    vendor.getVendorId(),
+                    staffUser.getUserId(),
+                    request.getKeyword(),
+                    request.getPageable()
+            );
+        }
 
         return PaginationUtils.toPaginationResponse(tourPage.map(this::toSummaryResponse));
     }
@@ -270,7 +302,12 @@ public class TourServiceImpl implements TourService {
                 .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
 
         Tour tour = tourMapper.toTour(request);
-        tour.setStatus(TourStatus.DRAFT);
+
+        // Manager tạo → PENDING_APPROVAL (có thể tự approve luôn)
+        // Staff tạo → DRAFT
+        boolean isManager = vendorRepository.findByManager_Email(userEmail).isPresent();
+        tour.setStatus(isManager ? TourStatus.PENDING_APPROVAL : TourStatus.DRAFT);
+
         tour.setVendor(vendor);
         tour.setCreator(creator);
 
@@ -304,16 +341,26 @@ public class TourServiceImpl implements TourService {
     public TourDetailResponse updateTour(String userEmail, UUID tourId, UpdateTourRequest request,
                                           MultipartFile coverImage, List<MultipartFile> tourImages) {
         Vendor vendor = resolveVendorByEmail(userEmail);
-        
+
         Tour tour = tourRepository.findByTourIdAndIsDeletedFalse(tourId)
                 .orElseThrow(() -> new AppException(ErrorCode.TOUR_NOT_FOUND));
-                
+
         if (!tour.getVendor().getVendorId().equals(vendor.getVendorId())) {
             throw new AppException(ErrorCode.TOUR_NOT_BELONG_TO_VENDOR);
         }
 
-        if (tour.getStatus() != TourStatus.DRAFT && tour.getStatus() != TourStatus.REJECTED) {
-            throw new AppException(ErrorCode.TOUR_STATUS_NOT_EDITABLE);
+        // Phân quyền sửa theo role:
+        // Manager: chỉ sửa được PENDING_APPROVAL
+        // Staff   : chỉ sửa được DRAFT hoặc REJECTED
+        boolean isManager = vendorRepository.findByManager_Email(userEmail).isPresent();
+        if (isManager) {
+            if (tour.getStatus() != TourStatus.PENDING_APPROVAL) {
+                throw new AppException(ErrorCode.TOUR_UPDATE_NOT_ALLOWED);
+            }
+        } else {
+            if (tour.getStatus() != TourStatus.DRAFT && tour.getStatus() != TourStatus.REJECTED) {
+                throw new AppException(ErrorCode.TOUR_STATUS_NOT_EDITABLE);
+            }
         }
 
         tourMapper.updateTourFromRequest(request, tour);
@@ -357,7 +404,7 @@ public class TourServiceImpl implements TourService {
         List<TourSchedule> schedules = tourScheduleRepository.findByTourAndIsDeletedFalseOrderByDepartureDateAsc(tour);
         Double avgRating = reviewRepository.findAverageRatingByTourAndStatus(tour, ReviewStatus.APPROVED);
         int totalReviews = reviewRepository.countByTourAndStatusAndIsDeletedFalse(tour, ReviewStatus.APPROVED);
-        
+
         return toDetailResponse(tour, images, checkpoints, schedules, avgRating, totalReviews);
     }
 
@@ -369,13 +416,29 @@ public class TourServiceImpl implements TourService {
 
         Tour tour = tourRepository.findByTourIdAndIsDeletedFalse(tourId)
                 .orElseThrow(() -> new AppException(ErrorCode.TOUR_NOT_FOUND));
-                
+
         if (!tour.getVendor().getVendorId().equals(vendor.getVendorId())) {
             throw new AppException(ErrorCode.TOUR_NOT_BELONG_TO_VENDOR);
         }
 
+        // Tour ở APPROVED hoặc HIDDEN mới cần kiểm tra booking
+        // DRAFT / REJECTED: xóa tự do
+        if (tour.getStatus() == TourStatus.APPROVED || tour.getStatus() == TourStatus.HIDDEN) {
+            if (bookingRepository.existsActiveBookingByTourId(tourId)) {
+                throw new AppException(ErrorCode.TOUR_HAS_ACTIVE_BOOKINGS);
+            }
+        }
+
+        LocalDateTime now = LocalDateTime.now();
         tour.setIsDeleted(true);
+        tour.setDeletedAt(now);
+        tour.setDeletedBy(userEmail);
         tourRepository.save(tour);
+
+        // Cascade: bulk update các bảng con — chỉ xóa những record chưa bị xóa trước đó
+        tourCheckpointRepository.softDeleteByTourId(tourId, now, userEmail);
+        tourScheduleRepository.softDeleteByTourId(tourId, now, userEmail);
+        tourImageRepository.softDeleteByTourId(tourId, now, userEmail);
     }
 
     // --- Tour Approval Workflow ---
@@ -524,6 +587,12 @@ public class TourServiceImpl implements TourService {
         if (tour.getStatus() != TourStatus.APPROVED) {
             throw new AppException(ErrorCode.TOUR_NOT_APPROVED);
         }
+
+        // Không cho phép ẩn nếu tour đang có booking chưa huỷ
+        if (bookingRepository.existsActiveBookingByTourId(tourId)) {
+            throw new AppException(ErrorCode.TOUR_HAS_ACTIVE_BOOKINGS);
+        }
+
         tour.setStatus(TourStatus.HIDDEN);
         tour = tourRepository.save(tour);
 
@@ -536,6 +605,102 @@ public class TourServiceImpl implements TourService {
         notification.setReferenceType(ReferenceType.TOUR);
         notification.setReferenceId(tour.getTourId());
         notificationRepository.save(notification);
+
+        List<TourImage> images = tourImageRepository.findByTourOrderBySortOrderAsc(tour);
+        List<TourCheckpoint> checkpoints = tourCheckpointRepository.findByTourAndIsDeletedFalseOrderByCheckpointOrderAsc(tour);
+        List<TourSchedule> schedules = tourScheduleRepository.findByTourAndIsDeletedFalseOrderByDepartureDateAsc(tour);
+        Double avgRating = reviewRepository.findAverageRatingByTourAndStatus(tour, ReviewStatus.APPROVED);
+        int totalReviews = reviewRepository.countByTourAndStatusAndIsDeletedFalse(tour, ReviewStatus.APPROVED);
+
+        return toDetailResponse(tour, images, checkpoints, schedules, avgRating, totalReviews);
+    }
+
+    @Override
+    @Transactional
+    public TourDetailResponse revertTour(String userEmail, UUID tourId) {
+        Vendor vendor = resolveVendorByEmail(userEmail);
+
+        Tour tour = tourRepository.findByTourIdAndIsDeletedFalse(tourId)
+                .orElseThrow(() -> new AppException(ErrorCode.TOUR_NOT_FOUND));
+
+        if (!tour.getVendor().getVendorId().equals(vendor.getVendorId())) {
+            throw new AppException(ErrorCode.TOUR_NOT_BELONG_TO_VENDOR);
+        }
+
+        if (tour.getStatus() != TourStatus.REJECTED) {
+            throw new AppException(ErrorCode.TOUR_NOT_IN_REJECTED_STATUS);
+        }
+
+        // Manager revert → PENDING_APPROVAL (để Manager xem lại và duyệt)
+        // Staff revert → DRAFT (tiếp tục chỉnh sửa nháp)
+        boolean isManager = vendorRepository.findByManager_Email(userEmail).isPresent();
+        tour.setStatus(isManager ? TourStatus.PENDING_APPROVAL : TourStatus.DRAFT);
+        tour = tourRepository.save(tour);
+
+        List<TourImage> images = tourImageRepository.findByTourOrderBySortOrderAsc(tour);
+        List<TourCheckpoint> checkpoints = tourCheckpointRepository.findByTourAndIsDeletedFalseOrderByCheckpointOrderAsc(tour);
+        List<TourSchedule> schedules = tourScheduleRepository.findByTourAndIsDeletedFalseOrderByDepartureDateAsc(tour);
+        Double avgRating = reviewRepository.findAverageRatingByTourAndStatus(tour, ReviewStatus.APPROVED);
+        int totalReviews = reviewRepository.countByTourAndStatusAndIsDeletedFalse(tour, ReviewStatus.APPROVED);
+
+        return toDetailResponse(tour, images, checkpoints, schedules, avgRating, totalReviews);
+    }
+
+    @Override
+    @Transactional
+    public TourDetailResponse restoreTour(String userEmail, UUID tourId) {
+        Vendor vendor = vendorRepository.findByManager_Email(userEmail)
+                .orElseThrow(() -> new AppException(ErrorCode.VENDOR_NOT_FOUND));
+
+        Tour tour = tourRepository.findByTourIdAndIsDeletedTrue(tourId)
+                .orElseThrow(() -> new AppException(ErrorCode.TOUR_NOT_DELETED));
+
+        if (!tour.getVendor().getVendorId().equals(vendor.getVendorId())) {
+            throw new AppException(ErrorCode.TOUR_NOT_BELONG_TO_VENDOR);
+        }
+
+        // Lưu lại deletedAt của tour để restore đúng đợt
+        LocalDateTime deletedAt = tour.getDeletedAt();
+
+        // Restore Tour cha
+        tour.setIsDeleted(false);
+        tour.setDeletedAt(null);
+        tour.setDeletedBy(null);
+        tour.setStatus(TourStatus.PENDING_APPROVAL); // Về PENDING_APPROVAL để Manager xem, sửa và duyệt lại
+        tour = tourRepository.save(tour);
+
+        // Restore các bảng con bị xóa cùng đợt (match exact deletedAt)
+        tourCheckpointRepository.restoreByTourIdAndDeletedAt(tourId, deletedAt);
+        tourScheduleRepository.restoreByTourIdAndDeletedAt(tourId, deletedAt);
+        tourImageRepository.restoreByTourIdAndDeletedAt(tourId, deletedAt);
+
+        List<TourImage> images = tourImageRepository.findByTourOrderBySortOrderAsc(tour);
+        List<TourCheckpoint> checkpoints = tourCheckpointRepository.findByTourAndIsDeletedFalseOrderByCheckpointOrderAsc(tour);
+        List<TourSchedule> schedules = tourScheduleRepository.findByTourAndIsDeletedFalseOrderByDepartureDateAsc(tour);
+        Double avgRating = reviewRepository.findAverageRatingByTourAndStatus(tour, ReviewStatus.APPROVED);
+        int totalReviews = reviewRepository.countByTourAndStatusAndIsDeletedFalse(tour, ReviewStatus.APPROVED);
+
+        return toDetailResponse(tour, images, checkpoints, schedules, avgRating, totalReviews);
+    }
+
+    @Override
+    @Transactional
+    public TourDetailResponse unhideTour(String userEmail, UUID tourId) {
+        Vendor vendor = resolveVendorByEmail(userEmail);
+
+        Tour tour = tourRepository.findByTourIdAndIsDeletedFalse(tourId)
+                .orElseThrow(() -> new AppException(ErrorCode.TOUR_NOT_FOUND));
+
+        if (!tour.getVendor().getVendorId().equals(vendor.getVendorId())) {
+            throw new AppException(ErrorCode.TOUR_NOT_BELONG_TO_VENDOR);
+        }
+
+        if (tour.getStatus() != TourStatus.HIDDEN) {
+            throw new AppException(ErrorCode.TOUR_NOT_HIDDEN);
+        }
+
+        tour.setStatus(TourStatus.APPROVED);
+        tour = tourRepository.save(tour);
 
         List<TourImage> images = tourImageRepository.findByTourOrderBySortOrderAsc(tour);
         List<TourCheckpoint> checkpoints = tourCheckpointRepository.findByTourAndIsDeletedFalseOrderByCheckpointOrderAsc(tour);

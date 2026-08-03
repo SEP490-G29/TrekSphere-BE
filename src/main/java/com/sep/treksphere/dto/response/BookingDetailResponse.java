@@ -52,6 +52,12 @@ public class BookingDetailResponse {
     private String userFullName;
     private String userPhone;
 
+    // Vendor payment details
+    private String vendorBankName;
+    private String vendorBankAccount;
+    private String vendorCompanyName;
+    private String paymentQrUrl;
+
     // Participants list
     private List<BookingParticipantResponse> participants;
 }
