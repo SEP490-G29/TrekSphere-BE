@@ -57,6 +57,7 @@ public class MessageConstant {
     public static final String EMAIL_NOT_VERIFIED = "Vui lòng xác thực email trước khi đăng nhập";
     public static final String INVALID_TOKEN = "Token không hợp lệ hoặc đã hết hạn";
     public static final String ROLE_NOT_FOUND = "Không tìm thấy vai trò mặc định trong hệ thống";
+    public static final String FORGOT_PASSWORD_RATE_LIMITED = "Bạn đã yêu cầu gửi email khôi phục mật khẩu quá nhiều lần. Vui lòng thử lại sau 5 phút.";
 
     // Upload Error Messages
     public static final String UPLOAD_FAILED = "Lỗi tải file lên hệ thống";
@@ -187,6 +188,7 @@ public class MessageConstant {
     public static final String VENDOR_STAFF_NOT_FOUND = "Không tìm thấy thông tin nhân viên này";
     public static final String UNAUTHORIZED_STAFF_ACCESS = "Bạn không có quyền quản lý nhân viên này";
     public static final String COORDINATOR_SCHEDULE_FETCHED = "Lấy danh sách lịch dẫn đoàn thành công";
+    public static final String COORDINATOR_LOGISTICS_FETCHED = "Lấy thông tin logistics của đoàn thành công";
     public static final String INVALID_DATE_RANGE = "Ngày bắt đầu tìm kiếm không thể lớn hơn ngày kết thúc";
     public static final String SESSION_STARTED_SUCCESSFULLY = "Bắt đầu phiên đi tour thành công";
     public static final String SESSION_ENDED_SUCCESSFULLY = "Kết thúc phiên đi tour thành công";

@@ -27,6 +27,9 @@ import com.sep.treksphere.service.EmailService;
 import com.sep.treksphere.service.EmailVerificationRateLimiter;
 import com.sep.treksphere.service.RefreshTokenService;
 import com.sep.treksphere.service.TokenBlacklistService;
+import com.sep.treksphere.service.ForgotPasswordRateLimiter;
+import org.springframework.data.redis.core.StringRedisTemplate;
+import java.time.Duration;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -59,6 +62,8 @@ public class AuthServiceImpl implements AuthService {
     private final JwtTokenProvider tokenProvider;
     private final AuthenticationManager authenticationManager;
     private final AuthMapper authMapper;
+    private final ForgotPasswordRateLimiter forgotPasswordRateLimiter;
+    private final StringRedisTemplate redisTemplate;
 
     @Value("${application.security.jwt.refresh-token.expiration}")
     private long refreshExpiration;
@@ -240,9 +245,19 @@ public class AuthServiceImpl implements AuthService {
     @Override
     @Transactional
     public void forgotPassword(String email) {
-        User user = userRepository.findByEmail(email).orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
+        String normalizedEmail = email.trim().toLowerCase();
+        forgotPasswordRateLimiter.checkAllowed(normalizedEmail);
+
+        User user = userRepository.findByEmail(normalizedEmail).orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
 
         String tokenStr = jwtService.generatePasswordResetToken(user);
+        
+        long ttl = jwtService.extractExpiration(tokenStr).getTime() - System.currentTimeMillis();
+        String jti = jwtService.extractJti(tokenStr);
+        String redisKey = "password-reset:latest-token:" + user.getUserId();
+        if (ttl > 0) {
+            redisTemplate.opsForValue().set(redisKey, jti, Duration.ofMillis(ttl));
+        }
 
         String resetLink = frontendUrl + "/reset-password?token=" + tokenStr;
         emailService.sendPasswordResetEmail(user.getEmail(), resetLink);
@@ -252,8 +267,10 @@ public class AuthServiceImpl implements AuthService {
     @Transactional
     public void resetPassword(String token, String newPassword) {
         String email;
+        String jti;
         try {
             email = jwtService.extractUsername(token);
+            jti = jwtService.extractJti(token);
         } catch (Exception e) {
             throw new AppException(ErrorCode.INVALID_TOKEN);
         }
@@ -264,8 +281,17 @@ public class AuthServiceImpl implements AuthService {
             throw new AppException(ErrorCode.INVALID_TOKEN);
         }
 
+        String redisKey = "password-reset:latest-token:" + user.getUserId();
+        String latestJti = redisTemplate.opsForValue().get(redisKey);
+        
+        if (latestJti == null || !latestJti.equals(jti)) {
+            throw new AppException(ErrorCode.INVALID_TOKEN);
+        }
+
         user.setPasswordHash(passwordEncoder.encode(newPassword));
         userRepository.save(user);
+        
+        redisTemplate.delete(redisKey);
     }
 
     @Override
