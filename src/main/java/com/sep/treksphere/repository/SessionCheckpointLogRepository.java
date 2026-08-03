@@ -11,6 +11,8 @@ import java.util.UUID;
 @Repository
 public interface SessionCheckpointLogRepository extends JpaRepository<SessionCheckpointLog, UUID> {
 
+    boolean existsByTourSession_TourSessionIdAndIsDeletedFalse(UUID tourSessionId);
+
     List<SessionCheckpointLog> findByTourSession_TourSessionIdAndStatusAndIsDeletedFalseOrderByCheckpoint_CheckpointOrderAsc(
             UUID tourSessionId,
             SessionCheckpointLogStatus status

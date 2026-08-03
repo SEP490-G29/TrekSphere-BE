@@ -218,6 +218,14 @@ public class MessageConstant {
     public static final String ATTENDANCE_LIST_TOO_LARGE = "Mỗi lần chỉ được điểm danh tối đa 100 thành viên";
     public static final String DUPLICATE_PARTICIPANT_IN_ATTENDANCE = "Danh sách điểm danh chứa thành viên bị trùng lặp";
     public static final String ATTENDANCE_START_REQUIRED = "Thành viên phải được ghi nhận điểm danh đầu chuyến trước khi điểm danh cuối chuyến";
+    public static final String TOUR_CHECKPOINTS_NOT_CONFIGURED = "Tour phải có ít nhất điểm xuất phát và điểm kết thúc trước khi khởi hành";
+    public static final String TOUR_CHECKPOINT_COORDINATES_REQUIRED = "Tất cả trạm dừng phải có tọa độ GPS hợp lệ trước khi khởi hành";
+    public static final String SESSION_START_DATE_INVALID = "Chỉ có thể bắt đầu chuyến đi trong khoảng ngày khởi hành đến ngày kết thúc";
+    public static final String SCHEDULE_NOT_AVAILABLE_FOR_START = "Lịch khởi hành không ở trạng thái cho phép bắt đầu chuyến đi";
+    public static final String START_ATTENDANCE_INCOMPLETE = "Phải hoàn tất điểm danh đầu chuyến cho tất cả thành viên trước khi khởi hành";
+    public static final String NO_PRESENT_PARTICIPANTS = "Không thể bắt đầu chuyến đi khi không có thành viên nào tham gia";
+    public static final String SESSION_EQUIPMENT_NOT_READY = "Tất cả dụng cụ đã phân bổ phải được kiểm tra trước khi khởi hành";
+    public static final String SESSION_CHECKPOINT_LOGS_ALREADY_INITIALIZED = "Nhật ký trạm dừng của chuyến đi đã được khởi tạo trước đó";
     public static final String SESSION_EQUIPMENT_CHECKED_SUCCESS = "Đánh dấu kiểm tra dụng cụ đi tour thành công";
     public static final String UNAUTHORIZED_EQUIPMENT_CHECK = "Bạn không có quyền kiểm tra dụng cụ của phiên đi tour này";
     public static final String EQUIPMENT_CHECK_STATUS_REQUIRED = "Trạng thái kiểm tra không được để trống";
