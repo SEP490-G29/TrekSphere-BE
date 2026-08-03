@@ -111,7 +111,7 @@ public class TrackingController {
     }
 
     @PostMapping("/{sessionId}/attendance")
-    @Operation(summary = "Điểm danh danh sách Trekkers", description = "Hướng dẫn viên thực hiện điểm danh danh sách Trekkers tham gia chuyến đi tại điểm xuất phát (START) hoặc điểm kết thúc (END).")
+    @Operation(summary = "Điểm danh danh sách Trekkers", description = "Hướng dẫn viên cập nhật điểm danh theo lô cho các Trekkers được gửi lên. START được ghi trước hoặc trong chuyến đi; END chỉ được ghi khi chuyến đi đang diễn ra và Trekker đã được ghi nhận START.")
     @SecurityRequirement(name = "bearerAuth")
     @PreAuthorize("hasRole('COORDINATOR')")
     public ResponseEntity<ApiResponse<TourSessionAttendanceResponse>> recordAttendance(

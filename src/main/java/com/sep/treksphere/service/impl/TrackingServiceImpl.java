@@ -333,13 +333,33 @@ public class TrackingServiceImpl implements TrackingService {
             throw new AppException(ErrorCode.UNAUTHORIZED_SESSION_ACCESS);
         }
 
-        if (tourSession.getStatus() != TourSessionStatus.IN_PROGRESS) {
-            log.warn("Tour session {} is not in progress. Current status: {}", sessionId, tourSession.getStatus());
+        AttendanceType attendanceType = request.getAttendanceType();
+        boolean isStartAllowed = attendanceType == AttendanceType.START
+                && (tourSession.getStatus() == TourSessionStatus.PENDING
+                || tourSession.getStatus() == TourSessionStatus.IN_PROGRESS);
+        boolean isEndAllowed = attendanceType == AttendanceType.END
+                && tourSession.getStatus() == TourSessionStatus.IN_PROGRESS;
+
+        if (!isStartAllowed && !isEndAllowed) {
+            log.warn("Attendance type {} is not allowed for tour session {} in status {}",
+                    attendanceType, sessionId, tourSession.getStatus());
             throw new AppException(ErrorCode.SESSION_NOT_IN_PROGRESS);
         }
 
+        Set<UUID> uniqueParticipantIds = new HashSet<>();
+        boolean hasDuplicateParticipant = request.getParticipants().stream()
+                .map(ParticipantAttendanceItem::getParticipantId)
+                .anyMatch(participantId -> !uniqueParticipantIds.add(participantId));
+        if (hasDuplicateParticipant) {
+            log.warn("Attendance request for tour session {} contains duplicate participant IDs", sessionId);
+            throw new AppException(ErrorCode.DUPLICATE_PARTICIPANT_IN_ATTENDANCE);
+        }
+
         List<BookingParticipant> activeParticipants = bookingParticipantRepository
-                .findActiveParticipantsByScheduleId(tourSession.getTourSchedule().getScheduleId());
+                .findActiveParticipantsByScheduleId(
+                        tourSession.getTourSchedule().getScheduleId(),
+                        BookingStatus.CONFIRMED
+                );
 
         Map<UUID, BookingParticipant> activeParticipantMap = activeParticipants.stream()
                 .collect(Collectors.toMap(BookingParticipant::getParticipantId, p -> p));
@@ -355,10 +375,15 @@ public class TrackingServiceImpl implements TrackingService {
                 throw new AppException(ErrorCode.PARTICIPANT_NOT_FOUND_IN_SESSION);
             }
 
-            if (request.getAttendanceType() == AttendanceType.START) {
+            if (attendanceType == AttendanceType.START) {
                 participant.setIsPresentStart(item.getIsPresent());
                 participant.setStartAttendedAt(now);
-            } else if (request.getAttendanceType() == AttendanceType.END) {
+            } else if (attendanceType == AttendanceType.END) {
+                if (participant.getIsPresentStart() == null) {
+                    log.warn("Participant {} has no START attendance for tour session {}",
+                            participant.getParticipantId(), sessionId);
+                    throw new AppException(ErrorCode.ATTENDANCE_START_REQUIRED);
+                }
                 participant.setIsPresentEnd(item.getIsPresent());
                 participant.setEndAttendedAt(now);
             } else {
@@ -379,7 +404,7 @@ public class TrackingServiceImpl implements TrackingService {
 
         return TourSessionAttendanceResponse.builder()
                 .tourSessionId(tourSession.getTourSessionId())
-                .attendanceType(request.getAttendanceType())
+                .attendanceType(attendanceType)
                 .recordedAt(now)
                 .participants(responseItems)
                 .build();

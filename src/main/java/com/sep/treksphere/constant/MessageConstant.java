@@ -215,6 +215,9 @@ public class MessageConstant {
     public static final String ATTENDANCE_STATUS_REQUIRED = "Trạng thái điểm danh có mặt/vắng mặt không được để trống";
     public static final String ATTENDANCE_TYPE_REQUIRED = "Loại điểm danh (attendanceType) không được để trống";
     public static final String ATTENDANCE_LIST_REQUIRED = "Danh sách điểm danh thành viên (participants) không được rỗng";
+    public static final String ATTENDANCE_LIST_TOO_LARGE = "Mỗi lần chỉ được điểm danh tối đa 100 thành viên";
+    public static final String DUPLICATE_PARTICIPANT_IN_ATTENDANCE = "Danh sách điểm danh chứa thành viên bị trùng lặp";
+    public static final String ATTENDANCE_START_REQUIRED = "Thành viên phải được ghi nhận điểm danh đầu chuyến trước khi điểm danh cuối chuyến";
     public static final String SESSION_EQUIPMENT_CHECKED_SUCCESS = "Đánh dấu kiểm tra dụng cụ đi tour thành công";
     public static final String UNAUTHORIZED_EQUIPMENT_CHECK = "Bạn không có quyền kiểm tra dụng cụ của phiên đi tour này";
     public static final String EQUIPMENT_CHECK_STATUS_REQUIRED = "Trạng thái kiểm tra không được để trống";

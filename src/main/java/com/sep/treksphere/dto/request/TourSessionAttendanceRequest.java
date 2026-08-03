@@ -5,6 +5,7 @@ import com.sep.treksphere.enums.tour.AttendanceType;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -22,6 +23,7 @@ public class TourSessionAttendanceRequest {
     private AttendanceType attendanceType;
 
     @NotEmpty(message = MessageConstant.ATTENDANCE_LIST_REQUIRED)
+    @Size(max = 100, message = MessageConstant.ATTENDANCE_LIST_TOO_LARGE)
     @Valid
     private List<ParticipantAttendanceItem> participants;
 }
