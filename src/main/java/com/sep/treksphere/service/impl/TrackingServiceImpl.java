@@ -7,6 +7,7 @@ import com.sep.treksphere.dto.request.TourSessionAttendanceRequest;
 import com.sep.treksphere.dto.request.SessionEquipmentCheckRequest;
 import com.sep.treksphere.dto.request.CreateSosAlertRequest;
 import com.sep.treksphere.dto.response.ParticipantAttendanceResponseItem;
+import com.sep.treksphere.dto.response.PaginationResponse;
 import com.sep.treksphere.dto.response.SessionCheckpointLogResponse;
 import com.sep.treksphere.dto.response.TourSessionAttendanceResponse;
 import com.sep.treksphere.dto.response.TourSessionEndResponse;
@@ -24,6 +25,7 @@ import com.sep.treksphere.exception.ErrorCode;
 import com.sep.treksphere.repository.*;
 import com.sep.treksphere.service.TrackingService;
 import com.sep.treksphere.utils.GeoUtils;
+import com.sep.treksphere.utils.PaginationUtils;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -551,7 +553,7 @@ public class TrackingServiceImpl implements TrackingService {
 
     @Override
     @Transactional(readOnly = true)
-    public Page<SosAlertResponse> getActiveSosAlerts(UUID userId, Pageable pageable) {
+    public PaginationResponse<SosAlertResponse> getActiveSosAlerts(UUID userId, Pageable pageable) {
         log.info("User {} is requesting active SOS alerts", userId);
 
         User currentUser = userRepository.findById(userId)
@@ -565,22 +567,26 @@ public class TrackingServiceImpl implements TrackingService {
         boolean isVendorManager = currentUser.getRoles().stream()
                 .anyMatch(r -> r.getRoleName().equals("VENDOR_MANAGER"));
 
-        UUID filterVendorId = null;
+        UUID filterVendorId;
 
-        if (!isAdmin && isVendorManager) {
+        if (isAdmin) {
+            filterVendorId = null;
+        } else if (isVendorManager) {
             Vendor vendor = vendorRepository.findByManager_UserId(userId)
-                    .orElse(null);
-            if (vendor == null) {
-                log.warn("Vendor manager User {} does not manage any vendor", userId);
-                return Page.empty(pageable);
-            }
+                    .orElseThrow(() -> {
+                        log.warn("Vendor manager User {} does not manage any vendor", userId);
+                        return new AppException(ErrorCode.VENDOR_NOT_FOUND);
+                    });
             filterVendorId = vendor.getVendorId();
             log.info("Filtering active SOS alerts for vendor {}", filterVendorId);
+        } else {
+            log.warn("User {} is not authorized to view active SOS alerts", userId);
+            throw new AppException(ErrorCode.ACCESS_DENIED);
         }
 
         Page<SosAlert> alerts = sosAlertRepository.findAlertsByStatus(SosAlertStatus.PENDING, filterVendorId, pageable);
 
-        return alerts.map(this::mapToSosAlertResponse);
+        return PaginationUtils.toPaginationResponse(alerts.map(this::mapToSosAlertResponse));
     }
 
     @Override
