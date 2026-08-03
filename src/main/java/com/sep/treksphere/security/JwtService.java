@@ -104,6 +104,7 @@ public class JwtService {
                 .builder()
                 .claims(extraClaims)
                 .subject(user.getEmail())
+                .id(UUID.randomUUID().toString())
                 .issuedAt(new Date(System.currentTimeMillis()))
                 .expiration(new Date(System.currentTimeMillis() + resetPasswordExpiration))
                 .signWith(getSignInKey())

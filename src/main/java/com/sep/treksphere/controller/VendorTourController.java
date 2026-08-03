@@ -4,6 +4,7 @@ import com.sep.treksphere.constant.MessageConstant;
 import com.sep.treksphere.dto.request.BaseFilterRequest;
 import com.sep.treksphere.dto.request.CreateTourRequest;
 import com.sep.treksphere.dto.request.HideTourRequest;
+import com.sep.treksphere.dto.request.RejectTourRequest;
 import com.sep.treksphere.dto.request.UpdateTourRequest;
 import com.sep.treksphere.dto.response.ApiResponse;
 import com.sep.treksphere.dto.response.PaginationResponse;
@@ -19,11 +20,14 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springdoc.core.annotations.ParameterObject;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
+import java.util.List;
 import java.util.UUID;
 
 @RestController
@@ -56,24 +60,29 @@ public class VendorTourController {
     }
 
     @PreAuthorize("hasAnyRole('VENDOR_MANAGER', 'VENDOR_STAFF')")
-    @PostMapping
+    @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<ApiResponse<TourDetailResponse>> createTour(
             @AuthenticationPrincipal CustomUserDetails userDetails,
-            @Valid @RequestBody CreateTourRequest request) {
+            @Valid @ModelAttribute CreateTourRequest request,
+            @RequestParam(value = "coverImage", required = false) MultipartFile coverImage,
+            @RequestParam(value = "tourImages", required = false) List<MultipartFile> tourImages) {
 
-        TourDetailResponse response = tourService.createTour(userDetails.getUsername(), request);
+        TourDetailResponse response = tourService.createTour(userDetails.getUsername(), request, coverImage, tourImages);
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(ApiResponse.success(HttpStatus.CREATED, response, MessageConstant.TOUR_CREATED_SUCCESSFULLY));
     }
 
     @SecurityRequirement(name = "bearerAuth")
     @PreAuthorize("hasAnyRole('VENDOR_MANAGER', 'VENDOR_STAFF')")
-    @PutMapping("/{id}")
+    @PutMapping(value = "/{id}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<ApiResponse<TourDetailResponse>> updateTour(
             @AuthenticationPrincipal CustomUserDetails userDetails,
-            @PathVariable UUID id,@Valid @RequestBody UpdateTourRequest request) {
+            @PathVariable UUID id,
+            @Valid @ModelAttribute UpdateTourRequest request,
+            @RequestParam(value = "coverImage", required = false) MultipartFile coverImage,
+            @RequestParam(value = "tourImages", required = false) List<MultipartFile> tourImages) {
 
-        TourDetailResponse response = tourService.updateTour(userDetails.getUsername(), id, request);
+        TourDetailResponse response = tourService.updateTour(userDetails.getUsername(), id, request, coverImage, tourImages);
         return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, response, MessageConstant.TOUR_UPDATED_SUCCESSFULLY));
     }
 
@@ -97,6 +106,31 @@ public class VendorTourController {
 
         TourDetailResponse response = tourService.submitTourForApproval(userDetails.getUsername(), id);
         return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, response, MessageConstant.TOUR_SUBMITTED_FOR_APPROVAL));
+    }
+
+    @Operation(summary = "Duyệt Tour (Vendor Manager)", description = "Vendor Manager phê duyệt Tour đang ở trạng thái PENDING_APPROVAL chuyển sang APPROVED.")
+    @SecurityRequirement(name = "bearerAuth")
+    @PreAuthorize("hasRole('VENDOR_MANAGER')")
+    @PutMapping("/{id}/approve")
+    public ResponseEntity<ApiResponse<TourDetailResponse>> approveTour(
+            @AuthenticationPrincipal CustomUserDetails userDetails,
+            @PathVariable UUID id) {
+
+        TourDetailResponse response = tourService.approveTour(userDetails.getUsername(), id);
+        return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, response, MessageConstant.TOUR_APPROVED_SUCCESSFULLY));
+    }
+
+    @Operation(summary = "Từ chối Tour (Vendor Manager)", description = "Vendor Manager từ chối Tour đang ở trạng thái PENDING_APPROVAL chuyển sang REJECTED kèm lý do.")
+    @SecurityRequirement(name = "bearerAuth")
+    @PreAuthorize("hasRole('VENDOR_MANAGER')")
+    @PutMapping("/{id}/reject")
+    public ResponseEntity<ApiResponse<TourDetailResponse>> rejectTour(
+            @AuthenticationPrincipal CustomUserDetails userDetails,
+            @PathVariable UUID id,
+            @Valid @RequestBody RejectTourRequest request) {
+
+        TourDetailResponse response = tourService.rejectTour(userDetails.getUsername(), id, request.getReason());
+        return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, response, MessageConstant.TOUR_REJECTED_SUCCESSFULLY));
     }
 
     @Operation(summary = "Ẩn Tour vi phạm", description = "Admin/VendorManager ẩn Tour đang bán nếu phát hiện vi phạm. Hệ thống sẽ gửi thông báo cho chủ tour.")

@@ -14,6 +14,7 @@ import java.util.UUID;
 @Repository
 public interface TourScheduleRepository extends JpaRepository<TourSchedule, UUID> {
     List<TourSchedule> findByTourAndStatusOrderByDepartureDateAsc(Tour tour, ScheduleStatus status);
+    List<TourSchedule> findByTourAndIsDeletedFalseOrderByDepartureDateAsc(Tour tour);
     List<TourSchedule> findByTourAndStatusAndDepartureDateGreaterThanEqualAndIsDeletedFalseOrderByDepartureDateAsc(Tour tour, ScheduleStatus status, LocalDate date);
     Optional<TourSchedule> findByScheduleIdAndIsDeletedFalse(UUID scheduleId);
 }

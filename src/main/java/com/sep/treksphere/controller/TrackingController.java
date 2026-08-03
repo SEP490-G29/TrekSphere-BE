@@ -3,6 +3,7 @@ package com.sep.treksphere.controller;
 import com.sep.treksphere.constant.MessageConstant;
 import com.sep.treksphere.dto.request.SessionCheckpointLogRequest;
 import com.sep.treksphere.dto.response.ApiResponse;
+import com.sep.treksphere.dto.response.PaginationResponse;
 import com.sep.treksphere.dto.response.SessionCheckpointLogResponse;
 import com.sep.treksphere.dto.request.TourSessionAttendanceRequest;
 import com.sep.treksphere.dto.response.TourSessionAttendanceResponse;
@@ -17,10 +18,12 @@ import com.sep.treksphere.service.TrackingService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import org.springdoc.core.annotations.ParameterObject;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -178,19 +181,21 @@ public class TrackingController {
     }
 
     @GetMapping("/sos/active")
-    @Operation(summary = "Xem danh sách các cuộc gọi SOS hoạt động", description = "Cho phép Admin (xem toàn bộ) hoặc Vendor Manager (xem thuộc Vendor của mình) lấy danh sách các cuộc gọi SOS đang hoạt động (PENDING, ACKNOWLEDGED) và phân trang.")
+    @Operation(summary = "Xem danh sách các cuộc gọi SOS hoạt động", description = "Cho phép Admin xem toàn bộ hoặc Vendor Manager xem các tín hiệu SOS PENDING thuộc Vendor của mình, có hỗ trợ phân trang.")
     @SecurityRequirement(name = "bearerAuth")
     @PreAuthorize("hasAnyRole('ADMIN', 'VENDOR_MANAGER')")
-    public ResponseEntity<ApiResponse<Page<SosAlertResponse>>> getActiveSosAlerts(
+    public ResponseEntity<ApiResponse<PaginationResponse<SosAlertResponse>>> getActiveSosAlerts(
             @AuthenticationPrincipal CustomUserDetails userDetails,
+            @ParameterObject
+            @PageableDefault(size = 20, sort = "createdAt", direction = Sort.Direction.DESC)
             Pageable pageable
     ) {
-        Page<SosAlertResponse> data = trackingService.getActiveSosAlerts(
+        PaginationResponse<SosAlertResponse> data = trackingService.getActiveSosAlerts(
                 userDetails.getUser().getUserId(),
                 pageable
         );
 
-        ApiResponse<Page<SosAlertResponse>> response = ApiResponse.success(
+        ApiResponse<PaginationResponse<SosAlertResponse>> response = ApiResponse.success(
                 HttpStatus.OK,
                 data,
                 MessageConstant.ACTIVE_SOS_ALERTS_FETCHED

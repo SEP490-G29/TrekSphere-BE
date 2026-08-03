@@ -21,6 +21,10 @@ spring:
         enabled: false
       ssl:
         enabled: false
+    web:
+      pageable:
+        default-page-size: 20
+        max-page-size: 100
 
   jpa:
     hibernate:
@@ -84,3 +88,7 @@ application:
     same-site: Strict
   frontend:
     url: ${FRONTEND_URL}
+  email-verification:
+    rate-limit:
+      cooldown-seconds: 60
+      max-per-hour: 5

@@ -14,7 +14,7 @@ import com.sep.treksphere.dto.request.AssignPorterRequest;
 import com.sep.treksphere.dto.request.AssignEquipmentRequest;
 
 public interface LogisticsAllocationService {
-    void assignEquipment(UUID sessionId, AssignEquipmentRequest request, UUID vendorUserId);
+    String assignEquipment(UUID sessionId, AssignEquipmentRequest request, UUID vendorUserId);
     void removeEquipment(UUID sessionEquipmentId, UUID vendorUserId);
     void assignPorter(UUID sessionId, AssignPorterRequest request, UUID vendorUserId);
     void removePorter(UUID porterScheduleId, UUID vendorUserId);
@@ -23,7 +23,7 @@ public interface LogisticsAllocationService {
     void emergencyCancelSchedule(UUID scheduleId, CancelScheduleRequest request, UUID vendorUserId, boolean isManager);
 
     PaginationResponse<TourSessionSummaryResponse> getVendorSessions(UUID vendorUserId, UUID tourId, TourSessionStatus status, int page, int size);
-    TourSessionAllocationResponse getAllocations(UUID sessionId, UUID vendorUserId);
+    TourSessionAllocationResponse getAllocations(UUID sessionId, UUID vendorUserId, boolean isCoordinator);
 
     PaginationResponse<StaffScheduleResponse> getCoordinatorSchedules(UUID coordinatorId, UUID vendorUserId, TourSessionStatus status, int page, int size);
 }

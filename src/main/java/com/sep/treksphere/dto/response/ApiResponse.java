@@ -58,6 +58,14 @@ public class ApiResponse<T> {
                 .build();
     }
 
+    public static <T> ApiResponse<T> error(int code, String message) {
+        return ApiResponse.<T>builder()
+                .success(false)
+                .code(code)
+                .message(message)
+                .build();
+    }
+
     public static <T> ApiResponse<T> validationError(String message, List<FieldErrorDetail> errors) {
         return ApiResponse.<T>builder()
                 .success(false)

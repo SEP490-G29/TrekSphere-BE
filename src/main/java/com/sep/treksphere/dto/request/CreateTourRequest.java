@@ -64,6 +64,4 @@ public class CreateTourRequest {
     @Schema(description = "Các dịch vụ không bao gồm", example = "- Chi phí cá nhân\n- Vé cáp treo")
     private String excludes;
 
-    @Schema(description = "URL ảnh bìa của tour", example = "https://example.com/images/fansipan.jpg")
-    private String coverImageUrl;
 }

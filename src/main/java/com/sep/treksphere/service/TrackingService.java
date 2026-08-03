@@ -10,8 +10,8 @@ import com.sep.treksphere.dto.response.TourSessionStartResponse;
 import com.sep.treksphere.dto.response.TourSessionAttendanceResponse;
 import com.sep.treksphere.dto.response.SessionEquipmentCheckResponse;
 import com.sep.treksphere.dto.response.SosAlertResponse;
+import com.sep.treksphere.dto.response.PaginationResponse;
 
-import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 
 import java.util.UUID;
@@ -53,7 +53,7 @@ public interface TrackingService {
             CreateSosAlertRequest request
     );
 
-    Page<SosAlertResponse> getActiveSosAlerts(
+    PaginationResponse<SosAlertResponse> getActiveSosAlerts(
             UUID userId,
             Pageable pageable
     );

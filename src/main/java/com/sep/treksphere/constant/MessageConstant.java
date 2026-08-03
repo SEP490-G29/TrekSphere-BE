@@ -49,9 +49,15 @@ public class MessageConstant {
     public static final String EMAIL_EXISTED = "Email đã tồn tại";
     public static final String WRONG_PASSWORD = "Mật khẩu không chính xác";
     public static final String USER_NOT_ACTIVE_OR_LOCKED = "Tài khoản chưa được kích hoạt hoặc bị khóa";
+    public static final String ACCOUNT_LOCKED = "Tài khoản đã bị khóa. Vui lòng liên hệ quản trị viên.";
+    public static final String ACCOUNT_DEACTIVATED = "Tài khoản đã bị vô hiệu hóa.";
+    public static final String VERIFICATION_TOKEN_EXPIRED = "Liên kết xác minh đã hết hạn. Vui lòng yêu cầu gửi lại email xác minh.";
+    public static final String VERIFICATION_RESEND_RATE_LIMITED = "Bạn đã yêu cầu gửi lại email quá nhiều lần. Vui lòng thử lại sau.";
+    public static final String VERIFICATION_EMAIL_RESENT = "Nếu tài khoản tồn tại và chưa được xác minh, email xác minh mới đã được gửi.";
     public static final String EMAIL_NOT_VERIFIED = "Vui lòng xác thực email trước khi đăng nhập";
     public static final String INVALID_TOKEN = "Token không hợp lệ hoặc đã hết hạn";
     public static final String ROLE_NOT_FOUND = "Không tìm thấy vai trò mặc định trong hệ thống";
+    public static final String FORGOT_PASSWORD_RATE_LIMITED = "Bạn đã yêu cầu gửi email khôi phục mật khẩu quá nhiều lần. Vui lòng thử lại sau 5 phút.";
 
     // Upload Error Messages
     public static final String UPLOAD_FAILED = "Lỗi tải file lên hệ thống";
@@ -88,6 +94,9 @@ public class MessageConstant {
     public static final String TOUR_HIDDEN_SUCCESSFULLY = "Tour đã được ẩn thành công do vi phạm";
     public static final String TOUR_NOT_APPROVED = "Chỉ có thể ẩn Tour đang ở trạng thái đã duyệt (APPROVED)";
     public static final String HIDE_REASON_REQUIRED = "Lý do ẩn tour không được để trống";
+    public static final String TOUR_APPROVED_SUCCESSFULLY = "Duyệt tour thành công";
+    public static final String TOUR_REJECTED_SUCCESSFULLY = "Từ chối tour thành công";
+    public static final String TOUR_NOT_PENDING_APPROVAL = "Chỉ có thể duyệt hoặc từ chối Tour đang ở trạng thái Chờ duyệt (PENDING_APPROVAL)";
 
     // Vendor Messages
     public static final String VENDOR_NOT_FOUND = "Vendor không tồn tại";
@@ -105,12 +114,14 @@ public class MessageConstant {
     public static final String BLOG_DELETED_SUCCESSFULLY = "Xóa bài viết thành công";
     public static final String BLOG_HIDDEN_SUCCESSFULLY = "Ẩn bài viết thành công";
     public static final String BLOG_TITLE_REQUIRED = "Tiêu đề bài viết không được để trống";
+    public static final String BLOG_TITLE_MAX_LENGTH = "Tiêu đề bài viết không được vượt quá 500 ký tự";
     public static final String BLOG_CONTENT_REQUIRED = "Nội dung bài viết không được để trống";
     public static final String BLOG_CANNOT_EDIT = "Bạn không có quyền chỉnh sửa bài viết này";
 
     // Comment Messages
     public static final String COMMENT_NOT_FOUND = "Bình luận không tồn tại";
     public static final String COMMENT_CONTENT_REQUIRED = "Nội dung bình luận không được để trống";
+    public static final String COMMENT_CONTENT_MAX_LENGTH = "Nội dung bình luận không được vượt quá 1000 ký tự";
     public static final String COMMENT_ADDED_SUCCESSFULLY = "Gửi bình luận thành công";
     public static final String COMMENT_UPDATED_SUCCESSFULLY = "Cập nhật bình luận thành công";
     public static final String COMMENT_DELETED_SUCCESSFULLY = "Xóa bình luận thành công";
@@ -177,6 +188,7 @@ public class MessageConstant {
     public static final String VENDOR_STAFF_NOT_FOUND = "Không tìm thấy thông tin nhân viên này";
     public static final String UNAUTHORIZED_STAFF_ACCESS = "Bạn không có quyền quản lý nhân viên này";
     public static final String COORDINATOR_SCHEDULE_FETCHED = "Lấy danh sách lịch dẫn đoàn thành công";
+    public static final String COORDINATOR_LOGISTICS_FETCHED = "Lấy thông tin logistics của đoàn thành công";
     public static final String INVALID_DATE_RANGE = "Ngày bắt đầu tìm kiếm không thể lớn hơn ngày kết thúc";
     public static final String SESSION_STARTED_SUCCESSFULLY = "Bắt đầu phiên đi tour thành công";
     public static final String SESSION_ENDED_SUCCESSFULLY = "Kết thúc phiên đi tour thành công";
@@ -354,6 +366,7 @@ public class MessageConstant {
     public static final String PORTER_ID_REQUIRED = "Porter không được để trống";
 
     public static final String EQUIPMENT_ASSIGNED_SUCCESSFULLY = "Phân bổ trang bị thành công";
+    public static final String EQUIPMENT_QUANTITY_UPDATED_SUCCESSFULLY = "Cộng dồn số lượng trang bị thành công";
     public static final String EQUIPMENT_REMOVED_SUCCESSFULLY = "Hủy phân bổ trang bị thành công";
     public static final String EQUIPMENT_RETURNED_SUCCESSFULLY = "Xác nhận trả trang bị thành công";
     public static final String EQUIPMENT_ALREADY_ASSIGNED = "Trang bị này đã được phân bổ cho phiên tour này";
