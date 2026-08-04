@@ -1,8 +1,10 @@
 package com.sep.treksphere.service.impl;
 
-import com.sep.treksphere.dto.request.VendorApplicationFilterRequest;
+import com.sep.treksphere.dto.request.AdminVendorApplicationFilterRequest;
 import com.sep.treksphere.entity.VendorApplication;
 import com.sep.treksphere.enums.vendor.ApplicationStatus;
+import com.sep.treksphere.exception.AppException;
+import com.sep.treksphere.exception.ErrorCode;
 import com.sep.treksphere.mapper.VendorApplicationMapper;
 import com.sep.treksphere.mapper.VendorMapper;
 import com.sep.treksphere.repository.RoleRepository;
@@ -24,9 +26,11 @@ import java.util.List;
 import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -52,7 +56,7 @@ class VendorApplicationServiceImplTest {
 
     @Test
     void getApplications_OnlyQueriesAdminVisibleStatuses() {
-        VendorApplicationFilterRequest request = new VendorApplicationFilterRequest();
+        AdminVendorApplicationFilterRequest request = new AdminVendorApplicationFilterRequest();
         Page<VendorApplication> emptyPage = new PageImpl<>(List.of(), request.getPageable(), 0);
         when(vendorApplicationRepository.findAllApplicationsWithFilter(
                 any(), isNull(), isNull(), any(Pageable.class)))
@@ -72,5 +76,17 @@ class VendorApplicationServiceImplTest {
         );
         assertThat(statusesCaptor.getValue()).doesNotContain(ApplicationStatus.DRAFT);
         assertThat(response.getContent()).isEmpty();
+    }
+
+    @Test
+    void getApplications_RejectsDraftStatusFilter() {
+        AdminVendorApplicationFilterRequest request = new AdminVendorApplicationFilterRequest();
+        request.setStatus(ApplicationStatus.DRAFT);
+
+        assertThatThrownBy(() -> service.getApplications(request))
+                .isInstanceOf(AppException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.INVALID_APPLICATION_FILTER_STATUS);
+
+        verifyNoInteractions(vendorApplicationRepository);
     }
 }

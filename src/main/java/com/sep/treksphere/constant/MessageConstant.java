@@ -172,6 +172,7 @@ public class MessageConstant {
     public static final String VENDOR_APPLICATION_REVIEWED = "Kiểm duyệt đơn đăng ký đối tác thành công.";
     public static final String REVIEW_STATUS_REQUIRED = "Trạng thái kiểm duyệt không được để trống";
     public static final String INVALID_REVIEW_STATUS = "Trạng thái kiểm duyệt không hợp lệ (phải là APPROVED hoặc REJECTED)";
+    public static final String INVALID_APPLICATION_FILTER_STATUS = "Trạng thái lọc đơn đăng ký không hợp lệ (chỉ chấp nhận PENDING, APPROVED hoặc REJECTED)";
     public static final String CANNOT_SUBMIT_APPLICATION = "Chỉ có thể nộp đơn đăng ký ở trạng thái DRAFT";
     public static final String CANNOT_RESUBMIT_APPLICATION = "Chỉ có thể nộp lại đơn đăng ký ở trạng thái REJECTED";
     public static final String CANNOT_UPDATE_APPLICATION_STATUS = "Chỉ có thể cập nhật đơn đăng ký ở trạng thái DRAFT hoặc REJECTED";

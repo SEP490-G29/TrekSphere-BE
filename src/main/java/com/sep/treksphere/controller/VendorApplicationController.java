@@ -1,6 +1,7 @@
 package com.sep.treksphere.controller;
 
 import com.sep.treksphere.constant.MessageConstant;
+import com.sep.treksphere.dto.request.AdminVendorApplicationFilterRequest;
 import com.sep.treksphere.dto.request.VendorApplicationFilterRequest;
 import com.sep.treksphere.dto.request.VendorApplicationReviewRequest;
 import com.sep.treksphere.dto.request.VendorApplicationRequest;
@@ -52,12 +53,12 @@ public class VendorApplicationController {
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
-    @Operation(summary = "Lấy danh sách đơn đăng ký (Admin)", description = "Admin lọc và phân trang toàn bộ các đơn đăng ký đối tác.")
+    @Operation(summary = "Lấy danh sách đơn đăng ký (Admin)", description = "Admin lọc và phân trang các đơn đăng ký đối tác ở trạng thái PENDING, APPROVED hoặc REJECTED. Không hỗ trợ trạng thái DRAFT.")
     @SecurityRequirement(name = "bearerAuth")
     @PreAuthorize("hasRole('ADMIN')")
     @GetMapping
     public ResponseEntity<ApiResponse<PaginationResponse<VendorApplicationResponse>>> getApplications(
-            @Valid @ParameterObject @ModelAttribute VendorApplicationFilterRequest request) {
+            @Valid @ParameterObject @ModelAttribute AdminVendorApplicationFilterRequest request) {
 
         PaginationResponse<VendorApplicationResponse> data = vendorApplicationService.getApplications(request);
         return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, data));

@@ -1,5 +1,6 @@
 package com.sep.treksphere.service.impl;
 
+import com.sep.treksphere.dto.request.AdminVendorApplicationFilterRequest;
 import com.sep.treksphere.dto.request.VendorApplicationFilterRequest;
 import com.sep.treksphere.dto.request.VendorApplicationReviewRequest;
 import com.sep.treksphere.dto.request.VendorApplicationRequest;
@@ -112,9 +113,14 @@ public class VendorApplicationServiceImpl implements VendorApplicationService {
 
     @Override
     @Transactional(readOnly = true)
-    public PaginationResponse<VendorApplicationResponse> getApplications(VendorApplicationFilterRequest request) {
+    public PaginationResponse<VendorApplicationResponse> getApplications(AdminVendorApplicationFilterRequest request) {
         log.info("Admin fetching vendor applications with filter - status: {}, keyword: {}", 
                 request.getStatus(), request.getKeyword());
+
+        if (request.getStatus() != null && !ADMIN_VISIBLE_STATUSES.contains(request.getStatus())) {
+            log.warn("Admin attempted to filter vendor applications by unsupported status: {}", request.getStatus());
+            throw new AppException(ErrorCode.INVALID_APPLICATION_FILTER_STATUS);
+        }
 
         Pageable pageable = request.getPageable();
         Page<VendorApplication> pageResult = vendorApplicationRepository.findAllApplicationsWithFilter(
