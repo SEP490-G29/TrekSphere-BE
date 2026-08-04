@@ -62,19 +62,9 @@ public class VendorApplicationServiceImpl implements VendorApplicationService {
     public VendorApplicationResponse saveDraftApplication(UUID applicantId, VendorApplicationRequest request) {
         log.info("Processing vendor application draft creation for user ID: {}", applicantId);
 
-        User applicant = userRepository.findById(applicantId)
-                .orElseThrow(() -> {
-                    log.error("User with ID {} not found", applicantId);
-                    return new AppException(ErrorCode.USER_NOT_FOUND);
-                });
-
-        boolean hasPending = vendorApplicationRepository.existsByApplicant_UserIdAndApplicationStatus(
-                applicant.getUserId(), ApplicationStatus.PENDING
-        );
-        if (hasPending) {
-            log.warn("User ID {} already has a PENDING vendor application", applicantId);
-            throw new AppException(ErrorCode.APPLICATION_PENDING_EXISTS);
-        }
+        User applicant = getApplicantForUpdate(applicantId);
+        ensureApplicantHasNoVendor(applicantId);
+        ensureApplicantHasNoActiveApplication(applicantId);
 
         boolean isTaxCodeExistInApplications = vendorApplicationRepository.existsByTaxCode(request.getTaxCode());
         boolean isTaxCodeExistInVendors = vendorRepository.existsByTaxCode(request.getTaxCode());
@@ -180,7 +170,7 @@ public class VendorApplicationServiceImpl implements VendorApplicationService {
     public VendorApplicationResponse getApplicationById(UUID id, CustomUserDetails userDetails) {
         log.info("Fetching details of vendor application with ID: {} for user: {}", id, userDetails.getUsername());
 
-        VendorApplication application = vendorApplicationRepository.findById(id)
+        VendorApplication application = vendorApplicationRepository.findByVendorApplicationIdAndIsDeletedFalse(id)
                 .orElseThrow(() -> {
                     log.error("Vendor application with ID {} not found", id);
                     return new AppException(ErrorCode.VENDOR_APPLICATION_NOT_FOUND);
@@ -204,11 +194,7 @@ public class VendorApplicationServiceImpl implements VendorApplicationService {
     public VendorApplicationResponse reviewApplication(UUID id, VendorApplicationReviewRequest request) {
         log.info("Processing review for vendor application with ID: {} to status: {}", id, request.getStatus());
 
-        VendorApplication application = vendorApplicationRepository.findById(id)
-                .orElseThrow(() -> {
-                    log.error("Vendor application with ID {} not found for review", id);
-                    return new AppException(ErrorCode.VENDOR_APPLICATION_NOT_FOUND);
-                });
+        VendorApplication application = getApplicationWithApplicantLock(id);
 
         if (application.getApplicationStatus() != ApplicationStatus.PENDING) {
             log.warn("Vendor application {} is already processed. Current status: {}", 
@@ -222,6 +208,12 @@ public class VendorApplicationServiceImpl implements VendorApplicationService {
         }
 
         if (request.getStatus() == ApplicationStatus.APPROVED) {
+            ensureApplicantHasNoVendor(application.getApplicant().getUserId());
+            ensureApplicantHasNoOtherActiveApplication(
+                    application.getApplicant().getUserId(),
+                    application.getVendorApplicationId()
+            );
+
             application.setApplicationStatus(ApplicationStatus.APPROVED);
             application.setRejectionReason(null);
             vendorApplicationRepository.save(application);
@@ -274,11 +266,7 @@ public class VendorApplicationServiceImpl implements VendorApplicationService {
     public VendorApplicationResponse updateApplication(UUID id, VendorApplicationUpdateRequest request, UUID applicantId) {
         log.info("Updating vendor application with ID: {} for user ID: {}", id, applicantId);
 
-        VendorApplication application = vendorApplicationRepository.findById(id)
-                .orElseThrow(() -> {
-                    log.error("Vendor application with ID {} not found for update", id);
-                    return new AppException(ErrorCode.VENDOR_APPLICATION_NOT_FOUND);
-                });
+        VendorApplication application = getApplicationWithApplicantLock(id);
 
         if (!application.getApplicant().getUserId().equals(applicantId)) {
             log.warn("User ID {} attempted to update vendor application {} owned by {}", 
@@ -359,11 +347,7 @@ public class VendorApplicationServiceImpl implements VendorApplicationService {
     public VendorApplicationResponse submitDraftApplication(UUID id, UUID applicantId) {
         log.info("Submitting draft vendor application with ID: {} for user ID: {}", id, applicantId);
 
-        VendorApplication application = vendorApplicationRepository.findById(id)
-                .orElseThrow(() -> {
-                    log.error("Vendor application with ID {} not found for submission", id);
-                    return new AppException(ErrorCode.VENDOR_APPLICATION_NOT_FOUND);
-                });
+        VendorApplication application = getApplicationWithApplicantLock(id);
 
         if (!application.getApplicant().getUserId().equals(applicantId)) {
             log.warn("User ID {} attempted to submit vendor application {} owned by {}", 
@@ -376,6 +360,9 @@ public class VendorApplicationServiceImpl implements VendorApplicationService {
                     id, application.getApplicationStatus());
             throw new AppException(ErrorCode.CANNOT_SUBMIT_APPLICATION);
         }
+
+        ensureApplicantHasNoVendor(applicantId);
+        ensureApplicantHasNoOtherActiveApplication(applicantId, id);
 
         boolean isTaxCodeExistInApplications = vendorApplicationRepository
                 .existsByTaxCodeAndVendorApplicationIdNot(application.getTaxCode(), id);
@@ -414,11 +401,7 @@ public class VendorApplicationServiceImpl implements VendorApplicationService {
     public VendorApplicationResponse resubmitRejectedApplication(UUID id, UUID applicantId) {
         log.info("Resubmitting rejected vendor application with ID: {} for user ID: {}", id, applicantId);
 
-        VendorApplication application = vendorApplicationRepository.findById(id)
-                .orElseThrow(() -> {
-                    log.error("Vendor application with ID {} not found for resubmission", id);
-                    return new AppException(ErrorCode.VENDOR_APPLICATION_NOT_FOUND);
-                });
+        VendorApplication application = getApplicationWithApplicantLock(id);
 
         if (!application.getApplicant().getUserId().equals(applicantId)) {
             log.warn("User ID {} attempted to resubmit vendor application {} owned by {}", 
@@ -431,6 +414,9 @@ public class VendorApplicationServiceImpl implements VendorApplicationService {
                     id, application.getApplicationStatus());
             throw new AppException(ErrorCode.CANNOT_RESUBMIT_APPLICATION);
         }
+
+        ensureApplicantHasNoVendor(applicantId);
+        ensureApplicantHasNoOtherActiveApplication(applicantId, id);
 
         boolean isTaxCodeExistInApplications = vendorApplicationRepository
                 .existsByTaxCodeAndVendorApplicationIdNot(application.getTaxCode(), id);
@@ -463,5 +449,47 @@ public class VendorApplicationServiceImpl implements VendorApplicationService {
         log.info("Successfully resubmitted vendor application with ID: {}", id);
 
         return vendorApplicationMapper.toResponse(application);
+    }
+
+    private User getApplicantForUpdate(UUID applicantId) {
+        return userRepository.findByIdForUpdate(applicantId)
+                .orElseThrow(() -> {
+                    log.error("User with ID {} not found", applicantId);
+                    return new AppException(ErrorCode.USER_NOT_FOUND);
+                });
+    }
+
+    private VendorApplication getApplicationWithApplicantLock(UUID applicationId) {
+        UUID applicantId = vendorApplicationRepository.findApplicantIdByApplicationId(applicationId)
+                .orElseThrow(() -> {
+                    log.error("Active vendor application with ID {} not found", applicationId);
+                    return new AppException(ErrorCode.VENDOR_APPLICATION_NOT_FOUND);
+                });
+
+        getApplicantForUpdate(applicantId);
+        return vendorApplicationRepository.findByVendorApplicationIdAndIsDeletedFalse(applicationId)
+                .orElseThrow(() -> new AppException(ErrorCode.VENDOR_APPLICATION_NOT_FOUND));
+    }
+
+    private void ensureApplicantHasNoActiveApplication(UUID applicantId) {
+        if (vendorApplicationRepository.existsByApplicant_UserIdAndIsDeletedFalse(applicantId)) {
+            log.warn("Applicant {} already has an active vendor application", applicantId);
+            throw new AppException(ErrorCode.APPLICANT_ALREADY_HAS_APPLICATION);
+        }
+    }
+
+    private void ensureApplicantHasNoOtherActiveApplication(UUID applicantId, UUID applicationId) {
+        if (vendorApplicationRepository
+                .existsByApplicant_UserIdAndVendorApplicationIdNotAndIsDeletedFalse(applicantId, applicationId)) {
+            log.warn("Applicant {} has another active vendor application besides {}", applicantId, applicationId);
+            throw new AppException(ErrorCode.APPLICANT_ALREADY_HAS_APPLICATION);
+        }
+    }
+
+    private void ensureApplicantHasNoVendor(UUID applicantId) {
+        if (vendorRepository.existsByManager_UserIdAndIsDeletedFalse(applicantId)) {
+            log.warn("Applicant {} already manages a vendor", applicantId);
+            throw new AppException(ErrorCode.APPLICANT_ALREADY_HAS_VENDOR);
+        }
     }
 }

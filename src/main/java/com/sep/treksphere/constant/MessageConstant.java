@@ -166,6 +166,8 @@ public class MessageConstant {
     public static final String VENDOR_APPLICATION_NOT_FOUND = "Đơn đăng ký đối tác không tồn tại";
     public static final String TAX_CODE_ALREADY_EXISTS = "Mã số thuế đã tồn tại trên hệ thống";
     public static final String APPLICATION_PENDING_EXISTS = "Bạn đã có đơn đăng ký đang chờ xử lý";
+    public static final String APPLICANT_ALREADY_HAS_APPLICATION = "Bạn đã có đơn đăng ký đối tác; hãy tiếp tục cập nhật hoặc nộp lại đơn hiện có";
+    public static final String APPLICANT_ALREADY_HAS_VENDOR = "Bạn đã quản lý một Vendor và không thể tạo hoặc nộp thêm đơn đăng ký";
     public static final String VENDOR_APPLICATION_DRAFT_CREATED = "Tạo đơn đăng ký bản nháp thành công.";
     public static final String VENDOR_APPLICATION_SUBMITTED = "Nộp đơn đăng ký đối tác thành công. Đang chờ phê duyệt.";
     public static final String VENDOR_APPLICATION_RESUBMITTED = "Nộp lại đơn đăng ký đối tác thành công. Đang chờ phê duyệt lại.";

@@ -17,6 +17,8 @@ public interface VendorRepository extends JpaRepository<Vendor, UUID> {
     Optional<Vendor> findByManager_Email(String email);
     
     Optional<Vendor> findByManager_UserId(UUID managerId);
+
+    boolean existsByManager_UserIdAndIsDeletedFalse(UUID managerId);
     
     boolean existsByTaxCode(String taxCode);
     boolean existsByContactEmail(String contactEmail);

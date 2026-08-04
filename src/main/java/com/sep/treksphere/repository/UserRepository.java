@@ -5,6 +5,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
@@ -14,9 +15,14 @@ import java.util.Collection;
 import java.util.List;
 import com.sep.treksphere.enums.user.UserStatus;
 import java.util.UUID;
+import jakarta.persistence.LockModeType;
 
 @Repository
 public interface UserRepository extends JpaRepository<User, UUID> {
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT u FROM User u WHERE u.userId = :userId AND u.isDeleted = false")
+    Optional<User> findByIdForUpdate(@Param("userId") UUID userId);
     
     @EntityGraph(attributePaths = "roles")
     Optional<User> findByEmail(String email);

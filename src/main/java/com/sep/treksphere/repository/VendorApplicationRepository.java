@@ -9,11 +9,23 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 
 @Repository
 public interface VendorApplicationRepository extends JpaRepository<VendorApplication, UUID> {
+    Optional<VendorApplication> findByVendorApplicationIdAndIsDeletedFalse(UUID vendorApplicationId);
+    boolean existsByApplicant_UserIdAndIsDeletedFalse(UUID applicantId);
+    boolean existsByApplicant_UserIdAndVendorApplicationIdNotAndIsDeletedFalse(
+            UUID applicantId,
+            UUID vendorApplicationId
+    );
+
+    @Query("SELECT va.applicant.userId FROM VendorApplication va " +
+           "WHERE va.vendorApplicationId = :applicationId AND va.isDeleted = false")
+    Optional<UUID> findApplicantIdByApplicationId(@Param("applicationId") UUID applicationId);
+
     boolean existsByTaxCode(String taxCode);
     boolean existsByApplicant_UserIdAndApplicationStatus(UUID applicantId, ApplicationStatus applicationStatus);
     boolean existsByContactEmail(String contactEmail);

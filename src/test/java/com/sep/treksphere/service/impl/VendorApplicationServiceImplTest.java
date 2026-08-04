@@ -2,6 +2,7 @@ package com.sep.treksphere.service.impl;
 
 import com.sep.treksphere.dto.request.AdminVendorApplicationFilterRequest;
 import com.sep.treksphere.entity.VendorApplication;
+import com.sep.treksphere.entity.User;
 import com.sep.treksphere.enums.vendor.ApplicationStatus;
 import com.sep.treksphere.exception.AppException;
 import com.sep.treksphere.exception.ErrorCode;
@@ -23,7 +24,9 @@ import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
+import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -89,4 +92,6 @@ class VendorApplicationServiceImplTest {
 
         verifyNoInteractions(vendorApplicationRepository);
     }
+
+
 }
