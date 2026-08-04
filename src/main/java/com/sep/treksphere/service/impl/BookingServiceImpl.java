@@ -341,6 +341,7 @@ public class BookingServiceImpl implements BookingService {
         }
 
         booking.setPaymentStatus(PaymentStatus.PAID);
+        booking.setBookingStatus(BookingStatus.CONFIRMED);
         Booking updatedBooking = bookingRepository.save(booking);
         return bookingMapper.toBookingDetailResponse(updatedBooking);
     }

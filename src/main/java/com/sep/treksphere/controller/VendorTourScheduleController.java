@@ -42,9 +42,9 @@ public class VendorTourScheduleController {
                 .body(ApiResponse.success(HttpStatus.CREATED, response, MessageConstant.SCHEDULE_CREATED_SUCCESSFULLY));
     }
 
-    @Operation(summary = "Điều chỉnh thông tin lịch khởi hành", description = "VendorStaff/Manager điều chỉnh thông tin lịch khởi hành (bao gồm đổi status OPEN -> CLOSED).")
+    @Operation(summary = "Điều chỉnh thông tin lịch khởi hành", description = "VendorManager điều chỉnh thông tin lịch khởi hành. Nếu có khách đặt, phải cung cấp lý do.")
     @SecurityRequirement(name = "bearerAuth")
-    @PreAuthorize("hasAnyRole('VENDOR_MANAGER', 'VENDOR_STAFF')")
+    @PreAuthorize("hasRole('VENDOR_MANAGER')")
     @PutMapping("/schedules/{scheduleId}")
     public ResponseEntity<ApiResponse<TourScheduleResponse>> updateSchedule(
             @AuthenticationPrincipal CustomUserDetails userDetails,

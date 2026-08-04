@@ -3,17 +3,23 @@ package com.sep.treksphere.service.impl;
 import com.sep.treksphere.dto.request.CreateScheduleRequest;
 import com.sep.treksphere.dto.request.UpdateScheduleRequest;
 import com.sep.treksphere.dto.response.TourScheduleResponse;
+import com.sep.treksphere.entity.Booking;
+import com.sep.treksphere.entity.Notification;
 import com.sep.treksphere.entity.Tour;
 import com.sep.treksphere.entity.TourSchedule;
 import com.sep.treksphere.entity.TourSession;
 import com.sep.treksphere.entity.Vendor;
 import com.sep.treksphere.entity.VendorStaff;
 import com.sep.treksphere.enums.booking.BookingStatus;
+import com.sep.treksphere.enums.system.NotificationEventType;
+import com.sep.treksphere.enums.system.ReferenceType;
 import com.sep.treksphere.enums.tour.ScheduleStatus;
 import com.sep.treksphere.enums.tour.TourSessionStatus;
+import com.sep.treksphere.enums.tour.TourStatus;
 import com.sep.treksphere.exception.AppException;
 import com.sep.treksphere.exception.ErrorCode;
 import com.sep.treksphere.repository.BookingRepository;
+import com.sep.treksphere.repository.NotificationRepository;
 import com.sep.treksphere.repository.TourRepository;
 import com.sep.treksphere.repository.TourScheduleRepository;
 import com.sep.treksphere.repository.TourSessionRepository;
@@ -23,6 +29,7 @@ import com.sep.treksphere.service.TourScheduleService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -40,6 +47,7 @@ public class TourScheduleServiceImpl implements TourScheduleService {
     private final VendorRepository vendorRepository;
     private final VendorStaffRepository vendorStaffRepository;
     private final BookingRepository bookingRepository;
+    private final NotificationRepository notificationRepository;
 
     @Override
     @Transactional(readOnly = true)
@@ -65,6 +73,11 @@ public class TourScheduleServiceImpl implements TourScheduleService {
         Vendor vendor = resolveVendorByUser(userEmail);
         validateTourBelongsToVendor(tour, vendor);
 
+        // Validation: Tour phải ở trạng thái APPROVED hoặc HIDDEN mới được tạo Schedule
+        if (tour.getStatus() != TourStatus.APPROVED && tour.getStatus() != TourStatus.HIDDEN) {
+            throw new AppException(ErrorCode.TOUR_NOT_APPROVED_FOR_SCHEDULE);
+        }
+
         // Validation: departure date must be today or future
         if (request.getDepartureDate().isBefore(LocalDate.now())) {
             throw new AppException(ErrorCode.SCHEDULE_DEPARTURE_IN_PAST);
@@ -73,6 +86,11 @@ public class TourScheduleServiceImpl implements TourScheduleService {
         // Validation: return date must be after or equal to departure date
         if (request.getReturnDate().isBefore(request.getDepartureDate())) {
             throw new AppException(ErrorCode.SCHEDULE_RETURN_BEFORE_DEPARTURE);
+        }
+
+        // Validation: availableSlots không được vượt quá maxCapacity của Tour
+        if (tour.getMaxCapacity() != null && request.getAvailableSlots() > tour.getMaxCapacity()) {
+            throw new AppException(ErrorCode.SCHEDULE_SLOTS_EXCEED_MAX_CAPACITY);
         }
 
         TourSchedule schedule = new TourSchedule();
@@ -103,6 +121,25 @@ public class TourScheduleServiceImpl implements TourScheduleService {
         Vendor vendor = resolveVendorByUser(userEmail);
         validateTourBelongsToVendor(schedule.getTour(), vendor);
 
+        // Validation: Tour phải ở trạng thái APPROVED hoặc HIDDEN mới được sửa Schedule
+        if (schedule.getTour().getStatus() != TourStatus.APPROVED && schedule.getTour().getStatus() != TourStatus.HIDDEN) {
+            throw new AppException(ErrorCode.TOUR_NOT_APPROVED_FOR_SCHEDULE);
+        }
+
+        // Validation: Lịch khởi hành đã COMPLETED hoặc CANCELLED thì không được phép sửa
+        if (schedule.getStatus() == ScheduleStatus.COMPLETED || schedule.getStatus() == ScheduleStatus.CANCELLED) {
+            throw new AppException(ErrorCode.SCHEDULE_NOT_EDITABLE);
+        }
+
+        // Kiểm tra xem Schedule đã có khách đặt chỗ chưa
+        boolean hasBookings = bookingRepository.existsByScheduleAndBookingStatusNotAndIsDeletedFalse(schedule, BookingStatus.CANCELLED)
+                || (schedule.getBookedSlots() != null && schedule.getBookedSlots() > 0);
+
+        // Nếu ĐÃ CÓ khách đặt, yêu cầu bắt buộc phải truyền lý do (reason)
+        if (hasBookings && !StringUtils.hasText(request.getReason())) {
+            throw new AppException(ErrorCode.SCHEDULE_CHANGE_REASON_REQUIRED);
+        }
+
         LocalDate departureDate = request.getDepartureDate() != null ? request.getDepartureDate() : schedule.getDepartureDate();
         LocalDate returnDate = request.getReturnDate() != null ? request.getReturnDate() : schedule.getReturnDate();
 
@@ -125,6 +162,13 @@ public class TourScheduleServiceImpl implements TourScheduleService {
         }
 
         if (request.getAvailableSlots() != null) {
+            int currentBooked = schedule.getBookedSlots() != null ? schedule.getBookedSlots() : 0;
+            if (request.getAvailableSlots() < currentBooked) {
+                throw new AppException(ErrorCode.SCHEDULE_SLOTS_LESS_THAN_BOOKED);
+            }
+            if (schedule.getTour().getMaxCapacity() != null && request.getAvailableSlots() > schedule.getTour().getMaxCapacity()) {
+                throw new AppException(ErrorCode.SCHEDULE_SLOTS_EXCEED_MAX_CAPACITY);
+            }
             schedule.setAvailableSlots(request.getAvailableSlots());
         }
 
@@ -132,7 +176,25 @@ public class TourScheduleServiceImpl implements TourScheduleService {
             schedule.setStatus(request.getStatus());
         }
 
-        return toResponse(tourScheduleRepository.save(schedule));
+        TourSchedule savedSchedule = tourScheduleRepository.save(schedule);
+
+        // Nếu ĐÃ CÓ khách đặt, gửi Notification tới từng khách hàng có Booking active
+        if (hasBookings) {
+            List<Booking> activeBookings = bookingRepository.findByScheduleAndBookingStatusNotAndIsDeletedFalse(schedule, BookingStatus.CANCELLED);
+            for (Booking booking : activeBookings) {
+                Notification notification = new Notification();
+                notification.setRecipient(booking.getUser());
+                notification.setTitle("Lịch khởi hành tour đã có sự thay đổi");
+                notification.setEventType(NotificationEventType.SCHEDULE_UPDATED);
+                notification.setContent("Lịch khởi hành tour \"" + schedule.getTour().getTourName() +
+                        "\" (khởi hành ngày " + savedSchedule.getDepartureDate() + ") đã được điều chỉnh. Lý do: " + request.getReason().trim());
+                notification.setReferenceType(ReferenceType.BOOKING);
+                notification.setReferenceId(booking.getBookingId());
+                notificationRepository.save(notification);
+            }
+        }
+
+        return toResponse(savedSchedule);
     }
 
     @Override
@@ -146,6 +208,16 @@ public class TourScheduleServiceImpl implements TourScheduleService {
                 .orElseThrow(() -> new AppException(ErrorCode.VENDOR_NOT_FOUND));
         validateTourBelongsToVendor(schedule.getTour(), vendor);
 
+        // Validation: Tour phải ở trạng thái APPROVED hoặc HIDDEN mới được xóa Schedule
+        if (schedule.getTour().getStatus() != TourStatus.APPROVED && schedule.getTour().getStatus() != TourStatus.HIDDEN) {
+            throw new AppException(ErrorCode.TOUR_NOT_APPROVED_FOR_SCHEDULE);
+        }
+
+        // Validation: Lịch khởi hành đã COMPLETED hoặc CANCELLED thì không được phép xóa
+        if (schedule.getStatus() == ScheduleStatus.COMPLETED || schedule.getStatus() == ScheduleStatus.CANCELLED) {
+            throw new AppException(ErrorCode.SCHEDULE_NOT_EDITABLE);
+        }
+
         // Check if there are active bookings
         boolean hasBookings = bookingRepository.existsByScheduleAndBookingStatusNotAndIsDeletedFalse(schedule, BookingStatus.CANCELLED)
                 || (schedule.getBookedSlots() != null && schedule.getBookedSlots() > 0);
@@ -153,10 +225,20 @@ public class TourScheduleServiceImpl implements TourScheduleService {
             throw new AppException(ErrorCode.SCHEDULE_HAS_BOOKINGS);
         }
 
+        LocalDateTime now = LocalDateTime.now();
         schedule.setIsDeleted(true);
-        schedule.setDeletedAt(LocalDateTime.now());
+        schedule.setDeletedAt(now);
         schedule.setDeletedBy(userEmail);
         tourScheduleRepository.save(schedule);
+
+        // Đồng bộ xóa mềm TourSession liên kết với schedule này
+        tourSessionRepository.findByTourSchedule_ScheduleIdAndIsDeletedFalse(scheduleId)
+                .ifPresent(session -> {
+                    session.setIsDeleted(true);
+                    session.setDeletedAt(now);
+                    session.setDeletedBy(userEmail);
+                    tourSessionRepository.save(session);
+                });
     }
 
     // ======================== Helper Methods ========================

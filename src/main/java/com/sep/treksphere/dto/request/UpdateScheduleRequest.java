@@ -24,4 +24,6 @@ public class UpdateScheduleRequest {
 
 
     private ScheduleStatus status;
+
+    private String reason;
 }

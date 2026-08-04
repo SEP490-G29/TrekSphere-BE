@@ -17,6 +17,7 @@ import jakarta.persistence.LockModeType;
 @Repository
 public interface TourSessionRepository extends JpaRepository<TourSession, UUID> {
     Optional<TourSession> findByTourSessionIdAndIsDeletedFalse(UUID tourSessionId);
+    Optional<TourSession> findByTourSchedule_ScheduleIdAndIsDeletedFalse(UUID scheduleId);
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("SELECT ts FROM TourSession ts " +

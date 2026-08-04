@@ -18,6 +18,17 @@ import java.util.UUID;
 public interface BookingRepository extends JpaRepository<Booking, UUID> {
     boolean existsByScheduleAndBookingStatusNotAndIsDeletedFalse(TourSchedule schedule, BookingStatus bookingStatus);
 
+    java.util.List<Booking> findByScheduleAndBookingStatusNotAndIsDeletedFalse(TourSchedule schedule, BookingStatus bookingStatus);
+
+    /**
+     * Kiểm tra tour có booking active (không phải CANCELLED) thông qua các schedule
+     */
+    @Query("SELECT CASE WHEN COUNT(b) > 0 THEN true ELSE false END FROM Booking b " +
+           "WHERE b.schedule.tour.tourId = :tourId " +
+           "AND b.bookingStatus != com.sep.treksphere.enums.booking.BookingStatus.CANCELLED " +
+           "AND b.isDeleted = false")
+    boolean existsActiveBookingByTourId(@Param("tourId") UUID tourId);
+
     boolean existsByUser_UserIdAndSchedule_ScheduleIdAndBookingStatusAndIsDeletedFalse(
             UUID userId, UUID scheduleId, BookingStatus bookingStatus
     );
