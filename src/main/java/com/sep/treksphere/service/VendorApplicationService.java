@@ -1,5 +1,6 @@
 package com.sep.treksphere.service;
 
+import com.sep.treksphere.dto.request.AdminVendorApplicationFilterRequest;
 import com.sep.treksphere.dto.request.VendorApplicationFilterRequest;
 import com.sep.treksphere.dto.request.VendorApplicationRequest;
 import com.sep.treksphere.dto.request.VendorApplicationReviewRequest;
@@ -12,7 +13,7 @@ import java.util.UUID;
 
 public interface VendorApplicationService {
     VendorApplicationResponse saveDraftApplication(UUID applicantId, VendorApplicationRequest request);
-    PaginationResponse<VendorApplicationResponse> getApplications(VendorApplicationFilterRequest request);
+    PaginationResponse<VendorApplicationResponse> getApplications(AdminVendorApplicationFilterRequest request);
     PaginationResponse<VendorApplicationResponse> getMyApplicationHistory(UUID applicantId, VendorApplicationFilterRequest request);
     VendorApplicationResponse getApplicationById(UUID id, CustomUserDetails userDetails);
     VendorApplicationResponse updateApplication(UUID id, VendorApplicationUpdateRequest request, UUID applicantId);

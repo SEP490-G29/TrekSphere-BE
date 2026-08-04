@@ -17,6 +17,7 @@ import com.sep.treksphere.dto.response.SosAlertResponse;
 import com.sep.treksphere.entity.*;
 import com.sep.treksphere.enums.booking.BookingStatus;
 import com.sep.treksphere.enums.tour.AttendanceType;
+import com.sep.treksphere.enums.tour.ScheduleStatus;
 import com.sep.treksphere.enums.tour.SessionCheckpointLogStatus;
 import com.sep.treksphere.enums.tour.TourSessionStatus;
 import com.sep.treksphere.enums.tour.SosAlertStatus;
@@ -33,6 +34,8 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 
+import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -61,90 +64,32 @@ public class TrackingServiceImpl implements TrackingService {
         log.info("Attempting to start tour session with ID: {} by coordinator ID: {} with coordinates: [lat: {}, lon: {}]",
                 sessionId, coordinatorId, request.getLatitude(), request.getLongitude());
 
-        TourSession tourSession = tourSessionRepository.findByTourSessionIdAndIsDeletedFalse(sessionId)
-                .orElseThrow(() -> {
-                    log.warn("Tour session with ID {} not found", sessionId);
-                    return new AppException(ErrorCode.SESSION_NOT_FOUND);
-                });
+        TourSession tourSession = getActiveTourSessionForUpdate(sessionId);
+        CoordinatorSchedule assignment = getActiveCoordinatorAssignment(sessionId, coordinatorId);
+        requireLeadCoordinator(assignment, coordinatorId, sessionId);
+        validateSessionCanStart(tourSession);
+        validateScheduleCanStart(tourSession);
 
-        CoordinatorSchedule schedule = coordinatorScheduleRepository
-                .findByTourSession_TourSessionIdAndCoordinator_UserIdAndIsDeletedFalse(sessionId, coordinatorId)
-                .orElseThrow(() -> {
-                    log.warn("Coordinator {} is not assigned to tour session {}", coordinatorId, sessionId);
-                    return new AppException(ErrorCode.UNAUTHORIZED_SESSION_ACCESS);
-                });
-
-        if (Boolean.TRUE.equals(schedule.getIsCancelled())) {
-            log.warn("Schedule assignment for coordinator {} in session {} is cancelled", coordinatorId, sessionId);
-            throw new AppException(ErrorCode.UNAUTHORIZED_SESSION_ACCESS);
+        if (sessionCheckpointLogRepository.existsByTourSession_TourSessionIdAndIsDeletedFalse(sessionId)) {
+            log.warn("Checkpoint logs already exist for pending tour session {}", sessionId);
+            throw new AppException(ErrorCode.SESSION_CHECKPOINT_LOGS_ALREADY_INITIALIZED);
         }
 
-        if (!Boolean.TRUE.equals(schedule.getIsLead())) {
-            log.warn("Coordinator {} is not the lead coordinator for session {}", coordinatorId, sessionId);
-            throw new AppException(ErrorCode.NOT_LEAD_COORDINATOR);
-        }
-
-        if (tourSession.getStatus() == TourSessionStatus.IN_PROGRESS) {
-            log.warn("Tour session {} is already in progress", sessionId);
-            throw new AppException(ErrorCode.SESSION_ALREADY_STARTED);
-        }
-
-        if (tourSession.getStatus() == TourSessionStatus.COMPLETED) {
-            log.warn("Tour session {} is already completed", sessionId);
-            throw new AppException(ErrorCode.SESSION_ALREADY_COMPLETED);
-        }
-
-        if (tourSession.getStatus() == TourSessionStatus.CANCELLED) {
-            log.warn("Tour session {} is already cancelled", sessionId);
-            throw new AppException(ErrorCode.SESSION_ALREADY_CANCELLED);
-        }
+        Tour tour = tourSession.getTourSchedule().getTour();
+        List<TourCheckpoint> checkpoints = getValidCheckpoints(tour, sessionId);
+        validateStartAttendance(tourSession);
+        validateEquipmentReadiness(sessionId);
+        validateWithinCheckpointRadius(request, checkpoints.get(0), coordinatorId);
 
         LocalDateTime now = LocalDateTime.now();
-        Tour tour = tourSession.getTourSchedule().getTour();
-        List<TourCheckpoint> checkpoints = tourCheckpointRepository.findByTourAndIsDeletedFalseOrderByCheckpointOrderAsc(tour);
-
-        if (!checkpoints.isEmpty()) {
-            TourCheckpoint startCheckpoint = checkpoints.get(0);
-            if (startCheckpoint.getLatitude() != null && startCheckpoint.getLongitude() != null) {
-                if (!GeoUtils.isWithinAllowedRadius(request.getLatitude(), request.getLongitude(), startCheckpoint.getLatitude(), startCheckpoint.getLongitude())) {
-                    log.warn("Coordinator is too far from start checkpoint. Max allowed: {} meters", ValidationConstant.ALLOWED_CHECKIN_RADIUS_METERS);
-                    throw new AppException(ErrorCode.CHECKIN_OUT_OF_RANGE);
-                }
-            }
-        }
-
         tourSession.setStatus(TourSessionStatus.IN_PROGRESS);
         tourSession.setStartedAt(now);
         tourSessionRepository.save(tourSession);
         log.info("Tour session {} successfully updated to IN_PROGRESS at {}", sessionId, now);
 
-        List<SessionCheckpointLog> logs = new ArrayList<>();
-
-        for (int i = 0; i < checkpoints.size(); i++) {
-            TourCheckpoint checkpoint = checkpoints.get(i);
-            SessionCheckpointLog checkpointLog = new SessionCheckpointLog();
-            checkpointLog.setTourSession(tourSession);
-            checkpointLog.setCheckpoint(checkpoint);
-            checkpointLog.setIsDeleted(false);
-
-            if (i == 0) {
-                checkpointLog.setStatus(SessionCheckpointLogStatus.REACHED);
-                checkpointLog.setReachedAt(now);
-                checkpointLog.setActualLatitude(request.getLatitude());
-                checkpointLog.setActualLongitude(request.getLongitude());
-                checkpointLog.setNote(request.getNote());
-            } else {
-                checkpointLog.setStatus(SessionCheckpointLogStatus.PENDING);
-            }
-            logs.add(checkpointLog);
-        }
-
-        if (!logs.isEmpty()) {
-            sessionCheckpointLogRepository.saveAll(logs);
-            log.info("Initialized {} session checkpoint logs for tour session {}", logs.size(), sessionId);
-        } else {
-            log.warn("No checkpoints found for tour ID: {} in session {}", tour.getTourId(), sessionId);
-        }
+        List<SessionCheckpointLog> logs = initializeCheckpointLogs(tourSession, checkpoints, request, now);
+        sessionCheckpointLogRepository.saveAll(logs);
+        log.info("Initialized {} session checkpoint logs for tour session {}", logs.size(), sessionId);
 
         return TourSessionStartResponse.builder()
                 .tourSessionId(tourSession.getTourSessionId())
@@ -159,23 +104,8 @@ public class TrackingServiceImpl implements TrackingService {
         log.info("Attempting checkpoint check-in for tour session ID: {} by coordinator ID: {} with coordinates: [lat: {}, lon: {}]",
                 sessionId, coordinatorId, request.getLatitude(), request.getLongitude());
 
-        TourSession tourSession = tourSessionRepository.findByTourSessionIdAndIsDeletedFalse(sessionId)
-                .orElseThrow(() -> {
-                    log.warn("Tour session with ID {} not found", sessionId);
-                    return new AppException(ErrorCode.SESSION_NOT_FOUND);
-                });
-
-        CoordinatorSchedule schedule = coordinatorScheduleRepository
-                .findByTourSession_TourSessionIdAndCoordinator_UserIdAndIsDeletedFalse(sessionId, coordinatorId)
-                .orElseThrow(() -> {
-                    log.warn("Coordinator {} is not assigned to tour session {}", coordinatorId, sessionId);
-                    return new AppException(ErrorCode.UNAUTHORIZED_SESSION_ACCESS);
-                });
-
-        if (Boolean.TRUE.equals(schedule.getIsCancelled())) {
-            log.warn("Schedule assignment for coordinator {} in session {} is cancelled", coordinatorId, sessionId);
-            throw new AppException(ErrorCode.UNAUTHORIZED_SESSION_ACCESS);
-        }
+        TourSession tourSession = getActiveTourSession(sessionId);
+        getActiveCoordinatorAssignment(sessionId, coordinatorId);
 
         if (tourSession.getStatus() != TourSessionStatus.IN_PROGRESS) {
             log.warn("Tour session {} is not in progress. Current status: {}", sessionId, tourSession.getStatus());
@@ -195,15 +125,7 @@ public class TrackingServiceImpl implements TrackingService {
         SessionCheckpointLog nextLog = pendingLogs.get(0);
         TourCheckpoint checkpoint = nextLog.getCheckpoint();
 
-        if (checkpoint.getLatitude() != null && checkpoint.getLongitude() != null) {
-            if (!GeoUtils.isWithinAllowedRadius(
-                    request.getLatitude(), request.getLongitude(),
-                    checkpoint.getLatitude(), checkpoint.getLongitude())) {
-                log.warn("Coordinator {} is too far from checkpoint '{}' (order: {}). Max allowed: {} meters",
-                        coordinatorId, checkpoint.getCheckpointName(), checkpoint.getCheckpointOrder(), ValidationConstant.ALLOWED_CHECKIN_RADIUS_METERS);
-                throw new AppException(ErrorCode.CHECKIN_OUT_OF_RANGE);
-            }
-        }
+        validateWithinCheckpointRadius(request, checkpoint, coordinatorId);
 
         LocalDateTime now = LocalDateTime.now();
         nextLog.setStatus(SessionCheckpointLogStatus.REACHED);
@@ -232,28 +154,9 @@ public class TrackingServiceImpl implements TrackingService {
         log.info("Attempting to end tour session with ID: {} by coordinator ID: {} with destination coordinates: [lat: {}, lon: {}]",
                 sessionId, coordinatorId, request.getLatitude(), request.getLongitude());
 
-        TourSession tourSession = tourSessionRepository.findByTourSessionIdAndIsDeletedFalse(sessionId)
-                .orElseThrow(() -> {
-                    log.warn("Tour session with ID {} not found", sessionId);
-                    return new AppException(ErrorCode.SESSION_NOT_FOUND);
-                });
-
-        CoordinatorSchedule schedule = coordinatorScheduleRepository
-                .findByTourSession_TourSessionIdAndCoordinator_UserIdAndIsDeletedFalse(sessionId, coordinatorId)
-                .orElseThrow(() -> {
-                    log.warn("Coordinator {} is not assigned to tour session {}", coordinatorId, sessionId);
-                    return new AppException(ErrorCode.UNAUTHORIZED_SESSION_ACCESS);
-                });
-
-        if (Boolean.TRUE.equals(schedule.getIsCancelled())) {
-            log.warn("Schedule assignment for coordinator {} in session {} is cancelled", coordinatorId, sessionId);
-            throw new AppException(ErrorCode.UNAUTHORIZED_SESSION_ACCESS);
-        }
-
-        if (!Boolean.TRUE.equals(schedule.getIsLead())) {
-            log.warn("Coordinator {} is not the lead coordinator for session {}", coordinatorId, sessionId);
-            throw new AppException(ErrorCode.NOT_LEAD_COORDINATOR);
-        }
+        TourSession tourSession = getActiveTourSession(sessionId);
+        CoordinatorSchedule assignment = getActiveCoordinatorAssignment(sessionId, coordinatorId);
+        requireLeadCoordinator(assignment, coordinatorId, sessionId);
 
         if (tourSession.getStatus() != TourSessionStatus.IN_PROGRESS) {
             log.warn("Tour session {} is not in progress. Current status: {}", sessionId, tourSession.getStatus());
@@ -269,15 +172,7 @@ public class TrackingServiceImpl implements TrackingService {
             SessionCheckpointLog destinationLog = allLogs.get(allLogs.size() - 1);
             TourCheckpoint destinationCheckpoint = destinationLog.getCheckpoint();
 
-            if (destinationCheckpoint.getLatitude() != null && destinationCheckpoint.getLongitude() != null) {
-                if (!GeoUtils.isWithinAllowedRadius(
-                        request.getLatitude(), request.getLongitude(),
-                        destinationCheckpoint.getLatitude(), destinationCheckpoint.getLongitude())) {
-                    log.warn("Coordinator is too far from destination checkpoint '{}'. Max allowed: {} meters",
-                            destinationCheckpoint.getCheckpointName(), ValidationConstant.ALLOWED_CHECKIN_RADIUS_METERS);
-                    throw new AppException(ErrorCode.CHECKIN_OUT_OF_RANGE);
-                }
-            }
+            validateWithinCheckpointRadius(request, destinationCheckpoint, coordinatorId);
 
             destinationLog.setStatus(SessionCheckpointLogStatus.REACHED);
             destinationLog.setReachedAt(now);
@@ -315,31 +210,36 @@ public class TrackingServiceImpl implements TrackingService {
         log.info("Attempting to record attendance (type: {}) for tour session ID: {} by coordinator ID: {}",
                 request.getAttendanceType(), sessionId, coordinatorId);
 
-        TourSession tourSession = tourSessionRepository.findByTourSessionIdAndIsDeletedFalse(sessionId)
-                .orElseThrow(() -> {
-                    log.warn("Tour session with ID {} not found", sessionId);
-                    return new AppException(ErrorCode.SESSION_NOT_FOUND);
-                });
+        TourSession tourSession = getActiveTourSession(sessionId);
+        getActiveCoordinatorAssignment(sessionId, coordinatorId);
 
-        CoordinatorSchedule schedule = coordinatorScheduleRepository
-                .findByTourSession_TourSessionIdAndCoordinator_UserIdAndIsDeletedFalse(sessionId, coordinatorId)
-                .orElseThrow(() -> {
-                    log.warn("Coordinator {} is not assigned to tour session {}", coordinatorId, sessionId);
-                    return new AppException(ErrorCode.UNAUTHORIZED_SESSION_ACCESS);
-                });
+        AttendanceType attendanceType = request.getAttendanceType();
+        boolean isStartAllowed = attendanceType == AttendanceType.START
+                && (tourSession.getStatus() == TourSessionStatus.PENDING
+                || tourSession.getStatus() == TourSessionStatus.IN_PROGRESS);
+        boolean isEndAllowed = attendanceType == AttendanceType.END
+                && tourSession.getStatus() == TourSessionStatus.IN_PROGRESS;
 
-        if (Boolean.TRUE.equals(schedule.getIsCancelled())) {
-            log.warn("Schedule assignment for coordinator {} in session {} is cancelled", coordinatorId, sessionId);
-            throw new AppException(ErrorCode.UNAUTHORIZED_SESSION_ACCESS);
-        }
-
-        if (tourSession.getStatus() != TourSessionStatus.IN_PROGRESS) {
-            log.warn("Tour session {} is not in progress. Current status: {}", sessionId, tourSession.getStatus());
+        if (!isStartAllowed && !isEndAllowed) {
+            log.warn("Attendance type {} is not allowed for tour session {} in status {}",
+                    attendanceType, sessionId, tourSession.getStatus());
             throw new AppException(ErrorCode.SESSION_NOT_IN_PROGRESS);
         }
 
+        Set<UUID> uniqueParticipantIds = new HashSet<>();
+        boolean hasDuplicateParticipant = request.getParticipants().stream()
+                .map(ParticipantAttendanceItem::getParticipantId)
+                .anyMatch(participantId -> !uniqueParticipantIds.add(participantId));
+        if (hasDuplicateParticipant) {
+            log.warn("Attendance request for tour session {} contains duplicate participant IDs", sessionId);
+            throw new AppException(ErrorCode.DUPLICATE_PARTICIPANT_IN_ATTENDANCE);
+        }
+
         List<BookingParticipant> activeParticipants = bookingParticipantRepository
-                .findActiveParticipantsByScheduleId(tourSession.getTourSchedule().getScheduleId());
+                .findActiveParticipantsByScheduleId(
+                        tourSession.getTourSchedule().getScheduleId(),
+                        BookingStatus.CONFIRMED
+                );
 
         Map<UUID, BookingParticipant> activeParticipantMap = activeParticipants.stream()
                 .collect(Collectors.toMap(BookingParticipant::getParticipantId, p -> p));
@@ -355,10 +255,15 @@ public class TrackingServiceImpl implements TrackingService {
                 throw new AppException(ErrorCode.PARTICIPANT_NOT_FOUND_IN_SESSION);
             }
 
-            if (request.getAttendanceType() == AttendanceType.START) {
+            if (attendanceType == AttendanceType.START) {
                 participant.setIsPresentStart(item.getIsPresent());
                 participant.setStartAttendedAt(now);
-            } else if (request.getAttendanceType() == AttendanceType.END) {
+            } else if (attendanceType == AttendanceType.END) {
+                if (participant.getIsPresentStart() == null) {
+                    log.warn("Participant {} has no START attendance for tour session {}",
+                            participant.getParticipantId(), sessionId);
+                    throw new AppException(ErrorCode.ATTENDANCE_START_REQUIRED);
+                }
                 participant.setIsPresentEnd(item.getIsPresent());
                 participant.setEndAttendedAt(now);
             } else {
@@ -379,7 +284,7 @@ public class TrackingServiceImpl implements TrackingService {
 
         return TourSessionAttendanceResponse.builder()
                 .tourSessionId(tourSession.getTourSessionId())
-                .attendanceType(request.getAttendanceType())
+                .attendanceType(attendanceType)
                 .recordedAt(now)
                 .participants(responseItems)
                 .build();
@@ -652,6 +557,195 @@ public class TrackingServiceImpl implements TrackingService {
         log.info("SOS alert {} successfully resolved by user {}", sosId, userId);
 
         return mapToSosAlertResponse(sosAlert);
+    }
+
+    private TourSession getActiveTourSession(UUID sessionId) {
+        return tourSessionRepository.findByTourSessionIdAndIsDeletedFalse(sessionId)
+                .orElseThrow(() -> {
+                    log.warn("Tour session with ID {} not found", sessionId);
+                    return new AppException(ErrorCode.SESSION_NOT_FOUND);
+                });
+    }
+
+    private TourSession getActiveTourSessionForUpdate(UUID sessionId) {
+        return tourSessionRepository.findByIdForUpdate(sessionId)
+                .orElseThrow(() -> {
+                    log.warn("Tour session with ID {} not found", sessionId);
+                    return new AppException(ErrorCode.SESSION_NOT_FOUND);
+                });
+    }
+
+    private CoordinatorSchedule getActiveCoordinatorAssignment(UUID sessionId, UUID coordinatorId) {
+        CoordinatorSchedule assignment = coordinatorScheduleRepository
+                .findByTourSession_TourSessionIdAndCoordinator_UserIdAndIsDeletedFalse(sessionId, coordinatorId)
+                .orElseThrow(() -> {
+                    log.warn("Coordinator {} is not assigned to tour session {}", coordinatorId, sessionId);
+                    return new AppException(ErrorCode.UNAUTHORIZED_SESSION_ACCESS);
+                });
+
+        if (Boolean.TRUE.equals(assignment.getIsCancelled())) {
+            log.warn("Schedule assignment for coordinator {} in session {} is cancelled", coordinatorId, sessionId);
+            throw new AppException(ErrorCode.UNAUTHORIZED_SESSION_ACCESS);
+        }
+        return assignment;
+    }
+
+    private void requireLeadCoordinator(
+            CoordinatorSchedule assignment,
+            UUID coordinatorId,
+            UUID sessionId
+    ) {
+        if (!Boolean.TRUE.equals(assignment.getIsLead())) {
+            log.warn("Coordinator {} is not the lead coordinator for session {}", coordinatorId, sessionId);
+            throw new AppException(ErrorCode.NOT_LEAD_COORDINATOR);
+        }
+    }
+
+    private void validateSessionCanStart(TourSession tourSession) {
+        UUID sessionId = tourSession.getTourSessionId();
+        switch (tourSession.getStatus()) {
+            case PENDING -> {
+                return;
+            }
+            case IN_PROGRESS -> {
+                log.warn("Tour session {} is already in progress", sessionId);
+                throw new AppException(ErrorCode.SESSION_ALREADY_STARTED);
+            }
+            case COMPLETED -> {
+                log.warn("Tour session {} is already completed", sessionId);
+                throw new AppException(ErrorCode.SESSION_ALREADY_COMPLETED);
+            }
+            case CANCELLED -> {
+                log.warn("Tour session {} is already cancelled", sessionId);
+                throw new AppException(ErrorCode.SESSION_ALREADY_CANCELLED);
+            }
+        }
+    }
+
+    private void validateScheduleCanStart(TourSession tourSession) {
+        TourSchedule schedule = tourSession.getTourSchedule();
+        Tour tour = schedule == null ? null : schedule.getTour();
+        if (schedule == null || tour == null
+                || Boolean.TRUE.equals(schedule.getIsDeleted())
+                || Boolean.TRUE.equals(tour.getIsDeleted())
+                || (schedule.getStatus() != ScheduleStatus.OPEN
+                && schedule.getStatus() != ScheduleStatus.CLOSED)) {
+            log.warn("Schedule of tour session {} is not available for start", tourSession.getTourSessionId());
+            throw new AppException(ErrorCode.SCHEDULE_NOT_AVAILABLE_FOR_START);
+        }
+
+        LocalDate today = LocalDate.now();
+        if (schedule.getDepartureDate() == null
+                || schedule.getReturnDate() == null
+                || today.isBefore(schedule.getDepartureDate())
+                || today.isAfter(schedule.getReturnDate())) {
+            log.warn("Tour session {} cannot start on {}. Schedule range: {} - {}",
+                    tourSession.getTourSessionId(), today,
+                    schedule.getDepartureDate(), schedule.getReturnDate());
+            throw new AppException(ErrorCode.SESSION_START_DATE_INVALID);
+        }
+    }
+
+    private List<TourCheckpoint> getValidCheckpoints(Tour tour, UUID sessionId) {
+        List<TourCheckpoint> checkpoints = tourCheckpointRepository
+                .findByTourAndIsDeletedFalseOrderByCheckpointOrderAsc(tour);
+        if (checkpoints.size() < 2) {
+            log.warn("Tour {} of session {} has fewer than two checkpoints", tour.getTourId(), sessionId);
+            throw new AppException(ErrorCode.TOUR_CHECKPOINTS_NOT_CONFIGURED);
+        }
+
+        boolean hasInvalidCoordinates = checkpoints.stream()
+                .anyMatch(checkpoint -> !hasValidCoordinates(checkpoint));
+        if (hasInvalidCoordinates) {
+            log.warn("Tour {} of session {} contains checkpoints without valid coordinates",
+                    tour.getTourId(), sessionId);
+            throw new AppException(ErrorCode.TOUR_CHECKPOINT_COORDINATES_REQUIRED);
+        }
+        return checkpoints;
+    }
+
+    private boolean hasValidCoordinates(TourCheckpoint checkpoint) {
+        BigDecimal latitude = checkpoint.getLatitude();
+        BigDecimal longitude = checkpoint.getLongitude();
+        return latitude != null
+                && longitude != null
+                && latitude.compareTo(BigDecimal.valueOf(-90)) >= 0
+                && latitude.compareTo(BigDecimal.valueOf(90)) <= 0
+                && longitude.compareTo(BigDecimal.valueOf(-180)) >= 0
+                && longitude.compareTo(BigDecimal.valueOf(180)) <= 0;
+    }
+
+    private void validateWithinCheckpointRadius(
+            SessionCheckpointLogRequest request,
+            TourCheckpoint checkpoint,
+            UUID coordinatorId
+    ) {
+        if (!hasValidCoordinates(checkpoint)) {
+            log.warn("Checkpoint {} does not have valid GPS coordinates", checkpoint.getCheckpointId());
+            throw new AppException(ErrorCode.TOUR_CHECKPOINT_COORDINATES_REQUIRED);
+        }
+        if (!GeoUtils.isWithinAllowedRadius(
+                request.getLatitude(), request.getLongitude(),
+                checkpoint.getLatitude(), checkpoint.getLongitude())) {
+            log.warn("Coordinator {} is too far from checkpoint '{}' (order: {}). Max allowed: {} meters",
+                    coordinatorId, checkpoint.getCheckpointName(), checkpoint.getCheckpointOrder(),
+                    ValidationConstant.ALLOWED_CHECKIN_RADIUS_METERS);
+            throw new AppException(ErrorCode.CHECKIN_OUT_OF_RANGE);
+        }
+    }
+
+    private void validateStartAttendance(TourSession tourSession) {
+        List<BookingParticipant> participants = bookingParticipantRepository
+                .findActiveParticipantsByScheduleId(
+                        tourSession.getTourSchedule().getScheduleId(),
+                        BookingStatus.CONFIRMED
+                );
+        if (participants.isEmpty()
+                || participants.stream().anyMatch(participant -> participant.getIsPresentStart() == null)) {
+            log.warn("START attendance is incomplete for tour session {}", tourSession.getTourSessionId());
+            throw new AppException(ErrorCode.START_ATTENDANCE_INCOMPLETE);
+        }
+        if (participants.stream().noneMatch(participant -> Boolean.TRUE.equals(participant.getIsPresentStart()))) {
+            log.warn("No participants are present for tour session {}", tourSession.getTourSessionId());
+            throw new AppException(ErrorCode.NO_PRESENT_PARTICIPANTS);
+        }
+    }
+
+    private void validateEquipmentReadiness(UUID sessionId) {
+        boolean hasUncheckedEquipment = sessionEquipmentRepository
+                .findByTourSession_TourSessionIdAndIsDeletedFalse(sessionId)
+                .stream()
+                .anyMatch(equipment -> !Boolean.TRUE.equals(equipment.getIsChecked()));
+        if (hasUncheckedEquipment) {
+            log.warn("Tour session {} still has unchecked equipment", sessionId);
+            throw new AppException(ErrorCode.SESSION_EQUIPMENT_NOT_READY);
+        }
+    }
+
+    private List<SessionCheckpointLog> initializeCheckpointLogs(
+            TourSession tourSession,
+            List<TourCheckpoint> checkpoints,
+            SessionCheckpointLogRequest request,
+            LocalDateTime reachedAt
+    ) {
+        List<SessionCheckpointLog> logs = new ArrayList<>(checkpoints.size());
+        for (int index = 0; index < checkpoints.size(); index++) {
+            SessionCheckpointLog checkpointLog = new SessionCheckpointLog();
+            checkpointLog.setTourSession(tourSession);
+            checkpointLog.setCheckpoint(checkpoints.get(index));
+
+            if (index == 0) {
+                checkpointLog.setStatus(SessionCheckpointLogStatus.REACHED);
+                checkpointLog.setReachedAt(reachedAt);
+                checkpointLog.setActualLatitude(request.getLatitude());
+                checkpointLog.setActualLongitude(request.getLongitude());
+                checkpointLog.setNote(request.getNote());
+            } else {
+                checkpointLog.setStatus(SessionCheckpointLogStatus.PENDING);
+            }
+            logs.add(checkpointLog);
+        }
+        return logs;
     }
 
     private SosAlertResponse mapToSosAlertResponse(SosAlert sosAlert) {

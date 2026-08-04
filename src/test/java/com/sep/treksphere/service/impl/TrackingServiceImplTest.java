@@ -1,9 +1,18 @@
 package com.sep.treksphere.service.impl;
 
+import com.sep.treksphere.dto.request.ParticipantAttendanceItem;
+import com.sep.treksphere.dto.request.TourSessionAttendanceRequest;
+import com.sep.treksphere.entity.BookingParticipant;
+import com.sep.treksphere.entity.CoordinatorSchedule;
 import com.sep.treksphere.entity.Role;
+import com.sep.treksphere.entity.TourSchedule;
+import com.sep.treksphere.entity.TourSession;
 import com.sep.treksphere.entity.User;
 import com.sep.treksphere.entity.Vendor;
+import com.sep.treksphere.enums.booking.BookingStatus;
+import com.sep.treksphere.enums.tour.AttendanceType;
 import com.sep.treksphere.enums.tour.SosAlertStatus;
+import com.sep.treksphere.enums.tour.TourSessionStatus;
 import com.sep.treksphere.exception.AppException;
 import com.sep.treksphere.exception.ErrorCode;
 import com.sep.treksphere.repository.BookingParticipantRepository;
@@ -26,6 +35,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -125,6 +135,148 @@ class TrackingServiceImplTest {
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.VENDOR_NOT_FOUND);
 
         verifyNoInteractions(sosAlertRepository);
+    }
+
+    @Test
+    void recordAttendance_AllowsStartAttendanceWhileSessionIsPending() {
+        UUID coordinatorId = UUID.randomUUID();
+        UUID sessionId = UUID.randomUUID();
+        UUID scheduleId = UUID.randomUUID();
+        UUID participantId = UUID.randomUUID();
+        TourSession session = stubAuthorizedSession(
+                coordinatorId, sessionId, scheduleId, TourSessionStatus.PENDING
+        );
+        BookingParticipant participant = participant(participantId);
+        when(bookingParticipantRepository.findActiveParticipantsByScheduleId(
+                scheduleId, BookingStatus.CONFIRMED
+        )).thenReturn(List.of(participant));
+
+        TourSessionAttendanceRequest request = attendanceRequest(
+                AttendanceType.START,
+                List.of(attendanceItem(participantId, true))
+        );
+
+        var response = trackingService.recordAttendance(coordinatorId, sessionId, request);
+
+        assertThat(response.getTourSessionId()).isEqualTo(session.getTourSessionId());
+        assertThat(response.getAttendanceType()).isEqualTo(AttendanceType.START);
+        assertThat(participant.getIsPresentStart()).isTrue();
+        assertThat(participant.getStartAttendedAt()).isNotNull();
+        verify(bookingParticipantRepository).saveAll(List.of(participant));
+    }
+
+    @Test
+    void recordAttendance_RejectsEndAttendanceWhenStartWasNotRecorded() {
+        UUID coordinatorId = UUID.randomUUID();
+        UUID sessionId = UUID.randomUUID();
+        UUID scheduleId = UUID.randomUUID();
+        UUID participantId = UUID.randomUUID();
+        stubAuthorizedSession(coordinatorId, sessionId, scheduleId, TourSessionStatus.IN_PROGRESS);
+        BookingParticipant participant = participant(participantId);
+        when(bookingParticipantRepository.findActiveParticipantsByScheduleId(
+                scheduleId, BookingStatus.CONFIRMED
+        )).thenReturn(List.of(participant));
+
+        TourSessionAttendanceRequest request = attendanceRequest(
+                AttendanceType.END,
+                List.of(attendanceItem(participantId, true))
+        );
+
+        assertThatThrownBy(() -> trackingService.recordAttendance(coordinatorId, sessionId, request))
+                .isInstanceOf(AppException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.ATTENDANCE_START_REQUIRED);
+
+        verify(bookingParticipantRepository, never()).saveAll(anyList());
+    }
+
+    @Test
+    void recordAttendance_RejectsDuplicateParticipantIds() {
+        UUID coordinatorId = UUID.randomUUID();
+        UUID sessionId = UUID.randomUUID();
+        UUID scheduleId = UUID.randomUUID();
+        UUID participantId = UUID.randomUUID();
+        stubAuthorizedSession(coordinatorId, sessionId, scheduleId, TourSessionStatus.IN_PROGRESS);
+        TourSessionAttendanceRequest request = attendanceRequest(
+                AttendanceType.START,
+                List.of(
+                        attendanceItem(participantId, true),
+                        attendanceItem(participantId, false)
+                )
+        );
+
+        assertThatThrownBy(() -> trackingService.recordAttendance(coordinatorId, sessionId, request))
+                .isInstanceOf(AppException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.DUPLICATE_PARTICIPANT_IN_ATTENDANCE);
+
+        verifyNoInteractions(bookingParticipantRepository);
+    }
+
+    @Test
+    void recordAttendance_RejectsEndAttendanceWhileSessionIsPending() {
+        UUID coordinatorId = UUID.randomUUID();
+        UUID sessionId = UUID.randomUUID();
+        UUID scheduleId = UUID.randomUUID();
+        stubAuthorizedSession(coordinatorId, sessionId, scheduleId, TourSessionStatus.PENDING);
+        TourSessionAttendanceRequest request = attendanceRequest(
+                AttendanceType.END,
+                List.of(attendanceItem(UUID.randomUUID(), true))
+        );
+
+        assertThatThrownBy(() -> trackingService.recordAttendance(coordinatorId, sessionId, request))
+                .isInstanceOf(AppException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.SESSION_NOT_IN_PROGRESS);
+
+        verifyNoInteractions(bookingParticipantRepository);
+    }
+
+    private TourSession stubAuthorizedSession(
+            UUID coordinatorId,
+            UUID sessionId,
+            UUID scheduleId,
+            TourSessionStatus status
+    ) {
+        TourSchedule tourSchedule = new TourSchedule();
+        tourSchedule.setScheduleId(scheduleId);
+
+        TourSession tourSession = new TourSession();
+        tourSession.setTourSessionId(sessionId);
+        tourSession.setTourSchedule(tourSchedule);
+        tourSession.setStatus(status);
+
+        CoordinatorSchedule coordinatorSchedule = new CoordinatorSchedule();
+        coordinatorSchedule.setIsCancelled(false);
+
+        when(tourSessionRepository.findByTourSessionIdAndIsDeletedFalse(sessionId))
+                .thenReturn(Optional.of(tourSession));
+        when(coordinatorScheduleRepository
+                .findByTourSession_TourSessionIdAndCoordinator_UserIdAndIsDeletedFalse(
+                        sessionId, coordinatorId
+                )).thenReturn(Optional.of(coordinatorSchedule));
+        return tourSession;
+    }
+
+    private BookingParticipant participant(UUID participantId) {
+        BookingParticipant participant = new BookingParticipant();
+        participant.setParticipantId(participantId);
+        participant.setFullName("Test Trekker");
+        return participant;
+    }
+
+    private TourSessionAttendanceRequest attendanceRequest(
+            AttendanceType attendanceType,
+            List<ParticipantAttendanceItem> participants
+    ) {
+        return TourSessionAttendanceRequest.builder()
+                .attendanceType(attendanceType)
+                .participants(participants)
+                .build();
+    }
+
+    private ParticipantAttendanceItem attendanceItem(UUID participantId, boolean isPresent) {
+        return ParticipantAttendanceItem.builder()
+                .participantId(participantId)
+                .isPresent(isPresent)
+                .build();
     }
 
     private User userWithRole(UUID userId, String roleName) {

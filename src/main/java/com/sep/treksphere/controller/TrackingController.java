@@ -47,7 +47,7 @@ public class TrackingController {
     private final TrackingService trackingService;
 
     @PostMapping("/{sessionId}/start")
-    @Operation(summary = "Bắt đầu phiên đi tour thực tế", description = "Chuyển trạng thái của Tour Session sang IN_PROGRESS và tự động khởi tạo nhật ký checkpoint log bằng tọa độ GPS thực tế.")
+    @Operation(summary = "Bắt đầu phiên đi tour thực tế", description = "Lead Coordinator bắt đầu Tour Session sau khi lịch khởi hành hợp lệ, hoàn tất điểm danh START, kiểm tra dụng cụ và cấu hình đầy đủ checkpoint. Hệ thống xác thực GPS tại điểm xuất phát, chuyển session sang IN_PROGRESS và khởi tạo nhật ký checkpoint.")
     @SecurityRequirement(name = "bearerAuth")
     @PreAuthorize("hasRole('COORDINATOR')")
     public ResponseEntity<ApiResponse<TourSessionStartResponse>> startSession(
@@ -111,7 +111,7 @@ public class TrackingController {
     }
 
     @PostMapping("/{sessionId}/attendance")
-    @Operation(summary = "Điểm danh danh sách Trekkers", description = "Hướng dẫn viên thực hiện điểm danh danh sách Trekkers tham gia chuyến đi tại điểm xuất phát (START) hoặc điểm kết thúc (END).")
+    @Operation(summary = "Điểm danh danh sách Trekkers", description = "Hướng dẫn viên cập nhật điểm danh theo lô cho các Trekkers được gửi lên. START được ghi trước hoặc trong chuyến đi; END chỉ được ghi khi chuyến đi đang diễn ra và Trekker đã được ghi nhận START.")
     @SecurityRequirement(name = "bearerAuth")
     @PreAuthorize("hasRole('COORDINATOR')")
     public ResponseEntity<ApiResponse<TourSessionAttendanceResponse>> recordAttendance(
