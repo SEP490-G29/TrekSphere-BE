@@ -12,6 +12,7 @@ import org.springframework.stereotype.Repository;
 
 import java.time.LocalDate;
 import java.util.Collection;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -22,6 +23,22 @@ public interface MatchingGroupRepository extends JpaRepository<MatchingGroup, UU
             User owner,
             Collection<MatchingGroupStatus> statuses,
             LocalDate targetDate
+    );
+
+    @Query("""
+        SELECT mg FROM MatchingGroup mg
+        JOIN FETCH mg.tour t
+        JOIN FETCH mg.owner o
+        WHERE o.userId = :ownerId
+          AND mg.status IN :statuses
+          AND mg.targetDate >= :today
+          AND mg.isDeleted = false
+        ORDER BY mg.createdAt DESC
+    """)
+    List<MatchingGroup> findOwnedActiveGroups(
+            @Param("ownerId") UUID ownerId,
+            @Param("statuses") Collection<MatchingGroupStatus> statuses,
+            @Param("today") LocalDate today
     );
 
     @Query(value = """

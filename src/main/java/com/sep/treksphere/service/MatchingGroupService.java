@@ -10,9 +10,12 @@ import com.sep.treksphere.enums.matching.JoinStatus;
 import com.sep.treksphere.security.CustomUserDetails;
 
 import java.util.UUID;
+import java.util.List;
 
 public interface MatchingGroupService {
     PaginationResponse<MatchingGroupResponse> getMatchingGroups(MatchingGroupFilterRequest filter);
+
+    List<MatchingGroupResponse> getMyMatchingGroups(CustomUserDetails userDetails);
 
     MatchingGroupDetailResponse getMatchingGroupById(UUID id);
 

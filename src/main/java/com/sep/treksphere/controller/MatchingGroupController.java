@@ -24,6 +24,7 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.UUID;
+import java.util.List;
 
 @RestController
 @RequestMapping("/api/v1/matching-groups")
@@ -42,6 +43,19 @@ public class MatchingGroupController {
             @Valid @ParameterObject @ModelAttribute MatchingGroupFilterRequest filter) {
         PaginationResponse<MatchingGroupResponse> result = matchingGroupService.getMatchingGroups(filter);
         return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, result, MessageConstant.MATCHING_GROUPS_FETCHED_SUCCESS));
+    }
+
+    @Operation(summary = "Lấy các nhóm ghép đang hoạt động do Trekker hiện tại quản lý")
+    @GetMapping("/mine")
+    @PreAuthorize("hasRole('TREKKER')")
+    public ResponseEntity<ApiResponse<List<MatchingGroupResponse>>> getMyMatchingGroups(
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+        List<MatchingGroupResponse> result = matchingGroupService.getMyMatchingGroups(userDetails);
+        return ResponseEntity.ok(ApiResponse.success(
+                HttpStatus.OK,
+                result,
+                MessageConstant.MATCHING_GROUPS_FETCHED_SUCCESS
+        ));
     }
 
     @Operation(

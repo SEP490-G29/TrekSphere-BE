@@ -67,6 +67,19 @@ public class MatchingGroupServiceImpl implements MatchingGroupService {
 
     @Override
     @Transactional(readOnly = true)
+    public List<MatchingGroupResponse> getMyMatchingGroups(CustomUserDetails userDetails) {
+        UUID ownerId = userDetails.getUser().getUserId();
+        return matchingGroupRepository.findOwnedActiveGroups(
+                        ownerId,
+                        Set.of(MatchingGroupStatus.OPEN, MatchingGroupStatus.FULL),
+                        LocalDate.now()
+                ).stream()
+                .map(matchingGroupMapper::toResponse)
+                .toList();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
     public MatchingGroupDetailResponse getMatchingGroupById(UUID id) {
         log.info("Fetching matching group detail: id={}", id);
 
