@@ -157,6 +157,7 @@ public class TourServiceImpl implements TourService {
                 .excludes(tour.getExcludes())
                 .coverImageUrl(tour.getCoverImageUrl())
                 .status(tour.getStatus())
+                .rejectionReason(tour.getRejectionReason())
                 .createdAt(tour.getCreatedAt())
                 .updatedAt(tour.getUpdatedAt())
                 // Vendor info
@@ -460,6 +461,7 @@ public class TourServiceImpl implements TourService {
         }
 
         tour.setStatus(TourStatus.PENDING_APPROVAL);
+        tour.setRejectionReason(null);
         tour = tourRepository.save(tour);
 
         // Send notification to Vendor Manager
@@ -500,10 +502,11 @@ public class TourServiceImpl implements TourService {
         }
 
         tour.setStatus(TourStatus.APPROVED);
+        tour.setRejectionReason(null);
         tour = tourRepository.save(tour);
 
-        // Gửi thông báo cho người tạo tour (Staff hoặc Manager)
-        User recipient = tour.getCreator() != null ? tour.getCreator() : vendor.getManager();
+        // Gửi thông báo cho người tạo tour (Staff hoặc Vendor Manager)
+        User recipient = tour.getCreator() != null ? tour.getCreator() : tour.getVendor().getManager();
         Notification notification = new Notification();
         notification.setRecipient(recipient);
         notification.setTitle("Tour đã được phê duyệt");
@@ -527,6 +530,11 @@ public class TourServiceImpl implements TourService {
     @Override
     @Transactional
     public TourDetailResponse rejectTour(String userEmail, UUID tourId, String reason) {
+        if (!StringUtils.hasText(reason)) {
+            throw new AppException(ErrorCode.REJECTION_REASON_REQUIRED);
+        }
+        String normalizedReason = reason.trim();
+
         Vendor vendor = vendorRepository.findByManager_Email(userEmail)
                 .orElseThrow(() -> new AppException(ErrorCode.VENDOR_NOT_FOUND));
 
@@ -542,15 +550,16 @@ public class TourServiceImpl implements TourService {
         }
 
         tour.setStatus(TourStatus.REJECTED);
+        tour.setRejectionReason(normalizedReason);
         tour = tourRepository.save(tour);
 
         // Gửi thông báo từ chối cho người tạo tour
-        User recipient = tour.getCreator() != null ? tour.getCreator() : vendor.getManager();
+        User recipient = tour.getCreator() != null ? tour.getCreator() : tour.getVendor().getManager();
         Notification notification = new Notification();
         notification.setRecipient(recipient);
         notification.setTitle("Tour bị từ chối phê duyệt");
         notification.setEventType(NotificationEventType.TOUR_REJECTED);
-        notification.setContent("Tour \"" + tour.getTourName() + "\" đã bị từ chối. Lý do: " + reason);
+        notification.setContent("Tour \"" + tour.getTourName() + "\" đã bị từ chối. Lý do: " + normalizedReason);
         notification.setReferenceType(ReferenceType.TOUR);
         notification.setReferenceId(tour.getTourId());
         notificationRepository.save(notification);

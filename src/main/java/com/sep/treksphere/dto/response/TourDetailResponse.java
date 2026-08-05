@@ -32,6 +32,7 @@ public class TourDetailResponse {
     private String excludes;
     private String coverImageUrl;
     private TourStatus status;
+    private String rejectionReason;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 
