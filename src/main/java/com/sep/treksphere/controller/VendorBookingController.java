@@ -1,6 +1,7 @@
 package com.sep.treksphere.controller;
 
 import com.sep.treksphere.constant.MessageConstant;
+import com.sep.treksphere.dto.request.BookingCancelRequest;
 import com.sep.treksphere.dto.request.VendorBookingFilterRequest;
 import com.sep.treksphere.dto.response.ApiResponse;
 import com.sep.treksphere.dto.response.BookingDetailResponse;
@@ -73,5 +74,17 @@ public class VendorBookingController {
     ) {
         BookingDetailResponse result = bookingService.confirmVendorRefund(userDetails.getUsername(), id);
         return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, result, MessageConstant.REFUND_CONFIRMED_SUCCESSFULLY));
+    }
+
+    @Operation(summary = "Từ chối / Hủy đơn đặt tour của khách", description = "Vendor từ chối đơn hàng (ví dụ: ảnh chuyển khoản không hợp lệ, sai thông tin). Hoàn trả slot và voucher.")
+    @PreAuthorize("hasAnyRole('VENDOR_MANAGER', 'VENDOR_STAFF')")
+    @PutMapping("/{id}/reject")
+    public ResponseEntity<ApiResponse<BookingDetailResponse>> rejectBooking(
+            @AuthenticationPrincipal CustomUserDetails userDetails,
+            @PathVariable UUID id,
+            @Valid @RequestBody BookingCancelRequest request
+    ) {
+        BookingDetailResponse result = bookingService.rejectVendorBooking(userDetails.getUsername(), id, request);
+        return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, result, MessageConstant.BOOKING_REJECTED_SUCCESSFULLY));
     }
 }

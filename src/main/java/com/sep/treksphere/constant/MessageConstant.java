@@ -312,6 +312,7 @@ public class MessageConstant {
     public static final String BOOKING_NOT_FOUND = "Đơn đặt tour không tồn tại";
     public static final String BOOKING_CREATED_SUCCESSFULLY = "Đặt tour thành công";
     public static final String BOOKING_CANCELLED_SUCCESSFULLY = "Huỷ đơn đặt tour thành công";
+    public static final String BOOKING_REJECTED_SUCCESSFULLY = "Từ chối đơn đặt tour thành công";
     public static final String PAYMENT_PROOF_SUBMITTED = "Gửi minh chứng thanh toán thành công";
     public static final String NOT_ENOUGH_SLOTS = "Số lượng chỗ trống không đủ";
     public static final String BOOKING_CANNOT_CANCEL = "Không thể huỷ đơn đặt tour ở trạng thái này";

@@ -73,11 +73,6 @@ public class TourScheduleServiceImpl implements TourScheduleService {
         Vendor vendor = resolveVendorByUser(userEmail);
         validateTourBelongsToVendor(tour, vendor);
 
-        // Validation: Tour phải ở trạng thái APPROVED hoặc HIDDEN mới được tạo Schedule
-        if (tour.getStatus() != TourStatus.APPROVED && tour.getStatus() != TourStatus.HIDDEN) {
-            throw new AppException(ErrorCode.TOUR_NOT_APPROVED_FOR_SCHEDULE);
-        }
-
         // Validation: departure date must be today or future
         if (request.getDepartureDate().isBefore(LocalDate.now())) {
             throw new AppException(ErrorCode.SCHEDULE_DEPARTURE_IN_PAST);
@@ -100,7 +95,12 @@ public class TourScheduleServiceImpl implements TourScheduleService {
         schedule.setPrice(request.getPrice());
         schedule.setAvailableSlots(request.getAvailableSlots());
         schedule.setBookedSlots(0);
-        schedule.setStatus(ScheduleStatus.OPEN);
+
+        // Nếu Tour chưa APPROVED/HIDDEN, Schedule sẽ khởi tạo với trạng thái CLOSED (chưa mở đặt chỗ)
+        ScheduleStatus initialStatus = (tour.getStatus() == TourStatus.APPROVED || tour.getStatus() == TourStatus.HIDDEN)
+                ? ScheduleStatus.OPEN
+                : ScheduleStatus.CLOSED;
+        schedule.setStatus(initialStatus);
 
         TourSchedule savedSchedule = tourScheduleRepository.save(schedule);
 
@@ -120,11 +120,6 @@ public class TourScheduleServiceImpl implements TourScheduleService {
 
         Vendor vendor = resolveVendorByUser(userEmail);
         validateTourBelongsToVendor(schedule.getTour(), vendor);
-
-        // Validation: Tour phải ở trạng thái APPROVED hoặc HIDDEN mới được sửa Schedule
-        if (schedule.getTour().getStatus() != TourStatus.APPROVED && schedule.getTour().getStatus() != TourStatus.HIDDEN) {
-            throw new AppException(ErrorCode.TOUR_NOT_APPROVED_FOR_SCHEDULE);
-        }
 
         // Validation: Lịch khởi hành đã COMPLETED hoặc CANCELLED thì không được phép sửa
         if (schedule.getStatus() == ScheduleStatus.COMPLETED || schedule.getStatus() == ScheduleStatus.CANCELLED) {
@@ -207,11 +202,6 @@ public class TourScheduleServiceImpl implements TourScheduleService {
         Vendor vendor = vendorRepository.findByManager_Email(userEmail)
                 .orElseThrow(() -> new AppException(ErrorCode.VENDOR_NOT_FOUND));
         validateTourBelongsToVendor(schedule.getTour(), vendor);
-
-        // Validation: Tour phải ở trạng thái APPROVED hoặc HIDDEN mới được xóa Schedule
-        if (schedule.getTour().getStatus() != TourStatus.APPROVED && schedule.getTour().getStatus() != TourStatus.HIDDEN) {
-            throw new AppException(ErrorCode.TOUR_NOT_APPROVED_FOR_SCHEDULE);
-        }
 
         // Validation: Lịch khởi hành đã COMPLETED hoặc CANCELLED thì không được phép xóa
         if (schedule.getStatus() == ScheduleStatus.COMPLETED || schedule.getStatus() == ScheduleStatus.CANCELLED) {

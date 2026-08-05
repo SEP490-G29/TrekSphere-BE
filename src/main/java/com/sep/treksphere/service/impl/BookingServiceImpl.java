@@ -390,6 +390,46 @@ public class BookingServiceImpl implements BookingService {
         return bookingMapper.toBookingDetailResponse(updatedBooking);
     }
 
+    @Override
+    @Transactional
+    public BookingDetailResponse rejectVendorBooking(String email, UUID bookingId, BookingCancelRequest request) {
+        Vendor vendor = getAssociatedVendor(email);
+        Booking booking = bookingRepository.findById(bookingId)
+                .filter(b -> !Boolean.TRUE.equals(b.getIsDeleted()))
+                .orElseThrow(() -> new AppException(ErrorCode.BOOKING_NOT_FOUND));
+
+        if (!booking.getSchedule().getTour().getVendor().getVendorId().equals(vendor.getVendorId())) {
+            throw new AppException(ErrorCode.ACCESS_DENIED);
+        }
+
+        if (booking.getBookingStatus() == BookingStatus.CANCELLED || booking.getBookingStatus() == BookingStatus.COMPLETED) {
+            throw new AppException(ErrorCode.INVALID_BOOKING_STATUS, "Không thể từ chối đơn hàng đã bị huỷ hoặc đã hoàn thành.");
+        }
+
+        booking.setBookingStatus(BookingStatus.CANCELLED);
+        booking.setCancellationReason(request.getCancellationReason());
+        booking.setCancelledAt(LocalDateTime.now());
+        booking.setRefundAmount(BigDecimal.ZERO);
+
+        // Refund slots back to schedule
+        TourSchedule schedule = booking.getSchedule();
+        int participantCount = booking.getNumberOfParticipants();
+        schedule.setBookedSlots(Math.max(0, schedule.getBookedSlots() - participantCount));
+        schedule.setAvailableSlots(schedule.getAvailableSlots() + participantCount);
+        tourScheduleRepository.save(schedule);
+
+        // Refund voucher usage if applied
+        Voucher voucher = booking.getVoucher();
+        if (voucher != null) {
+            voucher.setUsedCount(Math.max(0, voucher.getUsedCount() - 1));
+            voucherRepository.save(voucher);
+        }
+
+        Booking updatedBooking = bookingRepository.save(booking);
+        return bookingMapper.toBookingDetailResponse(updatedBooking);
+    }
+
+
     private Vendor getAssociatedVendor(String email) {
         Optional<Vendor> vendorOpt = vendorRepository.findByManager_Email(email);
         if (vendorOpt.isPresent()) {
