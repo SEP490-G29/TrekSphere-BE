@@ -162,6 +162,7 @@ public class TourServiceImpl implements TourService {
                 .updatedAt(tour.getUpdatedAt())
                 // Vendor info
                 .vendorId(tour.getVendor().getVendorId().toString())
+                .vendorManagerId(tour.getVendor().getManager().getUserId().toString())
                 .vendorName(tour.getVendor().getCompanyName())
                 .vendorLogoUrl(tour.getVendor().getLogoUrl())
                 .vendorContactEmail(tour.getVendor().getContactEmail())
