@@ -71,6 +71,9 @@ public class Tour extends BaseEntity {
     @Column(nullable = false, length = 20)
     private TourStatus status = TourStatus.DRAFT;
 
+    @Column(name = "rejection_reason", columnDefinition = "TEXT")
+    private String rejectionReason;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "creator_id", nullable = false)
     private User creator;

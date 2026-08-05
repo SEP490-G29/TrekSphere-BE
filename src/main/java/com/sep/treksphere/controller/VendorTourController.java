@@ -108,6 +108,45 @@ public class VendorTourController {
         return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, response, MessageConstant.TOUR_SUBMITTED_FOR_APPROVAL));
     }
 
+    @Operation(
+            summary = "Phê duyệt Tour",
+            description = "Vendor Manager phê duyệt Tour thuộc Vendor mình quản lý, đang ở trạng thái PENDING_APPROVAL, để chuyển sang APPROVED."
+    )
+    @SecurityRequirement(name = "bearerAuth")
+    @PreAuthorize("hasRole('VENDOR_MANAGER')")
+    @PutMapping("/{id}/approve")
+    public ResponseEntity<ApiResponse<TourDetailResponse>> approveTour(
+            @AuthenticationPrincipal CustomUserDetails userDetails,
+            @PathVariable UUID id) {
+
+        TourDetailResponse response = tourService.approveTour(userDetails.getUsername(), id);
+        return ResponseEntity.ok(ApiResponse.success(
+                HttpStatus.OK,
+                response,
+                MessageConstant.TOUR_APPROVED_SUCCESSFULLY
+        ));
+    }
+
+    @Operation(
+            summary = "Từ chối Tour",
+            description = "Vendor Manager từ chối Tour thuộc Vendor mình quản lý, đang ở trạng thái PENDING_APPROVAL, và bắt buộc nêu rõ lý do chỉnh sửa."
+    )
+    @SecurityRequirement(name = "bearerAuth")
+    @PreAuthorize("hasRole('VENDOR_MANAGER')")
+    @PutMapping("/{id}/reject")
+    public ResponseEntity<ApiResponse<TourDetailResponse>> rejectTour(
+            @AuthenticationPrincipal CustomUserDetails userDetails,
+            @PathVariable UUID id,
+            @Valid @RequestBody RejectTourRequest request) {
+
+        TourDetailResponse response = tourService.rejectTour(userDetails.getUsername(), id, request.getReason());
+        return ResponseEntity.ok(ApiResponse.success(
+                HttpStatus.OK,
+                response,
+                MessageConstant.TOUR_REJECTED_SUCCESSFULLY
+        ));
+    }
+
     @Operation(summary = "Revert Tour bị từ chối", description = "Staff chuyển Tour REJECTED → DRAFT. Manager chuyển Tour REJECTED → PENDING_APPROVAL.")
     @SecurityRequirement(name = "bearerAuth")
     @PreAuthorize("hasAnyRole('VENDOR_MANAGER', 'VENDOR_STAFF')")
