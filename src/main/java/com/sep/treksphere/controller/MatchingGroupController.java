@@ -57,7 +57,8 @@ public class MatchingGroupController {
 
     @Operation(
         summary = "Tạo một nhóm ghép bạn đồng hành mới",
-        description = "Cho phép Trekker tạo nhóm ghép bạn đồng hành mới cho một Tour và ngày đi mong muốn."
+        description = "Cho phép Trekker tạo nhóm ghép mới cho Tour đã được duyệt. " +
+                "Ngày đi dự kiến phải ở tương lai và không bắt buộc trùng với lịch khởi hành của Tour."
     )
     @PostMapping
     @PreAuthorize("hasRole('TREKKER')")

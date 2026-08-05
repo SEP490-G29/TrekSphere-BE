@@ -13,12 +13,14 @@ import com.sep.treksphere.entity.User;
 import com.sep.treksphere.enums.matching.JoinStatus;
 import com.sep.treksphere.enums.matching.MatchingGroupStatus;
 import com.sep.treksphere.enums.matching.MatchingRole;
+import com.sep.treksphere.enums.tour.TourStatus;
 import com.sep.treksphere.exception.AppException;
 import com.sep.treksphere.exception.ErrorCode;
 import com.sep.treksphere.mapper.MatchingGroupMapper;
 import com.sep.treksphere.repository.MatchingGroupRepository;
 import com.sep.treksphere.repository.MatchingMemberRepository;
 import com.sep.treksphere.repository.TourRepository;
+import com.sep.treksphere.repository.UserRepository;
 import com.sep.treksphere.security.CustomUserDetails;
 import com.sep.treksphere.service.MatchingGroupService;
 import com.sep.treksphere.utils.PaginationUtils;
@@ -33,6 +35,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 
 @Service
@@ -43,6 +46,7 @@ public class MatchingGroupServiceImpl implements MatchingGroupService {
     private final MatchingGroupRepository matchingGroupRepository;
     private final MatchingMemberRepository matchingMemberRepository;
     private final TourRepository tourRepository;
+    private final UserRepository userRepository;
     private final MatchingGroupMapper matchingGroupMapper;
 
     @Override
@@ -85,10 +89,29 @@ public class MatchingGroupServiceImpl implements MatchingGroupService {
     @Override
     @Transactional
     public MatchingGroupDetailResponse createMatchingGroup(MatchingGroupCreateRequest request, CustomUserDetails userDetails) {
-        User currentUser = userDetails.getUser();
+        User currentUser = userRepository.findByIdForUpdate(userDetails.getUser().getUserId())
+                .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
         log.info("Creating matching group: ownerId={}, groupName={}", currentUser.getUserId(), request.getGroupName());
 
-        boolean hasActiveGroup = matchingGroupRepository.existsByOwnerAndStatusAndIsDeletedFalse(currentUser, MatchingGroupStatus.OPEN);
+        String normalizedGroupName = request.getGroupName().trim();
+        if (normalizedGroupName.length() < 3 || normalizedGroupName.length() > 100) {
+            throw new AppException(ErrorCode.VALIDATION_ERROR,
+                    "Tên nhóm ghép sau khi loại bỏ khoảng trắng phải từ 3 đến 100 ký tự");
+        }
+        String normalizedDescription = request.getDescription() == null ? null : request.getDescription().trim();
+        if (normalizedDescription != null && normalizedDescription.isEmpty()) {
+            normalizedDescription = null;
+        }
+
+        LocalDate today = LocalDate.now();
+        LocalDateTime now = LocalDateTime.now();
+
+        boolean hasActiveGroup = matchingGroupRepository
+                .existsByOwnerAndStatusInAndTargetDateGreaterThanEqualAndIsDeletedFalse(
+                        currentUser,
+                        Set.of(MatchingGroupStatus.OPEN, MatchingGroupStatus.FULL),
+                        today
+                );
         if (hasActiveGroup) {
             throw new AppException(ErrorCode.ALREADY_HAS_ACTIVE_GROUP);
         }
@@ -96,22 +119,30 @@ public class MatchingGroupServiceImpl implements MatchingGroupService {
         Tour tour = tourRepository.findByTourIdAndIsDeletedFalse(request.getTourId())
                 .orElseThrow(() -> new AppException(ErrorCode.TOUR_NOT_FOUND));
 
-        if (request.getTargetDate().isBefore(LocalDate.now()) || request.getTargetDate().isEqual(LocalDate.now())) {
+        if (tour.getStatus() != TourStatus.APPROVED) {
+            throw new AppException(ErrorCode.MATCHING_TOUR_NOT_APPROVED);
+        }
+
+        if (!request.getTargetDate().isAfter(today)) {
             throw new AppException(ErrorCode.INVALID_TARGET_DATE);
         }
 
-        if (request.getMatchingDeadline().isBefore(LocalDateTime.now())) {
+        if (!request.getMatchingDeadline().isAfter(now)) {
             throw new AppException(ErrorCode.INVALID_DEADLINE);
         }
         if (request.getMatchingDeadline().toLocalDate().isAfter(request.getTargetDate())) {
             throw new AppException(ErrorCode.INVALID_DEADLINE);
         }
 
+        if (tour.getMaxCapacity() != null && request.getMaxSize() > tour.getMaxCapacity()) {
+            throw new AppException(ErrorCode.MATCHING_GROUP_SIZE_EXCEEDS_TOUR_CAPACITY);
+        }
+
         MatchingGroup matchingGroup = new MatchingGroup();
         matchingGroup.setTour(tour);
         matchingGroup.setOwner(currentUser);
-        matchingGroup.setGroupName(request.getGroupName());
-        matchingGroup.setDescription(request.getDescription());
+        matchingGroup.setGroupName(normalizedGroupName);
+        matchingGroup.setDescription(normalizedDescription);
         matchingGroup.setMaxSize(request.getMaxSize());
         matchingGroup.setCurrentSize(1);
         matchingGroup.setTargetDate(request.getTargetDate());

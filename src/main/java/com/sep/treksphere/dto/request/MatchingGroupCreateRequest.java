@@ -1,5 +1,6 @@
 package com.sep.treksphere.dto.request;
 
+import com.sep.treksphere.constant.MessageConstant;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
@@ -16,23 +17,24 @@ import java.util.UUID;
 @Setter
 public class MatchingGroupCreateRequest {
 
-    @NotNull(message = "Mã tour không được để trống")
+    @NotNull(message = MessageConstant.MATCHING_TOUR_ID_REQUIRED)
     private UUID tourId;
 
-    @NotBlank(message = "Tên nhóm ghép không được để trống")
-    @Size(min = 3, max = 100, message = "Tên nhóm ghép phải từ 3 đến 100 ký tự")
+    @NotBlank(message = MessageConstant.MATCHING_GROUP_NAME_REQUIRED)
+    @Size(min = 3, max = 100, message = MessageConstant.MATCHING_GROUP_NAME_SIZE)
     private String groupName;
 
+    @Size(max = 2000, message = MessageConstant.MATCHING_GROUP_DESCRIPTION_MAX_LENGTH)
     private String description;
 
-    @NotNull(message = "Số lượng thành viên tối đa không được để trống")
-    @Min(value = 2, message = "Số lượng thành viên tối đa phải từ 2 trở lên")
-    @Max(value = 100, message = "Số lượng thành viên tối đa không vượt quá 100 người")
+    @NotNull(message = MessageConstant.MATCHING_GROUP_MAX_SIZE_REQUIRED)
+    @Min(value = 2, message = MessageConstant.MATCHING_GROUP_MAX_SIZE_MIN)
+    @Max(value = 100, message = MessageConstant.MATCHING_GROUP_MAX_SIZE_MAX)
     private Integer maxSize;
 
-    @NotNull(message = "Ngày đi mong muốn không được để trống")
+    @NotNull(message = MessageConstant.MATCHING_TARGET_DATE_REQUIRED)
     private LocalDate targetDate;
 
-    @NotNull(message = "Hạn chót ghép nhóm không được để trống")
+    @NotNull(message = MessageConstant.MATCHING_DEADLINE_REQUIRED)
     private LocalDateTime matchingDeadline;
 }
