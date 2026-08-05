@@ -9,6 +9,7 @@ import com.sep.treksphere.dto.response.PaginationResponse;
 import com.sep.treksphere.entity.Conversation;
 import com.sep.treksphere.entity.Message;
 import com.sep.treksphere.entity.User;
+import java.util.Optional;
 import com.sep.treksphere.enums.chat.ConversationType;
 import com.sep.treksphere.enums.user.UserStatus;
 import com.sep.treksphere.exception.AppException;
@@ -93,8 +94,9 @@ public class ConversationServiceImpl implements ConversationService {
 
         if (request.getConversationType() == ConversationType.DIRECT) {
             UUID recipientId = participantIds.iterator().next();
-            if (conversationRepository.findDirectConversation(currentUserId, recipientId).isPresent()) {
-                throw new AppException(ErrorCode.CONVERSATION_ALREADY_EXISTS);
+            Optional<Conversation> existing = conversationRepository.findDirectConversation(currentUserId, recipientId);
+            if (existing.isPresent()) {
+                return toCreatedConversationResponse(existing.get(), currentUserId, false);
             }
         }
 
@@ -105,7 +107,7 @@ public class ConversationServiceImpl implements ConversationService {
         conversation.getParticipants().addAll(participants);
 
         Conversation savedConversation = conversationRepository.save(conversation);
-        return toCreatedConversationResponse(savedConversation, currentUserId);
+        return toCreatedConversationResponse(savedConversation, currentUserId, true);
     }
 
     @Override
@@ -232,7 +234,8 @@ public class ConversationServiceImpl implements ConversationService {
 
     private ConversationResponse toCreatedConversationResponse(
             Conversation conversation,
-            UUID currentUserId
+            UUID currentUserId,
+            boolean isNew
     ) {
         User otherParticipant = conversation.getConversationType() == ConversationType.DIRECT
                 ? conversation.getParticipants().stream()
@@ -253,6 +256,7 @@ public class ConversationServiceImpl implements ConversationService {
                 .lastMessageAt(null)
                 .lastMessageContent(null)
                 .unreadCount(0L)
+                .isNew(isNew)
                 .build();
     }
 

@@ -24,4 +24,5 @@ public class ConversationResponse {
     private LocalDateTime lastMessageAt;
     private String lastMessageContent;
     private Long unreadCount;
+    private Boolean isNew;
 }
