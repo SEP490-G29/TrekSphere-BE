@@ -23,7 +23,7 @@ import java.util.UUID;
 @RestController
 @RequestMapping("/api/v1/tours")
 @RequiredArgsConstructor
-@Tag(name = "Tour", description = "Các API dành cho Tour (public - không cần đăng nhập)")
+@Tag(name = "Tour", description = "Các API Tour công khai")
 public class TourController {
 
     private final TourService tourService;
@@ -63,6 +63,7 @@ public class TourController {
         List<TourScheduleResponse> result = tourScheduleService.getUpcomingSchedules(tourId);
         return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, result));
     }
+
 }
 
 
