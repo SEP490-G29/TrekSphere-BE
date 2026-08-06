@@ -536,18 +536,31 @@ public class MatchingGroupServiceImpl implements MatchingGroupService {
         User currentUser = userDetails.getUser();
         log.info("Request to disband matching group: groupId={}, userId={}", groupId, currentUser.getUserId());
 
-        MatchingGroup matchingGroup = matchingGroupRepository.findDetailById(groupId)
+        MatchingGroup matchingGroup = matchingGroupRepository.findByIdForUpdate(groupId)
                 .orElseThrow(() -> new AppException(ErrorCode.MATCHING_GROUP_NOT_FOUND));
 
         if (!matchingGroup.getOwner().getUserId().equals(currentUser.getUserId())) {
             throw new AppException(ErrorCode.UNAUTHORIZED_DISBAND_GROUP);
         }
 
+        if (matchingGroup.getStatus() != MatchingGroupStatus.OPEN
+                && matchingGroup.getStatus() != MatchingGroupStatus.FULL) {
+            throw new AppException(ErrorCode.MATCHING_GROUP_CANNOT_BE_DISBANDED);
+        }
+
+        LocalDateTime deletedAt = LocalDateTime.now();
+        String deletedBy = currentUser.getUserId().toString();
         matchingGroup.setIsDeleted(true);
         matchingGroup.setStatus(MatchingGroupStatus.CLOSED);
+        matchingGroup.setDeletedAt(deletedAt);
+        matchingGroup.setDeletedBy(deletedBy);
 
         if (matchingGroup.getMembers() != null) {
-            matchingGroup.getMembers().forEach(member -> member.setIsDeleted(true));
+            matchingGroup.getMembers().forEach(member -> {
+                member.setIsDeleted(true);
+                member.setDeletedAt(deletedAt);
+                member.setDeletedBy(deletedBy);
+            });
         }
 
         matchingGroupRepository.save(matchingGroup);
