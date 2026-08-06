@@ -16,6 +16,7 @@ import com.sep.treksphere.enums.matching.JoinStatus;
 import com.sep.treksphere.enums.matching.MatchingGroupStatus;
 import com.sep.treksphere.enums.matching.MatchingRole;
 import com.sep.treksphere.enums.tour.TourStatus;
+import com.sep.treksphere.enums.user.UserStatus;
 import com.sep.treksphere.exception.AppException;
 import com.sep.treksphere.exception.ErrorCode;
 import com.sep.treksphere.mapper.MatchingGroupMapper;
@@ -242,18 +243,37 @@ public class MatchingGroupServiceImpl implements MatchingGroupService {
     @Override
     @Transactional
     public MatchingMemberResponse joinMatchingGroup(UUID groupId, CustomUserDetails userDetails) {
-        User currentUser = userDetails.getUser();
+        User currentUser = userRepository.findByIdForUpdate(userDetails.getUser().getUserId())
+                .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
+        if (currentUser.getStatus() != UserStatus.ACTIVE) {
+            throw new AppException(ErrorCode.USER_NOT_ACTIVE);
+        }
+
         log.info("Request to join matching group: groupId={}, userId={}", groupId, currentUser.getUserId());
 
         MatchingGroup matchingGroup = matchingGroupRepository.findDetailById(groupId)
                 .orElseThrow(() -> new AppException(ErrorCode.MATCHING_GROUP_NOT_FOUND));
 
+        Tour tour = matchingGroup.getTour();
+        if (Boolean.TRUE.equals(tour.getIsDeleted()) || tour.getStatus() != TourStatus.APPROVED) {
+            throw new AppException(ErrorCode.MATCHING_TOUR_NOT_AVAILABLE);
+        }
+
+        if (matchingGroup.getOwner().getUserId().equals(currentUser.getUserId())) {
+            throw new AppException(ErrorCode.MATCHING_OWNER_CANNOT_JOIN);
+        }
+
         if (matchingGroup.getStatus() != MatchingGroupStatus.OPEN) {
             throw new AppException(ErrorCode.MATCHING_GROUP_NOT_OPEN);
         }
 
-        if (LocalDateTime.now().isAfter(matchingGroup.getMatchingDeadline())) {
+        LocalDateTime now = LocalDateTime.now();
+        if (!matchingGroup.getMatchingDeadline().isAfter(now)) {
             throw new AppException(ErrorCode.MATCHING_DEADLINE_PASSED);
+        }
+
+        if (!matchingGroup.getTargetDate().isAfter(LocalDate.now())) {
+            throw new AppException(ErrorCode.MATCHING_TARGET_DATE_PASSED);
         }
 
         long acceptedCount = matchingGroup.getMembers().stream()

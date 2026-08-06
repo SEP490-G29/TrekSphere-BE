@@ -290,6 +290,9 @@ public class MessageConstant {
     public static final String MATCHING_DEADLINE_REQUIRED = "Hạn chót ghép nhóm không được để trống";
     public static final String MATCHING_TOUR_NOT_APPROVED = "Chỉ có thể tạo nhóm ghép cho Tour đã duyệt";
     public static final String MATCHING_GROUP_SIZE_EXCEEDS_TOUR_CAPACITY = "Số thành viên tối đa của nhóm vượt quá sức chứa của Tour";
+    public static final String MATCHING_TOUR_NOT_AVAILABLE = "Tour của nhóm ghép không còn công khai";
+    public static final String MATCHING_OWNER_CANNOT_JOIN = "Trưởng nhóm không thể gửi yêu cầu tham gia nhóm của chính mình";
+    public static final String MATCHING_TARGET_DATE_PASSED = "Ngày dự kiến đi của nhóm đã đến hoặc đã qua";
 
     // Schedule Messages
     public static final String SCHEDULE_NOT_FOUND = "Lịch khởi hành không tồn tại";

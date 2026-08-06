@@ -104,7 +104,11 @@ public class MatchingGroupController {
             @Parameter(description = "UUID của nhóm ghép") @PathVariable UUID groupId,
             @AuthenticationPrincipal CustomUserDetails userDetails) {
         MatchingMemberResponse result = matchingGroupService.joinMatchingGroup(groupId, userDetails);
-        return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, result, MessageConstant.MATCHING_GROUP_JOIN_REQUESTED_SUCCESS));
+        return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.success(
+                HttpStatus.CREATED,
+                result,
+                MessageConstant.MATCHING_GROUP_JOIN_REQUESTED_SUCCESS
+        ));
     }
 
     @Operation(

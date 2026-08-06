@@ -15,6 +15,7 @@ import com.sep.treksphere.enums.matching.JoinStatus;
 import com.sep.treksphere.enums.matching.MatchingGroupStatus;
 import com.sep.treksphere.enums.matching.MatchingRole;
 import com.sep.treksphere.enums.tour.TourStatus;
+import com.sep.treksphere.enums.user.UserStatus;
 import com.sep.treksphere.exception.AppException;
 import com.sep.treksphere.exception.ErrorCode;
 import com.sep.treksphere.mapper.MatchingGroupMapper;
@@ -397,6 +398,205 @@ class MatchingGroupServiceImplTest {
         ArgumentCaptor<MatchingGroup> captor = ArgumentCaptor.forClass(MatchingGroup.class);
         verify(matchingGroupRepository).save(captor.capture());
         assertThat(captor.getValue().getMaxSize()).isEqualTo(tour.getMaxCapacity());
+    }
+
+    @Test
+    void joinMatchingGroup_CreatesPendingRequest() {
+        User joiner = createActiveJoiner();
+        MatchingGroup group = createJoinableGroup();
+        MatchingMemberResponse expected = new MatchingMemberResponse();
+
+        when(matchingGroupRepository.findDetailById(group.getMatchingGroupId()))
+                .thenReturn(Optional.of(group));
+        when(matchingMemberRepository.findByMatchingGroupAndUser(group, joiner))
+                .thenReturn(Optional.empty());
+        when(matchingMemberRepository.save(any(MatchingMember.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+        when(matchingGroupMapper.toMemberResponse(any(MatchingMember.class))).thenReturn(expected);
+
+        MatchingMemberResponse result = service.joinMatchingGroup(group.getMatchingGroupId(), new CustomUserDetails(joiner));
+
+        assertThat(result).isSameAs(expected);
+        ArgumentCaptor<MatchingMember> captor = ArgumentCaptor.forClass(MatchingMember.class);
+        verify(matchingMemberRepository).save(captor.capture());
+        assertThat(captor.getValue().getMatchingGroup()).isSameAs(group);
+        assertThat(captor.getValue().getUser()).isSameAs(joiner);
+        assertThat(captor.getValue().getRole()).isEqualTo(MatchingRole.MEMBER);
+        assertThat(captor.getValue().getStatus()).isEqualTo(JoinStatus.PENDING);
+    }
+
+    @Test
+    void joinMatchingGroup_ReusesRejectedRequest() {
+        User joiner = createActiveJoiner();
+        MatchingGroup group = createJoinableGroup();
+        MatchingMember rejectedMember = new MatchingMember();
+        rejectedMember.setMatchingGroup(group);
+        rejectedMember.setUser(joiner);
+        rejectedMember.setRole(MatchingRole.MEMBER);
+        rejectedMember.setStatus(JoinStatus.REJECTED);
+        rejectedMember.setIsDeleted(true);
+
+        when(matchingGroupRepository.findDetailById(group.getMatchingGroupId()))
+                .thenReturn(Optional.of(group));
+        when(matchingMemberRepository.findByMatchingGroupAndUser(group, joiner))
+                .thenReturn(Optional.of(rejectedMember));
+        when(matchingMemberRepository.save(rejectedMember)).thenReturn(rejectedMember);
+        when(matchingGroupMapper.toMemberResponse(rejectedMember)).thenReturn(new MatchingMemberResponse());
+
+        service.joinMatchingGroup(group.getMatchingGroupId(), new CustomUserDetails(joiner));
+
+        assertThat(rejectedMember.getStatus()).isEqualTo(JoinStatus.PENDING);
+        assertThat(rejectedMember.getIsDeleted()).isFalse();
+        verify(matchingMemberRepository).save(rejectedMember);
+    }
+
+    @Test
+    void joinMatchingGroup_RejectsOwnerJoiningOwnGroup() {
+        stubCurrentUser(owner);
+        MatchingGroup group = createJoinableGroup();
+        when(matchingGroupRepository.findDetailById(group.getMatchingGroupId()))
+                .thenReturn(Optional.of(group));
+
+        assertJoinError(group, owner, ErrorCode.MATCHING_OWNER_CANNOT_JOIN);
+
+        verify(matchingMemberRepository, never()).save(any());
+    }
+
+    @Test
+    void joinMatchingGroup_RejectsGroupWhoseTourIsNotPublic() {
+        User joiner = createActiveJoiner();
+        MatchingGroup group = createJoinableGroup();
+        group.getTour().setStatus(TourStatus.HIDDEN);
+        when(matchingGroupRepository.findDetailById(group.getMatchingGroupId()))
+                .thenReturn(Optional.of(group));
+
+        assertJoinError(group, joiner, ErrorCode.MATCHING_TOUR_NOT_AVAILABLE);
+    }
+
+    @Test
+    void joinMatchingGroup_RejectsExpiredDeadline() {
+        User joiner = createActiveJoiner();
+        MatchingGroup group = createJoinableGroup();
+        group.setMatchingDeadline(LocalDateTime.now().minusMinutes(1));
+        when(matchingGroupRepository.findDetailById(group.getMatchingGroupId()))
+                .thenReturn(Optional.of(group));
+
+        assertJoinError(group, joiner, ErrorCode.MATCHING_DEADLINE_PASSED);
+    }
+
+    @Test
+    void joinMatchingGroup_RejectsTargetDateThatHasArrived() {
+        User joiner = createActiveJoiner();
+        MatchingGroup group = createJoinableGroup();
+        group.setTargetDate(LocalDate.now());
+        when(matchingGroupRepository.findDetailById(group.getMatchingGroupId()))
+                .thenReturn(Optional.of(group));
+
+        assertJoinError(group, joiner, ErrorCode.MATCHING_TARGET_DATE_PASSED);
+    }
+
+    @Test
+    void joinMatchingGroup_RejectsInactiveUser() {
+        User joiner = new User();
+        joiner.setUserId(UUID.randomUUID());
+        joiner.setStatus(UserStatus.LOCKED);
+        stubCurrentUser(joiner);
+        MatchingGroup group = createJoinableGroup();
+
+        assertJoinError(group, joiner, ErrorCode.USER_NOT_ACTIVE);
+
+        verify(matchingGroupRepository, never()).findDetailById(any());
+    }
+
+    @Test
+    void joinMatchingGroup_RejectsExistingPendingRequest() {
+        User joiner = createActiveJoiner();
+        MatchingGroup group = createJoinableGroup();
+        MatchingMember pendingMember = createExistingMember(group, joiner, JoinStatus.PENDING);
+        when(matchingGroupRepository.findDetailById(group.getMatchingGroupId()))
+                .thenReturn(Optional.of(group));
+        when(matchingMemberRepository.findByMatchingGroupAndUser(group, joiner))
+                .thenReturn(Optional.of(pendingMember));
+
+        assertJoinError(group, joiner, ErrorCode.JOIN_REQUEST_PENDING);
+
+        verify(matchingMemberRepository, never()).save(any());
+    }
+
+    @Test
+    void joinMatchingGroup_RejectsAcceptedMember() {
+        User joiner = createActiveJoiner();
+        MatchingGroup group = createJoinableGroup();
+        MatchingMember acceptedMember = createExistingMember(group, joiner, JoinStatus.ACCEPTED);
+        when(matchingGroupRepository.findDetailById(group.getMatchingGroupId()))
+                .thenReturn(Optional.of(group));
+        when(matchingMemberRepository.findByMatchingGroupAndUser(group, joiner))
+                .thenReturn(Optional.of(acceptedMember));
+
+        assertJoinError(group, joiner, ErrorCode.ALREADY_MEMBER);
+
+        verify(matchingMemberRepository, never()).save(any());
+    }
+
+    @Test
+    void joinMatchingGroup_RejectsGroupAtCapacity() {
+        User joiner = createActiveJoiner();
+        MatchingGroup group = createJoinableGroup();
+        group.setMaxSize(1);
+        when(matchingGroupRepository.findDetailById(group.getMatchingGroupId()))
+                .thenReturn(Optional.of(group));
+
+        assertJoinError(group, joiner, ErrorCode.MATCHING_GROUP_FULL);
+
+        verify(matchingMemberRepository, never()).save(any());
+    }
+
+    private User createActiveJoiner() {
+        User joiner = new User();
+        joiner.setUserId(UUID.randomUUID());
+        joiner.setFullName("Joiner");
+        joiner.setStatus(UserStatus.ACTIVE);
+        stubCurrentUser(joiner);
+        return joiner;
+    }
+
+    private void stubCurrentUser(User user) {
+        when(userRepository.findByIdForUpdate(user.getUserId())).thenReturn(Optional.of(user));
+    }
+
+    private MatchingGroup createJoinableGroup() {
+        MatchingGroup group = new MatchingGroup();
+        group.setMatchingGroupId(UUID.randomUUID());
+        group.setTour(tour);
+        group.setOwner(owner);
+        group.setStatus(MatchingGroupStatus.OPEN);
+        group.setCurrentSize(1);
+        group.setMaxSize(4);
+        group.setTargetDate(LocalDate.now().plusDays(10));
+        group.setMatchingDeadline(LocalDateTime.now().plusDays(5));
+
+        MatchingMember ownerMember = new MatchingMember();
+        ownerMember.setMatchingGroup(group);
+        ownerMember.setUser(owner);
+        ownerMember.setRole(MatchingRole.OWNER);
+        ownerMember.setStatus(JoinStatus.ACCEPTED);
+        group.getMembers().add(ownerMember);
+        return group;
+    }
+
+    private MatchingMember createExistingMember(MatchingGroup group, User user, JoinStatus status) {
+        MatchingMember member = new MatchingMember();
+        member.setMatchingGroup(group);
+        member.setUser(user);
+        member.setRole(MatchingRole.MEMBER);
+        member.setStatus(status);
+        return member;
+    }
+
+    private void assertJoinError(MatchingGroup group, User joiner, ErrorCode errorCode) {
+        assertThatThrownBy(() -> service.joinMatchingGroup(group.getMatchingGroupId(), new CustomUserDetails(joiner)))
+                .isInstanceOf(AppException.class)
+                .hasFieldOrPropertyWithValue("errorCode", errorCode);
     }
 
     private void stubNoActiveGroup() {
