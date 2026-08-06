@@ -9,6 +9,7 @@ import com.sep.treksphere.entity.User;
 import com.sep.treksphere.enums.report.ReportStatus;
 import com.sep.treksphere.exception.AppException;
 import com.sep.treksphere.exception.ErrorCode;
+import com.sep.treksphere.mapper.ReportMapper;
 import com.sep.treksphere.repository.BlogCommentRepository;
 import com.sep.treksphere.repository.BlogRepository;
 import com.sep.treksphere.repository.ReportContentRepository;
@@ -22,6 +23,16 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.UUID;
 
+import com.sep.treksphere.dto.request.report.ReportFilterRequest;
+import com.sep.treksphere.dto.response.PaginationResponse;
+import com.sep.treksphere.dto.response.report.ReportResponse;
+import com.sep.treksphere.enums.report.ReportTargetType;
+import com.sep.treksphere.utils.PaginationUtils;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+
+import java.util.List;
+
 @Service
 @RequiredArgsConstructor
 @Slf4j
@@ -32,6 +43,7 @@ public class ReportServiceImpl implements ReportService {
     private final BlogRepository blogRepository;
     private final BlogCommentRepository blogCommentRepository;
     private final ReviewRepository reviewRepository;
+    private final ReportMapper reportMapper;
 
     @Override
     @Transactional
@@ -66,5 +78,12 @@ public class ReportServiceImpl implements ReportService {
 
         reportContentRepository.save(report);
         log.info("User {} created a report for {} with ID {}", reporterId, request.getTargetType(), request.getTargetId());
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public PaginationResponse<ReportResponse> getReportsForAdmin(ReportFilterRequest filter) {
+        Page<ReportContent> reportPage = reportContentRepository.findByStatusAndIsDeletedFalse(filter.getStatus(), filter.getPageable());
+        return PaginationUtils.toPaginationResponse(reportPage.map(reportMapper::toReportResponse));
     }
 }
