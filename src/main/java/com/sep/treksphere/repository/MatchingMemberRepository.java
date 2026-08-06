@@ -4,6 +4,7 @@ import com.sep.treksphere.entity.MatchingGroup;
 import com.sep.treksphere.entity.MatchingMember;
 import com.sep.treksphere.entity.User;
 import com.sep.treksphere.enums.matching.JoinStatus;
+import com.sep.treksphere.enums.matching.MatchingRole;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -34,6 +35,7 @@ public interface MatchingMemberRepository extends JpaRepository<MatchingMember, 
             JOIN FETCH mm.user u
             WHERE mm.matchingGroup.matchingGroupId = :groupId
               AND mm.status = :status
+              AND mm.role = :role
               AND mm.isDeleted = false
             ORDER BY mm.createdAt DESC
         """,
@@ -41,12 +43,14 @@ public interface MatchingMemberRepository extends JpaRepository<MatchingMember, 
             SELECT COUNT(mm) FROM MatchingMember mm
             WHERE mm.matchingGroup.matchingGroupId = :groupId
               AND mm.status = :status
+              AND mm.role = :role
               AND mm.isDeleted = false
         """
     )
     Page<MatchingMember> findJoinRequests(
             @Param("groupId") UUID groupId,
             @Param("status") JoinStatus status,
+            @Param("role") MatchingRole role,
             Pageable pageable
     );
 }

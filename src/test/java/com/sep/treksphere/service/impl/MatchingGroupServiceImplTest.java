@@ -2,6 +2,7 @@ package com.sep.treksphere.service.impl;
 
 import com.sep.treksphere.dto.request.MatchingGroupCreateRequest;
 import com.sep.treksphere.dto.request.MatchingGroupFilterRequest;
+import com.sep.treksphere.dto.request.MatchingJoinRequestFilter;
 import com.sep.treksphere.dto.request.OwnedMatchingGroupFilterRequest;
 import com.sep.treksphere.dto.response.MatchingGroupDetailResponse;
 import com.sep.treksphere.dto.response.MatchingGroupResponse;
@@ -551,12 +552,114 @@ class MatchingGroupServiceImplTest {
         verify(matchingMemberRepository, never()).save(any());
     }
 
+    @Test
+    void getJoinRequests_DefaultsToPendingAndUsesZeroBasedPagination() {
+        MatchingGroup group = createJoinableGroup();
+        MatchingJoinRequestFilter filter = new MatchingJoinRequestFilter();
+        MatchingMember pendingMember = createExistingMember(group, createActiveUser(), JoinStatus.PENDING);
+        MatchingMemberResponse mappedResponse = new MatchingMemberResponse();
+        when(matchingGroupRepository.findWithOwnerById(group.getMatchingGroupId()))
+                .thenReturn(Optional.of(group));
+        when(matchingMemberRepository.findJoinRequests(
+                group.getMatchingGroupId(),
+                JoinStatus.PENDING,
+                MatchingRole.MEMBER,
+                PageRequest.of(0, 10)))
+                .thenReturn(new PageImpl<>(List.of(pendingMember)));
+        when(matchingGroupMapper.toMemberResponse(pendingMember)).thenReturn(mappedResponse);
+
+        PaginationResponse<MatchingMemberResponse> result = service.getJoinRequests(
+                group.getMatchingGroupId(), filter, userDetails);
+
+        assertThat(result.getContent()).containsExactly(mappedResponse);
+        assertThat(result.getPageNumber()).isZero();
+    }
+
+    @Test
+    void getJoinRequests_AllowsRejectedFilter() {
+        MatchingGroup group = createJoinableGroup();
+        MatchingJoinRequestFilter filter = new MatchingJoinRequestFilter();
+        filter.setStatus(JoinStatus.REJECTED);
+        filter.setPage(2);
+        filter.setSize(20);
+        when(matchingGroupRepository.findWithOwnerById(group.getMatchingGroupId()))
+                .thenReturn(Optional.of(group));
+        when(matchingMemberRepository.findJoinRequests(
+                group.getMatchingGroupId(),
+                JoinStatus.REJECTED,
+                MatchingRole.MEMBER,
+                PageRequest.of(2, 20)))
+                .thenReturn(Page.empty());
+
+        service.getJoinRequests(group.getMatchingGroupId(), filter, userDetails);
+
+        verify(matchingMemberRepository).findJoinRequests(
+                group.getMatchingGroupId(),
+                JoinStatus.REJECTED,
+                MatchingRole.MEMBER,
+                PageRequest.of(2, 20));
+    }
+
+    @Test
+    void getJoinRequests_RejectsAcceptedAndLeftFilters() {
+        MatchingJoinRequestFilter filter = new MatchingJoinRequestFilter();
+        filter.setStatus(JoinStatus.ACCEPTED);
+
+        assertThatThrownBy(() -> service.getJoinRequests(UUID.randomUUID(), filter, userDetails))
+                .isInstanceOf(AppException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.INVALID_JOIN_REQUEST_FILTER_STATUS);
+
+        filter.setStatus(JoinStatus.LEFT);
+        assertThatThrownBy(() -> service.getJoinRequests(UUID.randomUUID(), filter, userDetails))
+                .isInstanceOf(AppException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.INVALID_JOIN_REQUEST_FILTER_STATUS);
+        verify(matchingGroupRepository, never()).findWithOwnerById(any());
+    }
+
+    @Test
+    void getJoinRequests_RejectsInvalidPagination() {
+        MatchingJoinRequestFilter filter = new MatchingJoinRequestFilter();
+        filter.setPage(-1);
+
+        assertThatThrownBy(() -> service.getJoinRequests(UUID.randomUUID(), filter, userDetails))
+                .isInstanceOf(AppException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.INVALID_JOIN_REQUEST_PAGINATION);
+
+        filter.setPage(0);
+        filter.setSize(51);
+        assertThatThrownBy(() -> service.getJoinRequests(UUID.randomUUID(), filter, userDetails))
+                .isInstanceOf(AppException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.INVALID_JOIN_REQUEST_PAGINATION);
+        verify(matchingGroupRepository, never()).findWithOwnerById(any());
+    }
+
+    @Test
+    void getJoinRequests_RejectsNonOwner() {
+        User requester = createActiveUser();
+        MatchingGroup group = createJoinableGroup();
+        MatchingJoinRequestFilter filter = new MatchingJoinRequestFilter();
+        when(matchingGroupRepository.findWithOwnerById(group.getMatchingGroupId()))
+                .thenReturn(Optional.of(group));
+
+        assertThatThrownBy(() -> service.getJoinRequests(
+                group.getMatchingGroupId(), filter, new CustomUserDetails(requester)))
+                .isInstanceOf(AppException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.UNAUTHORIZED_VIEW_JOIN_REQUESTS);
+
+        verify(matchingMemberRepository, never()).findJoinRequests(any(), any(), any(), any());
+    }
+
     private User createActiveJoiner() {
+        User joiner = createActiveUser();
+        stubCurrentUser(joiner);
+        return joiner;
+    }
+
+    private User createActiveUser() {
         User joiner = new User();
         joiner.setUserId(UUID.randomUUID());
         joiner.setFullName("Joiner");
         joiner.setStatus(UserStatus.ACTIVE);
-        stubCurrentUser(joiner);
         return joiner;
     }
 

@@ -3,6 +3,7 @@ package com.sep.treksphere.service.impl;
 import com.sep.treksphere.constant.MessageConstant;
 import com.sep.treksphere.dto.request.MatchingGroupCreateRequest;
 import com.sep.treksphere.dto.request.MatchingGroupFilterRequest;
+import com.sep.treksphere.dto.request.MatchingJoinRequestFilter;
 import com.sep.treksphere.dto.request.OwnedMatchingGroupFilterRequest;
 import com.sep.treksphere.dto.response.MatchingGroupDetailResponse;
 import com.sep.treksphere.dto.response.MatchingGroupResponse;
@@ -30,8 +31,6 @@ import com.sep.treksphere.utils.PaginationUtils;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -314,11 +313,17 @@ public class MatchingGroupServiceImpl implements MatchingGroupService {
     @Transactional(readOnly = true)
     public PaginationResponse<MatchingMemberResponse> getJoinRequests(
             UUID groupId,
-            JoinStatus status,
-            int page,
-            int size,
+            MatchingJoinRequestFilter filter,
             CustomUserDetails userDetails
     ) {
+        JoinStatus status = filter.getStatus() == null ? JoinStatus.PENDING : filter.getStatus();
+        if (status != JoinStatus.PENDING && status != JoinStatus.REJECTED) {
+            throw new AppException(ErrorCode.INVALID_JOIN_REQUEST_FILTER_STATUS);
+        }
+        if (filter.getPage() < 0 || filter.getSize() < 1 || filter.getSize() > 50) {
+            throw new AppException(ErrorCode.INVALID_JOIN_REQUEST_PAGINATION);
+        }
+
         User currentUser = userDetails.getUser();
         log.info("Fetching matching group join requests: groupId={}, status={}, requesterId={}",
                 groupId, status, currentUser.getUserId());
@@ -330,9 +335,8 @@ public class MatchingGroupServiceImpl implements MatchingGroupService {
             throw new AppException(ErrorCode.UNAUTHORIZED_VIEW_JOIN_REQUESTS);
         }
 
-        Pageable pageable = PageRequest.of(Math.max(page - 1, 0), size);
         Page<MatchingMemberResponse> joinRequests = matchingMemberRepository
-                .findJoinRequests(groupId, status, pageable)
+                .findJoinRequests(groupId, status, MatchingRole.MEMBER, filter.getPageable())
                 .map(matchingGroupMapper::toMemberResponse);
 
         return PaginationUtils.toPaginationResponse(joinRequests);

@@ -3,13 +3,13 @@ package com.sep.treksphere.controller;
 import com.sep.treksphere.constant.MessageConstant;
 import com.sep.treksphere.dto.request.MatchingGroupCreateRequest;
 import com.sep.treksphere.dto.request.MatchingGroupFilterRequest;
+import com.sep.treksphere.dto.request.MatchingJoinRequestFilter;
 import com.sep.treksphere.dto.request.OwnedMatchingGroupFilterRequest;
 import com.sep.treksphere.dto.response.ApiResponse;
 import com.sep.treksphere.dto.response.MatchingGroupDetailResponse;
 import com.sep.treksphere.dto.response.MatchingGroupResponse;
 import com.sep.treksphere.dto.response.MatchingMemberResponse;
 import com.sep.treksphere.dto.response.PaginationResponse;
-import com.sep.treksphere.enums.matching.JoinStatus;
 import com.sep.treksphere.security.CustomUserDetails;
 import com.sep.treksphere.service.MatchingGroupService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -119,12 +119,10 @@ public class MatchingGroupController {
     @PreAuthorize("hasRole('TREKKER')")
     public ResponseEntity<ApiResponse<PaginationResponse<MatchingMemberResponse>>> getJoinRequests(
             @Parameter(description = "UUID của nhóm ghép") @PathVariable UUID groupId,
-            @RequestParam(defaultValue = "PENDING") JoinStatus status,
-            @RequestParam(defaultValue = "1") int page,
-            @RequestParam(defaultValue = "10") int size,
+            @Valid @ParameterObject @ModelAttribute MatchingJoinRequestFilter filter,
             @AuthenticationPrincipal CustomUserDetails userDetails) {
         PaginationResponse<MatchingMemberResponse> result =
-                matchingGroupService.getJoinRequests(groupId, status, page, size, userDetails);
+                matchingGroupService.getJoinRequests(groupId, filter, userDetails);
         return ResponseEntity.ok(ApiResponse.success(
                 HttpStatus.OK,
                 result,

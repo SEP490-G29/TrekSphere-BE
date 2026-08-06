@@ -293,6 +293,10 @@ public class MessageConstant {
     public static final String MATCHING_TOUR_NOT_AVAILABLE = "Tour của nhóm ghép không còn công khai";
     public static final String MATCHING_OWNER_CANNOT_JOIN = "Trưởng nhóm không thể gửi yêu cầu tham gia nhóm của chính mình";
     public static final String MATCHING_TARGET_DATE_PASSED = "Ngày dự kiến đi của nhóm đã đến hoặc đã qua";
+    public static final String MATCHING_JOIN_REQUEST_PAGE_MIN = "Số trang không được nhỏ hơn 0";
+    public static final String MATCHING_JOIN_REQUEST_SIZE_RANGE = "Số phần tử mỗi trang phải từ 1 đến 50";
+    public static final String INVALID_JOIN_REQUEST_FILTER_STATUS = "Danh sách yêu cầu tham gia chỉ hỗ trợ trạng thái PENDING hoặc REJECTED";
+    public static final String INVALID_JOIN_REQUEST_PAGINATION = "Phân trang yêu cầu tham gia không hợp lệ";
 
     // Schedule Messages
     public static final String SCHEDULE_NOT_FOUND = "Lịch khởi hành không tồn tại";
