@@ -92,10 +92,14 @@ public class MatchingGroupServiceImpl implements MatchingGroupService {
 
     @Override
     @Transactional(readOnly = true)
-    public MatchingGroupDetailResponse getMatchingGroupById(UUID id) {
+    public MatchingGroupDetailResponse getMatchingGroupById(UUID id, CustomUserDetails userDetails) {
         log.info("Fetching matching group detail: id={}", id);
 
-        MatchingGroup matchingGroup = matchingGroupRepository.findDetailById(id)
+        MatchingGroup matchingGroup = matchingGroupRepository.findPublicDetailById(
+                        id,
+                        Set.of(MatchingGroupStatus.OPEN, MatchingGroupStatus.FULL),
+                        TourStatus.APPROVED
+                )
                 .orElseThrow(() -> new AppException(ErrorCode.MATCHING_GROUP_NOT_FOUND));
 
         MatchingGroupDetailResponse response = matchingGroupMapper.toDetailResponse(matchingGroup);
@@ -107,6 +111,29 @@ public class MatchingGroupServiceImpl implements MatchingGroupService {
                 .toList();
 
         response.setMembers(acceptedMembers);
+
+        UUID viewerId = userDetails == null ? null : userDetails.getUser().getUserId();
+        boolean isOwner = viewerId != null && matchingGroup.getOwner().getUserId().equals(viewerId);
+        MatchingMember viewerMembership = viewerId == null
+                ? null
+                : matchingGroup.getMembers().stream()
+                        .filter(member -> member.getUser().getUserId().equals(viewerId)
+                                && !Boolean.TRUE.equals(member.getIsDeleted()))
+                        .findFirst()
+                        .orElse(null);
+
+        JoinStatus membershipStatus = viewerMembership == null ? null : viewerMembership.getStatus();
+        boolean hasActiveMembership = membershipStatus == JoinStatus.PENDING
+                || membershipStatus == JoinStatus.ACCEPTED;
+        boolean groupIsJoinable = matchingGroup.getStatus() == MatchingGroupStatus.OPEN
+                && matchingGroup.getCurrentSize() < matchingGroup.getMaxSize()
+                && matchingGroup.getMatchingDeadline().isAfter(LocalDateTime.now())
+                && matchingGroup.getTargetDate().isAfter(LocalDate.now());
+
+        response.setIsOwner(isOwner);
+        response.setMyMembershipStatus(membershipStatus);
+        response.setCanJoin(viewerId != null && !isOwner && !hasActiveMembership && groupIsJoinable);
+        response.setCanLeave(viewerId != null && !isOwner && hasActiveMembership);
 
         return response;
     }

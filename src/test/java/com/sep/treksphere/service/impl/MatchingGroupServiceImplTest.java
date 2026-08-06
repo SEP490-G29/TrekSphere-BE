@@ -3,10 +3,13 @@ package com.sep.treksphere.service.impl;
 import com.sep.treksphere.dto.request.MatchingGroupCreateRequest;
 import com.sep.treksphere.dto.request.MatchingGroupFilterRequest;
 import com.sep.treksphere.dto.response.MatchingGroupDetailResponse;
+import com.sep.treksphere.dto.response.MatchingMemberResponse;
 import com.sep.treksphere.entity.MatchingGroup;
+import com.sep.treksphere.entity.MatchingMember;
 import com.sep.treksphere.entity.Tour;
 import com.sep.treksphere.entity.User;
 import com.sep.treksphere.enums.matching.JoinStatus;
+import com.sep.treksphere.enums.matching.MatchingGroupStatus;
 import com.sep.treksphere.enums.matching.MatchingRole;
 import com.sep.treksphere.enums.tour.TourStatus;
 import com.sep.treksphere.exception.AppException;
@@ -128,6 +131,80 @@ class MatchingGroupServiceImplTest {
                 any(LocalDateTime.class),
                 any(Pageable.class)
         );
+    }
+
+    @Test
+    void getMatchingGroupById_ReturnsAcceptedMembersAndPendingViewerContext() {
+        User viewer = new User();
+        viewer.setUserId(UUID.randomUUID());
+        viewer.setFullName("Pending viewer");
+
+        MatchingGroup group = new MatchingGroup();
+        group.setMatchingGroupId(UUID.randomUUID());
+        group.setTour(tour);
+        group.setOwner(owner);
+        group.setStatus(MatchingGroupStatus.OPEN);
+        group.setCurrentSize(1);
+        group.setMaxSize(4);
+        group.setTargetDate(LocalDate.now().plusDays(10));
+        group.setMatchingDeadline(LocalDateTime.now().plusDays(5));
+
+        MatchingMember ownerMember = new MatchingMember();
+        ownerMember.setMatchingGroup(group);
+        ownerMember.setUser(owner);
+        ownerMember.setRole(MatchingRole.OWNER);
+        ownerMember.setStatus(JoinStatus.ACCEPTED);
+        group.getMembers().add(ownerMember);
+
+        MatchingMember pendingMember = new MatchingMember();
+        pendingMember.setMatchingGroup(group);
+        pendingMember.setUser(viewer);
+        pendingMember.setRole(MatchingRole.MEMBER);
+        pendingMember.setStatus(JoinStatus.PENDING);
+        group.getMembers().add(pendingMember);
+
+        MatchingGroupDetailResponse response = new MatchingGroupDetailResponse();
+        MatchingMemberResponse ownerResponse = new MatchingMemberResponse();
+        when(matchingGroupRepository.findPublicDetailById(
+                eq(group.getMatchingGroupId()), anyCollection(), eq(TourStatus.APPROVED)))
+                .thenReturn(Optional.of(group));
+        when(matchingGroupMapper.toDetailResponse(group)).thenReturn(response);
+        when(matchingGroupMapper.toMemberResponse(ownerMember)).thenReturn(ownerResponse);
+
+        MatchingGroupDetailResponse result = service.getMatchingGroupById(
+                group.getMatchingGroupId(), new CustomUserDetails(viewer));
+
+        assertThat(result.getMembers()).containsExactly(ownerResponse);
+        assertThat(result.getIsOwner()).isFalse();
+        assertThat(result.getMyMembershipStatus()).isEqualTo(JoinStatus.PENDING);
+        assertThat(result.getCanJoin()).isFalse();
+        assertThat(result.getCanLeave()).isTrue();
+    }
+
+    @Test
+    void getMatchingGroupById_ReturnsAnonymousViewerContext() {
+        MatchingGroup group = new MatchingGroup();
+        group.setMatchingGroupId(UUID.randomUUID());
+        group.setTour(tour);
+        group.setOwner(owner);
+        group.setStatus(MatchingGroupStatus.OPEN);
+        group.setCurrentSize(1);
+        group.setMaxSize(4);
+        group.setTargetDate(LocalDate.now().plusDays(10));
+        group.setMatchingDeadline(LocalDateTime.now().plusDays(5));
+
+        MatchingGroupDetailResponse response = new MatchingGroupDetailResponse();
+        when(matchingGroupRepository.findPublicDetailById(
+                eq(group.getMatchingGroupId()), anyCollection(), eq(TourStatus.APPROVED)))
+                .thenReturn(Optional.of(group));
+        when(matchingGroupMapper.toDetailResponse(group)).thenReturn(response);
+
+        MatchingGroupDetailResponse result = service.getMatchingGroupById(group.getMatchingGroupId(), null);
+
+        assertThat(result.getIsOwner()).isFalse();
+        assertThat(result.getMyMembershipStatus()).isNull();
+        assertThat(result.getCanJoin()).isFalse();
+        assertThat(result.getCanLeave()).isFalse();
     }
 
     @Test

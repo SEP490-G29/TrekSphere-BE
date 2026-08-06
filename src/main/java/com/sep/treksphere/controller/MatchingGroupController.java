@@ -62,12 +62,14 @@ public class MatchingGroupController {
 
     @Operation(
         summary = "Xem chi tiết nhóm ghép bạn đồng hành",
-        description = "Lấy thông tin chi tiết của nhóm ghép bao gồm danh sách thành viên đã được duyệt (ACCEPTED)."
+        description = "Lấy thông tin public của nhóm ghép thuộc Tour đang public, bao gồm các thành viên đã được duyệt. " +
+                "Nếu người xem đã đăng nhập, response có thêm trạng thái tham gia và quyền join/leave của người đó."
     )
     @GetMapping("/{id}")
     public ResponseEntity<ApiResponse<MatchingGroupDetailResponse>> getMatchingGroupById(
-            @Parameter(description = "UUID của nhóm ghép") @PathVariable UUID id) {
-        MatchingGroupDetailResponse result = matchingGroupService.getMatchingGroupById(id);
+            @Parameter(description = "UUID của nhóm ghép") @PathVariable UUID id,
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+        MatchingGroupDetailResponse result = matchingGroupService.getMatchingGroupById(id, userDetails);
         return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, result, MessageConstant.MATCHING_GROUP_FETCHED_SUCCESS));
     }
 

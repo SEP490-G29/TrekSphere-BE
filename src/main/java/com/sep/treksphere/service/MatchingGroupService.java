@@ -17,7 +17,7 @@ public interface MatchingGroupService {
 
     List<MatchingGroupResponse> getMyMatchingGroups(CustomUserDetails userDetails);
 
-    MatchingGroupDetailResponse getMatchingGroupById(UUID id);
+    MatchingGroupDetailResponse getMatchingGroupById(UUID id, CustomUserDetails userDetails);
 
     MatchingGroupDetailResponse createMatchingGroup(MatchingGroupCreateRequest request, CustomUserDetails userDetails);
 

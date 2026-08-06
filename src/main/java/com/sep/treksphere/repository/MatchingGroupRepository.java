@@ -91,6 +91,24 @@ public interface MatchingGroupRepository extends JpaRepository<MatchingGroup, UU
     );
 
     @Query("""
+        SELECT DISTINCT mg FROM MatchingGroup mg
+        JOIN FETCH mg.tour t
+        JOIN FETCH mg.owner o
+        LEFT JOIN FETCH mg.members m
+        LEFT JOIN FETCH m.user mu
+        WHERE mg.matchingGroupId = :id
+          AND mg.isDeleted = false
+          AND mg.status IN :statuses
+          AND t.isDeleted = false
+          AND t.status = :tourStatus
+    """)
+    Optional<MatchingGroup> findPublicDetailById(
+            @Param("id") UUID id,
+            @Param("statuses") Collection<MatchingGroupStatus> statuses,
+            @Param("tourStatus") TourStatus tourStatus
+    );
+
+    @Query("""
         SELECT mg FROM MatchingGroup mg
         JOIN FETCH mg.tour t
         JOIN FETCH mg.owner o
