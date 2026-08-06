@@ -24,7 +24,7 @@ public class OwnedMatchingGroupFilterRequest extends BaseFilterRequest {
             "status"
     );
 
-    @Schema(description = "Lọc theo trạng thái nhóm do Trekker quản lý")
+    @Schema(description = "Lọc theo trạng thái nhóm do Trekker sở hữu hoặc đã tham gia")
     private MatchingGroupStatus status;
 
     @Override

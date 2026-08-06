@@ -48,8 +48,8 @@ public class MatchingGroupController {
     }
 
     @Operation(
-        summary = "Lấy các nhóm ghép do Trekker hiện tại quản lý",
-        description = "Trả về tất cả nhóm do Trekker hiện tại sở hữu, bao gồm lịch sử nhóm đã giải tán và không giới hạn theo ngày dự kiến đi. " +
+        summary = "Lấy các nhóm ghép của Trekker hiện tại",
+        description = "Trả về các nhóm do Trekker hiện tại sở hữu hoặc đã tham gia với tư cách thành viên được chấp nhận, bao gồm lịch sử nhóm đã giải tán và không giới hạn theo ngày dự kiến đi. " +
                 "Có thể lọc theo trạng thái và tìm theo tên nhóm hoặc tên Tour."
     )
     @GetMapping("/owned")

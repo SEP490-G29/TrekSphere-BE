@@ -2,7 +2,9 @@ package com.sep.treksphere.repository;
 
 import com.sep.treksphere.entity.MatchingGroup;
 import com.sep.treksphere.entity.User;
+import com.sep.treksphere.enums.matching.JoinStatus;
 import com.sep.treksphere.enums.matching.MatchingGroupStatus;
+import com.sep.treksphere.enums.matching.MatchingRole;
 import com.sep.treksphere.enums.tour.TourStatus;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -30,7 +32,16 @@ public interface MatchingGroupRepository extends JpaRepository<MatchingGroup, UU
         SELECT mg FROM MatchingGroup mg
         JOIN FETCH mg.tour t
         JOIN FETCH mg.owner o
-        WHERE o.userId = :ownerId
+        WHERE (
+              o.userId = :userId
+              OR EXISTS (
+                  SELECT 1 FROM MatchingMember mm
+                  WHERE mm.matchingGroup = mg
+                    AND mm.user.userId = :userId
+                    AND mm.role = :memberRole
+                    AND mm.status = :acceptedStatus
+              )
+          )
           AND (:status IS NULL OR mg.status = :status)
           AND (
               :keyword = ''
@@ -40,7 +51,16 @@ public interface MatchingGroupRepository extends JpaRepository<MatchingGroup, UU
     """, countQuery = """
         SELECT COUNT(mg) FROM MatchingGroup mg
         JOIN mg.tour t
-        WHERE mg.owner.userId = :ownerId
+        WHERE (
+              mg.owner.userId = :userId
+              OR EXISTS (
+                  SELECT 1 FROM MatchingMember mm
+                  WHERE mm.matchingGroup = mg
+                    AND mm.user.userId = :userId
+                    AND mm.role = :memberRole
+                    AND mm.status = :acceptedStatus
+              )
+          )
           AND (:status IS NULL OR mg.status = :status)
           AND (
               :keyword = ''
@@ -48,8 +68,10 @@ public interface MatchingGroupRepository extends JpaRepository<MatchingGroup, UU
               OR LOWER(t.tourName) LIKE CONCAT('%', :keyword, '%')
           )
     """)
-    Page<MatchingGroup> findOwnedGroups(
-            @Param("ownerId") UUID ownerId,
+    Page<MatchingGroup> findOwnedOrJoinedGroups(
+            @Param("userId") UUID userId,
+            @Param("memberRole") MatchingRole memberRole,
+            @Param("acceptedStatus") JoinStatus acceptedStatus,
             @Param("status") MatchingGroupStatus status,
             @Param("keyword") String keyword,
             Pageable pageable
