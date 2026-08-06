@@ -256,7 +256,7 @@ public class MessageConstant {
     public static final String MATCHING_GROUP_CREATED_SUCCESS = "Tạo nhóm ghép bạn đồng hành thành công";
     public static final String INVALID_TARGET_DATE = "Ngày đi mong muốn phải ở tương lai";
     public static final String INVALID_DEADLINE = "Hạn chót ghép nhóm phải ở tương lai và trước hoặc trong ngày khởi hành";
-    public static final String ALREADY_HAS_ACTIVE_GROUP = "Bạn đang là trưởng nhóm của một nhóm ghép khác đang hoạt động";
+    public static final String ALREADY_HAS_ACTIVE_GROUP = "Bạn đã có một nhóm ghép đang hoạt động cho Tour này";
     public static final String MATCHING_GROUP_JOIN_REQUESTED_SUCCESS = "Gửi yêu cầu tham gia nhóm ghép bạn đồng hành thành công";
     public static final String MATCHING_JOIN_REQUESTS_FETCHED_SUCCESS = "Lấy danh sách yêu cầu tham gia nhóm ghép thành công";
     public static final String UNAUTHORIZED_VIEW_JOIN_REQUESTS = "Bạn không có quyền xem yêu cầu tham gia của nhóm ghép này";
@@ -275,9 +275,13 @@ public class MessageConstant {
     public static final String MATCHING_MEMBER_REJECTED_SUCCESS = "Từ chối thành viên tham gia nhóm ghép thành công";
     public static final String OWNER_CANNOT_LEAVE = "Trưởng nhóm không thể rời nhóm ghép, hãy sử dụng tính năng giải tán nhóm";
     public static final String NOT_A_MEMBER = "Bạn không phải là thành viên hoạt động của nhóm ghép này";
+    public static final String MATCHING_JOIN_REQUEST_CANCELLED_SUCCESS = "Hủy yêu cầu tham gia nhóm ghép thành công";
     public static final String MATCHING_MEMBER_LEFT_SUCCESS = "Rời khỏi nhóm ghép bạn đồng hành thành công";
+    public static final String NO_PENDING_JOIN_REQUEST = "Bạn không có yêu cầu tham gia đang chờ duyệt trong nhóm này";
+    public static final String NOT_ACCEPTED_MATCHING_MEMBER = "Bạn chưa phải là thành viên đã được duyệt của nhóm ghép này";
     public static final String UNAUTHORIZED_DISBAND_GROUP = "Bạn không có quyền giải tán nhóm ghép này";
     public static final String MATCHING_GROUP_DISBANDED_SUCCESS = "Giải tán nhóm ghép bạn đồng hành thành công";
+    public static final String MATCHING_GROUP_CANNOT_BE_DISBANDED = "Chỉ có thể giải tán nhóm ghép đang OPEN hoặc FULL";
 
     public static final String MATCHING_TOUR_ID_REQUIRED = "Mã tour không được để trống";
     public static final String MATCHING_GROUP_NAME_REQUIRED = "Tên nhóm ghép không được để trống";
@@ -290,6 +294,13 @@ public class MessageConstant {
     public static final String MATCHING_DEADLINE_REQUIRED = "Hạn chót ghép nhóm không được để trống";
     public static final String MATCHING_TOUR_NOT_APPROVED = "Chỉ có thể tạo nhóm ghép cho Tour đã duyệt";
     public static final String MATCHING_GROUP_SIZE_EXCEEDS_TOUR_CAPACITY = "Số thành viên tối đa của nhóm vượt quá sức chứa của Tour";
+    public static final String MATCHING_TOUR_NOT_AVAILABLE = "Tour của nhóm ghép không còn công khai";
+    public static final String MATCHING_OWNER_CANNOT_JOIN = "Trưởng nhóm không thể gửi yêu cầu tham gia nhóm của chính mình";
+    public static final String MATCHING_TARGET_DATE_PASSED = "Ngày dự kiến đi của nhóm đã đến hoặc đã qua";
+    public static final String MATCHING_JOIN_REQUEST_PAGE_MIN = "Số trang không được nhỏ hơn 0";
+    public static final String MATCHING_JOIN_REQUEST_SIZE_RANGE = "Số phần tử mỗi trang phải từ 1 đến 50";
+    public static final String INVALID_JOIN_REQUEST_FILTER_STATUS = "Danh sách yêu cầu tham gia chỉ hỗ trợ trạng thái PENDING hoặc REJECTED";
+    public static final String INVALID_JOIN_REQUEST_PAGINATION = "Phân trang yêu cầu tham gia không hợp lệ";
 
     // Schedule Messages
     public static final String SCHEDULE_NOT_FOUND = "Lịch khởi hành không tồn tại";
@@ -441,6 +452,18 @@ public class MessageConstant {
     public static final String DIRECT_PARTICIPANT_COUNT_INVALID = "Cuộc hội thoại 1-1 phải có đúng một người nhận";
     public static final String GROUP_PARTICIPANT_COUNT_INVALID = "Cuộc hội thoại nhóm phải có ít nhất hai người tham gia";
     public static final String GROUP_TITLE_REQUIRED = "Tên cuộc hội thoại nhóm không được để trống";
+
+    // Report Messages
+    public static final String REPORT_NOT_FOUND = "Báo cáo vi phạm không tồn tại";
+    public static final String REPORT_TARGET_NOT_FOUND = "Nội dung bị báo cáo không tồn tại";
+    public static final String REPORT_CREATED_SUCCESS = "Gửi báo cáo vi phạm thành công";
+    public static final String REPORTS_FETCHED_SUCCESS = "Lấy danh sách báo cáo vi phạm thành công";
+    public static final String REPORT_RESOLVED_SUCCESS = "Xử lý báo cáo vi phạm thành công";
+    public static final String REPORT_ALREADY_RESOLVED = "Báo cáo này đã được xử lý";
+    public static final String REPORT_TARGET_ID_REQUIRED = "ID nội dung báo cáo không được để trống";
+    public static final String REPORT_TARGET_TYPE_REQUIRED = "Loại nội dung báo cáo không được để trống";
+    public static final String REPORT_REASON_REQUIRED = "Lý do báo cáo không được để trống";
+    public static final String REPORT_ACTION_REQUIRED = "Hành động xử lý không được để trống";
 }
 
 

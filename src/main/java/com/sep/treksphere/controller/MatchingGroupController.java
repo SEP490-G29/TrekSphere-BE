@@ -3,13 +3,13 @@ package com.sep.treksphere.controller;
 import com.sep.treksphere.constant.MessageConstant;
 import com.sep.treksphere.dto.request.MatchingGroupCreateRequest;
 import com.sep.treksphere.dto.request.MatchingGroupFilterRequest;
+import com.sep.treksphere.dto.request.MatchingJoinRequestFilter;
 import com.sep.treksphere.dto.request.OwnedMatchingGroupFilterRequest;
 import com.sep.treksphere.dto.response.ApiResponse;
 import com.sep.treksphere.dto.response.MatchingGroupDetailResponse;
 import com.sep.treksphere.dto.response.MatchingGroupResponse;
 import com.sep.treksphere.dto.response.MatchingMemberResponse;
 import com.sep.treksphere.dto.response.PaginationResponse;
-import com.sep.treksphere.enums.matching.JoinStatus;
 import com.sep.treksphere.security.CustomUserDetails;
 import com.sep.treksphere.service.MatchingGroupService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -104,7 +104,11 @@ public class MatchingGroupController {
             @Parameter(description = "UUID của nhóm ghép") @PathVariable UUID groupId,
             @AuthenticationPrincipal CustomUserDetails userDetails) {
         MatchingMemberResponse result = matchingGroupService.joinMatchingGroup(groupId, userDetails);
-        return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, result, MessageConstant.MATCHING_GROUP_JOIN_REQUESTED_SUCCESS));
+        return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.success(
+                HttpStatus.CREATED,
+                result,
+                MessageConstant.MATCHING_GROUP_JOIN_REQUESTED_SUCCESS
+        ));
     }
 
     @Operation(
@@ -115,12 +119,10 @@ public class MatchingGroupController {
     @PreAuthorize("hasRole('TREKKER')")
     public ResponseEntity<ApiResponse<PaginationResponse<MatchingMemberResponse>>> getJoinRequests(
             @Parameter(description = "UUID của nhóm ghép") @PathVariable UUID groupId,
-            @RequestParam(defaultValue = "PENDING") JoinStatus status,
-            @RequestParam(defaultValue = "1") int page,
-            @RequestParam(defaultValue = "10") int size,
+            @Valid @ParameterObject @ModelAttribute MatchingJoinRequestFilter filter,
             @AuthenticationPrincipal CustomUserDetails userDetails) {
         PaginationResponse<MatchingMemberResponse> result =
-                matchingGroupService.getJoinRequests(groupId, status, page, size, userDetails);
+                matchingGroupService.getJoinRequests(groupId, filter, userDetails);
         return ResponseEntity.ok(ApiResponse.success(
                 HttpStatus.OK,
                 result,
@@ -132,12 +134,13 @@ public class MatchingGroupController {
         summary = "Duyệt thành viên xin vào nhóm",
         description = "Cho phép Trưởng nhóm (Leader/Owner) phê duyệt yêu cầu tham gia nhóm ghép của thành viên đang ở trạng thái PENDING."
     )
-    @PutMapping("/members/{memberId}/approve")
+    @PutMapping("/{groupId}/join-requests/{memberId}/approve")
     @PreAuthorize("hasRole('TREKKER')")
     public ResponseEntity<ApiResponse<MatchingMemberResponse>> approveMember(
+            @Parameter(description = "UUID của nhóm ghép") @PathVariable UUID groupId,
             @Parameter(description = "UUID của bản ghi thành viên cần duyệt") @PathVariable UUID memberId,
             @AuthenticationPrincipal CustomUserDetails userDetails) {
-        MatchingMemberResponse result = matchingGroupService.approveMember(memberId, userDetails);
+        MatchingMemberResponse result = matchingGroupService.approveMember(groupId, memberId, userDetails);
         return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, result, MessageConstant.MATCHING_MEMBER_APPROVED_SUCCESS));
     }
 
@@ -145,20 +148,39 @@ public class MatchingGroupController {
         summary = "Từ chối thành viên xin vào nhóm",
         description = "Cho phép Trưởng nhóm (Leader/Owner) từ chối yêu cầu tham gia nhóm ghép của thành viên đang ở trạng thái PENDING."
     )
-    @PutMapping("/members/{memberId}/reject")
+    @PutMapping("/{groupId}/join-requests/{memberId}/reject")
     @PreAuthorize("hasRole('TREKKER')")
     public ResponseEntity<ApiResponse<MatchingMemberResponse>> rejectMember(
+            @Parameter(description = "UUID của nhóm ghép") @PathVariable UUID groupId,
             @Parameter(description = "UUID của bản ghi thành viên cần từ chối") @PathVariable UUID memberId,
             @AuthenticationPrincipal CustomUserDetails userDetails) {
-        MatchingMemberResponse result = matchingGroupService.rejectMember(memberId, userDetails);
+        MatchingMemberResponse result = matchingGroupService.rejectMember(groupId, memberId, userDetails);
         return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, result, MessageConstant.MATCHING_MEMBER_REJECTED_SUCCESS));
     }
 
     @Operation(
-        summary = "Rời khỏi nhóm ghép hiện tại",
-        description = "Cho phép thành viên (ACCEPTED hoặc PENDING) rời khỏi nhóm ghép. Nếu trước đó nhóm đầy (FULL), nhóm sẽ tự động mở lại (OPEN) để tiếp tục ghép."
+        summary = "Hủy yêu cầu tham gia nhóm ghép",
+        description = "Cho phép Trekker hủy yêu cầu tham gia đang ở trạng thái PENDING. Thao tác này không thay đổi số thành viên hiện tại của nhóm."
     )
-    @PostMapping("/{groupId}/leave")
+    @DeleteMapping("/{groupId}/join-request")
+    @PreAuthorize("hasRole('TREKKER')")
+    public ResponseEntity<ApiResponse<MatchingMemberResponse>> cancelJoinRequest(
+            @Parameter(description = "UUID của nhóm ghép") @PathVariable UUID groupId,
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+        MatchingMemberResponse result = matchingGroupService.cancelJoinRequest(groupId, userDetails);
+        return ResponseEntity.ok(ApiResponse.success(
+                HttpStatus.OK,
+                result,
+                MessageConstant.MATCHING_JOIN_REQUEST_CANCELLED_SUCCESS
+        ));
+    }
+
+    @Operation(
+        summary = "Rời khỏi nhóm ghép",
+        description = "Cho phép thành viên ACCEPTED rời nhóm. Nhóm FULL chỉ mở lại khi vẫn còn hạn ghép, " +
+                "ngày dự kiến đi chưa đến và Tour còn public."
+    )
+    @DeleteMapping("/{groupId}/members/me")
     @PreAuthorize("hasRole('TREKKER')")
     public ResponseEntity<ApiResponse<MatchingMemberResponse>> leaveMatchingGroup(
             @Parameter(description = "UUID của nhóm ghép") @PathVariable UUID groupId,
