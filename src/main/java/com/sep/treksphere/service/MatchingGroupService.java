@@ -36,6 +36,8 @@ public interface MatchingGroupService {
 
     MatchingMemberResponse rejectMember(UUID groupId, UUID memberId, CustomUserDetails userDetails);
 
+    MatchingMemberResponse cancelJoinRequest(UUID groupId, CustomUserDetails userDetails);
+
     MatchingMemberResponse leaveMatchingGroup(UUID groupId, CustomUserDetails userDetails);
 
     void disbandMatchingGroup(UUID groupId, CustomUserDetails userDetails);

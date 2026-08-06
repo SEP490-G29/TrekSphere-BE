@@ -159,10 +159,28 @@ public class MatchingGroupController {
     }
 
     @Operation(
-        summary = "Rời khỏi nhóm ghép hiện tại",
-        description = "Cho phép thành viên (ACCEPTED hoặc PENDING) rời khỏi nhóm ghép. Nếu trước đó nhóm đầy (FULL), nhóm sẽ tự động mở lại (OPEN) để tiếp tục ghép."
+        summary = "Hủy yêu cầu tham gia nhóm ghép",
+        description = "Cho phép Trekker hủy yêu cầu tham gia đang ở trạng thái PENDING. Thao tác này không thay đổi số thành viên hiện tại của nhóm."
     )
-    @PostMapping("/{groupId}/leave")
+    @DeleteMapping("/{groupId}/join-request")
+    @PreAuthorize("hasRole('TREKKER')")
+    public ResponseEntity<ApiResponse<MatchingMemberResponse>> cancelJoinRequest(
+            @Parameter(description = "UUID của nhóm ghép") @PathVariable UUID groupId,
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+        MatchingMemberResponse result = matchingGroupService.cancelJoinRequest(groupId, userDetails);
+        return ResponseEntity.ok(ApiResponse.success(
+                HttpStatus.OK,
+                result,
+                MessageConstant.MATCHING_JOIN_REQUEST_CANCELLED_SUCCESS
+        ));
+    }
+
+    @Operation(
+        summary = "Rời khỏi nhóm ghép",
+        description = "Cho phép thành viên ACCEPTED rời nhóm. Nhóm FULL chỉ mở lại khi vẫn còn hạn ghép, " +
+                "ngày dự kiến đi chưa đến và Tour còn public."
+    )
+    @DeleteMapping("/{groupId}/members/me")
     @PreAuthorize("hasRole('TREKKER')")
     public ResponseEntity<ApiResponse<MatchingMemberResponse>> leaveMatchingGroup(
             @Parameter(description = "UUID của nhóm ghép") @PathVariable UUID groupId,

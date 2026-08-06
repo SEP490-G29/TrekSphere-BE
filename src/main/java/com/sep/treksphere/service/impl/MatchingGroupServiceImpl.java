@@ -353,7 +353,7 @@ public class MatchingGroupServiceImpl implements MatchingGroupService {
         log.info("Approving matching group join request: groupId={}, memberId={}, requesterId={}",
                 groupId, memberId, currentUser.getUserId());
 
-        MatchingGroup matchingGroup = matchingGroupRepository.findByIdForApproval(groupId)
+        MatchingGroup matchingGroup = matchingGroupRepository.findByIdForUpdate(groupId)
                 .orElseThrow(() -> new AppException(ErrorCode.MATCHING_GROUP_NOT_FOUND));
 
         if (!matchingGroup.getOwner().getUserId().equals(currentUser.getUserId())) {
@@ -457,16 +457,37 @@ public class MatchingGroupServiceImpl implements MatchingGroupService {
 
     @Override
     @Transactional
-    public MatchingMemberResponse leaveMatchingGroup(UUID groupId, CustomUserDetails userDetails) {
+    public MatchingMemberResponse cancelJoinRequest(UUID groupId, CustomUserDetails userDetails) {
         User currentUser = userDetails.getUser();
-        log.info("Request to leave matching group: groupId={}, userId={}", groupId, currentUser.getUserId());
+        log.info("Request to cancel matching group join request: groupId={}, userId={}",
+                groupId, currentUser.getUserId());
 
-        MatchingGroup matchingGroup = matchingGroupRepository.findDetailById(groupId)
+        MatchingGroup matchingGroup = matchingGroupRepository.findByIdForUpdate(groupId)
                 .orElseThrow(() -> new AppException(ErrorCode.MATCHING_GROUP_NOT_FOUND));
 
-        if (matchingGroup.getStatus() == MatchingGroupStatus.CLOSED || matchingGroup.getStatus() == MatchingGroupStatus.HIDDEN) {
-            throw new AppException(ErrorCode.MATCHING_GROUP_NOT_OPEN);
+        MatchingMember member = matchingMemberRepository.findByMatchingGroupAndUser(matchingGroup, currentUser)
+                .orElseThrow(() -> new AppException(ErrorCode.NO_PENDING_JOIN_REQUEST));
+
+        if (Boolean.TRUE.equals(member.getIsDeleted())
+                || member.getRole() != MatchingRole.MEMBER
+                || member.getStatus() != JoinStatus.PENDING) {
+            throw new AppException(ErrorCode.NO_PENDING_JOIN_REQUEST);
         }
+
+        member.setStatus(JoinStatus.LEFT);
+        MatchingMember savedMember = matchingMemberRepository.save(member);
+        return matchingGroupMapper.toMemberResponse(savedMember);
+    }
+
+    @Override
+    @Transactional
+    public MatchingMemberResponse leaveMatchingGroup(UUID groupId, CustomUserDetails userDetails) {
+        User currentUser = userDetails.getUser();
+        log.info("Request to leave matching group: groupId={}, userId={}",
+                groupId, currentUser.getUserId());
+
+        MatchingGroup matchingGroup = matchingGroupRepository.findByIdForUpdate(groupId)
+                .orElseThrow(() -> new AppException(ErrorCode.MATCHING_GROUP_NOT_FOUND));
 
         if (matchingGroup.getOwner().getUserId().equals(currentUser.getUserId())) {
             throw new AppException(ErrorCode.OWNER_CANNOT_LEAVE);
@@ -475,29 +496,34 @@ public class MatchingGroupServiceImpl implements MatchingGroupService {
         MatchingMember member = matchingMemberRepository.findByMatchingGroupAndUser(matchingGroup, currentUser)
                 .orElseThrow(() -> new AppException(ErrorCode.NOT_A_MEMBER));
 
-        if (member.getStatus() == JoinStatus.LEFT || member.getStatus() == JoinStatus.REJECTED) {
-            throw new AppException(ErrorCode.NOT_A_MEMBER);
+        if (Boolean.TRUE.equals(member.getIsDeleted())
+                || member.getRole() != MatchingRole.MEMBER
+                || member.getStatus() != JoinStatus.ACCEPTED) {
+            throw new AppException(ErrorCode.NOT_ACCEPTED_MATCHING_MEMBER);
         }
 
-        if (member.getStatus() == JoinStatus.ACCEPTED) {
-            member.setStatus(JoinStatus.LEFT);
+        long acceptedCount = matchingMemberRepository
+                .countActiveMembersByGroupIdAndStatus(groupId, JoinStatus.ACCEPTED);
 
-            long acceptedCount = matchingGroup.getMembers().stream()
-                    .filter(m -> m.getStatus() == JoinStatus.ACCEPTED && !Boolean.TRUE.equals(m.getIsDeleted()))
-                    .count();
-            int newSize = (int) (acceptedCount - 1);
-            if (newSize < 1) newSize = 1;
-            matchingGroup.setCurrentSize(newSize);
+        member.setStatus(JoinStatus.LEFT);
 
-            if (matchingGroup.getStatus() == MatchingGroupStatus.FULL) {
-                matchingGroup.setStatus(MatchingGroupStatus.OPEN);
-                log.info("Matching group is reopened (OPEN) because a member left: groupId={}", groupId);
-            }
+        int newSize = Math.max(Math.toIntExact(acceptedCount) - 1, 1);
+        matchingGroup.setCurrentSize(newSize);
 
-            matchingGroupRepository.save(matchingGroup);
-        } else if (member.getStatus() == JoinStatus.PENDING) {
-            member.setStatus(JoinStatus.LEFT);
+        Tour tour = matchingGroup.getTour();
+        boolean canReopen = matchingGroup.getStatus() == MatchingGroupStatus.FULL
+                && newSize < matchingGroup.getMaxSize()
+                && matchingGroup.getMatchingDeadline().isAfter(LocalDateTime.now())
+                && matchingGroup.getTargetDate().isAfter(LocalDate.now())
+                && !Boolean.TRUE.equals(tour.getIsDeleted())
+                && tour.getStatus() == TourStatus.APPROVED;
+
+        if (canReopen) {
+            matchingGroup.setStatus(MatchingGroupStatus.OPEN);
+            log.info("Matching group is reopened (OPEN) because a member left: groupId={}", groupId);
         }
+
+        matchingGroupRepository.save(matchingGroup);
 
         MatchingMember savedMember = matchingMemberRepository.save(member);
 

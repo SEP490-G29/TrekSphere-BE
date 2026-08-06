@@ -275,7 +275,10 @@ public class MessageConstant {
     public static final String MATCHING_MEMBER_REJECTED_SUCCESS = "Từ chối thành viên tham gia nhóm ghép thành công";
     public static final String OWNER_CANNOT_LEAVE = "Trưởng nhóm không thể rời nhóm ghép, hãy sử dụng tính năng giải tán nhóm";
     public static final String NOT_A_MEMBER = "Bạn không phải là thành viên hoạt động của nhóm ghép này";
+    public static final String MATCHING_JOIN_REQUEST_CANCELLED_SUCCESS = "Hủy yêu cầu tham gia nhóm ghép thành công";
     public static final String MATCHING_MEMBER_LEFT_SUCCESS = "Rời khỏi nhóm ghép bạn đồng hành thành công";
+    public static final String NO_PENDING_JOIN_REQUEST = "Bạn không có yêu cầu tham gia đang chờ duyệt trong nhóm này";
+    public static final String NOT_ACCEPTED_MATCHING_MEMBER = "Bạn chưa phải là thành viên đã được duyệt của nhóm ghép này";
     public static final String UNAUTHORIZED_DISBAND_GROUP = "Bạn không có quyền giải tán nhóm ghép này";
     public static final String MATCHING_GROUP_DISBANDED_SUCCESS = "Giải tán nhóm ghép bạn đồng hành thành công";
 

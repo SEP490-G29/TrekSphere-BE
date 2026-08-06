@@ -39,7 +39,7 @@ public interface MatchingGroupRepository extends JpaRepository<MatchingGroup, UU
         WHERE mg.matchingGroupId = :groupId
           AND mg.isDeleted = false
     """)
-    Optional<MatchingGroup> findByIdForApproval(@Param("groupId") UUID groupId);
+    Optional<MatchingGroup> findByIdForUpdate(@Param("groupId") UUID groupId);
 
     @Query(value = """
         SELECT mg FROM MatchingGroup mg
