@@ -418,26 +418,28 @@ public class MatchingGroupServiceImpl implements MatchingGroupService {
 
     @Override
     @Transactional
-    public MatchingMemberResponse rejectMember(UUID memberId, CustomUserDetails userDetails) {
+    public MatchingMemberResponse rejectMember(
+            UUID groupId,
+            UUID memberId,
+            CustomUserDetails userDetails
+    ) {
         User currentUser = userDetails.getUser();
-        log.info("Rejecting member: memberId={}, requesterId={}", memberId, currentUser.getUserId());
+        log.info("Rejecting matching group join request: groupId={}, memberId={}, requesterId={}",
+                groupId, memberId, currentUser.getUserId());
 
-        MatchingMember member = matchingMemberRepository.findDetailByMemberId(memberId)
-                .orElseThrow(() -> new AppException(ErrorCode.MATCHING_MEMBER_NOT_FOUND));
-
-        MatchingGroup matchingGroup = member.getMatchingGroup();
-
-        if (matchingGroup.getStatus() == MatchingGroupStatus.CLOSED || matchingGroup.getStatus() == MatchingGroupStatus.HIDDEN) {
-            throw new AppException(ErrorCode.MATCHING_GROUP_NOT_OPEN);
-        }
-
-        if (LocalDateTime.now().isAfter(matchingGroup.getMatchingDeadline())) {
-            throw new AppException(ErrorCode.MATCHING_DEADLINE_PASSED);
-        }
+        MatchingGroup matchingGroup = matchingGroupRepository.findWithOwnerById(groupId)
+                .orElseThrow(() -> new AppException(ErrorCode.MATCHING_GROUP_NOT_FOUND));
 
         if (!matchingGroup.getOwner().getUserId().equals(currentUser.getUserId())) {
             throw new AppException(ErrorCode.UNAUTHORIZED_REJECT_MEMBER);
         }
+
+        MatchingMember member = matchingMemberRepository.findJoinRequestByIdAndGroupId(
+                        memberId,
+                        groupId,
+                        MatchingRole.MEMBER
+                )
+                .orElseThrow(() -> new AppException(ErrorCode.MATCHING_MEMBER_NOT_FOUND));
 
         if (member.getStatus() == JoinStatus.REJECTED) {
             throw new AppException(ErrorCode.MEMBER_ALREADY_REJECTED);

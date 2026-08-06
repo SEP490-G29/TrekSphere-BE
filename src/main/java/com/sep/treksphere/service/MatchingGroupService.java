@@ -34,7 +34,7 @@ public interface MatchingGroupService {
 
     MatchingMemberResponse approveMember(UUID groupId, UUID memberId, CustomUserDetails userDetails);
 
-    MatchingMemberResponse rejectMember(UUID memberId, CustomUserDetails userDetails);
+    MatchingMemberResponse rejectMember(UUID groupId, UUID memberId, CustomUserDetails userDetails);
 
     MatchingMemberResponse leaveMatchingGroup(UUID groupId, CustomUserDetails userDetails);
 
