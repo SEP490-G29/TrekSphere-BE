@@ -1,6 +1,7 @@
 package com.sep.treksphere.service.impl;
 
 import com.sep.treksphere.dto.request.MatchingGroupCreateRequest;
+import com.sep.treksphere.dto.request.MatchingGroupFilterRequest;
 import com.sep.treksphere.dto.response.MatchingGroupDetailResponse;
 import com.sep.treksphere.entity.MatchingGroup;
 import com.sep.treksphere.entity.Tour;
@@ -23,6 +24,8 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -34,7 +37,9 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyCollection;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -76,7 +81,53 @@ class MatchingGroupServiceImplTest {
         request.setTargetDate(LocalDate.now().plusDays(10));
         request.setMatchingDeadline(LocalDateTime.now().plusDays(5));
 
-        when(userRepository.findByIdForUpdate(owner.getUserId())).thenReturn(Optional.of(owner));
+        lenient().when(userRepository.findByIdForUpdate(owner.getUserId())).thenReturn(Optional.of(owner));
+    }
+
+    @Test
+    void getMatchingGroups_NormalizesKeywordAndQueriesOnlyAvailableGroupsOfPublicTours() {
+        MatchingGroupFilterRequest filter = new MatchingGroupFilterRequest();
+        filter.setTourId(tour.getTourId());
+        filter.setTargetDate(LocalDate.now().plusDays(10));
+        filter.setKeyword("  fanSIPan  ");
+        when(matchingGroupRepository.findAvailableMatchingGroups(
+                any(), any(), any(), any(), any(), any(), any(), any(Pageable.class)))
+                .thenReturn(Page.empty());
+
+        service.getMatchingGroups(filter);
+
+        verify(matchingGroupRepository).findAvailableMatchingGroups(
+                eq(com.sep.treksphere.enums.matching.MatchingGroupStatus.OPEN),
+                eq(TourStatus.APPROVED),
+                eq(tour.getTourId()),
+                eq(filter.getTargetDate()),
+                eq("fansipan"),
+                any(LocalDate.class),
+                any(LocalDateTime.class),
+                any(Pageable.class)
+        );
+    }
+
+    @Test
+    void getMatchingGroups_TreatsBlankKeywordAsNoKeywordFilter() {
+        MatchingGroupFilterRequest filter = new MatchingGroupFilterRequest();
+        filter.setKeyword("   ");
+        when(matchingGroupRepository.findAvailableMatchingGroups(
+                any(), any(), any(), any(), any(), any(), any(), any(Pageable.class)))
+                .thenReturn(Page.empty());
+
+        service.getMatchingGroups(filter);
+
+        verify(matchingGroupRepository).findAvailableMatchingGroups(
+                eq(com.sep.treksphere.enums.matching.MatchingGroupStatus.OPEN),
+                eq(TourStatus.APPROVED),
+                isNull(),
+                isNull(),
+                eq(""),
+                any(LocalDate.class),
+                any(LocalDateTime.class),
+                any(Pageable.class)
+        );
     }
 
     @Test

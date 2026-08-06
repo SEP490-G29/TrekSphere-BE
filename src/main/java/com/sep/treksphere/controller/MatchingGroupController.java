@@ -36,7 +36,9 @@ public class MatchingGroupController {
 
     @Operation(
         summary = "Tìm kiếm các nhóm ghép bạn đồng hành",
-        description = "Lấy danh sách các nhóm ghép bạn đồng hành đang mở (OPEN) có phân trang. Cho phép lọc theo tour và ngày khởi hành dự kiến."
+        description = "Lấy danh sách các nhóm còn mở ghép thành viên của Tour đang public. " +
+                "Cho phép tìm theo tên nhóm hoặc tên Tour, lọc theo Tour và ngày Trekker dự kiến đi; " +
+                "ngày dự kiến không phụ thuộc lịch khởi hành của Tour."
     )
     @GetMapping
     public ResponseEntity<ApiResponse<PaginationResponse<MatchingGroupResponse>>> getMatchingGroups(

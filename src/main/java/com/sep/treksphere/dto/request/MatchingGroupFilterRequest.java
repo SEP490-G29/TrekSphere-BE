@@ -13,6 +13,6 @@ public class MatchingGroupFilterRequest extends BaseFilterRequest {
     @Schema(description = "Lọc theo ID của Tour")
     private UUID tourId;
 
-    @Schema(description = "Lọc theo ngày khởi hành dự kiến (yyyy-MM-dd)")
+    @Schema(description = "Lọc theo ngày Trekker dự kiến đi, không phụ thuộc lịch khởi hành của Tour (yyyy-MM-dd)")
     private LocalDate targetDate;
 }

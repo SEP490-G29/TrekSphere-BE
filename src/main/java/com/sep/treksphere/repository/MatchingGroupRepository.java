@@ -3,6 +3,7 @@ package com.sep.treksphere.repository;
 import com.sep.treksphere.entity.MatchingGroup;
 import com.sep.treksphere.entity.User;
 import com.sep.treksphere.enums.matching.MatchingGroupStatus;
+import com.sep.treksphere.enums.tour.TourStatus;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -11,6 +12,7 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
@@ -47,19 +49,44 @@ public interface MatchingGroupRepository extends JpaRepository<MatchingGroup, UU
         JOIN FETCH mg.owner o
         WHERE mg.isDeleted = false
           AND mg.status = :status
+          AND mg.currentSize < mg.maxSize
+          AND mg.matchingDeadline > :now
+          AND mg.targetDate > :today
+          AND t.isDeleted = false
+          AND t.status = :tourStatus
           AND (:tourId IS NULL OR t.tourId = :tourId)
           AND (:targetDate IS NULL OR mg.targetDate = :targetDate)
+          AND (
+              :keyword = ''
+              OR LOWER(mg.groupName) LIKE CONCAT('%', :keyword, '%')
+              OR LOWER(t.tourName) LIKE CONCAT('%', :keyword, '%')
+          )
         """, countQuery = """
         SELECT COUNT(mg) FROM MatchingGroup mg
+        JOIN mg.tour t
         WHERE mg.isDeleted = false
           AND mg.status = :status
-          AND (:tourId IS NULL OR mg.tour.tourId = :tourId)
+          AND mg.currentSize < mg.maxSize
+          AND mg.matchingDeadline > :now
+          AND mg.targetDate > :today
+          AND t.isDeleted = false
+          AND t.status = :tourStatus
+          AND (:tourId IS NULL OR t.tourId = :tourId)
           AND (:targetDate IS NULL OR mg.targetDate = :targetDate)
+          AND (
+              :keyword = ''
+              OR LOWER(mg.groupName) LIKE CONCAT('%', :keyword, '%')
+              OR LOWER(t.tourName) LIKE CONCAT('%', :keyword, '%')
+          )
         """)
     Page<MatchingGroup> findAvailableMatchingGroups(
             @Param("status") MatchingGroupStatus status,
+            @Param("tourStatus") TourStatus tourStatus,
             @Param("tourId") UUID tourId,
             @Param("targetDate") LocalDate targetDate,
+            @Param("keyword") String keyword,
+            @Param("today") LocalDate today,
+            @Param("now") LocalDateTime now,
             Pageable pageable
     );
 

@@ -35,6 +35,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Locale;
 import java.util.Set;
 import java.util.UUID;
 
@@ -52,13 +53,24 @@ public class MatchingGroupServiceImpl implements MatchingGroupService {
     @Override
     @Transactional(readOnly = true)
     public PaginationResponse<MatchingGroupResponse> getMatchingGroups(MatchingGroupFilterRequest filter) {
-        log.info("Fetching available matching groups with filters: tourId={}, targetDate={}",
-                filter.getTourId(), filter.getTargetDate());
+        String keyword = filter.getKeyword() == null
+                ? ""
+                : filter.getKeyword().trim().toLowerCase(Locale.ROOT);
+
+        LocalDate today = LocalDate.now();
+        LocalDateTime now = LocalDateTime.now();
+
+        log.info("Fetching available matching groups with filters: tourId={}, targetDate={}, keyword={}",
+                filter.getTourId(), filter.getTargetDate(), keyword);
 
         Page<MatchingGroup> groups = matchingGroupRepository.findAvailableMatchingGroups(
                 MatchingGroupStatus.OPEN,
+                TourStatus.APPROVED,
                 filter.getTourId(),
                 filter.getTargetDate(),
+                keyword,
+                today,
+                now,
                 filter.getPageable()
         );
 
