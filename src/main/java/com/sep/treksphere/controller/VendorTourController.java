@@ -200,29 +200,4 @@ public class VendorTourController {
         return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, response, MessageConstant.TOUR_UNHIDDEN_SUCCESSFULLY));
     }
 
-    @Operation(summary = "Phê duyệt Tour", description = "VendorManager duyệt Tour từ PENDING_APPROVAL -> APPROVED để mở bán.")
-    @PreAuthorize("hasRole('VENDOR_MANAGER')")
-    @PutMapping("/{id}/approve")
-    public ResponseEntity<ApiResponse<TourDetailResponse>> approveTour(
-            @AuthenticationPrincipal CustomUserDetails userDetails,
-            @PathVariable UUID id) {
-
-        TourDetailResponse response = tourService.approveTour(userDetails.getUsername(), id);
-        return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, response, MessageConstant.TOUR_APPROVED_SUCCESSFULLY));
-    }
-
-    @Operation(summary = "Từ chối Tour", description = "VendorManager từ chối duyệt Tour từ PENDING_APPROVAL -> REJECTED kèm lý do.")
-    @PreAuthorize("hasRole('VENDOR_MANAGER')")
-    @PutMapping("/{id}/reject")
-    public ResponseEntity<ApiResponse<TourDetailResponse>> rejectTour(
-            @AuthenticationPrincipal CustomUserDetails userDetails,
-            @PathVariable UUID id,
-            @RequestBody(required = false) RejectTourRequest request) {
-
-        String reason = (request != null && StringUtils.hasText(request.getReason()))
-                ? request.getReason()
-                : "Không đạt yêu cầu phê duyệt";
-        TourDetailResponse response = tourService.rejectTour(userDetails.getUsername(), id, reason);
-        return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, response, MessageConstant.TOUR_REJECTED_SUCCESSFULLY));
-    }
 }
