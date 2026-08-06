@@ -2,6 +2,7 @@ package com.sep.treksphere.service;
 
 import com.sep.treksphere.dto.request.MatchingGroupCreateRequest;
 import com.sep.treksphere.dto.request.MatchingGroupFilterRequest;
+import com.sep.treksphere.dto.request.OwnedMatchingGroupFilterRequest;
 import com.sep.treksphere.dto.response.MatchingGroupDetailResponse;
 import com.sep.treksphere.dto.response.MatchingGroupResponse;
 import com.sep.treksphere.dto.response.MatchingMemberResponse;
@@ -10,12 +11,14 @@ import com.sep.treksphere.enums.matching.JoinStatus;
 import com.sep.treksphere.security.CustomUserDetails;
 
 import java.util.UUID;
-import java.util.List;
 
 public interface MatchingGroupService {
     PaginationResponse<MatchingGroupResponse> getMatchingGroups(MatchingGroupFilterRequest filter);
 
-    List<MatchingGroupResponse> getMyMatchingGroups(CustomUserDetails userDetails);
+    PaginationResponse<MatchingGroupResponse> getOwnedMatchingGroups(
+            OwnedMatchingGroupFilterRequest filter,
+            CustomUserDetails userDetails
+    );
 
     MatchingGroupDetailResponse getMatchingGroupById(UUID id, CustomUserDetails userDetails);
 

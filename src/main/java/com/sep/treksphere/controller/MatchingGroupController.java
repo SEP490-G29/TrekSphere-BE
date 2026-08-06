@@ -3,6 +3,7 @@ package com.sep.treksphere.controller;
 import com.sep.treksphere.constant.MessageConstant;
 import com.sep.treksphere.dto.request.MatchingGroupCreateRequest;
 import com.sep.treksphere.dto.request.MatchingGroupFilterRequest;
+import com.sep.treksphere.dto.request.OwnedMatchingGroupFilterRequest;
 import com.sep.treksphere.dto.response.ApiResponse;
 import com.sep.treksphere.dto.response.MatchingGroupDetailResponse;
 import com.sep.treksphere.dto.response.MatchingGroupResponse;
@@ -24,7 +25,6 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.UUID;
-import java.util.List;
 
 @RestController
 @RequestMapping("/api/v1/matching-groups")
@@ -47,12 +47,18 @@ public class MatchingGroupController {
         return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, result, MessageConstant.MATCHING_GROUPS_FETCHED_SUCCESS));
     }
 
-    @Operation(summary = "Lấy các nhóm ghép đang hoạt động do Trekker hiện tại quản lý")
-    @GetMapping("/mine")
+    @Operation(
+        summary = "Lấy các nhóm ghép do Trekker hiện tại quản lý",
+        description = "Trả về tất cả nhóm do Trekker hiện tại sở hữu, bao gồm lịch sử nhóm đã giải tán và không giới hạn theo ngày dự kiến đi. " +
+                "Có thể lọc theo trạng thái và tìm theo tên nhóm hoặc tên Tour."
+    )
+    @GetMapping("/owned")
     @PreAuthorize("hasRole('TREKKER')")
-    public ResponseEntity<ApiResponse<List<MatchingGroupResponse>>> getMyMatchingGroups(
+    public ResponseEntity<ApiResponse<PaginationResponse<MatchingGroupResponse>>> getOwnedMatchingGroups(
+            @Valid @ParameterObject @ModelAttribute OwnedMatchingGroupFilterRequest filter,
             @AuthenticationPrincipal CustomUserDetails userDetails) {
-        List<MatchingGroupResponse> result = matchingGroupService.getMyMatchingGroups(userDetails);
+        PaginationResponse<MatchingGroupResponse> result =
+                matchingGroupService.getOwnedMatchingGroups(filter, userDetails);
         return ResponseEntity.ok(ApiResponse.success(
                 HttpStatus.OK,
                 result,

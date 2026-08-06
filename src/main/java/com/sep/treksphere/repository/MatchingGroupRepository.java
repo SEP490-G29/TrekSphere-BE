@@ -14,7 +14,6 @@ import org.springframework.stereotype.Repository;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.Collection;
-import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -27,20 +26,33 @@ public interface MatchingGroupRepository extends JpaRepository<MatchingGroup, UU
             LocalDate targetDate
     );
 
-    @Query("""
+    @Query(value = """
         SELECT mg FROM MatchingGroup mg
         JOIN FETCH mg.tour t
         JOIN FETCH mg.owner o
         WHERE o.userId = :ownerId
-          AND mg.status IN :statuses
-          AND mg.targetDate >= :today
-          AND mg.isDeleted = false
-        ORDER BY mg.createdAt DESC
+          AND (:status IS NULL OR mg.status = :status)
+          AND (
+              :keyword = ''
+              OR LOWER(mg.groupName) LIKE CONCAT('%', :keyword, '%')
+              OR LOWER(t.tourName) LIKE CONCAT('%', :keyword, '%')
+          )
+    """, countQuery = """
+        SELECT COUNT(mg) FROM MatchingGroup mg
+        JOIN mg.tour t
+        WHERE mg.owner.userId = :ownerId
+          AND (:status IS NULL OR mg.status = :status)
+          AND (
+              :keyword = ''
+              OR LOWER(mg.groupName) LIKE CONCAT('%', :keyword, '%')
+              OR LOWER(t.tourName) LIKE CONCAT('%', :keyword, '%')
+          )
     """)
-    List<MatchingGroup> findOwnedActiveGroups(
+    Page<MatchingGroup> findOwnedGroups(
             @Param("ownerId") UUID ownerId,
-            @Param("statuses") Collection<MatchingGroupStatus> statuses,
-            @Param("today") LocalDate today
+            @Param("status") MatchingGroupStatus status,
+            @Param("keyword") String keyword,
+            Pageable pageable
     );
 
     @Query(value = """

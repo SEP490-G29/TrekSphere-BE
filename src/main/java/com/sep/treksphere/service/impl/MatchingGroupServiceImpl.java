@@ -2,6 +2,7 @@ package com.sep.treksphere.service.impl;
 
 import com.sep.treksphere.dto.request.MatchingGroupCreateRequest;
 import com.sep.treksphere.dto.request.MatchingGroupFilterRequest;
+import com.sep.treksphere.dto.request.OwnedMatchingGroupFilterRequest;
 import com.sep.treksphere.dto.response.MatchingGroupDetailResponse;
 import com.sep.treksphere.dto.response.MatchingGroupResponse;
 import com.sep.treksphere.dto.response.MatchingMemberResponse;
@@ -79,15 +80,26 @@ public class MatchingGroupServiceImpl implements MatchingGroupService {
 
     @Override
     @Transactional(readOnly = true)
-    public List<MatchingGroupResponse> getMyMatchingGroups(CustomUserDetails userDetails) {
+    public PaginationResponse<MatchingGroupResponse> getOwnedMatchingGroups(
+            OwnedMatchingGroupFilterRequest filter,
+            CustomUserDetails userDetails
+    ) {
         UUID ownerId = userDetails.getUser().getUserId();
-        return matchingGroupRepository.findOwnedActiveGroups(
-                        ownerId,
-                        Set.of(MatchingGroupStatus.OPEN, MatchingGroupStatus.FULL),
-                        LocalDate.now()
-                ).stream()
-                .map(matchingGroupMapper::toResponse)
-                .toList();
+        String keyword = filter.getKeyword() == null
+                ? ""
+                : filter.getKeyword().trim().toLowerCase(Locale.ROOT);
+
+        log.info("Fetching owned matching groups: ownerId={}, status={}, keyword={}",
+                ownerId, filter.getStatus(), keyword);
+
+        Page<MatchingGroup> groups = matchingGroupRepository.findOwnedGroups(
+                ownerId,
+                filter.getStatus(),
+                keyword,
+                filter.getPageable()
+        );
+
+        return PaginationUtils.toPaginationResponse(groups.map(matchingGroupMapper::toResponse));
     }
 
     @Override

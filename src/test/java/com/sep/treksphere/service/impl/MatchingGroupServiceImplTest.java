@@ -2,8 +2,11 @@ package com.sep.treksphere.service.impl;
 
 import com.sep.treksphere.dto.request.MatchingGroupCreateRequest;
 import com.sep.treksphere.dto.request.MatchingGroupFilterRequest;
+import com.sep.treksphere.dto.request.OwnedMatchingGroupFilterRequest;
 import com.sep.treksphere.dto.response.MatchingGroupDetailResponse;
+import com.sep.treksphere.dto.response.MatchingGroupResponse;
 import com.sep.treksphere.dto.response.MatchingMemberResponse;
+import com.sep.treksphere.dto.response.PaginationResponse;
 import com.sep.treksphere.entity.MatchingGroup;
 import com.sep.treksphere.entity.MatchingMember;
 import com.sep.treksphere.entity.Tour;
@@ -28,10 +31,14 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -130,6 +137,67 @@ class MatchingGroupServiceImplTest {
                 any(LocalDate.class),
                 any(LocalDateTime.class),
                 any(Pageable.class)
+        );
+    }
+
+    @Test
+    void getOwnedMatchingGroups_ReturnsAllOwnedGroupsWithoutDateRestriction() {
+        OwnedMatchingGroupFilterRequest filter = new OwnedMatchingGroupFilterRequest();
+        filter.setKeyword("  fanSIPan  ");
+
+        MatchingGroup closedPastGroup = new MatchingGroup();
+        closedPastGroup.setTargetDate(LocalDate.now().minusDays(10));
+        closedPastGroup.setStatus(MatchingGroupStatus.CLOSED);
+        closedPastGroup.setIsDeleted(true);
+        MatchingGroupResponse mappedResponse = new MatchingGroupResponse();
+
+        when(matchingGroupRepository.findOwnedGroups(
+                eq(owner.getUserId()), isNull(), eq("fansipan"), any(Pageable.class)))
+                .thenReturn(new PageImpl<>(List.of(closedPastGroup)));
+        when(matchingGroupMapper.toResponse(closedPastGroup)).thenReturn(mappedResponse);
+
+        PaginationResponse<MatchingGroupResponse> result =
+                service.getOwnedMatchingGroups(filter, userDetails);
+
+        assertThat(result.getContent()).containsExactly(mappedResponse);
+        assertThat(result.getTotalElements()).isEqualTo(1);
+        verify(matchingGroupRepository).findOwnedGroups(
+                eq(owner.getUserId()), isNull(), eq("fansipan"), any(Pageable.class));
+    }
+
+    @Test
+    void getOwnedMatchingGroups_AppliesStatusFilter() {
+        OwnedMatchingGroupFilterRequest filter = new OwnedMatchingGroupFilterRequest();
+        filter.setStatus(MatchingGroupStatus.FULL);
+
+        when(matchingGroupRepository.findOwnedGroups(
+                eq(owner.getUserId()), eq(MatchingGroupStatus.FULL), eq(""), any(Pageable.class)))
+                .thenReturn(Page.empty());
+
+        service.getOwnedMatchingGroups(filter, userDetails);
+
+        verify(matchingGroupRepository).findOwnedGroups(
+                eq(owner.getUserId()), eq(MatchingGroupStatus.FULL), eq(""), any(Pageable.class));
+    }
+
+    @Test
+    void getOwnedMatchingGroups_LimitsPageSizeAndFallsBackFromUnsupportedSortField() {
+        OwnedMatchingGroupFilterRequest filter = new OwnedMatchingGroupFilterRequest();
+        filter.setPage(-1);
+        filter.setSize(1_000);
+        filter.setSortBy("owner.password");
+        filter.setSortDir("asc");
+
+        when(matchingGroupRepository.findOwnedGroups(any(), any(), any(), any(Pageable.class)))
+                .thenReturn(Page.empty());
+
+        service.getOwnedMatchingGroups(filter, userDetails);
+
+        verify(matchingGroupRepository).findOwnedGroups(
+                eq(owner.getUserId()),
+                isNull(),
+                eq(""),
+                eq(PageRequest.of(0, 100, Sort.by(Sort.Direction.ASC, "createdAt")))
         );
     }
 
