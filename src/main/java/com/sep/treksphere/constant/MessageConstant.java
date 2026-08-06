@@ -452,6 +452,18 @@ public class MessageConstant {
     public static final String DIRECT_PARTICIPANT_COUNT_INVALID = "Cuộc hội thoại 1-1 phải có đúng một người nhận";
     public static final String GROUP_PARTICIPANT_COUNT_INVALID = "Cuộc hội thoại nhóm phải có ít nhất hai người tham gia";
     public static final String GROUP_TITLE_REQUIRED = "Tên cuộc hội thoại nhóm không được để trống";
+
+    // Report Messages
+    public static final String REPORT_NOT_FOUND = "Báo cáo vi phạm không tồn tại";
+    public static final String REPORT_TARGET_NOT_FOUND = "Nội dung bị báo cáo không tồn tại";
+    public static final String REPORT_CREATED_SUCCESS = "Gửi báo cáo vi phạm thành công";
+    public static final String REPORTS_FETCHED_SUCCESS = "Lấy danh sách báo cáo vi phạm thành công";
+    public static final String REPORT_RESOLVED_SUCCESS = "Xử lý báo cáo vi phạm thành công";
+    public static final String REPORT_ALREADY_RESOLVED = "Báo cáo này đã được xử lý";
+    public static final String REPORT_TARGET_ID_REQUIRED = "ID nội dung báo cáo không được để trống";
+    public static final String REPORT_TARGET_TYPE_REQUIRED = "Loại nội dung báo cáo không được để trống";
+    public static final String REPORT_REASON_REQUIRED = "Lý do báo cáo không được để trống";
+    public static final String REPORT_ACTION_REQUIRED = "Hành động xử lý không được để trống";
 }
 
 

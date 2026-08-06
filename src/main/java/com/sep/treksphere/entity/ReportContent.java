@@ -1,6 +1,6 @@
 package com.sep.treksphere.entity;
 
-import com.sep.treksphere.enums.blog.ReportStatus;
+import com.sep.treksphere.enums.report.ReportStatus;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -43,4 +43,11 @@ public class ReportContent extends BaseEntity {
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 10)
     private ReportStatus status = ReportStatus.PENDING;
+
+    @Column(name = "resolution_notes", length = 500)
+    private String resolutionNotes;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "resolved_by")
+    private User resolvedBy;
 }
