@@ -32,7 +32,7 @@ public interface MatchingGroupService {
             CustomUserDetails userDetails
     );
 
-    MatchingMemberResponse approveMember(UUID memberId, CustomUserDetails userDetails);
+    MatchingMemberResponse approveMember(UUID groupId, UUID memberId, CustomUserDetails userDetails);
 
     MatchingMemberResponse rejectMember(UUID memberId, CustomUserDetails userDetails);
 

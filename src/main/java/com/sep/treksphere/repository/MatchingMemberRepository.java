@@ -29,6 +29,31 @@ public interface MatchingMemberRepository extends JpaRepository<MatchingMember, 
     """)
     Optional<MatchingMember> findDetailByMemberId(@Param("memberId") UUID memberId);
 
+    @Query("""
+        SELECT mm FROM MatchingMember mm
+        JOIN FETCH mm.user u
+        WHERE mm.matchingMemberId = :memberId
+          AND mm.matchingGroup.matchingGroupId = :groupId
+          AND mm.role = :role
+          AND mm.isDeleted = false
+    """)
+    Optional<MatchingMember> findJoinRequestByIdAndGroupId(
+            @Param("memberId") UUID memberId,
+            @Param("groupId") UUID groupId,
+            @Param("role") MatchingRole role
+    );
+
+    @Query("""
+        SELECT COUNT(mm) FROM MatchingMember mm
+        WHERE mm.matchingGroup.matchingGroupId = :groupId
+          AND mm.status = :status
+          AND mm.isDeleted = false
+    """)
+    long countActiveMembersByGroupIdAndStatus(
+            @Param("groupId") UUID groupId,
+            @Param("status") JoinStatus status
+    );
+
     @Query(
         value = """
             SELECT mm FROM MatchingMember mm

@@ -344,26 +344,46 @@ public class MatchingGroupServiceImpl implements MatchingGroupService {
 
     @Override
     @Transactional
-    public MatchingMemberResponse approveMember(UUID memberId, CustomUserDetails userDetails) {
+    public MatchingMemberResponse approveMember(
+            UUID groupId,
+            UUID memberId,
+            CustomUserDetails userDetails
+    ) {
         User currentUser = userDetails.getUser();
-        log.info("Approving member: memberId={}, requesterId={}", memberId, currentUser.getUserId());
+        log.info("Approving matching group join request: groupId={}, memberId={}, requesterId={}",
+                groupId, memberId, currentUser.getUserId());
 
-        MatchingMember member = matchingMemberRepository.findDetailByMemberId(memberId)
-                .orElseThrow(() -> new AppException(ErrorCode.MATCHING_MEMBER_NOT_FOUND));
+        MatchingGroup matchingGroup = matchingGroupRepository.findByIdForApproval(groupId)
+                .orElseThrow(() -> new AppException(ErrorCode.MATCHING_GROUP_NOT_FOUND));
 
-        MatchingGroup matchingGroup = member.getMatchingGroup();
+        if (!matchingGroup.getOwner().getUserId().equals(currentUser.getUserId())) {
+            throw new AppException(ErrorCode.UNAUTHORIZED_APPROVE_MEMBER);
+        }
 
         if (matchingGroup.getStatus() != MatchingGroupStatus.OPEN) {
             throw new AppException(ErrorCode.MATCHING_GROUP_NOT_OPEN);
         }
 
-        if (LocalDateTime.now().isAfter(matchingGroup.getMatchingDeadline())) {
+        LocalDateTime now = LocalDateTime.now();
+        if (!matchingGroup.getMatchingDeadline().isAfter(now)) {
             throw new AppException(ErrorCode.MATCHING_DEADLINE_PASSED);
         }
 
-        if (!matchingGroup.getOwner().getUserId().equals(currentUser.getUserId())) {
-            throw new AppException(ErrorCode.UNAUTHORIZED_APPROVE_MEMBER);
+        if (!matchingGroup.getTargetDate().isAfter(LocalDate.now())) {
+            throw new AppException(ErrorCode.MATCHING_TARGET_DATE_PASSED);
         }
+
+        Tour tour = matchingGroup.getTour();
+        if (Boolean.TRUE.equals(tour.getIsDeleted()) || tour.getStatus() != TourStatus.APPROVED) {
+            throw new AppException(ErrorCode.MATCHING_TOUR_NOT_AVAILABLE);
+        }
+
+        MatchingMember member = matchingMemberRepository.findJoinRequestByIdAndGroupId(
+                        memberId,
+                        groupId,
+                        MatchingRole.MEMBER
+                )
+                .orElseThrow(() -> new AppException(ErrorCode.MATCHING_MEMBER_NOT_FOUND));
 
         if (member.getStatus() == JoinStatus.ACCEPTED) {
             throw new AppException(ErrorCode.MEMBER_ALREADY_APPROVED);
@@ -372,15 +392,17 @@ public class MatchingGroupServiceImpl implements MatchingGroupService {
             throw new AppException(ErrorCode.INVALID_MEMBER_STATUS);
         }
 
-        long acceptedCount = matchingGroup.getMembers().stream()
-                .filter(m -> m.getStatus() == JoinStatus.ACCEPTED && !Boolean.TRUE.equals(m.getIsDeleted()))
-                .count();
+        long acceptedCount = matchingMemberRepository
+                .countActiveMembersByGroupIdAndStatus(
+                        groupId,
+                        JoinStatus.ACCEPTED
+                );
         if (acceptedCount >= matchingGroup.getMaxSize()) {
             throw new AppException(ErrorCode.MATCHING_GROUP_FULL);
         }
 
         member.setStatus(JoinStatus.ACCEPTED);
-        int newSize = (int) (acceptedCount + 1);
+        int newSize = Math.toIntExact(acceptedCount + 1);
         matchingGroup.setCurrentSize(newSize);
 
         if (newSize == matchingGroup.getMaxSize()) {
