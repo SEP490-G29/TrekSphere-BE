@@ -84,16 +84,18 @@ public class MatchingGroupServiceImpl implements MatchingGroupService {
             OwnedMatchingGroupFilterRequest filter,
             CustomUserDetails userDetails
     ) {
-        UUID ownerId = userDetails.getUser().getUserId();
+        UUID userId = userDetails.getUser().getUserId();
         String keyword = filter.getKeyword() == null
                 ? ""
                 : filter.getKeyword().trim().toLowerCase(Locale.ROOT);
 
-        log.info("Fetching owned matching groups: ownerId={}, status={}, keyword={}",
-                ownerId, filter.getStatus(), keyword);
+        log.info("Fetching owned or joined matching groups: userId={}, status={}, keyword={}",
+                userId, filter.getStatus(), keyword);
 
-        Page<MatchingGroup> groups = matchingGroupRepository.findOwnedGroups(
-                ownerId,
+        Page<MatchingGroup> groups = matchingGroupRepository.findOwnedOrJoinedGroups(
+                userId,
+                MatchingRole.MEMBER,
+                JoinStatus.ACCEPTED,
                 filter.getStatus(),
                 keyword,
                 filter.getPageable()

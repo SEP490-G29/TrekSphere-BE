@@ -151,8 +151,9 @@ class MatchingGroupServiceImplTest {
         closedPastGroup.setIsDeleted(true);
         MatchingGroupResponse mappedResponse = new MatchingGroupResponse();
 
-        when(matchingGroupRepository.findOwnedGroups(
-                eq(owner.getUserId()), isNull(), eq("fansipan"), any(Pageable.class)))
+        when(matchingGroupRepository.findOwnedOrJoinedGroups(
+                eq(owner.getUserId()), eq(MatchingRole.MEMBER), eq(JoinStatus.ACCEPTED),
+                isNull(), eq("fansipan"), any(Pageable.class)))
                 .thenReturn(new PageImpl<>(List.of(closedPastGroup)));
         when(matchingGroupMapper.toResponse(closedPastGroup)).thenReturn(mappedResponse);
 
@@ -161,8 +162,9 @@ class MatchingGroupServiceImplTest {
 
         assertThat(result.getContent()).containsExactly(mappedResponse);
         assertThat(result.getTotalElements()).isEqualTo(1);
-        verify(matchingGroupRepository).findOwnedGroups(
-                eq(owner.getUserId()), isNull(), eq("fansipan"), any(Pageable.class));
+        verify(matchingGroupRepository).findOwnedOrJoinedGroups(
+                eq(owner.getUserId()), eq(MatchingRole.MEMBER), eq(JoinStatus.ACCEPTED),
+                isNull(), eq("fansipan"), any(Pageable.class));
     }
 
     @Test
@@ -170,14 +172,16 @@ class MatchingGroupServiceImplTest {
         OwnedMatchingGroupFilterRequest filter = new OwnedMatchingGroupFilterRequest();
         filter.setStatus(MatchingGroupStatus.FULL);
 
-        when(matchingGroupRepository.findOwnedGroups(
-                eq(owner.getUserId()), eq(MatchingGroupStatus.FULL), eq(""), any(Pageable.class)))
+        when(matchingGroupRepository.findOwnedOrJoinedGroups(
+                eq(owner.getUserId()), eq(MatchingRole.MEMBER), eq(JoinStatus.ACCEPTED),
+                eq(MatchingGroupStatus.FULL), eq(""), any(Pageable.class)))
                 .thenReturn(Page.empty());
 
         service.getOwnedMatchingGroups(filter, userDetails);
 
-        verify(matchingGroupRepository).findOwnedGroups(
-                eq(owner.getUserId()), eq(MatchingGroupStatus.FULL), eq(""), any(Pageable.class));
+        verify(matchingGroupRepository).findOwnedOrJoinedGroups(
+                eq(owner.getUserId()), eq(MatchingRole.MEMBER), eq(JoinStatus.ACCEPTED),
+                eq(MatchingGroupStatus.FULL), eq(""), any(Pageable.class));
     }
 
     @Test
@@ -188,13 +192,16 @@ class MatchingGroupServiceImplTest {
         filter.setSortBy("owner.password");
         filter.setSortDir("asc");
 
-        when(matchingGroupRepository.findOwnedGroups(any(), any(), any(), any(Pageable.class)))
+        when(matchingGroupRepository.findOwnedOrJoinedGroups(
+                any(), any(), any(), any(), any(), any(Pageable.class)))
                 .thenReturn(Page.empty());
 
         service.getOwnedMatchingGroups(filter, userDetails);
 
-        verify(matchingGroupRepository).findOwnedGroups(
+        verify(matchingGroupRepository).findOwnedOrJoinedGroups(
                 eq(owner.getUserId()),
+                eq(MatchingRole.MEMBER),
+                eq(JoinStatus.ACCEPTED),
                 isNull(),
                 eq(""),
                 eq(PageRequest.of(0, 100, Sort.by(Sort.Direction.ASC, "createdAt")))
