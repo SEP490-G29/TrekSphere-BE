@@ -309,15 +309,49 @@ class MatchingGroupServiceImplTest {
     }
 
     @Test
-    void createMatchingGroup_RejectsOwnerWithOpenOrFullFutureGroup() {
+    void createMatchingGroup_RejectsOwnerWithActiveGroupForSameTour() {
+        when(tourRepository.findByTourIdAndIsDeletedFalse(tour.getTourId())).thenReturn(Optional.of(tour));
         when(matchingGroupRepository
-                .existsByOwnerAndStatusInAndTargetDateGreaterThanEqualAndIsDeletedFalse(
-                        eq(owner), anyCollection(), any(LocalDate.class)))
+                .existsByOwnerAndTourAndStatusInAndMatchingDeadlineAfterAndTargetDateAfterAndIsDeletedFalse(
+                        eq(owner),
+                        eq(tour),
+                        anyCollection(),
+                        any(LocalDateTime.class),
+                        any(LocalDate.class)))
                 .thenReturn(true);
 
         assertError(ErrorCode.ALREADY_HAS_ACTIVE_GROUP);
 
-        verify(tourRepository, never()).findByTourIdAndIsDeletedFalse(any());
+        verify(matchingGroupRepository, never()).save(any());
+    }
+
+    @Test
+    void createMatchingGroup_AllowsOwnerToCreateActiveGroupForDifferentTour() {
+        Tour anotherTour = new Tour();
+        anotherTour.setTourId(UUID.randomUUID());
+        anotherTour.setTourName("Ta Xua");
+        anotherTour.setStatus(TourStatus.APPROVED);
+        anotherTour.setMaxCapacity(8);
+        request.setTourId(anotherTour.getTourId());
+
+        when(tourRepository.findByTourIdAndIsDeletedFalse(anotherTour.getTourId()))
+                .thenReturn(Optional.of(anotherTour));
+        when(matchingGroupRepository
+                .existsByOwnerAndTourAndStatusInAndMatchingDeadlineAfterAndTargetDateAfterAndIsDeletedFalse(
+                        eq(owner),
+                        eq(anotherTour),
+                        anyCollection(),
+                        any(LocalDateTime.class),
+                        any(LocalDate.class)))
+                .thenReturn(false);
+        when(matchingGroupRepository.save(any(MatchingGroup.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+        when(matchingGroupMapper.toDetailResponse(any(MatchingGroup.class)))
+                .thenReturn(new MatchingGroupDetailResponse());
+
+        service.createMatchingGroup(request, userDetails);
+
+        verify(matchingGroupRepository).save(any(MatchingGroup.class));
     }
 
     @Test
@@ -327,12 +361,12 @@ class MatchingGroupServiceImplTest {
         assertError(ErrorCode.VALIDATION_ERROR);
 
         verify(matchingGroupRepository, never())
-                .existsByOwnerAndStatusInAndTargetDateGreaterThanEqualAndIsDeletedFalse(any(), anyCollection(), any());
+                .existsByOwnerAndTourAndStatusInAndMatchingDeadlineAfterAndTargetDateAfterAndIsDeletedFalse(
+                        any(), any(), anyCollection(), any(), any());
     }
 
     @Test
     void createMatchingGroup_RejectsTourThatIsNotApproved() {
-        stubNoActiveGroup();
         tour.setStatus(TourStatus.HIDDEN);
         when(tourRepository.findByTourIdAndIsDeletedFalse(tour.getTourId())).thenReturn(Optional.of(tour));
 
@@ -342,22 +376,38 @@ class MatchingGroupServiceImplTest {
 
     @Test
     void createMatchingGroup_RejectsSizeAboveTourCapacity() {
-        stubApprovedTour();
+        when(tourRepository.findByTourIdAndIsDeletedFalse(tour.getTourId())).thenReturn(Optional.of(tour));
         request.setMaxSize(11);
 
         assertError(ErrorCode.MATCHING_GROUP_SIZE_EXCEEDS_TOUR_CAPACITY);
     }
 
-    private void stubNoActiveGroup() {
-        when(matchingGroupRepository
-                .existsByOwnerAndStatusInAndTargetDateGreaterThanEqualAndIsDeletedFalse(
-                        eq(owner), anyCollection(), any(LocalDate.class)))
-                .thenReturn(false);
-    }
-
-    private void stubApprovedTour() {
+    @Test
+    void createMatchingGroup_AllowsSizeEqualToTourCapacity() {
+        request.setMaxSize(tour.getMaxCapacity());
         stubNoActiveGroup();
         when(tourRepository.findByTourIdAndIsDeletedFalse(tour.getTourId())).thenReturn(Optional.of(tour));
+        when(matchingGroupRepository.save(any(MatchingGroup.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+        when(matchingGroupMapper.toDetailResponse(any(MatchingGroup.class)))
+                .thenReturn(new MatchingGroupDetailResponse());
+
+        service.createMatchingGroup(request, userDetails);
+
+        ArgumentCaptor<MatchingGroup> captor = ArgumentCaptor.forClass(MatchingGroup.class);
+        verify(matchingGroupRepository).save(captor.capture());
+        assertThat(captor.getValue().getMaxSize()).isEqualTo(tour.getMaxCapacity());
+    }
+
+    private void stubNoActiveGroup() {
+        when(matchingGroupRepository
+                .existsByOwnerAndTourAndStatusInAndMatchingDeadlineAfterAndTargetDateAfterAndIsDeletedFalse(
+                        eq(owner),
+                        eq(tour),
+                        anyCollection(),
+                        any(LocalDateTime.class),
+                        any(LocalDate.class)))
+                .thenReturn(false);
     }
 
     private void assertError(ErrorCode errorCode) {

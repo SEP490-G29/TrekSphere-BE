@@ -1,5 +1,6 @@
 package com.sep.treksphere.service.impl;
 
+import com.sep.treksphere.constant.MessageConstant;
 import com.sep.treksphere.dto.request.MatchingGroupCreateRequest;
 import com.sep.treksphere.dto.request.MatchingGroupFilterRequest;
 import com.sep.treksphere.dto.request.OwnedMatchingGroupFilterRequest;
@@ -162,7 +163,7 @@ public class MatchingGroupServiceImpl implements MatchingGroupService {
         String normalizedGroupName = request.getGroupName().trim();
         if (normalizedGroupName.length() < 3 || normalizedGroupName.length() > 100) {
             throw new AppException(ErrorCode.VALIDATION_ERROR,
-                    "Tên nhóm ghép sau khi loại bỏ khoảng trắng phải từ 3 đến 100 ký tự");
+                    MessageConstant.MATCHING_GROUP_NAME_SIZE);
         }
         String normalizedDescription = request.getDescription() == null ? null : request.getDescription().trim();
         if (normalizedDescription != null && normalizedDescription.isEmpty()) {
@@ -171,16 +172,6 @@ public class MatchingGroupServiceImpl implements MatchingGroupService {
 
         LocalDate today = LocalDate.now();
         LocalDateTime now = LocalDateTime.now();
-
-        boolean hasActiveGroup = matchingGroupRepository
-                .existsByOwnerAndStatusInAndTargetDateGreaterThanEqualAndIsDeletedFalse(
-                        currentUser,
-                        Set.of(MatchingGroupStatus.OPEN, MatchingGroupStatus.FULL),
-                        today
-                );
-        if (hasActiveGroup) {
-            throw new AppException(ErrorCode.ALREADY_HAS_ACTIVE_GROUP);
-        }
 
         Tour tour = tourRepository.findByTourIdAndIsDeletedFalse(request.getTourId())
                 .orElseThrow(() -> new AppException(ErrorCode.TOUR_NOT_FOUND));
@@ -202,6 +193,18 @@ public class MatchingGroupServiceImpl implements MatchingGroupService {
 
         if (tour.getMaxCapacity() != null && request.getMaxSize() > tour.getMaxCapacity()) {
             throw new AppException(ErrorCode.MATCHING_GROUP_SIZE_EXCEEDS_TOUR_CAPACITY);
+        }
+
+        boolean hasActiveGroupForTour = matchingGroupRepository
+                .existsByOwnerAndTourAndStatusInAndMatchingDeadlineAfterAndTargetDateAfterAndIsDeletedFalse(
+                        currentUser,
+                        tour,
+                        Set.of(MatchingGroupStatus.OPEN, MatchingGroupStatus.FULL),
+                        now,
+                        today
+                );
+        if (hasActiveGroupForTour) {
+            throw new AppException(ErrorCode.ALREADY_HAS_ACTIVE_GROUP);
         }
 
         MatchingGroup matchingGroup = new MatchingGroup();

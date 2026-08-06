@@ -1,6 +1,7 @@
 package com.sep.treksphere.repository;
 
 import com.sep.treksphere.entity.MatchingGroup;
+import com.sep.treksphere.entity.Tour;
 import com.sep.treksphere.entity.User;
 import com.sep.treksphere.enums.matching.JoinStatus;
 import com.sep.treksphere.enums.matching.MatchingGroupStatus;
@@ -22,9 +23,11 @@ import java.util.UUID;
 @Repository
 public interface MatchingGroupRepository extends JpaRepository<MatchingGroup, UUID> {
 
-    boolean existsByOwnerAndStatusInAndTargetDateGreaterThanEqualAndIsDeletedFalse(
+    boolean existsByOwnerAndTourAndStatusInAndMatchingDeadlineAfterAndTargetDateAfterAndIsDeletedFalse(
             User owner,
+            Tour tour,
             Collection<MatchingGroupStatus> statuses,
+            LocalDateTime matchingDeadline,
             LocalDate targetDate
     );
 
