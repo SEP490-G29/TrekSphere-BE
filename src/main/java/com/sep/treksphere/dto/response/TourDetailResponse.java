@@ -37,6 +37,7 @@ public class TourDetailResponse {
     private LocalDateTime updatedAt;
 
     private String vendorId;
+    private String vendorManagerId;
     private String vendorName;
     private String vendorLogoUrl;
     private String vendorContactEmail;

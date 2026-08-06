@@ -15,6 +15,7 @@ import com.sep.treksphere.enums.blog.ReviewStatus;
 import com.sep.treksphere.enums.system.NotificationEventType;
 import com.sep.treksphere.enums.system.ReferenceType;
 import com.sep.treksphere.enums.tour.DifficultyLevel;
+import com.sep.treksphere.enums.tour.ScheduleStatus;
 import com.sep.treksphere.enums.tour.TourStatus;
 import com.sep.treksphere.exception.AppException;
 import com.sep.treksphere.exception.ErrorCode;
@@ -162,6 +163,7 @@ public class TourServiceImpl implements TourService {
                 .updatedAt(tour.getUpdatedAt())
                 // Vendor info
                 .vendorId(tour.getVendor().getVendorId().toString())
+                .vendorManagerId(tour.getVendor().getManager().getUserId().toString())
                 .vendorName(tour.getVendor().getCompanyName())
                 .vendorLogoUrl(tour.getVendor().getLogoUrl())
                 .vendorContactEmail(tour.getVendor().getContactEmail())
@@ -304,10 +306,10 @@ public class TourServiceImpl implements TourService {
 
         Tour tour = tourMapper.toTour(request);
 
-        // Manager tạo → PENDING_APPROVAL (có thể tự approve luôn)
+        // Manager tạo → APPROVED
         // Staff tạo → DRAFT
         boolean isManager = vendorRepository.findByManager_Email(userEmail).isPresent();
-        tour.setStatus(isManager ? TourStatus.PENDING_APPROVAL : TourStatus.DRAFT);
+        tour.setStatus(isManager ? TourStatus.APPROVED : TourStatus.DRAFT);
 
         tour.setVendor(vendor);
         tour.setCreator(creator);
@@ -351,15 +353,15 @@ public class TourServiceImpl implements TourService {
         }
 
         // Phân quyền sửa theo role:
-        // Manager: chỉ sửa được PENDING_APPROVAL
-        // Staff   : chỉ sửa được DRAFT hoặc REJECTED
+        // Manager: sửa được PENDING_APPROVAL hoặc HIDDEN
+        // Staff   : sửa được DRAFT, REJECTED hoặc HIDDEN
         boolean isManager = vendorRepository.findByManager_Email(userEmail).isPresent();
         if (isManager) {
-            if (tour.getStatus() != TourStatus.PENDING_APPROVAL) {
+            if (tour.getStatus() != TourStatus.PENDING_APPROVAL && tour.getStatus() != TourStatus.HIDDEN) {
                 throw new AppException(ErrorCode.TOUR_UPDATE_NOT_ALLOWED);
             }
         } else {
-            if (tour.getStatus() != TourStatus.DRAFT && tour.getStatus() != TourStatus.REJECTED) {
+            if (tour.getStatus() != TourStatus.DRAFT && tour.getStatus() != TourStatus.REJECTED && tour.getStatus() != TourStatus.HIDDEN) {
                 throw new AppException(ErrorCode.TOUR_STATUS_NOT_EDITABLE);
             }
         }
@@ -505,8 +507,18 @@ public class TourServiceImpl implements TourService {
         tour.setRejectionReason(null);
         tour = tourRepository.save(tour);
 
-        // Gửi thông báo cho người tạo tour (Staff hoặc Vendor Manager)
-        User recipient = tour.getCreator() != null ? tour.getCreator() : tour.getVendor().getManager();
+        // Tự động mở (OPEN) tất cả các lịch khởi hành (Schedule) đang ở trạng thái CLOSED của Tour này
+        List<TourSchedule> pendingSchedules = tourScheduleRepository
+                .findByTourAndIsDeletedFalseOrderByDepartureDateAsc(tour);
+        for (TourSchedule schedule : pendingSchedules) {
+            if (schedule.getStatus() == ScheduleStatus.CLOSED) {
+                schedule.setStatus(ScheduleStatus.OPEN);
+                tourScheduleRepository.save(schedule);
+            }
+        }
+
+        // Gửi thông báo cho người tạo tour (Staff hoặc Manager)
+        User recipient = tour.getCreator() != null ? tour.getCreator() : vendor.getManager();
         Notification notification = new Notification();
         notification.setRecipient(recipient);
         notification.setTitle("Tour đã được phê duyệt");

@@ -27,6 +27,8 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
+import org.springframework.util.StringUtils;
+
 import java.util.List;
 import java.util.UUID;
 
@@ -34,6 +36,7 @@ import java.util.UUID;
 @RequestMapping("/api/v1/vendor/tours")
 @RequiredArgsConstructor
 @Tag(name = "Vendor Tour Management", description = "Các API quản lý Tour dành cho Vendor Manager và Vendor Staff")
+@SecurityRequirement(name = "bearerAuth")
 public class VendorTourController {
 
     private final TourService tourService;
@@ -172,20 +175,21 @@ public class VendorTourController {
     }
 
     @Operation(summary = "Ẩn Tour vi phạm", description = "Admin/VendorManager ẩn Tour đang bán nếu phát hiện vi phạm. Hệ thống sẽ gửi thông báo cho chủ tour.")
-    @SecurityRequirement(name = "bearerAuth")
     @PreAuthorize("hasAnyRole('ADMIN', 'VENDOR_MANAGER')")
     @PutMapping("/{id}/hide")
     public ResponseEntity<ApiResponse<TourDetailResponse>> hideTour(
             @AuthenticationPrincipal CustomUserDetails userDetails,
             @PathVariable UUID id,
-            @Valid @RequestBody HideTourRequest request) {
+            @RequestBody(required = false) HideTourRequest request) {
 
-        TourDetailResponse response = tourService.hideTourForViolation(userDetails.getUsername(), id, request.getReason());
+        String reason = (request != null && StringUtils.hasText(request.getReason()))
+                ? request.getReason()
+                : "Tạm ẩn tour do vi phạm hoặc theo yêu cầu";
+        TourDetailResponse response = tourService.hideTourForViolation(userDetails.getUsername(), id, reason);
         return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, response, MessageConstant.TOUR_HIDDEN_SUCCESSFULLY));
     }
 
     @Operation(summary = "Mở lại (Bỏ ẩn) Tour", description = "Admin/VendorManager bỏ ẩn Tour đang ở trạng thái HIDDEN để đưa về APPROVED mở bán lại.")
-    @SecurityRequirement(name = "bearerAuth")
     @PreAuthorize("hasAnyRole('ADMIN', 'VENDOR_MANAGER')")
     @PutMapping("/{id}/unhide")
     public ResponseEntity<ApiResponse<TourDetailResponse>> unhideTour(
@@ -194,5 +198,31 @@ public class VendorTourController {
 
         TourDetailResponse response = tourService.unhideTour(userDetails.getUsername(), id);
         return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, response, MessageConstant.TOUR_UNHIDDEN_SUCCESSFULLY));
+    }
+
+    @Operation(summary = "Phê duyệt Tour", description = "VendorManager duyệt Tour từ PENDING_APPROVAL -> APPROVED để mở bán.")
+    @PreAuthorize("hasRole('VENDOR_MANAGER')")
+    @PutMapping("/{id}/approve")
+    public ResponseEntity<ApiResponse<TourDetailResponse>> approveTour(
+            @AuthenticationPrincipal CustomUserDetails userDetails,
+            @PathVariable UUID id) {
+
+        TourDetailResponse response = tourService.approveTour(userDetails.getUsername(), id);
+        return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, response, MessageConstant.TOUR_APPROVED_SUCCESSFULLY));
+    }
+
+    @Operation(summary = "Từ chối Tour", description = "VendorManager từ chối duyệt Tour từ PENDING_APPROVAL -> REJECTED kèm lý do.")
+    @PreAuthorize("hasRole('VENDOR_MANAGER')")
+    @PutMapping("/{id}/reject")
+    public ResponseEntity<ApiResponse<TourDetailResponse>> rejectTour(
+            @AuthenticationPrincipal CustomUserDetails userDetails,
+            @PathVariable UUID id,
+            @RequestBody(required = false) RejectTourRequest request) {
+
+        String reason = (request != null && StringUtils.hasText(request.getReason()))
+                ? request.getReason()
+                : "Không đạt yêu cầu phê duyệt";
+        TourDetailResponse response = tourService.rejectTour(userDetails.getUsername(), id, reason);
+        return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, response, MessageConstant.TOUR_REJECTED_SUCCESSFULLY));
     }
 }
