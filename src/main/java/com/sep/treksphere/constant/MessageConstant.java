@@ -279,6 +279,18 @@ public class MessageConstant {
     public static final String UNAUTHORIZED_DISBAND_GROUP = "Bạn không có quyền giải tán nhóm ghép này";
     public static final String MATCHING_GROUP_DISBANDED_SUCCESS = "Giải tán nhóm ghép bạn đồng hành thành công";
 
+    public static final String MATCHING_TOUR_ID_REQUIRED = "Mã tour không được để trống";
+    public static final String MATCHING_GROUP_NAME_REQUIRED = "Tên nhóm ghép không được để trống";
+    public static final String MATCHING_GROUP_NAME_SIZE = "Tên nhóm ghép phải từ 3 đến 100 ký tự";
+    public static final String MATCHING_GROUP_DESCRIPTION_MAX_LENGTH = "Mô tả nhóm ghép không được vượt quá 2000 ký tự";
+    public static final String MATCHING_GROUP_MAX_SIZE_REQUIRED = "Số lượng thành viên tối đa không được để trống";
+    public static final String MATCHING_GROUP_MAX_SIZE_MIN = "Số lượng thành viên tối đa phải từ 2 trở lên";
+    public static final String MATCHING_GROUP_MAX_SIZE_MAX = "Số lượng thành viên tối đa không vượt quá 100 người";
+    public static final String MATCHING_TARGET_DATE_REQUIRED = "Ngày đi mong muốn không được để trống";
+    public static final String MATCHING_DEADLINE_REQUIRED = "Hạn chót ghép nhóm không được để trống";
+    public static final String MATCHING_TOUR_NOT_APPROVED = "Chỉ có thể tạo nhóm ghép cho Tour đã duyệt";
+    public static final String MATCHING_GROUP_SIZE_EXCEEDS_TOUR_CAPACITY = "Số thành viên tối đa của nhóm vượt quá sức chứa của Tour";
+
     // Schedule Messages
     public static final String SCHEDULE_NOT_FOUND = "Lịch khởi hành không tồn tại";
     public static final String SCHEDULE_CREATED_SUCCESSFULLY = "Tạo lịch khởi hành thành công";
@@ -312,6 +324,7 @@ public class MessageConstant {
     public static final String BOOKING_NOT_FOUND = "Đơn đặt tour không tồn tại";
     public static final String BOOKING_CREATED_SUCCESSFULLY = "Đặt tour thành công";
     public static final String BOOKING_CANCELLED_SUCCESSFULLY = "Huỷ đơn đặt tour thành công";
+    public static final String BOOKING_REJECTED_SUCCESSFULLY = "Từ chối đơn đặt tour thành công";
     public static final String PAYMENT_PROOF_SUBMITTED = "Gửi minh chứng thanh toán thành công";
     public static final String NOT_ENOUGH_SLOTS = "Số lượng chỗ trống không đủ";
     public static final String BOOKING_CANNOT_CANCEL = "Không thể huỷ đơn đặt tour ở trạng thái này";

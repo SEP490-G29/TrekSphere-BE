@@ -1,6 +1,7 @@
 package com.sep.treksphere.dto.response;
 
 import com.sep.treksphere.enums.matching.MatchingGroupStatus;
+import com.sep.treksphere.enums.matching.JoinStatus;
 import lombok.Getter;
 import lombok.Setter;
 
@@ -27,4 +28,8 @@ public class MatchingGroupDetailResponse {
     private MatchingGroupStatus status;
     private LocalDateTime createdAt;
     private List<MatchingMemberResponse> members;
+    private Boolean isOwner;
+    private JoinStatus myMembershipStatus;
+    private Boolean canJoin;
+    private Boolean canLeave;
 }

@@ -25,6 +25,10 @@ public interface MatchingGroupMapper {
     @Mapping(target = "ownerName", source = "owner.fullName")
     @Mapping(target = "ownerAvatarUrl", source = "owner.avatarUrl")
     @Mapping(target = "members", ignore = true)
+    @Mapping(target = "isOwner", ignore = true)
+    @Mapping(target = "myMembershipStatus", ignore = true)
+    @Mapping(target = "canJoin", ignore = true)
+    @Mapping(target = "canLeave", ignore = true)
     MatchingGroupDetailResponse toDetailResponse(MatchingGroup matchingGroup);
 
     @Mapping(target = "userId", source = "user.userId")

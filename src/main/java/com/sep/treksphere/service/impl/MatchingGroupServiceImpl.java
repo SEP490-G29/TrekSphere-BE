@@ -2,6 +2,7 @@ package com.sep.treksphere.service.impl;
 
 import com.sep.treksphere.dto.request.MatchingGroupCreateRequest;
 import com.sep.treksphere.dto.request.MatchingGroupFilterRequest;
+import com.sep.treksphere.dto.request.OwnedMatchingGroupFilterRequest;
 import com.sep.treksphere.dto.response.MatchingGroupDetailResponse;
 import com.sep.treksphere.dto.response.MatchingGroupResponse;
 import com.sep.treksphere.dto.response.MatchingMemberResponse;
@@ -13,12 +14,14 @@ import com.sep.treksphere.entity.User;
 import com.sep.treksphere.enums.matching.JoinStatus;
 import com.sep.treksphere.enums.matching.MatchingGroupStatus;
 import com.sep.treksphere.enums.matching.MatchingRole;
+import com.sep.treksphere.enums.tour.TourStatus;
 import com.sep.treksphere.exception.AppException;
 import com.sep.treksphere.exception.ErrorCode;
 import com.sep.treksphere.mapper.MatchingGroupMapper;
 import com.sep.treksphere.repository.MatchingGroupRepository;
 import com.sep.treksphere.repository.MatchingMemberRepository;
 import com.sep.treksphere.repository.TourRepository;
+import com.sep.treksphere.repository.UserRepository;
 import com.sep.treksphere.security.CustomUserDetails;
 import com.sep.treksphere.service.MatchingGroupService;
 import com.sep.treksphere.utils.PaginationUtils;
@@ -33,6 +36,8 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Locale;
+import java.util.Set;
 import java.util.UUID;
 
 @Service
@@ -43,18 +48,30 @@ public class MatchingGroupServiceImpl implements MatchingGroupService {
     private final MatchingGroupRepository matchingGroupRepository;
     private final MatchingMemberRepository matchingMemberRepository;
     private final TourRepository tourRepository;
+    private final UserRepository userRepository;
     private final MatchingGroupMapper matchingGroupMapper;
 
     @Override
     @Transactional(readOnly = true)
     public PaginationResponse<MatchingGroupResponse> getMatchingGroups(MatchingGroupFilterRequest filter) {
-        log.info("Fetching available matching groups with filters: tourId={}, targetDate={}",
-                filter.getTourId(), filter.getTargetDate());
+        String keyword = filter.getKeyword() == null
+                ? ""
+                : filter.getKeyword().trim().toLowerCase(Locale.ROOT);
+
+        LocalDate today = LocalDate.now();
+        LocalDateTime now = LocalDateTime.now();
+
+        log.info("Fetching available matching groups with filters: tourId={}, targetDate={}, keyword={}",
+                filter.getTourId(), filter.getTargetDate(), keyword);
 
         Page<MatchingGroup> groups = matchingGroupRepository.findAvailableMatchingGroups(
                 MatchingGroupStatus.OPEN,
+                TourStatus.APPROVED,
                 filter.getTourId(),
                 filter.getTargetDate(),
+                keyword,
+                today,
+                now,
                 filter.getPageable()
         );
 
@@ -63,10 +80,38 @@ public class MatchingGroupServiceImpl implements MatchingGroupService {
 
     @Override
     @Transactional(readOnly = true)
-    public MatchingGroupDetailResponse getMatchingGroupById(UUID id) {
+    public PaginationResponse<MatchingGroupResponse> getOwnedMatchingGroups(
+            OwnedMatchingGroupFilterRequest filter,
+            CustomUserDetails userDetails
+    ) {
+        UUID ownerId = userDetails.getUser().getUserId();
+        String keyword = filter.getKeyword() == null
+                ? ""
+                : filter.getKeyword().trim().toLowerCase(Locale.ROOT);
+
+        log.info("Fetching owned matching groups: ownerId={}, status={}, keyword={}",
+                ownerId, filter.getStatus(), keyword);
+
+        Page<MatchingGroup> groups = matchingGroupRepository.findOwnedGroups(
+                ownerId,
+                filter.getStatus(),
+                keyword,
+                filter.getPageable()
+        );
+
+        return PaginationUtils.toPaginationResponse(groups.map(matchingGroupMapper::toResponse));
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public MatchingGroupDetailResponse getMatchingGroupById(UUID id, CustomUserDetails userDetails) {
         log.info("Fetching matching group detail: id={}", id);
 
-        MatchingGroup matchingGroup = matchingGroupRepository.findDetailById(id)
+        MatchingGroup matchingGroup = matchingGroupRepository.findPublicDetailById(
+                        id,
+                        Set.of(MatchingGroupStatus.OPEN, MatchingGroupStatus.FULL),
+                        TourStatus.APPROVED
+                )
                 .orElseThrow(() -> new AppException(ErrorCode.MATCHING_GROUP_NOT_FOUND));
 
         MatchingGroupDetailResponse response = matchingGroupMapper.toDetailResponse(matchingGroup);
@@ -79,16 +124,58 @@ public class MatchingGroupServiceImpl implements MatchingGroupService {
 
         response.setMembers(acceptedMembers);
 
+        UUID viewerId = userDetails == null ? null : userDetails.getUser().getUserId();
+        boolean isOwner = viewerId != null && matchingGroup.getOwner().getUserId().equals(viewerId);
+        MatchingMember viewerMembership = viewerId == null
+                ? null
+                : matchingGroup.getMembers().stream()
+                        .filter(member -> member.getUser().getUserId().equals(viewerId)
+                                && !Boolean.TRUE.equals(member.getIsDeleted()))
+                        .findFirst()
+                        .orElse(null);
+
+        JoinStatus membershipStatus = viewerMembership == null ? null : viewerMembership.getStatus();
+        boolean hasActiveMembership = membershipStatus == JoinStatus.PENDING
+                || membershipStatus == JoinStatus.ACCEPTED;
+        boolean groupIsJoinable = matchingGroup.getStatus() == MatchingGroupStatus.OPEN
+                && matchingGroup.getCurrentSize() < matchingGroup.getMaxSize()
+                && matchingGroup.getMatchingDeadline().isAfter(LocalDateTime.now())
+                && matchingGroup.getTargetDate().isAfter(LocalDate.now());
+
+        response.setIsOwner(isOwner);
+        response.setMyMembershipStatus(membershipStatus);
+        response.setCanJoin(viewerId != null && !isOwner && !hasActiveMembership && groupIsJoinable);
+        response.setCanLeave(viewerId != null && !isOwner && hasActiveMembership);
+
         return response;
     }
 
     @Override
     @Transactional
     public MatchingGroupDetailResponse createMatchingGroup(MatchingGroupCreateRequest request, CustomUserDetails userDetails) {
-        User currentUser = userDetails.getUser();
+        User currentUser = userRepository.findByIdForUpdate(userDetails.getUser().getUserId())
+                .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
         log.info("Creating matching group: ownerId={}, groupName={}", currentUser.getUserId(), request.getGroupName());
 
-        boolean hasActiveGroup = matchingGroupRepository.existsByOwnerAndStatusAndIsDeletedFalse(currentUser, MatchingGroupStatus.OPEN);
+        String normalizedGroupName = request.getGroupName().trim();
+        if (normalizedGroupName.length() < 3 || normalizedGroupName.length() > 100) {
+            throw new AppException(ErrorCode.VALIDATION_ERROR,
+                    "Tên nhóm ghép sau khi loại bỏ khoảng trắng phải từ 3 đến 100 ký tự");
+        }
+        String normalizedDescription = request.getDescription() == null ? null : request.getDescription().trim();
+        if (normalizedDescription != null && normalizedDescription.isEmpty()) {
+            normalizedDescription = null;
+        }
+
+        LocalDate today = LocalDate.now();
+        LocalDateTime now = LocalDateTime.now();
+
+        boolean hasActiveGroup = matchingGroupRepository
+                .existsByOwnerAndStatusInAndTargetDateGreaterThanEqualAndIsDeletedFalse(
+                        currentUser,
+                        Set.of(MatchingGroupStatus.OPEN, MatchingGroupStatus.FULL),
+                        today
+                );
         if (hasActiveGroup) {
             throw new AppException(ErrorCode.ALREADY_HAS_ACTIVE_GROUP);
         }
@@ -96,22 +183,30 @@ public class MatchingGroupServiceImpl implements MatchingGroupService {
         Tour tour = tourRepository.findByTourIdAndIsDeletedFalse(request.getTourId())
                 .orElseThrow(() -> new AppException(ErrorCode.TOUR_NOT_FOUND));
 
-        if (request.getTargetDate().isBefore(LocalDate.now()) || request.getTargetDate().isEqual(LocalDate.now())) {
+        if (tour.getStatus() != TourStatus.APPROVED) {
+            throw new AppException(ErrorCode.MATCHING_TOUR_NOT_APPROVED);
+        }
+
+        if (!request.getTargetDate().isAfter(today)) {
             throw new AppException(ErrorCode.INVALID_TARGET_DATE);
         }
 
-        if (request.getMatchingDeadline().isBefore(LocalDateTime.now())) {
+        if (!request.getMatchingDeadline().isAfter(now)) {
             throw new AppException(ErrorCode.INVALID_DEADLINE);
         }
         if (request.getMatchingDeadline().toLocalDate().isAfter(request.getTargetDate())) {
             throw new AppException(ErrorCode.INVALID_DEADLINE);
         }
 
+        if (tour.getMaxCapacity() != null && request.getMaxSize() > tour.getMaxCapacity()) {
+            throw new AppException(ErrorCode.MATCHING_GROUP_SIZE_EXCEEDS_TOUR_CAPACITY);
+        }
+
         MatchingGroup matchingGroup = new MatchingGroup();
         matchingGroup.setTour(tour);
         matchingGroup.setOwner(currentUser);
-        matchingGroup.setGroupName(request.getGroupName());
-        matchingGroup.setDescription(request.getDescription());
+        matchingGroup.setGroupName(normalizedGroupName);
+        matchingGroup.setDescription(normalizedDescription);
         matchingGroup.setMaxSize(request.getMaxSize());
         matchingGroup.setCurrentSize(1);
         matchingGroup.setTargetDate(request.getTargetDate());
