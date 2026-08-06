@@ -11,13 +11,19 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springdoc.core.annotations.ParameterObject;
-import org.springframework.data.domain.Pageable;
-import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import jakarta.validation.Valid;
+import java.util.UUID;
+import com.sep.treksphere.dto.request.report.ResolveReportRequest;
+import com.sep.treksphere.security.CustomUserDetails;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 
 @RestController
 @RequestMapping("/admin/reports")
@@ -35,5 +41,17 @@ public class AdminReportController {
         
         PaginationResponse<ReportResponse> response = reportService.getReportsForAdmin(filter);
         return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, response, MessageConstant.REPORTS_FETCHED_SUCCESS));
+    }
+
+    @PutMapping("/{reportId}/resolve")
+    @PreAuthorize("hasRole('ADMIN')")
+    @Operation(summary = "Xử lý báo cáo vi phạm", description = "Admin cập nhật trạng thái báo cáo (HIDE_CONTENT, WARNING hoặc DISMISSED).")
+    public ResponseEntity<ApiResponse<Void>> resolveReport(
+            @PathVariable UUID reportId,
+            @Valid @RequestBody ResolveReportRequest request,
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+        
+        reportService.resolveReport(reportId, request, userDetails.getUser().getUserId());
+        return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, null, MessageConstant.REPORT_RESOLVED_SUCCESS));
     }
 }
