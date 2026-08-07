@@ -17,9 +17,9 @@ public interface VendorStaffRepository extends JpaRepository<VendorStaff, UUID> 
     Optional<VendorStaff> findByUser_UserId(UUID userId);
 
     @Query("SELECT vs FROM VendorStaff vs WHERE vs.vendor.vendorId = :vendorId " +
-           "AND (:keyword IS NULL OR :keyword = '' " +
-           "OR LOWER(vs.user.fullName) LIKE LOWER(CONCAT('%', :keyword, '%')) " +
-           "OR LOWER(vs.user.email) LIKE LOWER(CONCAT('%', :keyword, '%')))")
+           "AND (CAST(:keyword AS string) IS NULL OR CAST(:keyword AS string) = '' " +
+           "OR LOWER(vs.user.fullName) LIKE LOWER(CONCAT('%', CAST(:keyword AS string), '%')) " +
+           "OR LOWER(vs.user.email) LIKE LOWER(CONCAT('%', CAST(:keyword AS string), '%')))")
     Page<VendorStaff> findByVendorIdAndKeyword(@Param("vendorId") UUID vendorId, @Param("keyword") String keyword, Pageable pageable);
 
     Optional<VendorStaff> findByUser_Email(String email);

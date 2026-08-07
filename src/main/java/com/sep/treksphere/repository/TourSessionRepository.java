@@ -36,15 +36,15 @@ public interface TourSessionRepository extends JpaRepository<TourSession, UUID> 
            "JOIN FETCH sch.tour t " +
            "WHERE t.vendor.vendorId = :vendorId " +
            "AND ts.isDeleted = false " +
-           "AND (:tourId IS NULL OR t.tourId = :tourId) " +
-           "AND (:status IS NULL OR ts.status = :status)",
+           "AND (CAST(:tourId AS uuid) IS NULL OR t.tourId = :tourId) " +
+           "AND (CAST(:status AS string) IS NULL OR ts.status = :status)",
            countQuery = "SELECT COUNT(ts) FROM TourSession ts " +
            "JOIN ts.tourSchedule sch " +
            "JOIN sch.tour t " +
            "WHERE t.vendor.vendorId = :vendorId " +
            "AND ts.isDeleted = false " +
-           "AND (:tourId IS NULL OR t.tourId = :tourId) " +
-           "AND (:status IS NULL OR ts.status = :status)")
+           "AND (CAST(:tourId AS uuid) IS NULL OR t.tourId = :tourId) " +
+           "AND (CAST(:status AS string) IS NULL OR ts.status = :status)")
     Page<TourSession> findByVendorAndFilters(@Param("vendorId") UUID vendorId,
                                              @Param("tourId") UUID tourId,
                                              @Param("status") TourSessionStatus status,

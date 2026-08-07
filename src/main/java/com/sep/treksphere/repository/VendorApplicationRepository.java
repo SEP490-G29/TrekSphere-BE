@@ -38,12 +38,12 @@ public interface VendorApplicationRepository extends JpaRepository<VendorApplica
 
     @Query("SELECT va FROM VendorApplication va WHERE va.isDeleted = false " +
            "AND va.applicationStatus IN :visibleStatuses " +
-           "AND (:status IS NULL OR va.applicationStatus = :status) " +
-           "AND (:keyword IS NULL OR :keyword = '' OR " +
-           "LOWER(va.companyName) LIKE LOWER(CONCAT('%', :keyword, '%')) OR " +
-           "LOWER(va.taxCode) LIKE LOWER(CONCAT('%', :keyword, '%')) OR " +
-           "LOWER(va.contactEmail) LIKE LOWER(CONCAT('%', :keyword, '%')) OR " +
-           "LOWER(va.contactPhone) LIKE LOWER(CONCAT('%', :keyword, '%')))")
+           "AND (CAST(:status AS string) IS NULL OR va.applicationStatus = :status) " +
+           "AND (CAST(:keyword AS string) IS NULL OR CAST(:keyword AS string) = '' OR " +
+           "LOWER(va.companyName) LIKE LOWER(CONCAT('%', CAST(:keyword AS string), '%')) OR " +
+           "LOWER(va.taxCode) LIKE LOWER(CONCAT('%', CAST(:keyword AS string), '%')) OR " +
+           "LOWER(va.contactEmail) LIKE LOWER(CONCAT('%', CAST(:keyword AS string), '%')) OR " +
+           "LOWER(va.contactPhone) LIKE LOWER(CONCAT('%', CAST(:keyword AS string), '%')))")
     Page<VendorApplication> findAllApplicationsWithFilter(
             @Param("visibleStatuses") Set<ApplicationStatus> visibleStatuses,
             @Param("status") ApplicationStatus status,
@@ -52,12 +52,12 @@ public interface VendorApplicationRepository extends JpaRepository<VendorApplica
 
     @Query("SELECT va FROM VendorApplication va WHERE va.isDeleted = false " +
            "AND va.applicant.userId = :applicantId " +
-           "AND (:status IS NULL OR va.applicationStatus = :status) " +
-           "AND (:keyword IS NULL OR :keyword = '' OR " +
-           "LOWER(va.companyName) LIKE LOWER(CONCAT('%', :keyword, '%')) OR " +
-           "LOWER(va.taxCode) LIKE LOWER(CONCAT('%', :keyword, '%')) OR " +
-           "LOWER(va.contactEmail) LIKE LOWER(CONCAT('%', :keyword, '%')) OR " +
-           "LOWER(va.contactPhone) LIKE LOWER(CONCAT('%', :keyword, '%'))) ")
+           "AND (CAST(:status AS string) IS NULL OR va.applicationStatus = :status) " +
+           "AND (CAST(:keyword AS string) IS NULL OR CAST(:keyword AS string) = '' OR " +
+           "LOWER(va.companyName) LIKE LOWER(CONCAT('%', CAST(:keyword AS string), '%')) OR " +
+           "LOWER(va.taxCode) LIKE LOWER(CONCAT('%', CAST(:keyword AS string), '%')) OR " +
+           "LOWER(va.contactEmail) LIKE LOWER(CONCAT('%', CAST(:keyword AS string), '%')) OR " +
+           "LOWER(va.contactPhone) LIKE LOWER(CONCAT('%', CAST(:keyword AS string), '%'))) ")
     Page<VendorApplication> findMyApplicationsWithFilter(
             @Param("applicantId") UUID applicantId,
             @Param("status") ApplicationStatus status,

@@ -87,7 +87,7 @@ public interface MatchingMemberRepository extends JpaRepository<MatchingMember, 
             JOIN FETCH mg.owner o
             WHERE mm.user.userId = :userId
               AND mm.role = :role
-              AND (:status IS NULL OR mm.status = :status)
+              AND (CAST(:status AS string) IS NULL OR mm.status = :status)
               AND mm.isDeleted = false
               AND mg.isDeleted = false
         """,
@@ -97,7 +97,7 @@ public interface MatchingMemberRepository extends JpaRepository<MatchingMember, 
             JOIN mg.tour t
             WHERE mm.user.userId = :userId
               AND mm.role = :role
-              AND (:status IS NULL OR mm.status = :status)
+              AND (CAST(:status AS string) IS NULL OR mm.status = :status)
               AND mm.isDeleted = false
               AND mg.isDeleted = false
         """

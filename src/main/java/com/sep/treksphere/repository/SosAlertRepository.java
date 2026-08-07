@@ -20,8 +20,7 @@ public interface SosAlertRepository extends JpaRepository<SosAlert, UUID> {
     FROM SosAlert s
     WHERE s.status = :status
       AND s.isDeleted = false
-      AND (
-          :vendorId IS NULL
+      AND (CAST(:vendorId AS uuid) IS NULL
           OR s.tourSession.tourSchedule.tour.vendor.vendorId = :vendorId
       )
     ORDER BY s.createdAt DESC
