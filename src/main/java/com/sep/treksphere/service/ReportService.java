@@ -12,6 +12,8 @@ public interface ReportService {
     void createReport(CreateReportRequest request, UUID reporterId);
     
     PaginationResponse<ReportResponse> getReportsForAdmin(ReportFilterRequest filter);
+    
+    ReportResponse getReportByIdForAdmin(UUID reportId);
 
     void resolveReport(UUID reportId, ResolveReportRequest request, UUID adminId);
 }
