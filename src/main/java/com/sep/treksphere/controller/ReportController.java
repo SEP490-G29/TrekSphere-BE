@@ -22,7 +22,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import java.util.UUID;
 
 @RestController
-@RequestMapping("/reports")
+@RequestMapping("/api/v1/reports")
 @RequiredArgsConstructor
 @Tag(name = "Quản lý Báo cáo", description = "Các API dùng để báo cáo nội dung vi phạm (Blog, Comment, Review)")
 public class ReportController {

@@ -93,6 +93,14 @@ public class ReportServiceImpl implements ReportService {
     }
 
     @Override
+    @Transactional(readOnly = true)
+    public ReportResponse getReportByIdForAdmin(UUID reportId) {
+        ReportContent report = reportContentRepository.findById(reportId)
+                .orElseThrow(() -> new AppException(ErrorCode.REPORT_NOT_FOUND));
+        return reportMapper.toReportResponse(report);
+    }
+
+    @Override
     @Transactional
     public void resolveReport(UUID reportId, ResolveReportRequest request, UUID adminId) {
         User admin = userRepository.findById(adminId)

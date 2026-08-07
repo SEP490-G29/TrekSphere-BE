@@ -26,7 +26,7 @@ import com.sep.treksphere.security.CustomUserDetails;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 
 @RestController
-@RequestMapping("/admin/reports")
+@RequestMapping("/api/v1/admin/reports")
 @RequiredArgsConstructor
 @Tag(name = "Admin Report Management", description = "Quản lý báo cáo vi phạm dành cho Admin")
 public class AdminReportController {
@@ -41,6 +41,16 @@ public class AdminReportController {
         
         PaginationResponse<ReportResponse> response = reportService.getReportsForAdmin(filter);
         return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, response, MessageConstant.REPORTS_FETCHED_SUCCESS));
+    }
+
+    @GetMapping("/{reportId}")
+    @PreAuthorize("hasRole('ADMIN')")
+    @Operation(summary = "Lấy chi tiết báo cáo vi phạm", description = "Admin xem chi tiết một báo cáo.")
+    public ResponseEntity<ApiResponse<ReportResponse>> getReportDetailForAdmin(
+            @PathVariable UUID reportId) {
+        
+        ReportResponse response = reportService.getReportByIdForAdmin(reportId);
+        return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, response, "Lấy chi tiết báo cáo thành công."));
     }
 
     @PutMapping("/{reportId}/resolve")

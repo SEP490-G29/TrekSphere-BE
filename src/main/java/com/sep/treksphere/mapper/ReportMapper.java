@@ -14,9 +14,12 @@ public abstract class ReportMapper {
     @Mapping(target = "id", source = "reportContentId")
     @Mapping(target = "reporterFullName", source = "reporter.fullName")
     @Mapping(target = "reporterEmail", source = "reporter.email")
+    @Mapping(target = "reporterAvatar", source = "reporter.avatarUrl")
     @Mapping(target = "resolvedByFullName", source = "resolvedBy.fullName")
     @Mapping(target = "targetType", expression = "java(determineTargetType(report))")
     @Mapping(target = "targetId", expression = "java(determineTargetId(report))")
+    @Mapping(target = "targetTitle", expression = "java(determineTargetTitle(report))")
+    @Mapping(target = "targetContent", expression = "java(determineTargetContent(report))")
     public abstract ReportResponse toReportResponse(ReportContent report);
 
     protected ReportTargetType determineTargetType(ReportContent report) {
@@ -30,6 +33,20 @@ public abstract class ReportMapper {
         if (report.getBlog() != null) return report.getBlog().getBlogId();
         if (report.getBlogComment() != null) return report.getBlogComment().getBlogCommentId();
         if (report.getReview() != null) return report.getReview().getReviewId();
+        return null;
+    }
+
+    protected String determineTargetTitle(ReportContent report) {
+        if (report.getBlog() != null) return report.getBlog().getTitle();
+        if (report.getBlogComment() != null) return "Bình luận Blog";
+        if (report.getReview() != null) return "Đánh giá dịch vụ";
+        return null;
+    }
+
+    protected String determineTargetContent(ReportContent report) {
+        if (report.getBlog() != null) return report.getBlog().getContent();
+        if (report.getBlogComment() != null) return report.getBlogComment().getContent();
+        if (report.getReview() != null) return report.getReview().getContent();
         return null;
     }
 }

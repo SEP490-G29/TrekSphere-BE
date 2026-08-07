@@ -28,6 +28,12 @@ public class ReportResponse {
     
     private String reporterEmail;
     
+    private String reporterAvatar;
+    
+    private String targetTitle;
+    
+    private String targetContent;
+    
     private String resolutionNotes;
     
     private String resolvedByFullName;
