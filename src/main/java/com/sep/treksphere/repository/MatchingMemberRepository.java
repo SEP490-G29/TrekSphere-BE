@@ -78,4 +78,34 @@ public interface MatchingMemberRepository extends JpaRepository<MatchingMember, 
             @Param("role") MatchingRole role,
             Pageable pageable
     );
+
+    @Query(
+        value = """
+            SELECT mm FROM MatchingMember mm
+            JOIN FETCH mm.matchingGroup mg
+            JOIN FETCH mg.tour t
+            JOIN FETCH mg.owner o
+            WHERE mm.user.userId = :userId
+              AND mm.role = :role
+              AND (:status IS NULL OR mm.status = :status)
+              AND mm.isDeleted = false
+              AND mg.isDeleted = false
+        """,
+        countQuery = """
+            SELECT COUNT(mm) FROM MatchingMember mm
+            JOIN mm.matchingGroup mg
+            JOIN mg.tour t
+            WHERE mm.user.userId = :userId
+              AND mm.role = :role
+              AND (:status IS NULL OR mm.status = :status)
+              AND mm.isDeleted = false
+              AND mg.isDeleted = false
+        """
+    )
+    Page<MatchingMember> findMyJoinRequests(
+            @Param("userId") UUID userId,
+            @Param("role") MatchingRole role,
+            @Param("status") JoinStatus status,
+            Pageable pageable
+    );
 }

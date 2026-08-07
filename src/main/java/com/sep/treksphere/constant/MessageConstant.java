@@ -259,6 +259,7 @@ public class MessageConstant {
     public static final String ALREADY_HAS_ACTIVE_GROUP = "Bạn đã có một nhóm ghép đang hoạt động cho Tour này";
     public static final String MATCHING_GROUP_JOIN_REQUESTED_SUCCESS = "Gửi yêu cầu tham gia nhóm ghép bạn đồng hành thành công";
     public static final String MATCHING_JOIN_REQUESTS_FETCHED_SUCCESS = "Lấy danh sách yêu cầu tham gia nhóm ghép thành công";
+    public static final String MY_MATCHING_JOIN_REQUESTS_FETCHED_SUCCESS = "Lấy danh sách yêu cầu tham gia nhóm ghép của bạn thành công";
     public static final String UNAUTHORIZED_VIEW_JOIN_REQUESTS = "Bạn không có quyền xem yêu cầu tham gia của nhóm ghép này";
     public static final String MATCHING_GROUP_NOT_OPEN = "Nhóm ghép không còn mở để xin gia nhập";
     public static final String MATCHING_DEADLINE_PASSED = "Đã quá hạn chót ghép nhóm";

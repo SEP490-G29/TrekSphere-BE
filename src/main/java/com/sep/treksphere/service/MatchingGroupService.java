@@ -3,10 +3,12 @@ package com.sep.treksphere.service;
 import com.sep.treksphere.dto.request.MatchingGroupCreateRequest;
 import com.sep.treksphere.dto.request.MatchingGroupFilterRequest;
 import com.sep.treksphere.dto.request.MatchingJoinRequestFilter;
+import com.sep.treksphere.dto.request.MyMatchingJoinRequestFilter;
 import com.sep.treksphere.dto.request.OwnedMatchingGroupFilterRequest;
 import com.sep.treksphere.dto.response.MatchingGroupDetailResponse;
 import com.sep.treksphere.dto.response.MatchingGroupResponse;
 import com.sep.treksphere.dto.response.MatchingMemberResponse;
+import com.sep.treksphere.dto.response.MyMatchingJoinRequestResponse;
 import com.sep.treksphere.dto.response.PaginationResponse;
 import com.sep.treksphere.security.CustomUserDetails;
 
@@ -29,6 +31,11 @@ public interface MatchingGroupService {
     PaginationResponse<MatchingMemberResponse> getJoinRequests(
             UUID groupId,
             MatchingJoinRequestFilter filter,
+            CustomUserDetails userDetails
+    );
+
+    PaginationResponse<MyMatchingJoinRequestResponse> getMyJoinRequests(
+            MyMatchingJoinRequestFilter filter,
             CustomUserDetails userDetails
     );
 
