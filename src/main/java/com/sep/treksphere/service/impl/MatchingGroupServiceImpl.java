@@ -4,10 +4,12 @@ import com.sep.treksphere.constant.MessageConstant;
 import com.sep.treksphere.dto.request.MatchingGroupCreateRequest;
 import com.sep.treksphere.dto.request.MatchingGroupFilterRequest;
 import com.sep.treksphere.dto.request.MatchingJoinRequestFilter;
+import com.sep.treksphere.dto.request.MyMatchingJoinRequestFilter;
 import com.sep.treksphere.dto.request.OwnedMatchingGroupFilterRequest;
 import com.sep.treksphere.dto.response.MatchingGroupDetailResponse;
 import com.sep.treksphere.dto.response.MatchingGroupResponse;
 import com.sep.treksphere.dto.response.MatchingMemberResponse;
+import com.sep.treksphere.dto.response.MyMatchingJoinRequestResponse;
 import com.sep.treksphere.dto.response.PaginationResponse;
 import com.sep.treksphere.entity.MatchingGroup;
 import com.sep.treksphere.entity.MatchingMember;
@@ -343,6 +345,33 @@ public class MatchingGroupServiceImpl implements MatchingGroupService {
     }
 
     @Override
+    @Transactional(readOnly = true)
+    public PaginationResponse<MyMatchingJoinRequestResponse> getMyJoinRequests(
+            MyMatchingJoinRequestFilter filter,
+            CustomUserDetails userDetails
+    ) {
+        UUID userId = userDetails.getUser().getUserId();
+        JoinStatus status = filter.getStatus();
+
+        log.info("Fetching current Trekker matching join requests: userId={}, status={}", userId, status);
+
+        Page<MyMatchingJoinRequestResponse> requests = matchingMemberRepository.findMyJoinRequests(
+                        userId,
+                        MatchingRole.MEMBER,
+                        status,
+                        filter.getPageable()
+                )
+                .map(member -> {
+                    MyMatchingJoinRequestResponse response =
+                            matchingGroupMapper.toMyJoinRequestResponse(member);
+                    response.setCanCancel(member.getStatus() == JoinStatus.PENDING);
+                    return response;
+                });
+
+        return PaginationUtils.toPaginationResponse(requests);
+    }
+
+    @Override
     @Transactional
     public MatchingMemberResponse approveMember(
             UUID groupId,
@@ -474,7 +503,7 @@ public class MatchingGroupServiceImpl implements MatchingGroupService {
             throw new AppException(ErrorCode.NO_PENDING_JOIN_REQUEST);
         }
 
-        member.setStatus(JoinStatus.LEFT);
+        member.setStatus(JoinStatus.CANCELLED);
         MatchingMember savedMember = matchingMemberRepository.save(member);
         return matchingGroupMapper.toMemberResponse(savedMember);
     }

@@ -4,11 +4,13 @@ import com.sep.treksphere.constant.MessageConstant;
 import com.sep.treksphere.dto.request.MatchingGroupCreateRequest;
 import com.sep.treksphere.dto.request.MatchingGroupFilterRequest;
 import com.sep.treksphere.dto.request.MatchingJoinRequestFilter;
+import com.sep.treksphere.dto.request.MyMatchingJoinRequestFilter;
 import com.sep.treksphere.dto.request.OwnedMatchingGroupFilterRequest;
 import com.sep.treksphere.dto.response.ApiResponse;
 import com.sep.treksphere.dto.response.MatchingGroupDetailResponse;
 import com.sep.treksphere.dto.response.MatchingGroupResponse;
 import com.sep.treksphere.dto.response.MatchingMemberResponse;
+import com.sep.treksphere.dto.response.MyMatchingJoinRequestResponse;
 import com.sep.treksphere.dto.response.PaginationResponse;
 import com.sep.treksphere.security.CustomUserDetails;
 import com.sep.treksphere.service.MatchingGroupService;
@@ -131,6 +133,25 @@ public class MatchingGroupController {
     }
 
     @Operation(
+        summary = "Xem các yêu cầu tham gia nhóm ghép của tôi",
+        description = "Cho phép Trekker xem các yêu cầu tham gia nhóm ghép của chính mình. " +
+                "Mặc định trả về yêu cầu ở tất cả trạng thái; Trekker có thể tùy chọn lọc theo JoinStatus."
+    )
+    @GetMapping("/join-requests/me")
+    @PreAuthorize("hasRole('TREKKER')")
+    public ResponseEntity<ApiResponse<PaginationResponse<MyMatchingJoinRequestResponse>>> getMyJoinRequests(
+            @Valid @ParameterObject @ModelAttribute MyMatchingJoinRequestFilter filter,
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+        PaginationResponse<MyMatchingJoinRequestResponse> result =
+                matchingGroupService.getMyJoinRequests(filter, userDetails);
+        return ResponseEntity.ok(ApiResponse.success(
+                HttpStatus.OK,
+                result,
+                MessageConstant.MY_MATCHING_JOIN_REQUESTS_FETCHED_SUCCESS
+        ));
+    }
+
+    @Operation(
         summary = "Duyệt thành viên xin vào nhóm",
         description = "Cho phép Trưởng nhóm (Leader/Owner) phê duyệt yêu cầu tham gia nhóm ghép của thành viên đang ở trạng thái PENDING."
     )
@@ -160,7 +181,8 @@ public class MatchingGroupController {
 
     @Operation(
         summary = "Hủy yêu cầu tham gia nhóm ghép",
-        description = "Cho phép Trekker hủy yêu cầu tham gia đang ở trạng thái PENDING. Thao tác này không thay đổi số thành viên hiện tại của nhóm."
+        description = "Cho phép Trekker hủy yêu cầu tham gia đang ở trạng thái PENDING và chuyển yêu cầu sang CANCELLED. " +
+                "Thao tác này không thay đổi số thành viên hiện tại của nhóm."
     )
     @DeleteMapping("/{groupId}/join-request")
     @PreAuthorize("hasRole('TREKKER')")
