@@ -32,11 +32,11 @@ public interface VoucherRepository extends JpaRepository<Voucher, UUID> {
             WHERE v.vendor.vendorId = :vendorId
               AND (CAST(:keyword AS string) IS NULL 
                    OR LOWER(v.code) LIKE LOWER(CONCAT('%', CAST(:keyword AS string), '%')))
-              AND (:discountType IS NULL OR v.discountType = :discountType)
-              AND (:status IS NULL OR v.status = :status)
+              AND (CAST(:discountType AS string) IS NULL OR v.discountType = :discountType)
+              AND (CAST(:status AS string) IS NULL OR v.status = :status)
               AND (CAST(:validUntilStart AS timestamp) IS NULL OR v.validUntil >= :validUntilStart)
               AND (CAST(:validUntilEnd AS timestamp) IS NULL OR v.validUntil <= :validUntilEnd)
-              AND (:maxUsage IS NULL OR v.maxUsage = :maxUsage)
+              AND (CAST(:maxUsage AS integer) IS NULL OR v.maxUsage = :maxUsage)
             """)
     Page<Voucher> filterVendorVouchers(
             @Param("vendorId") UUID vendorId, 

@@ -14,8 +14,8 @@ import java.util.UUID;
 public interface PorterProfileRepository extends JpaRepository<PorterProfile, UUID> {
 
     @Query("SELECT p FROM PorterProfile p WHERE p.vendor.vendorId = :vendorId " +
-            "AND (LOWER(p.fullName) LIKE LOWER(CONCAT('%', :keyword, '%')) OR p.phone LIKE CONCAT('%', :keyword, '%')) " +
-            "AND (:status IS NULL OR p.status = :status)")
+            "AND (LOWER(p.fullName) LIKE LOWER(CONCAT('%', CAST(:keyword AS string), '%')) OR p.phone LIKE CONCAT('%', CAST(:keyword AS string), '%')) " +
+            "AND (CAST(:status AS string) IS NULL OR p.status = :status)")
     Page<PorterProfile> findByVendorIdAndFilters(
             @Param("vendorId") UUID vendorId,
             @Param("keyword") String keyword,
@@ -23,8 +23,8 @@ public interface PorterProfileRepository extends JpaRepository<PorterProfile, UU
             Pageable pageable);
 
     @Query("SELECT p FROM PorterProfile p WHERE p.vendor.vendorId = :vendorId " +
-            "AND (LOWER(p.fullName) LIKE LOWER(CONCAT('%', :keyword, '%')) OR p.phone LIKE CONCAT('%', :keyword, '%')) " +
-            "AND (:status IS NULL OR p.status = :status)")
+            "AND (LOWER(p.fullName) LIKE LOWER(CONCAT('%', CAST(:keyword AS string), '%')) OR p.phone LIKE CONCAT('%', CAST(:keyword AS string), '%')) " +
+            "AND (CAST(:status AS string) IS NULL OR p.status = :status)")
     List<PorterProfile> findAllByVendorIdAndFilters(
             @Param("vendorId") UUID vendorId,
             @Param("keyword") String keyword,
