@@ -23,10 +23,10 @@ public interface CoordinatorScheduleRepository extends JpaRepository<Coordinator
            "JOIN tsch.tour t " +
            "WHERE cs.coordinator.userId = :coordinatorId " +
            "AND cs.isDeleted = false " +
-           "AND (:status IS NULL OR ts.status = :status) " +
-           "AND (:isCancelled IS NULL OR cs.isCancelled = :isCancelled) " +
-           "AND (:departureDateFrom IS NULL OR tsch.departureDate >= :departureDateFrom) " +
-           "AND (:departureDateTo IS NULL OR tsch.departureDate <= :departureDateTo) " +
+           "AND (CAST(:status AS string) IS NULL OR ts.status = :status) " +
+           "AND (CAST(:isCancelled AS boolean) IS NULL OR cs.isCancelled = :isCancelled) " +
+           "AND (CAST(:departureDateFrom AS timestamp) IS NULL OR tsch.departureDate >= :departureDateFrom) " +
+           "AND (CAST(:departureDateTo AS timestamp) IS NULL OR tsch.departureDate <= :departureDateTo) " +
            "AND (CAST(:keyword AS String) IS NULL " +
            "     OR LOWER(t.tourName) LIKE LOWER(CONCAT('%', CAST(:keyword AS String), '%')) " +
            "     OR LOWER(t.location) LIKE LOWER(CONCAT('%', CAST(:keyword AS String), '%')))")
@@ -77,8 +77,8 @@ public interface CoordinatorScheduleRepository extends JpaRepository<Coordinator
             "WHERE vs.vendor.vendorId = :vendorId " +
             "AND vs.isDeleted = false " +
             "AND c.isDeleted = false " +
-            "AND (:coordinatorId IS NULL OR coord.userId = :coordinatorId) " +
-            "AND (:status IS NULL OR ts.status = :status)")
+            "AND (CAST(:coordinatorId AS uuid) IS NULL OR coord.userId = :coordinatorId) " +
+            "AND (CAST(:status AS string) IS NULL OR ts.status = :status)")
     Page<CoordinatorSchedule> findSchedulesByVendor(
             @Param("vendorId") UUID vendorId,
             @Param("coordinatorId") UUID coordinatorId,

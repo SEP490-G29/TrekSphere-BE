@@ -37,9 +37,9 @@ public interface UserRepository extends JpaRepository<User, UUID> {
     @Query("SELECT DISTINCT u FROM User u LEFT JOIN u.roles r " +
            "WHERE u.isDeleted = false " +
            "AND (r.roleName IS NULL OR r.roleName <> 'ADMIN') " +
-           "AND (:status IS NULL OR u.status = :status) " +
-           "AND (:roleName IS NULL OR :roleName = '' OR r.roleName = :roleName) " +
-           "AND (:keyword IS NULL OR :keyword = '' OR LOWER(u.fullName) LIKE LOWER(CONCAT('%', :keyword, '%')) OR LOWER(u.email) LIKE LOWER(CONCAT('%', :keyword, '%')))")
+           "AND (CAST(:status AS string) IS NULL OR u.status = :status) " +
+           "AND (CAST(:roleName AS string) IS NULL OR CAST(:roleName AS string) = '' OR r.roleName = :roleName) " +
+           "AND (CAST(:keyword AS string) IS NULL OR CAST(:keyword AS string) = '' OR LOWER(u.fullName) LIKE LOWER(CONCAT('%', CAST(:keyword AS string), '%')) OR LOWER(u.email) LIKE LOWER(CONCAT('%', CAST(:keyword AS string), '%')))")
     Page<User> findAllUsersWithFilter(@Param("status") UserStatus status, 
                                       @Param("roleName") String roleName, 
                                       @Param("keyword") String keyword, 

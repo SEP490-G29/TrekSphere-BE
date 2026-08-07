@@ -27,7 +27,7 @@ public interface TourRepository extends JpaRepository<Tour, UUID> {
                       OR LOWER(t.location) LIKE LOWER(CONCAT('%', CAST(:keyword AS string), '%')))
                  AND (CAST(:location AS string) IS NULL
                       OR LOWER(t.location) LIKE LOWER(CONCAT('%', CAST(:location AS string), '%')))
-                 AND (:difficulty IS NULL OR t.difficulty = :difficulty)
+                 AND (CAST(:difficulty AS string) IS NULL OR t.difficulty = :difficulty)
                """)
      Page<Tour> searchTours(
                @Param("status") TourStatus status,

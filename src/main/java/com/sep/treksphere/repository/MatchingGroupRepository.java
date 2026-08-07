@@ -55,11 +55,11 @@ public interface MatchingGroupRepository extends JpaRepository<MatchingGroup, UU
                     AND mm.status = :acceptedStatus
               )
           )
-          AND (:status IS NULL OR mg.status = :status)
+          AND (CAST(:status AS string) IS NULL OR mg.status = :status)
           AND (
-              :keyword = ''
-              OR LOWER(mg.groupName) LIKE CONCAT('%', :keyword, '%')
-              OR LOWER(t.tourName) LIKE CONCAT('%', :keyword, '%')
+              CAST(:keyword AS string) = ''
+              OR LOWER(mg.groupName) LIKE CONCAT('%', CAST(:keyword AS string), '%')
+              OR LOWER(t.tourName) LIKE CONCAT('%', CAST(:keyword AS string), '%')
           )
     """, countQuery = """
         SELECT COUNT(mg) FROM MatchingGroup mg
@@ -74,11 +74,11 @@ public interface MatchingGroupRepository extends JpaRepository<MatchingGroup, UU
                     AND mm.status = :acceptedStatus
               )
           )
-          AND (:status IS NULL OR mg.status = :status)
+          AND (CAST(:status AS string) IS NULL OR mg.status = :status)
           AND (
-              :keyword = ''
-              OR LOWER(mg.groupName) LIKE CONCAT('%', :keyword, '%')
-              OR LOWER(t.tourName) LIKE CONCAT('%', :keyword, '%')
+              CAST(:keyword AS string) = ''
+              OR LOWER(mg.groupName) LIKE CONCAT('%', CAST(:keyword AS string), '%')
+              OR LOWER(t.tourName) LIKE CONCAT('%', CAST(:keyword AS string), '%')
           )
     """)
     Page<MatchingGroup> findOwnedOrJoinedGroups(
@@ -101,12 +101,12 @@ public interface MatchingGroupRepository extends JpaRepository<MatchingGroup, UU
           AND mg.targetDate > :today
           AND t.isDeleted = false
           AND t.status = :tourStatus
-          AND (:tourId IS NULL OR t.tourId = :tourId)
-          AND (:targetDate IS NULL OR mg.targetDate = :targetDate)
+          AND (CAST(:tourId AS uuid) IS NULL OR t.tourId = :tourId)
+          AND (CAST(:targetDate AS date) IS NULL OR mg.targetDate = :targetDate)
           AND (
-              :keyword = ''
-              OR LOWER(mg.groupName) LIKE CONCAT('%', :keyword, '%')
-              OR LOWER(t.tourName) LIKE CONCAT('%', :keyword, '%')
+              CAST(:keyword AS string) = ''
+              OR LOWER(mg.groupName) LIKE CONCAT('%', CAST(:keyword AS string), '%')
+              OR LOWER(t.tourName) LIKE CONCAT('%', CAST(:keyword AS string), '%')
           )
         """, countQuery = """
         SELECT COUNT(mg) FROM MatchingGroup mg
@@ -118,12 +118,12 @@ public interface MatchingGroupRepository extends JpaRepository<MatchingGroup, UU
           AND mg.targetDate > :today
           AND t.isDeleted = false
           AND t.status = :tourStatus
-          AND (:tourId IS NULL OR t.tourId = :tourId)
-          AND (:targetDate IS NULL OR mg.targetDate = :targetDate)
+          AND (CAST(:tourId AS uuid) IS NULL OR t.tourId = :tourId)
+          AND (CAST(:targetDate AS date) IS NULL OR mg.targetDate = :targetDate)
           AND (
-              :keyword = ''
-              OR LOWER(mg.groupName) LIKE CONCAT('%', :keyword, '%')
-              OR LOWER(t.tourName) LIKE CONCAT('%', :keyword, '%')
+              CAST(:keyword AS string) = ''
+              OR LOWER(mg.groupName) LIKE CONCAT('%', CAST(:keyword AS string), '%')
+              OR LOWER(t.tourName) LIKE CONCAT('%', CAST(:keyword AS string), '%')
           )
         """)
     Page<MatchingGroup> findAvailableMatchingGroups(
