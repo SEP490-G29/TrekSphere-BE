@@ -197,6 +197,7 @@ public class MessageConstant {
     public static final String STAFF_BELONGS_TO_OTHER_VENDOR = "Nhân viên này đang thuộc một công ty khác";
     public static final String VENDOR_STAFF_ADDED = "Thêm nhân viên mới thành công";
     public static final String VENDOR_STAFF_ROLE_UPDATED = "Cập nhật vai trò nhân viên thành công";
+    public static final String VENDOR_COORDINATORS_FETCHED = "Lấy danh sách điều phối viên của Vendor thành công";
     public static final String COORDINATOR_HAS_ACTIVE_SCHEDULES = "Không thể đổi vai trò vì điều phối viên đang có lịch tour chưa hoàn thành";
     public static final String STAFF_STATUS_REQUIRED = "Trạng thái hoạt động của nhân viên không được để trống";
     public static final String VENDOR_STAFF_STATUS_UPDATED = "Cập nhật trạng thái nhân viên thành công";

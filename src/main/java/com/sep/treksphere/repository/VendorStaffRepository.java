@@ -22,6 +22,30 @@ public interface VendorStaffRepository extends JpaRepository<VendorStaff, UUID> 
            "OR LOWER(vs.user.email) LIKE LOWER(CONCAT('%', CAST(:keyword AS string), '%')))")
     Page<VendorStaff> findByVendorIdAndKeyword(@Param("vendorId") UUID vendorId, @Param("keyword") String keyword, Pageable pageable);
 
+    @Query(value = "SELECT DISTINCT vs FROM VendorStaff vs JOIN vs.user.roles r " +
+           "WHERE vs.vendor.vendorId = :vendorId " +
+           "AND vs.isActive = true " +
+           "AND vs.isDeleted = false " +
+           "AND vs.user.isDeleted = false " +
+           "AND r.roleName = 'COORDINATOR' " +
+           "AND (CAST(:keyword AS string) IS NULL OR CAST(:keyword AS string) = '' " +
+           "OR LOWER(vs.user.fullName) LIKE LOWER(CONCAT('%', CAST(:keyword AS string), '%')) " +
+           "OR LOWER(vs.user.email) LIKE LOWER(CONCAT('%', CAST(:keyword AS string), '%')))",
+           countQuery = "SELECT COUNT(DISTINCT vs) FROM VendorStaff vs JOIN vs.user.roles r " +
+           "WHERE vs.vendor.vendorId = :vendorId " +
+           "AND vs.isActive = true " +
+           "AND vs.isDeleted = false " +
+           "AND vs.user.isDeleted = false " +
+           "AND r.roleName = 'COORDINATOR' " +
+           "AND (CAST(:keyword AS string) IS NULL OR CAST(:keyword AS string) = '' " +
+           "OR LOWER(vs.user.fullName) LIKE LOWER(CONCAT('%', CAST(:keyword AS string), '%')) " +
+           "OR LOWER(vs.user.email) LIKE LOWER(CONCAT('%', CAST(:keyword AS string), '%')))")
+    Page<VendorStaff> findActiveCoordinatorsByVendorIdAndKeyword(
+            @Param("vendorId") UUID vendorId,
+            @Param("keyword") String keyword,
+            Pageable pageable);
+
     Optional<VendorStaff> findByUser_Email(String email);
+    Optional<VendorStaff> findByUser_EmailAndIsActiveTrueAndIsDeletedFalse(String email);
 }
 

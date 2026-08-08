@@ -11,6 +11,7 @@ import java.util.UUID;
 
 public interface VendorStaffService {
     PaginationResponse<VendorStaffResponse> getMyVendorStaff(String managerEmail, BaseFilterRequest request);
+    PaginationResponse<VendorStaffResponse> getMyVendorCoordinators(String userEmail, BaseFilterRequest request);
     VendorStaffResponse addVendorStaff(String managerEmail, VendorStaffAddRequest request);
     VendorStaffResponse updateVendorStaffRole(String managerEmail, UUID staffId, VendorStaffRoleUpdateRequest request);
     VendorStaffResponse updateVendorStaffStatus(String managerEmail, UUID staffId, VendorStaffStatusUpdateRequest request);

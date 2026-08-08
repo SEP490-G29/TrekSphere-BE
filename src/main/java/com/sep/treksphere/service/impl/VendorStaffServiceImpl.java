@@ -73,6 +73,23 @@ public class VendorStaffServiceImpl implements VendorStaffService {
     }
 
     @Override
+    @Transactional(readOnly = true)
+    public PaginationResponse<VendorStaffResponse> getMyVendorCoordinators(String userEmail, BaseFilterRequest request) {
+        Vendor vendor = vendorRepository.findByManager_Email(userEmail)
+                .orElseGet(() -> vendorStaffRepository.findByUser_EmailAndIsActiveTrueAndIsDeletedFalse(userEmail)
+                        .map(VendorStaff::getVendor)
+                        .orElseThrow(() -> new AppException(ErrorCode.UNAUTHORIZED_VENDOR_ACCESS)));
+
+        Page<VendorStaff> coordinatorPage = vendorStaffRepository.findActiveCoordinatorsByVendorIdAndKeyword(
+                vendor.getVendorId(),
+                request.getKeyword(),
+                request.getPageable()
+        );
+
+        return PaginationUtils.toPaginationResponse(coordinatorPage.map(vendorStaffMapper::toVendorStaffResponse));
+    }
+
+    @Override
     @Transactional
     public VendorStaffResponse addVendorStaff(String managerEmail, VendorStaffAddRequest request) {
         log.info("Manager {} is adding new vendor staff with email: {}", managerEmail, request.getEmail());

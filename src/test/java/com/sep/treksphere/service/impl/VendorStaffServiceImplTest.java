@@ -1,6 +1,8 @@
 package com.sep.treksphere.service.impl;
 
+import com.sep.treksphere.dto.request.BaseFilterRequest;
 import com.sep.treksphere.dto.request.VendorStaffRoleUpdateRequest;
+import com.sep.treksphere.dto.response.PaginationResponse;
 import com.sep.treksphere.dto.response.VendorStaffResponse;
 import com.sep.treksphere.entity.Role;
 import com.sep.treksphere.entity.User;
@@ -24,7 +26,10 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.Pageable;
 
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -33,6 +38,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.never;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyCollection;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -95,6 +101,44 @@ class VendorStaffServiceImplTest {
                 .contains("COORDINATOR")
                 .doesNotContain("VENDOR_STAFF");
         verify(userRepository).save(user);
+    }
+
+    @Test
+    void getMyVendorCoordinators_resolvesVendorFromManager() {
+        BaseFilterRequest request = new BaseFilterRequest();
+        request.setKeyword("guide");
+        VendorStaffResponse expected = new VendorStaffResponse();
+
+        when(vendorRepository.findByManager_Email(managerEmail)).thenReturn(Optional.of(vendor));
+        when(vendorStaffRepository.findActiveCoordinatorsByVendorIdAndKeyword(
+                eq(vendorId), eq("guide"), any(Pageable.class)))
+                .thenReturn(new PageImpl<>(List.of(staff)));
+        when(vendorStaffMapper.toVendorStaffResponse(staff)).thenReturn(expected);
+
+        PaginationResponse<VendorStaffResponse> response = service.getMyVendorCoordinators(managerEmail, request);
+
+        assertThat(response.getContent()).containsExactly(expected);
+        verify(vendorStaffRepository, never())
+                .findByUser_EmailAndIsActiveTrueAndIsDeletedFalse(managerEmail);
+    }
+
+    @Test
+    void getMyVendorCoordinators_resolvesVendorFromActiveStaff() {
+        String staffEmail = "staff@vendor.test";
+        BaseFilterRequest request = new BaseFilterRequest();
+
+        when(vendorRepository.findByManager_Email(staffEmail)).thenReturn(Optional.empty());
+        when(vendorStaffRepository.findByUser_EmailAndIsActiveTrueAndIsDeletedFalse(staffEmail))
+                .thenReturn(Optional.of(staff));
+        when(vendorStaffRepository.findActiveCoordinatorsByVendorIdAndKeyword(
+                eq(vendorId), eq(null), any(Pageable.class)))
+                .thenReturn(new PageImpl<>(List.of()));
+
+        PaginationResponse<VendorStaffResponse> response = service.getMyVendorCoordinators(staffEmail, request);
+
+        assertThat(response.getContent()).isEmpty();
+        verify(vendorStaffRepository).findActiveCoordinatorsByVendorIdAndKeyword(
+                eq(vendorId), eq(null), any(Pageable.class));
     }
 
     @Test

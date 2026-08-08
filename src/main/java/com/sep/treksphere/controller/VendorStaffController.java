@@ -51,6 +51,23 @@ public class VendorStaffController {
         return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, response));
     }
 
+    @Operation(summary = "Lấy danh sách Coordinator của Vendor", description = "Trả về các Coordinator đang hoạt động thuộc Vendor của Manager hoặc Staff hiện tại")
+    @SecurityRequirement(name = "bearerAuth")
+    @PreAuthorize("hasAnyRole('VENDOR_MANAGER', 'VENDOR_STAFF')")
+    @GetMapping("/coordinators")
+    public ResponseEntity<ApiResponse<PaginationResponse<VendorStaffResponse>>> getMyVendorCoordinators(
+            @AuthenticationPrincipal CustomUserDetails userDetails,
+            @Valid @ParameterObject @ModelAttribute BaseFilterRequest request) {
+
+        PaginationResponse<VendorStaffResponse> response = vendorStaffService.getMyVendorCoordinators(
+                userDetails.getUsername(), request);
+        return ResponseEntity.ok(ApiResponse.success(
+                HttpStatus.OK,
+                response,
+                MessageConstant.VENDOR_COORDINATORS_FETCHED
+        ));
+    }
+
     @Operation(summary = "Thêm nhân viên mới vào Vendor", description = "Cho phép Vendor Manager thêm nhân viên mới bằng cách gán User có sẵn hoặc tạo User mới và gửi email kích hoạt.")
     @SecurityRequirement(name = "bearerAuth")
     @PreAuthorize("hasRole('VENDOR_MANAGER')")
