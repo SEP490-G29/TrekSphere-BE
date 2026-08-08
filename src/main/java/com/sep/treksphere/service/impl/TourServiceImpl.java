@@ -4,6 +4,7 @@ import com.sep.treksphere.dto.request.BaseFilterRequest;
 import com.sep.treksphere.dto.request.CreateTourRequest;
 import com.sep.treksphere.dto.request.UpdateTourRequest;
 import com.sep.treksphere.dto.response.*;
+import com.sep.treksphere.entity.CancellationPolicy;
 import com.sep.treksphere.entity.Notification;
 import com.sep.treksphere.entity.Tour;
 import com.sep.treksphere.entity.TourCheckpoint;
@@ -20,6 +21,7 @@ import com.sep.treksphere.enums.tour.TourStatus;
 import com.sep.treksphere.exception.AppException;
 import com.sep.treksphere.exception.ErrorCode;
 import com.sep.treksphere.mapper.TourMapper;
+import com.sep.treksphere.repository.CancellationPolicyRepository;
 import com.sep.treksphere.repository.NotificationRepository;
 import com.sep.treksphere.repository.BookingRepository;
 import com.sep.treksphere.repository.ReviewRepository;
@@ -56,6 +58,7 @@ public class TourServiceImpl implements TourService {
     private final TourImageRepository tourImageRepository;
     private final TourCheckpointRepository tourCheckpointRepository;
     private final TourScheduleRepository tourScheduleRepository;
+    private final CancellationPolicyRepository cancellationPolicyRepository;
     private final ReviewRepository reviewRepository;
     private final NotificationRepository notificationRepository;
     private final BookingRepository bookingRepository;
@@ -141,6 +144,13 @@ public class TourServiceImpl implements TourService {
             List<TourSchedule> schedules,
             Double avgRating,
             int totalReviews) {
+        List<CancellationPolicy> policies = (tour.getVendor() != null)
+                ? cancellationPolicyRepository.findByVendorAndIsActiveTrueAndIsDeletedFalseOrderByCancelBeforeDaysDesc(tour.getVendor())
+                : List.of();
+        List<CancellationPolicyResponse> policyResponses = policies.stream()
+                .map(this::toPolicyResponse)
+                .toList();
+
         return TourDetailResponse.builder()
                 // Tour info
                 .tourId(tour.getTourId().toString())
@@ -178,9 +188,21 @@ public class TourServiceImpl implements TourService {
                 .checkpoints(checkpoints.stream().map(this::toCheckpointResponse).toList())
                 // Schedules
                 .schedules(schedules.stream().map(this::toScheduleResponse).toList())
+                // Cancellation policies
+                .cancellationPolicies(policyResponses)
                 // Review stats
                 .averageRating(avgRating)
                 .totalReviews(totalReviews)
+                .build();
+    }
+
+    private CancellationPolicyResponse toPolicyResponse(CancellationPolicy policy) {
+        return CancellationPolicyResponse.builder()
+                .cancellationPolicyId(policy.getCancellationPolicyId() != null ? policy.getCancellationPolicyId().toString() : null)
+                .cancelBeforeDays(policy.getCancelBeforeDays())
+                .refundPercentage(policy.getRefundPercentage())
+                .description(policy.getDescription())
+                .isActive(policy.getIsActive())
                 .build();
     }
 

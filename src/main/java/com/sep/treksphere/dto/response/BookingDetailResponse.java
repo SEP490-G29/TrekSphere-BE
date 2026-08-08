@@ -58,6 +58,12 @@ public class BookingDetailResponse {
     private String vendorCompanyName;
     private String paymentQrUrl;
 
+    // Trekker refund bank info
+    private String refundBankName;
+    private String refundAccountNumber;
+    private String refundAccountHolder;
+    private String refundProofImageUrl;
+
     // Participants list
     private List<BookingParticipantResponse> participants;
 }

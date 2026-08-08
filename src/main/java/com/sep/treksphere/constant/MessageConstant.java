@@ -392,6 +392,19 @@ public class MessageConstant {
     public static final String BOOKING_CONFIRMED_SUCCESSFULLY = "Xác nhận giữ chỗ đơn đặt tour thành công";
     public static final String REFUND_CONFIRMED_SUCCESSFULLY = "Xác nhận hoàn tiền thành công";
     public static final String BOOKING_NOT_CANCELLED = "Đơn đặt tour chưa ở trạng thái huỷ, không thể xác nhận hoàn tiền";
+    public static final String REFUND_BANK_INFO_REQUIRED = "Vui lòng cung cấp thông tin tài khoản ngân hàng nhận hoàn tiền";
+    public static final String REFUND_PROOF_IMAGE_REQUIRED = "Vui lòng tải lên ảnh minh chứng hoàn tiền";
+
+    // Cancellation Policy Messages
+    public static final String POLICY_NOT_FOUND = "Chính sách hủy tour không tồn tại";
+    public static final String POLICY_CREATED_SUCCESSFULLY = "Tạo chính sách hủy tour thành công";
+    public static final String POLICY_UPDATED_SUCCESSFULLY = "Cập nhật chính sách hủy tour thành công";
+    public static final String POLICY_DELETED_SUCCESSFULLY = "Xóa chính sách hủy tour thành công";
+    public static final String POLICY_DUPLICATE_DAYS = "Đã tồn tại chính sách với số ngày hủy trước này";
+    public static final String POLICY_CANCEL_DAYS_REQUIRED = "Số ngày hủy trước không được để trống";
+    public static final String POLICY_CANCEL_DAYS_MIN = "Số ngày hủy trước phải lớn hơn hoặc bằng 0";
+    public static final String POLICY_REFUND_PERCENTAGE_REQUIRED = "Phần trăm hoàn tiền không được để trống";
+    public static final String POLICY_REFUND_PERCENTAGE_RANGE = "Phần trăm hoàn tiền phải từ 0 đến 100";
 
     // Logistics Messages
     public static final String TOUR_SESSION_NOT_FOUND = "Phiên tour không tồn tại";
