@@ -72,6 +72,18 @@ public class Booking extends BaseEntity {
 
     private LocalDateTime cancelledAt;
 
+    @Column(length = 100)
+    private String refundBankName;
+
+    @Column(length = 50)
+    private String refundAccountNumber;
+
+    @Column(length = 255)
+    private String refundAccountHolder;
+
+    @Column(length = 500)
+    private String refundProofImageUrl;
+
     @OneToMany(mappedBy = "booking", cascade = CascadeType.ALL, orphanRemoval = true)
     private Set<BookingParticipant> participants = new HashSet<>();
 }

@@ -53,6 +53,8 @@ public class TourDetailResponse {
 
     private List<TourScheduleResponse> schedules;
 
+    private List<CancellationPolicyResponse> cancellationPolicies;
+
     private Double averageRating;
     private int totalReviews;
 }

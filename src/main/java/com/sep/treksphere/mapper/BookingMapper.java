@@ -155,6 +155,10 @@ public class BookingMapper {
                 .vendorBankAccount(vendorBankAccount)
                 .vendorCompanyName(vendorCompanyName)
                 .paymentQrUrl(paymentQrUrl)
+                .refundBankName(b.getRefundBankName())
+                .refundAccountNumber(b.getRefundAccountNumber())
+                .refundAccountHolder(b.getRefundAccountHolder())
+                .refundProofImageUrl(b.getRefundProofImageUrl())
                 .participants(participantResponses)
                 .build();
     }

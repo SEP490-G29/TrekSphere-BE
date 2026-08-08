@@ -1,5 +1,6 @@
 package com.sep.treksphere.service.impl;
 
+import com.sep.treksphere.constant.MessageConstant;
 import com.sep.treksphere.dto.request.BookingCancelRequest;
 import com.sep.treksphere.dto.request.BookingRequest;
 import com.sep.treksphere.dto.request.VendorBookingFilterRequest;
@@ -9,6 +10,8 @@ import com.sep.treksphere.dto.response.PaginationResponse;
 import com.sep.treksphere.entity.*;
 import com.sep.treksphere.enums.booking.BookingStatus;
 import com.sep.treksphere.enums.booking.PaymentStatus;
+import com.sep.treksphere.enums.system.NotificationEventType;
+import com.sep.treksphere.enums.system.ReferenceType;
 import com.sep.treksphere.enums.tour.ScheduleStatus;
 import com.sep.treksphere.enums.voucher.DiscountType;
 import com.sep.treksphere.enums.voucher.VoucherStatus;
@@ -49,6 +52,7 @@ public class BookingServiceImpl implements BookingService {
     private final VendorRepository vendorRepository;
     private final VendorStaffRepository vendorStaffRepository;
     private final CancellationPolicyRepository cancellationPolicyRepository;
+    private final NotificationRepository notificationRepository;
     private final BookingMapper bookingMapper;
     private final FileService fileService;
 
@@ -258,6 +262,18 @@ public class BookingServiceImpl implements BookingService {
         booking.setCancelledAt(LocalDateTime.now());
         booking.setRefundAmount(refundAmount);
 
+        // Lưu thông tin tài khoản nhận hoàn tiền khi có số tiền cần hoàn
+        if (refundAmount.compareTo(BigDecimal.ZERO) > 0) {
+            if (!StringUtils.hasText(request.getRefundBankName())
+                    || !StringUtils.hasText(request.getRefundAccountNumber())
+                    || !StringUtils.hasText(request.getRefundAccountHolder())) {
+                throw new AppException(ErrorCode.REFUND_BANK_INFO_REQUIRED);
+            }
+            booking.setRefundBankName(request.getRefundBankName());
+            booking.setRefundAccountNumber(request.getRefundAccountNumber());
+            booking.setRefundAccountHolder(request.getRefundAccountHolder());
+        }
+
         // Refund slots back to schedule
         int participantCount = booking.getNumberOfParticipants();
         schedule.setBookedSlots(Math.max(0, schedule.getBookedSlots() - participantCount));
@@ -272,6 +288,22 @@ public class BookingServiceImpl implements BookingService {
         }
 
         Booking updatedBooking = bookingRepository.save(booking);
+
+        // Gửi notification tới Vendor Manager khi trekker hủy booking
+        Vendor vendor = schedule.getTour().getVendor();
+        Notification notification = new Notification();
+        notification.setRecipient(vendor.getManager());
+        notification.setTitle("Khách hàng đã hủy đơn đặt tour");
+        notification.setEventType(NotificationEventType.BOOKING_CANCELLED);
+        notification.setContent("Đơn " + booking.getBookingCode() + " tour \""
+                + schedule.getTour().getTourName() + "\" đã bị khách hủy."
+                + (refundAmount.compareTo(BigDecimal.ZERO) > 0
+                    ? " Số tiền cần hoàn: " + refundAmount + " VND."
+                    : ""));
+        notification.setReferenceType(ReferenceType.BOOKING);
+        notification.setReferenceId(updatedBooking.getBookingId());
+        notificationRepository.save(notification);
+
         return bookingMapper.toBookingDetailResponse(updatedBooking);
     }
 
@@ -369,7 +401,7 @@ public class BookingServiceImpl implements BookingService {
 
     @Override
     @Transactional
-    public BookingDetailResponse confirmVendorRefund(String email, UUID bookingId) {
+    public BookingDetailResponse confirmVendorRefund(String email, UUID bookingId, MultipartFile refundProofImage) {
         Vendor vendor = vendorRepository.findByManager_Email(email)
                 .orElseThrow(() -> new AppException(ErrorCode.ACCESS_DENIED));
 
@@ -385,8 +417,36 @@ public class BookingServiceImpl implements BookingService {
             throw new AppException(ErrorCode.BOOKING_NOT_CANCELLED);
         }
 
+        // Upload ảnh minh chứng hoàn tiền
+        if (refundProofImage == null || refundProofImage.isEmpty()) {
+            throw new AppException(ErrorCode.VALIDATION_ERROR, MessageConstant.REFUND_PROOF_IMAGE_REQUIRED);
+        }
+
+        // Xoá ảnh minh chứng hoàn tiền cũ nếu có (trường hợp upload lại)
+        if (StringUtils.hasText(booking.getRefundProofImageUrl())) {
+            String oldPublicId = extractPublicIdFromUrl(booking.getRefundProofImageUrl());
+            if (oldPublicId != null) {
+                fileService.deleteFile(oldPublicId);
+            }
+        }
+
+        String refundProofUrl = fileService.uploadFile(refundProofImage, "refund-proofs");
+        booking.setRefundProofImageUrl(refundProofUrl);
         booking.setPaymentStatus(PaymentStatus.REFUNDED);
         Booking updatedBooking = bookingRepository.save(booking);
+
+        // Gửi notification tới trekker thông báo đã hoàn tiền
+        Notification notification = new Notification();
+        notification.setRecipient(booking.getUser());
+        notification.setTitle("Vendor đã hoàn tiền cho đơn hủy");
+        notification.setEventType(NotificationEventType.REFUND_COMPLETED);
+        notification.setContent("Đơn " + booking.getBookingCode() + " tour \""
+                + booking.getSchedule().getTour().getTourName()
+                + "\" đã được hoàn tiền. Vui lòng kiểm tra tài khoản ngân hàng của bạn.");
+        notification.setReferenceType(ReferenceType.BOOKING);
+        notification.setReferenceId(updatedBooking.getBookingId());
+        notificationRepository.save(notification);
+
         return bookingMapper.toBookingDetailResponse(updatedBooking);
     }
 

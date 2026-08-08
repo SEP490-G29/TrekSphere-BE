@@ -65,14 +65,15 @@ public class VendorBookingController {
         return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, result, MessageConstant.BOOKING_CONFIRMED_SUCCESSFULLY));
     }
 
-    @Operation(summary = "Xác nhận đã hoàn tiền cho khách (Chỉ áp dụng cho đơn đã huỷ)", description = "Chuyển trạng thái thanh toán sang REFUNDED (Dành riêng cho VendorManager)")
+    @Operation(summary = "Xác nhận đã hoàn tiền cho khách (Chỉ áp dụng cho đơn đã huỷ)", description = "Upload ảnh minh chứng chuyển khoản hoàn tiền và chuyển trạng thái thanh toán sang REFUNDED (Dành riêng cho VendorManager)")
     @PreAuthorize("hasRole('VENDOR_MANAGER')")
-    @PutMapping("/{id}/refund")
+    @PutMapping(value = "/{id}/refund", consumes = org.springframework.http.MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<ApiResponse<BookingDetailResponse>> confirmRefund(
             @AuthenticationPrincipal CustomUserDetails userDetails,
-            @PathVariable UUID id
+            @PathVariable UUID id,
+            @RequestPart("refundProofImage") org.springframework.web.multipart.MultipartFile refundProofImage
     ) {
-        BookingDetailResponse result = bookingService.confirmVendorRefund(userDetails.getUsername(), id);
+        BookingDetailResponse result = bookingService.confirmVendorRefund(userDetails.getUsername(), id, refundProofImage);
         return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, result, MessageConstant.REFUND_CONFIRMED_SUCCESSFULLY));
     }
 

@@ -23,6 +23,6 @@ public interface BookingService {
     PaginationResponse<BookingResponse> getVendorBookings(String email, VendorBookingFilterRequest request);
     BookingDetailResponse confirmVendorPayment(String email, UUID bookingId);
     BookingDetailResponse confirmVendorBooking(String email, UUID bookingId);
-    BookingDetailResponse confirmVendorRefund(String email, UUID bookingId);
+    BookingDetailResponse confirmVendorRefund(String email, UUID bookingId, MultipartFile refundProofImage);
     BookingDetailResponse rejectVendorBooking(String email, UUID bookingId, BookingCancelRequest request);
 }
