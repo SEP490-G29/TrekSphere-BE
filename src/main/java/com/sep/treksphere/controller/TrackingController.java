@@ -14,6 +14,7 @@ import com.sep.treksphere.dto.request.CreateSosAlertRequest;
 import com.sep.treksphere.dto.response.SosAlertResponse;
 import com.sep.treksphere.dto.response.TourSessionEndResponse;
 import com.sep.treksphere.dto.response.TourSessionStartResponse;
+import com.sep.treksphere.dto.response.TourSessionSosStatusResponse;
 import com.sep.treksphere.security.CustomUserDetails;
 import com.sep.treksphere.service.TrackingService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -200,6 +201,26 @@ public class TrackingController {
         );
 
         return new ResponseEntity<>(response, HttpStatus.CREATED);
+    }
+
+    @GetMapping("/{sessionId}/sos/status")
+    @Operation(summary = "Kiểm tra trạng thái SOS của Tour Session", description = "Cho phép Coordinator được phân công kiểm tra session có SOS hay không, còn alert đang chờ xử lý hay alert gần nhất đã được giải quyết.")
+    @SecurityRequirement(name = "bearerAuth")
+    @PreAuthorize("hasRole('COORDINATOR')")
+    public ResponseEntity<ApiResponse<TourSessionSosStatusResponse>> getTourSessionSosStatus(
+            @AuthenticationPrincipal CustomUserDetails userDetails,
+            @PathVariable UUID sessionId
+    ) {
+        TourSessionSosStatusResponse data = trackingService.getTourSessionSosStatus(
+                userDetails.getUser().getUserId(),
+                sessionId
+        );
+
+        return ResponseEntity.ok(ApiResponse.success(
+                HttpStatus.OK,
+                data,
+                MessageConstant.SOS_ALERT_STATUS_FETCHED
+        ));
     }
 
     @GetMapping("/sos/active")

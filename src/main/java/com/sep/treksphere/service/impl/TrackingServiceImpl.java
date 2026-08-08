@@ -15,6 +15,7 @@ import com.sep.treksphere.dto.response.TourSessionEndResponse;
 import com.sep.treksphere.dto.response.TourSessionStartResponse;
 import com.sep.treksphere.dto.response.SessionEquipmentCheckResponse;
 import com.sep.treksphere.dto.response.SosAlertResponse;
+import com.sep.treksphere.dto.response.TourSessionSosStatusResponse;
 import com.sep.treksphere.entity.*;
 import com.sep.treksphere.enums.booking.BookingStatus;
 import com.sep.treksphere.enums.tour.AttendanceType;
@@ -463,6 +464,35 @@ public class TrackingServiceImpl implements TrackingService {
         log.info("SOS alert successfully registered with ID {} for session {}", sosAlert.getSosAlertId(), request.getTourSessionId());
 
         return mapToSosAlertResponse(sosAlert);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public TourSessionSosStatusResponse getTourSessionSosStatus(UUID coordinatorId, UUID sessionId) {
+        log.info("Coordinator {} is requesting SOS status for tour session {}", coordinatorId, sessionId);
+
+        getActiveTourSession(sessionId);
+        getActiveCoordinatorAssignment(sessionId, coordinatorId);
+
+        Optional<SosAlert> pendingAlert = sosAlertRepository
+                .findFirstByTourSession_TourSessionIdAndStatusAndIsDeletedFalseOrderByCreatedAtDesc(
+                        sessionId,
+                        SosAlertStatus.PENDING
+                );
+
+        Optional<SosAlert> trackedAlert = pendingAlert.isPresent()
+                ? pendingAlert
+                : sosAlertRepository.findFirstByTourSession_TourSessionIdAndIsDeletedFalseOrderByCreatedAtDesc(sessionId);
+
+        SosAlertStatus status = trackedAlert.map(SosAlert::getStatus).orElse(null);
+        return TourSessionSosStatusResponse.builder()
+                .tourSessionId(sessionId)
+                .hasSosAlert(trackedAlert.isPresent())
+                .hasActiveSosAlert(pendingAlert.isPresent())
+                .resolved(status == SosAlertStatus.RESOLVED)
+                .status(status)
+                .sosAlert(trackedAlert.map(this::mapToSosAlertResponse).orElse(null))
+                .build();
     }
 
     @Override

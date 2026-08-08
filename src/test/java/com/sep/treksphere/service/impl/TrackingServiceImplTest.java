@@ -5,6 +5,8 @@ import com.sep.treksphere.dto.request.TourSessionAttendanceRequest;
 import com.sep.treksphere.entity.BookingParticipant;
 import com.sep.treksphere.entity.CoordinatorSchedule;
 import com.sep.treksphere.entity.Role;
+import com.sep.treksphere.entity.SosAlert;
+import com.sep.treksphere.entity.Tour;
 import com.sep.treksphere.entity.TourSchedule;
 import com.sep.treksphere.entity.TourSession;
 import com.sep.treksphere.entity.User;
@@ -138,6 +140,89 @@ class TrackingServiceImplTest {
     }
 
     @Test
+    void getTourSessionSosStatus_returnsNoAlertWhenSessionHasNoSosHistory() {
+        UUID coordinatorId = UUID.randomUUID();
+        UUID sessionId = UUID.randomUUID();
+        stubAuthorizedSession(coordinatorId, sessionId, UUID.randomUUID(), TourSessionStatus.IN_PROGRESS);
+        when(sosAlertRepository
+                .findFirstByTourSession_TourSessionIdAndStatusAndIsDeletedFalseOrderByCreatedAtDesc(
+                        sessionId, SosAlertStatus.PENDING))
+                .thenReturn(Optional.empty());
+        when(sosAlertRepository.findFirstByTourSession_TourSessionIdAndIsDeletedFalseOrderByCreatedAtDesc(sessionId))
+                .thenReturn(Optional.empty());
+
+        var response = trackingService.getTourSessionSosStatus(coordinatorId, sessionId);
+
+        assertThat(response.isHasSosAlert()).isFalse();
+        assertThat(response.isHasActiveSosAlert()).isFalse();
+        assertThat(response.isResolved()).isFalse();
+        assertThat(response.getStatus()).isNull();
+        assertThat(response.getSosAlert()).isNull();
+    }
+
+    @Test
+    void getTourSessionSosStatus_prioritizesPendingAlert() {
+        UUID coordinatorId = UUID.randomUUID();
+        UUID sessionId = UUID.randomUUID();
+        TourSession session = stubAuthorizedSession(
+                coordinatorId, sessionId, UUID.randomUUID(), TourSessionStatus.IN_PROGRESS);
+        User sender = new User();
+        sender.setUserId(coordinatorId);
+        sender.setFullName("Coordinator");
+        SosAlert pendingAlert = new SosAlert();
+        pendingAlert.setSosAlertId(UUID.randomUUID());
+        pendingAlert.setTourSession(session);
+        pendingAlert.setSender(sender);
+        pendingAlert.setStatus(SosAlertStatus.PENDING);
+
+        when(sosAlertRepository
+                .findFirstByTourSession_TourSessionIdAndStatusAndIsDeletedFalseOrderByCreatedAtDesc(
+                        sessionId, SosAlertStatus.PENDING))
+                .thenReturn(Optional.of(pendingAlert));
+
+        var response = trackingService.getTourSessionSosStatus(coordinatorId, sessionId);
+
+        assertThat(response.isHasSosAlert()).isTrue();
+        assertThat(response.isHasActiveSosAlert()).isTrue();
+        assertThat(response.isResolved()).isFalse();
+        assertThat(response.getStatus()).isEqualTo(SosAlertStatus.PENDING);
+        assertThat(response.getSosAlert().getSosAlertId()).isEqualTo(pendingAlert.getSosAlertId());
+        verify(sosAlertRepository, never())
+                .findFirstByTourSession_TourSessionIdAndIsDeletedFalseOrderByCreatedAtDesc(sessionId);
+    }
+
+    @Test
+    void getTourSessionSosStatus_returnsResolvedLatestAlertWhenNoPendingAlertExists() {
+        UUID coordinatorId = UUID.randomUUID();
+        UUID sessionId = UUID.randomUUID();
+        TourSession session = stubAuthorizedSession(
+                coordinatorId, sessionId, UUID.randomUUID(), TourSessionStatus.IN_PROGRESS);
+        User sender = new User();
+        sender.setUserId(coordinatorId);
+        sender.setFullName("Coordinator");
+        SosAlert resolvedAlert = new SosAlert();
+        resolvedAlert.setSosAlertId(UUID.randomUUID());
+        resolvedAlert.setTourSession(session);
+        resolvedAlert.setSender(sender);
+        resolvedAlert.setStatus(SosAlertStatus.RESOLVED);
+
+        when(sosAlertRepository
+                .findFirstByTourSession_TourSessionIdAndStatusAndIsDeletedFalseOrderByCreatedAtDesc(
+                        sessionId, SosAlertStatus.PENDING))
+                .thenReturn(Optional.empty());
+        when(sosAlertRepository.findFirstByTourSession_TourSessionIdAndIsDeletedFalseOrderByCreatedAtDesc(sessionId))
+                .thenReturn(Optional.of(resolvedAlert));
+
+        var response = trackingService.getTourSessionSosStatus(coordinatorId, sessionId);
+
+        assertThat(response.isHasSosAlert()).isTrue();
+        assertThat(response.isHasActiveSosAlert()).isFalse();
+        assertThat(response.isResolved()).isTrue();
+        assertThat(response.getStatus()).isEqualTo(SosAlertStatus.RESOLVED);
+        assertThat(response.getSosAlert().getSosAlertId()).isEqualTo(resolvedAlert.getSosAlertId());
+    }
+
+    @Test
     void recordAttendance_AllowsStartAttendanceWhileSessionIsPending() {
         UUID coordinatorId = UUID.randomUUID();
         UUID sessionId = UUID.randomUUID();
@@ -237,6 +322,9 @@ class TrackingServiceImplTest {
     ) {
         TourSchedule tourSchedule = new TourSchedule();
         tourSchedule.setScheduleId(scheduleId);
+        Tour tour = new Tour();
+        tour.setTourName("Test Tour");
+        tourSchedule.setTour(tour);
 
         TourSession tourSession = new TourSession();
         tourSession.setTourSessionId(sessionId);
