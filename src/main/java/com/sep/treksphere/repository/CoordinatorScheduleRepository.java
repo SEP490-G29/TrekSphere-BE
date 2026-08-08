@@ -10,6 +10,7 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.time.LocalDate;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -61,6 +62,21 @@ public interface CoordinatorScheduleRepository extends JpaRepository<Coordinator
             "AND ts.status = :status")
     long countSchedulesByStatus(@Param("coordinatorId") UUID coordinatorId,
                                 @Param("status") TourSessionStatus status);
+
+    @Query("SELECT COUNT(c) FROM CoordinatorSchedule c " +
+            "JOIN c.tourSession ts " +
+            "JOIN ts.tourSchedule sch " +
+            "WHERE c.coordinator.userId = :coordinatorId " +
+            "AND c.isDeleted = false " +
+            "AND c.isCancelled = false " +
+            "AND ts.isDeleted = false " +
+            "AND sch.isDeleted = false " +
+            "AND ts.status IN :statuses " +
+            "AND sch.returnDate >= :currentDate")
+    long countActiveOrUpcomingSchedules(
+            @Param("coordinatorId") UUID coordinatorId,
+            @Param("statuses") Collection<TourSessionStatus> statuses,
+            @Param("currentDate") LocalDate currentDate);
 
     List<CoordinatorSchedule> findByTourSession_TourSessionIdAndIsDeletedFalse(UUID sessionId);
 
