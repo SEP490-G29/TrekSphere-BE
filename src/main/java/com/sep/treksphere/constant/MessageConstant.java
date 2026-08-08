@@ -242,6 +242,7 @@ public class MessageConstant {
     public static final String NO_PRESENT_PARTICIPANTS = "Không thể bắt đầu chuyến đi khi không có thành viên nào tham gia";
     public static final String SESSION_EQUIPMENT_NOT_READY = "Tất cả dụng cụ đã phân bổ phải được kiểm tra trước khi khởi hành";
     public static final String SESSION_CHECKPOINT_LOGS_ALREADY_INITIALIZED = "Nhật ký trạm dừng của chuyến đi đã được khởi tạo trước đó";
+    public static final String SESSION_CHECKPOINT_LOGS_FETCHED = "Lấy nhật ký trạm dừng của chuyến đi thành công";
     public static final String SESSION_EQUIPMENT_CHECKED_SUCCESS = "Đánh dấu kiểm tra dụng cụ đi tour thành công";
     public static final String UNAUTHORIZED_EQUIPMENT_CHECK = "Bạn không có quyền kiểm tra dụng cụ của phiên đi tour này";
     public static final String EQUIPMENT_CHECK_STATUS_REQUIRED = "Trạng thái kiểm tra không được để trống";

@@ -5,6 +5,7 @@ import com.sep.treksphere.dto.request.SessionCheckpointLogRequest;
 import com.sep.treksphere.dto.response.ApiResponse;
 import com.sep.treksphere.dto.response.PaginationResponse;
 import com.sep.treksphere.dto.response.SessionCheckpointLogResponse;
+import com.sep.treksphere.dto.response.SessionCheckpointStatusResponse;
 import com.sep.treksphere.dto.request.TourSessionAttendanceRequest;
 import com.sep.treksphere.dto.response.TourSessionAttendanceResponse;
 import com.sep.treksphere.dto.request.SessionEquipmentCheckRequest;
@@ -37,6 +38,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.UUID;
+import java.util.List;
 
 @RestController
 @RequestMapping("/api/v1/tracking/sessions")
@@ -84,6 +86,26 @@ public class TrackingController {
         );
 
         return ResponseEntity.ok(response);
+    }
+
+    @GetMapping("/{sessionId}/checkpoint-logs")
+    @Operation(summary = "Lấy nhật ký checkpoint của Tour Session", description = "Trả về toàn bộ checkpoint theo thứ tự hành trình, gồm trạng thái điểm danh, vị trí chuẩn, vị trí thực tế và thời điểm check-in. Manager/Staff phải thuộc Vendor sở hữu chuyến đi; Coordinator phải được phân công vào chuyến đi.")
+    @SecurityRequirement(name = "bearerAuth")
+    @PreAuthorize("hasAnyRole('VENDOR_MANAGER', 'VENDOR_STAFF', 'COORDINATOR')")
+    public ResponseEntity<ApiResponse<List<SessionCheckpointStatusResponse>>> getSessionCheckpointLogs(
+            @AuthenticationPrincipal CustomUserDetails userDetails,
+            @PathVariable UUID sessionId
+    ) {
+        List<SessionCheckpointStatusResponse> data = trackingService.getSessionCheckpointLogs(
+                userDetails.getUser().getUserId(),
+                sessionId
+        );
+
+        return ResponseEntity.ok(ApiResponse.success(
+                HttpStatus.OK,
+                data,
+                MessageConstant.SESSION_CHECKPOINT_LOGS_FETCHED
+        ));
     }
 
     @PostMapping("/{sessionId}/end")

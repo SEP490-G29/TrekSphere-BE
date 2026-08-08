@@ -5,6 +5,7 @@ import com.sep.treksphere.dto.request.TourSessionAttendanceRequest;
 import com.sep.treksphere.dto.request.SessionEquipmentCheckRequest;
 import com.sep.treksphere.dto.request.CreateSosAlertRequest;
 import com.sep.treksphere.dto.response.SessionCheckpointLogResponse;
+import com.sep.treksphere.dto.response.SessionCheckpointStatusResponse;
 import com.sep.treksphere.dto.response.TourSessionEndResponse;
 import com.sep.treksphere.dto.response.TourSessionStartResponse;
 import com.sep.treksphere.dto.response.TourSessionAttendanceResponse;
@@ -15,6 +16,7 @@ import com.sep.treksphere.dto.response.PaginationResponse;
 import org.springframework.data.domain.Pageable;
 
 import java.util.UUID;
+import java.util.List;
 
 public interface TrackingService {
 
@@ -28,6 +30,11 @@ public interface TrackingService {
             UUID coordinatorId,
             UUID sessionId,
             SessionCheckpointLogRequest request
+    );
+
+    List<SessionCheckpointStatusResponse> getSessionCheckpointLogs(
+            UUID userId,
+            UUID sessionId
     );
 
     TourSessionEndResponse endSession(
