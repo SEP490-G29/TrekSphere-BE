@@ -22,10 +22,25 @@ public interface TourScheduleRepository extends JpaRepository<TourSchedule, UUID
     List<TourSchedule> findByTourAndStatusAndDepartureDateGreaterThanEqualAndIsDeletedFalseOrderByDepartureDateAsc(Tour tour, ScheduleStatus status, LocalDate date);
     Optional<TourSchedule> findByScheduleIdAndIsDeletedFalse(UUID scheduleId);
 
+    @Query("SELECT ts FROM TourSchedule ts WHERE ts.tour.vendor.vendorId = :vendorId " +
+           "AND ts.isDeleted = false " +
+           "AND ts.departureDate >= :today " +
+           "ORDER BY ts.departureDate ASC")
+    List<TourSchedule> findVendorUpcomingSchedules(@Param("vendorId") UUID vendorId,
+                                                    @Param("today") LocalDate today);
+
+    @Query("SELECT ts FROM TourSchedule ts WHERE ts.tour.vendor.vendorId = :vendorId " +
+           "AND ts.isDeleted = false " +
+           "AND ts.createdAt >= :startDate AND ts.createdAt <= :endDate")
+    List<TourSchedule> findVendorSchedulesInPeriod(@Param("vendorId") UUID vendorId,
+                                                   @Param("startDate") LocalDateTime startDate,
+                                                   @Param("endDate") LocalDateTime endDate);
+
     /**
      * Cascade soft delete: đánh dấu xóa mềm tất cả schedule chưa bị xóa của tour,
      * gán chung deletedAt timestamp để phục vụ restore đúng đợt.
      */
+
     @Modifying
     @Query("UPDATE TourSchedule ts SET ts.isDeleted = true, ts.deletedAt = :deletedAt, ts.deletedBy = :deletedBy " +
            "WHERE ts.tour.tourId = :tourId AND ts.isDeleted = false")

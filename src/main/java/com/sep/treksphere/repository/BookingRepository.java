@@ -38,6 +38,16 @@ public interface BookingRepository extends JpaRepository<Booking, UUID> {
 
     @Query("SELECT b FROM Booking b WHERE b.schedule.tour.vendor.vendorId = :vendorId " +
            "AND b.isDeleted = false " +
+           "AND b.createdAt >= :startDate AND b.createdAt <= :endDate")
+    java.util.List<Booking> findVendorBookingsInPeriod(@Param("vendorId") UUID vendorId,
+                                                      @Param("startDate") java.time.LocalDateTime startDate,
+                                                      @Param("endDate") java.time.LocalDateTime endDate);
+
+    @Query("SELECT b FROM Booking b WHERE b.schedule.scheduleId = :scheduleId AND b.isDeleted = false")
+    java.util.List<Booking> findByScheduleId(@Param("scheduleId") UUID scheduleId);
+
+    @Query("SELECT b FROM Booking b WHERE b.schedule.tour.vendor.vendorId = :vendorId " +
+           "AND b.isDeleted = false " +
            "AND (CAST(:bookingStatus AS string) IS NULL OR b.bookingStatus = :bookingStatus) " +
            "AND (CAST(:paymentStatus AS string) IS NULL OR b.paymentStatus = :paymentStatus) " +
            "AND (CAST(:tourId AS uuid) IS NULL OR b.schedule.tour.tourId = :tourId) " +
@@ -47,9 +57,9 @@ public interface BookingRepository extends JpaRepository<Booking, UUID> {
            "     LOWER(b.user.email) LIKE LOWER(CONCAT('%', CAST(:keyword AS string), '%')) OR " +
            "     LOWER(b.user.phone) LIKE LOWER(CONCAT('%', CAST(:keyword AS string), '%')))")
     Page<Booking> findVendorBookings(@Param("vendorId") UUID vendorId,
-                                    @Param("bookingStatus") BookingStatus bookingStatus,
-                                    @Param("paymentStatus") PaymentStatus paymentStatus,
-                                    @Param("tourId") UUID tourId,
-                                    @Param("keyword") String keyword,
-                                    Pageable pageable);
+                                     @Param("bookingStatus") BookingStatus bookingStatus,
+                                     @Param("paymentStatus") PaymentStatus paymentStatus,
+                                     @Param("tourId") UUID tourId,
+                                     @Param("keyword") String keyword,
+                                     Pageable pageable);
 }
