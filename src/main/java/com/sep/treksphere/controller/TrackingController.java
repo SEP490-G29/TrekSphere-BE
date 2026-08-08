@@ -5,6 +5,7 @@ import com.sep.treksphere.dto.request.SessionCheckpointLogRequest;
 import com.sep.treksphere.dto.response.ApiResponse;
 import com.sep.treksphere.dto.response.PaginationResponse;
 import com.sep.treksphere.dto.response.SessionCheckpointLogResponse;
+import com.sep.treksphere.dto.response.SessionCheckpointStatusResponse;
 import com.sep.treksphere.dto.request.TourSessionAttendanceRequest;
 import com.sep.treksphere.dto.response.TourSessionAttendanceResponse;
 import com.sep.treksphere.dto.request.SessionEquipmentCheckRequest;
@@ -13,6 +14,7 @@ import com.sep.treksphere.dto.request.CreateSosAlertRequest;
 import com.sep.treksphere.dto.response.SosAlertResponse;
 import com.sep.treksphere.dto.response.TourSessionEndResponse;
 import com.sep.treksphere.dto.response.TourSessionStartResponse;
+import com.sep.treksphere.dto.response.TourSessionSosStatusResponse;
 import com.sep.treksphere.security.CustomUserDetails;
 import com.sep.treksphere.service.TrackingService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -37,6 +39,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.UUID;
+import java.util.List;
 
 @RestController
 @RequestMapping("/api/v1/tracking/sessions")
@@ -84,6 +87,26 @@ public class TrackingController {
         );
 
         return ResponseEntity.ok(response);
+    }
+
+    @GetMapping("/{sessionId}/checkpoint-logs")
+    @Operation(summary = "Lấy nhật ký checkpoint của Tour Session", description = "Trả về toàn bộ checkpoint theo thứ tự hành trình, gồm trạng thái điểm danh, vị trí chuẩn, vị trí thực tế và thời điểm check-in. Manager/Staff phải thuộc Vendor sở hữu chuyến đi; Coordinator phải được phân công vào chuyến đi.")
+    @SecurityRequirement(name = "bearerAuth")
+    @PreAuthorize("hasAnyRole('VENDOR_MANAGER', 'VENDOR_STAFF', 'COORDINATOR')")
+    public ResponseEntity<ApiResponse<List<SessionCheckpointStatusResponse>>> getSessionCheckpointLogs(
+            @AuthenticationPrincipal CustomUserDetails userDetails,
+            @PathVariable UUID sessionId
+    ) {
+        List<SessionCheckpointStatusResponse> data = trackingService.getSessionCheckpointLogs(
+                userDetails.getUser().getUserId(),
+                sessionId
+        );
+
+        return ResponseEntity.ok(ApiResponse.success(
+                HttpStatus.OK,
+                data,
+                MessageConstant.SESSION_CHECKPOINT_LOGS_FETCHED
+        ));
     }
 
     @PostMapping("/{sessionId}/end")
@@ -178,6 +201,26 @@ public class TrackingController {
         );
 
         return new ResponseEntity<>(response, HttpStatus.CREATED);
+    }
+
+    @GetMapping("/{sessionId}/sos/status")
+    @Operation(summary = "Kiểm tra trạng thái SOS của Tour Session", description = "Cho phép Coordinator được phân công kiểm tra session có SOS hay không, còn alert đang chờ xử lý hay alert gần nhất đã được giải quyết.")
+    @SecurityRequirement(name = "bearerAuth")
+    @PreAuthorize("hasRole('COORDINATOR')")
+    public ResponseEntity<ApiResponse<TourSessionSosStatusResponse>> getTourSessionSosStatus(
+            @AuthenticationPrincipal CustomUserDetails userDetails,
+            @PathVariable UUID sessionId
+    ) {
+        TourSessionSosStatusResponse data = trackingService.getTourSessionSosStatus(
+                userDetails.getUser().getUserId(),
+                sessionId
+        );
+
+        return ResponseEntity.ok(ApiResponse.success(
+                HttpStatus.OK,
+                data,
+                MessageConstant.SOS_ALERT_STATUS_FETCHED
+        ));
     }
 
     @GetMapping("/sos/active")

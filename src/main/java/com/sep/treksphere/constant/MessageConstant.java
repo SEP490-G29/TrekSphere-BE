@@ -196,6 +196,9 @@ public class MessageConstant {
     public static final String STAFF_ALREADY_EXISTS = "Nhân viên này đã thuộc công ty của bạn";
     public static final String STAFF_BELONGS_TO_OTHER_VENDOR = "Nhân viên này đang thuộc một công ty khác";
     public static final String VENDOR_STAFF_ADDED = "Thêm nhân viên mới thành công";
+    public static final String VENDOR_STAFF_ROLE_UPDATED = "Cập nhật vai trò nhân viên thành công";
+    public static final String VENDOR_COORDINATORS_FETCHED = "Lấy danh sách điều phối viên của Vendor thành công";
+    public static final String COORDINATOR_HAS_ACTIVE_SCHEDULES = "Không thể đổi vai trò vì điều phối viên đang có lịch tour chưa hoàn thành";
     public static final String STAFF_STATUS_REQUIRED = "Trạng thái hoạt động của nhân viên không được để trống";
     public static final String VENDOR_STAFF_STATUS_UPDATED = "Cập nhật trạng thái nhân viên thành công";
     public static final String VENDOR_STAFF_NOT_FOUND = "Không tìm thấy thông tin nhân viên này";
@@ -239,10 +242,12 @@ public class MessageConstant {
     public static final String NO_PRESENT_PARTICIPANTS = "Không thể bắt đầu chuyến đi khi không có thành viên nào tham gia";
     public static final String SESSION_EQUIPMENT_NOT_READY = "Tất cả dụng cụ đã phân bổ phải được kiểm tra trước khi khởi hành";
     public static final String SESSION_CHECKPOINT_LOGS_ALREADY_INITIALIZED = "Nhật ký trạm dừng của chuyến đi đã được khởi tạo trước đó";
+    public static final String SESSION_CHECKPOINT_LOGS_FETCHED = "Lấy nhật ký trạm dừng của chuyến đi thành công";
     public static final String SESSION_EQUIPMENT_CHECKED_SUCCESS = "Đánh dấu kiểm tra dụng cụ đi tour thành công";
     public static final String UNAUTHORIZED_EQUIPMENT_CHECK = "Bạn không có quyền kiểm tra dụng cụ của phiên đi tour này";
     public static final String EQUIPMENT_CHECK_STATUS_REQUIRED = "Trạng thái kiểm tra không được để trống";
     public static final String SOS_ALERT_CREATED_SUCCESS = "Phát tín hiệu SOS khẩn cấp thành công";
+    public static final String SOS_ALERT_STATUS_FETCHED = "Lấy trạng thái SOS của chuyến đi thành công";
     public static final String UNAUTHORIZED_SOS_ALERT = "Bạn không có quyền phát tín hiệu SOS cho phiên đi tour này";
     public static final String SESSION_FOR_SOS_NOT_ACTIVE = "Phiên đi tour này hiện tại không hoạt động để phát tín hiệu SOS";
     public static final String ACTIVE_SOS_ALERTS_FETCHED = "Lấy danh sách cuộc gọi SOS hoạt động thành công";

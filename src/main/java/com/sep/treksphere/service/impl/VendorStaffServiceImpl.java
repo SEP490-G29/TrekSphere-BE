@@ -2,6 +2,7 @@ package com.sep.treksphere.service.impl;
 
 import com.sep.treksphere.dto.request.BaseFilterRequest;
 import com.sep.treksphere.dto.request.VendorStaffAddRequest;
+import com.sep.treksphere.dto.request.VendorStaffRoleUpdateRequest;
 import com.sep.treksphere.dto.request.VendorStaffStatusUpdateRequest;
 import com.sep.treksphere.dto.response.PaginationResponse;
 import com.sep.treksphere.dto.response.VendorStaffResponse;
@@ -9,6 +10,8 @@ import com.sep.treksphere.entity.Role;
 import com.sep.treksphere.entity.User;
 import com.sep.treksphere.entity.Vendor;
 import com.sep.treksphere.entity.VendorStaff;
+import com.sep.treksphere.enums.user.VendorStaffRole;
+import com.sep.treksphere.enums.tour.TourSessionStatus;
 import com.sep.treksphere.exception.AppException;
 import com.sep.treksphere.exception.ErrorCode;
 import com.sep.treksphere.mapper.VendorStaffMapper;
@@ -16,6 +19,7 @@ import com.sep.treksphere.repository.RoleRepository;
 import com.sep.treksphere.repository.UserRepository;
 import com.sep.treksphere.repository.VendorRepository;
 import com.sep.treksphere.repository.VendorStaffRepository;
+import com.sep.treksphere.repository.CoordinatorScheduleRepository;
 import com.sep.treksphere.security.JwtTokenProvider;
 import com.sep.treksphere.service.EmailService;
 import com.sep.treksphere.service.VendorStaffService;
@@ -29,6 +33,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
+import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
 
@@ -45,6 +50,7 @@ public class VendorStaffServiceImpl implements VendorStaffService {
     private final PasswordEncoder passwordEncoder;
     private final JwtTokenProvider tokenProvider;
     private final VendorStaffMapper vendorStaffMapper;
+    private final CoordinatorScheduleRepository coordinatorScheduleRepository;
 
     @Value("${application.frontend.url}")
     private String frontendUrl;
@@ -67,6 +73,23 @@ public class VendorStaffServiceImpl implements VendorStaffService {
     }
 
     @Override
+    @Transactional(readOnly = true)
+    public PaginationResponse<VendorStaffResponse> getMyVendorCoordinators(String userEmail, BaseFilterRequest request) {
+        Vendor vendor = vendorRepository.findByManager_Email(userEmail)
+                .orElseGet(() -> vendorStaffRepository.findByUser_EmailAndIsActiveTrueAndIsDeletedFalse(userEmail)
+                        .map(VendorStaff::getVendor)
+                        .orElseThrow(() -> new AppException(ErrorCode.UNAUTHORIZED_VENDOR_ACCESS)));
+
+        Page<VendorStaff> coordinatorPage = vendorStaffRepository.findActiveCoordinatorsByVendorIdAndKeyword(
+                vendor.getVendorId(),
+                request.getKeyword(),
+                request.getPageable()
+        );
+
+        return PaginationUtils.toPaginationResponse(coordinatorPage.map(vendorStaffMapper::toVendorStaffResponse));
+    }
+
+    @Override
     @Transactional
     public VendorStaffResponse addVendorStaff(String managerEmail, VendorStaffAddRequest request) {
         log.info("Manager {} is adding new vendor staff with email: {}", managerEmail, request.getEmail());
@@ -79,7 +102,7 @@ public class VendorStaffServiceImpl implements VendorStaffService {
         User user = userRepository.findByEmail(email).orElse(null);
         VendorStaff staff;
         
-        Role staffRole = roleRepository.findByRoleName("VENDOR_STAFF")
+        Role staffRole = roleRepository.findByRoleName(request.getRole().name())
                 .orElseThrow(() -> new AppException(ErrorCode.ROLE_NOT_FOUND));
 
         if (user != null) {
@@ -105,10 +128,8 @@ public class VendorStaffServiceImpl implements VendorStaffService {
                 staff.setIsActive(true);
             }
             
-            if (!user.getRoles().contains(staffRole)) {
-                user.getRoles().add(staffRole);
-                userRepository.save(user);
-            }
+            replaceManagedRole(user, staffRole);
+            userRepository.save(user);
             
             staff = vendorStaffRepository.save(staff);
             
@@ -160,6 +181,39 @@ public class VendorStaffServiceImpl implements VendorStaffService {
 
     @Override
     @Transactional
+    public VendorStaffResponse updateVendorStaffRole(String managerEmail, UUID staffId, VendorStaffRoleUpdateRequest request) {
+        Vendor vendor = vendorRepository.findByManager_Email(managerEmail)
+                .orElseThrow(() -> new AppException(ErrorCode.VENDOR_NOT_FOUND));
+
+        VendorStaff staff = vendorStaffRepository.findById(staffId)
+                .filter(candidate -> !candidate.getIsDeleted())
+                .orElseThrow(() -> new AppException(ErrorCode.VENDOR_STAFF_NOT_FOUND));
+
+        if (!staff.getVendor().getVendorId().equals(vendor.getVendorId())) {
+            throw new AppException(ErrorCode.UNAUTHORIZED_STAFF_ACCESS);
+        }
+
+        User user = staff.getUser();
+        boolean isCoordinator = hasRole(user, VendorStaffRole.COORDINATOR);
+        if (isCoordinator && request.getRole() != VendorStaffRole.COORDINATOR
+                && coordinatorScheduleRepository.countActiveOrUpcomingSchedules(
+                        user.getUserId(),
+                        List.of(TourSessionStatus.PENDING, TourSessionStatus.IN_PROGRESS),
+                        LocalDate.now()) > 0) {
+            throw new AppException(ErrorCode.COORDINATOR_HAS_ACTIVE_SCHEDULES);
+        }
+
+        Role targetRole = roleRepository.findByRoleName(request.getRole().name())
+                .orElseThrow(() -> new AppException(ErrorCode.ROLE_NOT_FOUND));
+
+        replaceManagedRole(user, targetRole);
+        userRepository.save(user);
+
+        return vendorStaffMapper.toVendorStaffResponse(staff);
+    }
+
+    @Override
+    @Transactional
     public VendorStaffResponse updateVendorStaffStatus(String managerEmail, UUID staffId, VendorStaffStatusUpdateRequest request) {
         log.info("Manager {} is changing status of staff ID: {} to isActive={}", managerEmail, staffId, request.getIsActive());
 
@@ -180,5 +234,15 @@ public class VendorStaffServiceImpl implements VendorStaffService {
         log.info("Successfully updated status of staff ID: {} to isActive={}", staffId, request.getIsActive());
 
         return vendorStaffMapper.toVendorStaffResponse(staff);
+    }
+
+    private boolean hasRole(User user, VendorStaffRole role) {
+        return user.getRoles().stream().anyMatch(candidate -> role.name().equals(candidate.getRoleName()));
+    }
+
+    private void replaceManagedRole(User user, Role targetRole) {
+        user.getRoles().removeIf(role -> role.getRoleName().equals(VendorStaffRole.VENDOR_STAFF.name())
+                || role.getRoleName().equals(VendorStaffRole.COORDINATOR.name()));
+        user.getRoles().add(targetRole);
     }
 }

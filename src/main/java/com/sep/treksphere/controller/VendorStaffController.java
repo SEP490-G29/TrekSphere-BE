@@ -3,6 +3,7 @@ package com.sep.treksphere.controller;
 import com.sep.treksphere.constant.MessageConstant;
 import com.sep.treksphere.dto.request.BaseFilterRequest;
 import com.sep.treksphere.dto.request.VendorStaffAddRequest;
+import com.sep.treksphere.dto.request.VendorStaffRoleUpdateRequest;
 import com.sep.treksphere.dto.request.VendorStaffStatusUpdateRequest;
 import com.sep.treksphere.dto.response.ApiResponse;
 import com.sep.treksphere.dto.response.PaginationResponse;
@@ -24,6 +25,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -49,6 +51,23 @@ public class VendorStaffController {
         return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, response));
     }
 
+    @Operation(summary = "Lấy danh sách Coordinator của Vendor", description = "Trả về các Coordinator đang hoạt động thuộc Vendor của Manager hoặc Staff hiện tại")
+    @SecurityRequirement(name = "bearerAuth")
+    @PreAuthorize("hasAnyRole('VENDOR_MANAGER', 'VENDOR_STAFF')")
+    @GetMapping("/coordinators")
+    public ResponseEntity<ApiResponse<PaginationResponse<VendorStaffResponse>>> getMyVendorCoordinators(
+            @AuthenticationPrincipal CustomUserDetails userDetails,
+            @Valid @ParameterObject @ModelAttribute BaseFilterRequest request) {
+
+        PaginationResponse<VendorStaffResponse> response = vendorStaffService.getMyVendorCoordinators(
+                userDetails.getUsername(), request);
+        return ResponseEntity.ok(ApiResponse.success(
+                HttpStatus.OK,
+                response,
+                MessageConstant.VENDOR_COORDINATORS_FETCHED
+        ));
+    }
+
     @Operation(summary = "Thêm nhân viên mới vào Vendor", description = "Cho phép Vendor Manager thêm nhân viên mới bằng cách gán User có sẵn hoặc tạo User mới và gửi email kích hoạt.")
     @SecurityRequirement(name = "bearerAuth")
     @PreAuthorize("hasRole('VENDOR_MANAGER')")
@@ -65,6 +84,23 @@ public class VendorStaffController {
                 MessageConstant.VENDOR_STAFF_ADDED
         );
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
+    }
+
+    @Operation(summary = "Cập nhật vai trò nhân viên", description = "Cho phép Vendor Manager chuyển vai trò nghiệp vụ giữa VENDOR_STAFF và COORDINATOR.")
+    @SecurityRequirement(name = "bearerAuth")
+    @PreAuthorize("hasRole('VENDOR_MANAGER')")
+    @PatchMapping("/{staffId}/role")
+    public ResponseEntity<ApiResponse<VendorStaffResponse>> updateVendorStaffRole(
+            @AuthenticationPrincipal CustomUserDetails userDetails,
+            @PathVariable("staffId") UUID staffId,
+            @Valid @RequestBody VendorStaffRoleUpdateRequest request) {
+
+        VendorStaffResponse data = vendorStaffService.updateVendorStaffRole(userDetails.getUsername(), staffId, request);
+        return ResponseEntity.ok(ApiResponse.success(
+                HttpStatus.OK,
+                data,
+                MessageConstant.VENDOR_STAFF_ROLE_UPDATED
+        ));
     }
 
     @Operation(summary = "Vô hiệu hóa hoặc kích hoạt lại nhân viên", description = "Cho phép Vendor Manager kích hoạt hoặc vô hiệu hóa tài khoản hoạt động của nhân viên.")

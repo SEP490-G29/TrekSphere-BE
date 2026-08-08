@@ -263,6 +263,12 @@ public class LogisticsAllocationServiceImpl implements LogisticsAllocationServic
             throw new AppException(ErrorCode.COORDINATOR_NOT_FOUND);
         }
 
+        boolean hasCoordinatorRole = coordinatorStaff.getUser().getRoles().stream()
+                .anyMatch(role -> "COORDINATOR".equals(role.getRoleName()));
+        if (!hasCoordinatorRole) {
+            throw new AppException(ErrorCode.COORDINATOR_NOT_FOUND);
+        }
+
         // Check if already assigned
         boolean alreadyAssigned = coordinatorScheduleRepository
                 .existsByTourSession_TourSessionIdAndCoordinator_UserIdAndIsDeletedFalse(sessionId, request.getCoordinatorId());

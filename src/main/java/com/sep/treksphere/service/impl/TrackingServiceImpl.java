@@ -9,11 +9,13 @@ import com.sep.treksphere.dto.request.CreateSosAlertRequest;
 import com.sep.treksphere.dto.response.ParticipantAttendanceResponseItem;
 import com.sep.treksphere.dto.response.PaginationResponse;
 import com.sep.treksphere.dto.response.SessionCheckpointLogResponse;
+import com.sep.treksphere.dto.response.SessionCheckpointStatusResponse;
 import com.sep.treksphere.dto.response.TourSessionAttendanceResponse;
 import com.sep.treksphere.dto.response.TourSessionEndResponse;
 import com.sep.treksphere.dto.response.TourSessionStartResponse;
 import com.sep.treksphere.dto.response.SessionEquipmentCheckResponse;
 import com.sep.treksphere.dto.response.SosAlertResponse;
+import com.sep.treksphere.dto.response.TourSessionSosStatusResponse;
 import com.sep.treksphere.entity.*;
 import com.sep.treksphere.enums.booking.BookingStatus;
 import com.sep.treksphere.enums.tour.AttendanceType;
@@ -138,14 +140,22 @@ public class TrackingServiceImpl implements TrackingService {
         log.info("Checkpoint '{}' (order: {}) for session {} successfully marked as REACHED at {}",
                 checkpoint.getCheckpointName(), checkpoint.getCheckpointOrder(), sessionId, now);
 
-        return SessionCheckpointLogResponse.builder()
-                .sessionCheckpointLogId(nextLog.getSessionCheckpointLogId())
-                .checkpointId(checkpoint.getCheckpointId())
-                .checkpointName(checkpoint.getCheckpointName())
-                .checkpointOrder(checkpoint.getCheckpointOrder())
-                .status(nextLog.getStatus())
-                .reachedAt(nextLog.getReachedAt())
-                .build();
+        return mapToSessionCheckpointLogResponse(nextLog);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<SessionCheckpointStatusResponse> getSessionCheckpointLogs(UUID userId, UUID sessionId) {
+        log.info("User {} is requesting checkpoint logs for tour session {}", userId, sessionId);
+
+        TourSession tourSession = getActiveTourSession(sessionId);
+        authorizeSessionCheckpointLogAccess(userId, tourSession);
+
+        return sessionCheckpointLogRepository
+                .findByTourSession_TourSessionIdAndIsDeletedFalseOrderByCheckpoint_CheckpointOrderAsc(sessionId)
+                .stream()
+                .map(this::mapToSessionCheckpointStatusResponse)
+                .toList();
     }
 
     @Override
@@ -458,6 +468,35 @@ public class TrackingServiceImpl implements TrackingService {
 
     @Override
     @Transactional(readOnly = true)
+    public TourSessionSosStatusResponse getTourSessionSosStatus(UUID coordinatorId, UUID sessionId) {
+        log.info("Coordinator {} is requesting SOS status for tour session {}", coordinatorId, sessionId);
+
+        getActiveTourSession(sessionId);
+        getActiveCoordinatorAssignment(sessionId, coordinatorId);
+
+        Optional<SosAlert> pendingAlert = sosAlertRepository
+                .findFirstByTourSession_TourSessionIdAndStatusAndIsDeletedFalseOrderByCreatedAtDesc(
+                        sessionId,
+                        SosAlertStatus.PENDING
+                );
+
+        Optional<SosAlert> trackedAlert = pendingAlert.isPresent()
+                ? pendingAlert
+                : sosAlertRepository.findFirstByTourSession_TourSessionIdAndIsDeletedFalseOrderByCreatedAtDesc(sessionId);
+
+        SosAlertStatus status = trackedAlert.map(SosAlert::getStatus).orElse(null);
+        return TourSessionSosStatusResponse.builder()
+                .tourSessionId(sessionId)
+                .hasSosAlert(trackedAlert.isPresent())
+                .hasActiveSosAlert(pendingAlert.isPresent())
+                .resolved(status == SosAlertStatus.RESOLVED)
+                .status(status)
+                .sosAlert(trackedAlert.map(this::mapToSosAlertResponse).orElse(null))
+                .build();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
     public PaginationResponse<SosAlertResponse> getActiveSosAlerts(UUID userId, Pageable pageable) {
         log.info("User {} is requesting active SOS alerts", userId);
 
@@ -588,6 +627,43 @@ public class TrackingServiceImpl implements TrackingService {
             throw new AppException(ErrorCode.UNAUTHORIZED_SESSION_ACCESS);
         }
         return assignment;
+    }
+
+    private void authorizeSessionCheckpointLogAccess(UUID userId, TourSession tourSession) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
+
+        UUID sessionId = tourSession.getTourSessionId();
+        UUID sessionVendorId = tourSession.getTourSchedule().getTour().getVendor().getVendorId();
+        boolean authorized = false;
+
+        if (hasRole(user, "VENDOR_MANAGER")) {
+            authorized = vendorRepository.findByManager_UserId(userId)
+                    .map(vendor -> vendor.getVendorId().equals(sessionVendorId))
+                    .orElse(false);
+        }
+
+        if (!authorized && hasRole(user, "VENDOR_STAFF")) {
+            authorized = vendorStaffRepository.findByUser_UserIdAndIsActiveTrueAndIsDeletedFalse(userId)
+                    .map(staff -> staff.getVendor().getVendorId().equals(sessionVendorId))
+                    .orElse(false);
+        }
+
+        if (!authorized && hasRole(user, "COORDINATOR")) {
+            authorized = coordinatorScheduleRepository
+                    .findByTourSession_TourSessionIdAndCoordinator_UserIdAndIsDeletedFalse(sessionId, userId)
+                    .filter(schedule -> !Boolean.TRUE.equals(schedule.getIsCancelled()))
+                    .isPresent();
+        }
+
+        if (!authorized) {
+            log.warn("User {} is not authorized to view checkpoint logs of tour session {}", userId, sessionId);
+            throw new AppException(ErrorCode.UNAUTHORIZED_SESSION_ACCESS);
+        }
+    }
+
+    private boolean hasRole(User user, String roleName) {
+        return user.getRoles().stream().anyMatch(role -> roleName.equals(role.getRoleName()));
     }
 
     private void requireLeadCoordinator(
@@ -746,6 +822,35 @@ public class TrackingServiceImpl implements TrackingService {
             logs.add(checkpointLog);
         }
         return logs;
+    }
+
+    private SessionCheckpointLogResponse mapToSessionCheckpointLogResponse(SessionCheckpointLog checkpointLog) {
+        TourCheckpoint checkpoint = checkpointLog.getCheckpoint();
+        return SessionCheckpointLogResponse.builder()
+                .sessionCheckpointLogId(checkpointLog.getSessionCheckpointLogId())
+                .checkpointId(checkpoint.getCheckpointId())
+                .checkpointName(checkpoint.getCheckpointName())
+                .checkpointOrder(checkpoint.getCheckpointOrder())
+                .status(checkpointLog.getStatus())
+                .reachedAt(checkpointLog.getReachedAt())
+                .build();
+    }
+
+    private SessionCheckpointStatusResponse mapToSessionCheckpointStatusResponse(SessionCheckpointLog checkpointLog) {
+        TourCheckpoint checkpoint = checkpointLog.getCheckpoint();
+        return SessionCheckpointStatusResponse.builder()
+                .sessionCheckpointLogId(checkpointLog.getSessionCheckpointLogId())
+                .tourSessionId(checkpointLog.getTourSession().getTourSessionId())
+                .checkpointId(checkpoint.getCheckpointId())
+                .checkpointName(checkpoint.getCheckpointName())
+                .checkpointDescription(checkpoint.getDescription())
+                .checkpointOrder(checkpoint.getCheckpointOrder())
+                .checkpointLatitude(checkpoint.getLatitude())
+                .checkpointLongitude(checkpoint.getLongitude())
+                .checkpointAltitude(checkpoint.getAltitude())
+                .checkpointImageUrl(checkpoint.getCheckpointImageUrl())
+                .status(checkpointLog.getStatus())
+                .build();
     }
 
     private SosAlertResponse mapToSosAlertResponse(SosAlert sosAlert) {

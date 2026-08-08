@@ -15,7 +15,7 @@ import org.springframework.data.repository.query.Param;
 public interface VendorEquipmentRepository extends JpaRepository<VendorEquipment, UUID> {
     @Query("SELECT v FROM VendorEquipment v WHERE v.vendor.vendorId = :vendorId " +
             "AND v.isDeleted = false " +
-            "AND LOWER(v.equipmentName) LIKE LOWER(CONCAT('%', :keyword, '%'))")
+            "AND LOWER(v.equipmentName) LIKE LOWER(CONCAT('%', CAST(:keyword AS string), '%'))")
     Page<VendorEquipment> findByVendorIdAndKeyword(
             @Param("vendorId") UUID vendorId,
             @Param("keyword") String keyword,
@@ -23,7 +23,7 @@ public interface VendorEquipmentRepository extends JpaRepository<VendorEquipment
 
     @Query("SELECT v FROM VendorEquipment v WHERE v.vendor.vendorId = :vendorId " +
             "AND v.isDeleted = false " +
-            "AND LOWER(v.equipmentName) LIKE LOWER(CONCAT('%', :keyword, '%'))")
+            "AND LOWER(v.equipmentName) LIKE LOWER(CONCAT('%', CAST(:keyword AS string), '%'))")
     List<VendorEquipment> findAllByVendorIdAndKeyword(
             @Param("vendorId") UUID vendorId,
             @Param("keyword") String keyword);

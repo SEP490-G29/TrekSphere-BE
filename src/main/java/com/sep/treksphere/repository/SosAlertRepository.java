@@ -11,17 +11,24 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.util.UUID;
+import java.util.Optional;
 
 @Repository
 public interface SosAlertRepository extends JpaRepository<SosAlert, UUID> {
+
+    Optional<SosAlert> findFirstByTourSession_TourSessionIdAndStatusAndIsDeletedFalseOrderByCreatedAtDesc(
+            UUID tourSessionId,
+            SosAlertStatus status
+    );
+
+    Optional<SosAlert> findFirstByTourSession_TourSessionIdAndIsDeletedFalseOrderByCreatedAtDesc(UUID tourSessionId);
 
     @Query("""
     SELECT s
     FROM SosAlert s
     WHERE s.status = :status
       AND s.isDeleted = false
-      AND (
-          :vendorId IS NULL
+      AND (CAST(:vendorId AS uuid) IS NULL
           OR s.tourSession.tourSchedule.tour.vendor.vendorId = :vendorId
       )
     ORDER BY s.createdAt DESC

@@ -1,5 +1,7 @@
 package com.sep.treksphere.dto.request;
 
+import com.sep.treksphere.enums.user.VendorStaffRole;
+
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import lombok.Data;
@@ -12,4 +14,6 @@ public class VendorStaffAddRequest {
     private String email;
 
     private String fullName;
+
+    private VendorStaffRole role = VendorStaffRole.VENDOR_STAFF;
 }
