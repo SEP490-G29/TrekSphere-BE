@@ -32,4 +32,5 @@ public class MatchingGroupDetailResponse {
     private JoinStatus myMembershipStatus;
     private Boolean canJoin;
     private Boolean canLeave;
+    private Boolean hasConversation;
 }
