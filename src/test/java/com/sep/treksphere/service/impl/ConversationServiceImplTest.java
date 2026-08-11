@@ -46,6 +46,9 @@ class ConversationServiceImplTest {
     @Mock
     private UserRepository userRepository;
 
+    @Mock
+    private com.sep.treksphere.repository.MatchingGroupRepository matchingGroupRepository;
+
     @InjectMocks
     private ConversationServiceImpl conversationService;
 
@@ -67,7 +70,8 @@ class ConversationServiceImplTest {
         ConversationCreateRequest request = new ConversationCreateRequest(
                 ConversationType.DIRECT,
                 "Tên bị bỏ qua",
-                List.of(recipient.getUserId())
+                List.of(recipient.getUserId()),
+                null
         );
         when(userRepository.findAllByUserIdInAndStatusAndIsDeletedFalse(
                 any(),
@@ -111,7 +115,8 @@ class ConversationServiceImplTest {
                         recipient.getUserId(),
                         groupParticipant.getUserId(),
                         recipient.getUserId()
-                )
+                ),
+                null
         );
         when(userRepository.findAllByUserIdInAndStatusAndIsDeletedFalse(
                 any(),
@@ -140,7 +145,8 @@ class ConversationServiceImplTest {
         ConversationCreateRequest request = new ConversationCreateRequest(
                 ConversationType.DIRECT,
                 null,
-                List.of(currentUser.getUserId())
+                List.of(currentUser.getUserId()),
+                null
         );
 
         AppException exception = assertThrows(
@@ -154,27 +160,32 @@ class ConversationServiceImplTest {
     }
 
     @Test
-    void createExistingDirectConversationThrowsAlreadyExists() {
+    void createExistingDirectConversationReturnsExistingConversation() {
         ConversationCreateRequest request = new ConversationCreateRequest(
                 ConversationType.DIRECT,
                 null,
-                List.of(recipient.getUserId())
+                List.of(recipient.getUserId()),
+                null
         );
         when(userRepository.findAllByUserIdInAndStatusAndIsDeletedFalse(
                 any(),
                 any(UserStatus.class)
         )).thenReturn(List.of(recipient));
+
+        Conversation existingConversation = new Conversation();
+        existingConversation.setConversationId(UUID.randomUUID());
+        existingConversation.setConversationType(ConversationType.DIRECT);
+        existingConversation.getParticipants().add(currentUser);
+        existingConversation.getParticipants().add(recipient);
+
         when(conversationRepository.findDirectConversation(
                 currentUser.getUserId(),
                 recipient.getUserId()
-        )).thenReturn(Optional.of(new Conversation()));
+        )).thenReturn(Optional.of(existingConversation));
 
-        AppException exception = assertThrows(
-                AppException.class,
-                () -> conversationService.createConversation(request, userDetails)
-        );
+        ConversationResponse response = conversationService.createConversation(request, userDetails);
 
-        assertEquals(ErrorCode.CONVERSATION_ALREADY_EXISTS, exception.getErrorCode());
+        assertEquals(existingConversation.getConversationId(), response.getConversationId());
         verify(conversationRepository, never()).save(any());
     }
 
@@ -183,7 +194,8 @@ class ConversationServiceImplTest {
         ConversationCreateRequest request = new ConversationCreateRequest(
                 ConversationType.DIRECT,
                 null,
-                List.of(recipient.getUserId())
+                List.of(recipient.getUserId()),
+                null
         );
         when(userRepository.findAllByUserIdInAndStatusAndIsDeletedFalse(
                 any(),
@@ -205,7 +217,8 @@ class ConversationServiceImplTest {
         ConversationCreateRequest request = new ConversationCreateRequest(
                 ConversationType.DIRECT,
                 null,
-                List.of(recipient.getUserId(), groupParticipant.getUserId())
+                List.of(recipient.getUserId(), groupParticipant.getUserId()),
+                null
         );
 
         AppException exception = assertThrows(
@@ -223,7 +236,8 @@ class ConversationServiceImplTest {
         ConversationCreateRequest request = new ConversationCreateRequest(
                 ConversationType.GROUP,
                 "Nhóm",
-                List.of(recipient.getUserId(), recipient.getUserId())
+                List.of(recipient.getUserId(), recipient.getUserId()),
+                null
         );
 
         AppException exception = assertThrows(
@@ -241,7 +255,8 @@ class ConversationServiceImplTest {
         ConversationCreateRequest request = new ConversationCreateRequest(
                 ConversationType.GROUP,
                 "   ",
-                List.of(recipient.getUserId(), groupParticipant.getUserId())
+                List.of(recipient.getUserId(), groupParticipant.getUserId()),
+                null
         );
 
         AppException exception = assertThrows(

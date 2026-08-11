@@ -77,9 +77,29 @@ public class ChatController {
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(ApiResponse.success(
                         HttpStatus.CREATED,
-                        result,
-                        MessageConstant.CONVERSATION_CREATED_SUCCESS
+                        result
                 ));
+    }
+
+    @Operation(
+            summary = "Kiểm tra phòng chat tồn tại",
+            description = "Kiểm tra xem phòng chat đã tồn tại chưa (không tạo mới). Trả về thông tin phòng chat nếu có, ngược lại HTTP 204."
+    )
+    @PostMapping("/conversations/check")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<ApiResponse<ConversationResponse>> checkConversation(
+            @Valid @RequestBody ConversationCreateRequest request,
+            @AuthenticationPrincipal CustomUserDetails userDetails
+    ) {
+        ConversationResponse result = conversationService.checkConversation(request, userDetails);
+        if (result != null) {
+            return ResponseEntity.ok(ApiResponse.success(
+                    HttpStatus.OK,
+                    result,
+                    "Conversation found"
+            ));
+        }
+        return ResponseEntity.status(HttpStatus.NO_CONTENT).build();
     }
 
     @Operation(
