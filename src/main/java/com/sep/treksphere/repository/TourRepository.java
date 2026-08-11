@@ -10,6 +10,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.time.LocalDate;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -28,12 +29,22 @@ public interface TourRepository extends JpaRepository<Tour, UUID> {
                  AND (CAST(:location AS string) IS NULL
                       OR LOWER(t.location) LIKE LOWER(CONCAT('%', CAST(:location AS string), '%')))
                  AND (CAST(:difficulty AS string) IS NULL OR t.difficulty = :difficulty)
+                 AND ((CAST(:departureDate AS date) IS NULL AND CAST(:returnDate AS date) IS NULL)
+                      OR EXISTS (
+                          SELECT ts.scheduleId FROM TourSchedule ts
+                          WHERE ts.tour = t
+                            AND ts.isDeleted = false
+                            AND (CAST(:departureDate AS date) IS NULL OR ts.departureDate = :departureDate)
+                            AND (CAST(:returnDate AS date) IS NULL OR ts.returnDate = :returnDate)
+                      ))
                """)
      Page<Tour> searchTours(
                @Param("status") TourStatus status,
                @Param("keyword") String keyword,
                @Param("location") String location,
                @Param("difficulty") DifficultyLevel difficulty,
+               @Param("departureDate") LocalDate departureDate,
+               @Param("returnDate") LocalDate returnDate,
                Pageable pageable);
 
      @Query("""

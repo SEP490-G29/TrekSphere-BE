@@ -10,6 +10,7 @@ import com.sep.treksphere.enums.tour.DifficultyLevel;
 
 import org.springframework.web.multipart.MultipartFile;
 
+import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
 
@@ -18,6 +19,8 @@ public interface TourService {
             String keyword,
             String location,
             DifficultyLevel difficulty,
+            LocalDate departureDate,
+            LocalDate returnDate,
             int page,
             int size,
             String sortBy,
