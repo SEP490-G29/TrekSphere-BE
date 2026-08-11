@@ -27,7 +27,10 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -35,6 +38,7 @@ import java.util.UUID;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -87,6 +91,42 @@ class TourServiceImplTest {
         tour.setStatus(TourStatus.PENDING_APPROVAL);
         tour.setVendor(vendor);
         tour.setCreator(creator);
+    }
+
+    @Test
+    void getTours_PassesScheduleDateFiltersToRepository() {
+        LocalDate departureDate = LocalDate.of(2026, 10, 15);
+        LocalDate returnDate = LocalDate.of(2026, 10, 17);
+        when(tourRepository.searchTours(
+                eq(TourStatus.APPROVED),
+                eq("Ta Nang"),
+                eq("Lam Dong"),
+                eq(null),
+                eq(departureDate),
+                eq(returnDate),
+                any(Pageable.class)))
+                .thenReturn(Page.empty());
+
+        var response = service.getTours(
+                "  Ta Nang  ",
+                "  Lam Dong  ",
+                null,
+                departureDate,
+                returnDate,
+                0,
+                10,
+                "createdAt",
+                "desc");
+
+        assertThat(response.getContent()).isEmpty();
+        verify(tourRepository).searchTours(
+                eq(TourStatus.APPROVED),
+                eq("Ta Nang"),
+                eq("Lam Dong"),
+                eq(null),
+                eq(departureDate),
+                eq(returnDate),
+                any(Pageable.class));
     }
 
     @Test

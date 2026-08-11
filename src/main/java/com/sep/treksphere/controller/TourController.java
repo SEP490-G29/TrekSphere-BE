@@ -15,8 +15,10 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
 
@@ -34,11 +36,13 @@ public class TourController {
     public ResponseEntity<ApiResponse<PaginationResponse<TourSummaryResponse>>> getTours(
             @RequestParam(required = false) String keyword, @RequestParam(required = false) String location,
             @RequestParam(required = false) DifficultyLevel difficulty,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate departureDate,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate returnDate,
             @RequestParam(defaultValue = "0") int page, @RequestParam(defaultValue = "10") int size,
             @RequestParam(defaultValue = "createdAt") String sortBy,
             @RequestParam(defaultValue = "desc") String sortDir) {
         PaginationResponse<TourSummaryResponse> result = tourService.getTours(
-                keyword, location, difficulty, page, size, sortBy, sortDir);
+                keyword, location, difficulty, departureDate, returnDate, page, size, sortBy, sortDir);
         return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, result));
     }
 

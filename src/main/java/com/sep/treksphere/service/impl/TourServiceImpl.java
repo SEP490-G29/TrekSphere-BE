@@ -45,6 +45,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -74,6 +75,8 @@ public class TourServiceImpl implements TourService {
             String keyword,
             String location,
             DifficultyLevel difficulty,
+            LocalDate departureDate,
+            LocalDate returnDate,
             int page,
             int size,
             String sortBy,
@@ -92,6 +95,8 @@ public class TourServiceImpl implements TourService {
                 normalizedKeyword,
                 normalizedLocation,
                 difficulty,
+                departureDate,
+                returnDate,
                 pageable);
 
         return PaginationUtils.toPaginationResponse(tourPage.map(this::toSummaryResponse));
