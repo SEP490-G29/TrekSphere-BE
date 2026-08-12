@@ -18,6 +18,9 @@ public interface VendorPaymentAccountRepository extends JpaRepository<VendorPaym
     Optional<VendorPaymentAccount> findByProviderAndProviderChannelIdAndOnboardingStatusAndIsDeletedFalse(
             PaymentProvider provider, String providerChannelId, PaymentAccountStatus onboardingStatus);
 
+    Optional<VendorPaymentAccount> findByProviderAndProviderChannelIdAndIsDeletedFalse(
+            PaymentProvider provider, String providerChannelId);
+
     Optional<VendorPaymentAccount> findByVendor_VendorIdAndProviderAndIsDefaultTrueAndIsDeletedFalse(
             UUID vendorId, PaymentProvider provider);
 }

@@ -27,12 +27,12 @@ public interface PaymentTransactionRepository extends JpaRepository<PaymentTrans
     Optional<PaymentTransaction> findFirstByBooking_BookingIdAndPaymentStageAndIsDeletedFalseOrderByAttemptNumberDesc(
             UUID bookingId, PaymentStage stage);
 
+    Optional<PaymentTransaction> findByGatewayOrderCodeAndIsDeletedFalse(Long orderCode);
+
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select p from PaymentTransaction p join fetch p.booking b join fetch p.vendorPaymentAccount " +
-            "where p.gatewayOrderCode = :orderCode and p.isDeleted = false")
-    Optional<PaymentTransaction> findByGatewayOrderCodeForUpdate(@Param("orderCode") Long orderCode);
-
-    Optional<PaymentTransaction> findByGatewayOrderCodeAndIsDeletedFalse(Long orderCode);
+            "where p.paymentTransactionId = :paymentId and p.isDeleted = false")
+    Optional<PaymentTransaction> findByIdForUpdate(@Param("paymentId") UUID paymentId);
 
     @Query(value = "select nextval('gateway_order_code_seq')", nativeQuery = true)
     Long nextGatewayOrderCode();

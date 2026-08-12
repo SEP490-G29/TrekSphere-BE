@@ -173,5 +173,7 @@ public interface MatchingGroupRepository extends JpaRepository<MatchingGroup, UU
           AND mg.isDeleted = false
     """)
     Optional<MatchingGroup> findWithOwnerById(@Param("id") UUID id);
+
+    Optional<MatchingGroup> findByConversationConversationId(UUID conversationId);
 }
 

@@ -193,10 +193,10 @@ public class PaymentServiceImpl implements PaymentService {
         throw new AppException(ErrorCode.PAYMENT_NOT_ALLOWED);
     }
 
-    private BigDecimal calculateStageAmount(Booking booking, PaymentStage stage) {
+    BigDecimal calculateStageAmount(Booking booking, PaymentStage stage) {
         if (stage == PaymentStage.FULL) return booking.getTotalPrice();
         if (stage == PaymentStage.REMAINING) {
-            return booking.getTotalPrice().subtract(paymentTransactionRepository.sumPaidByBooking(booking.getBookingId()));
+            return booking.getTotalPrice().subtract(calculateNetPaid(booking.getBookingId()));
         }
         BookingPolicySnapshot snapshot = bookingPolicySnapshotRepository.findById(booking.getBookingId())
                 .orElseThrow(() -> new AppException(ErrorCode.PAYMENT_NOT_ALLOWED, "Thiếu snapshot chính sách thanh toán."));
@@ -246,8 +246,7 @@ public class PaymentServiceImpl implements PaymentService {
             throw new AppException(ErrorCode.INVALID_PAYMENT_WEBHOOK);
         }
         VendorPaymentAccount account = vendorPaymentAccountRepository
-                .findByProviderAndProviderChannelIdAndOnboardingStatusAndIsDeletedFalse(
-                        PaymentProvider.PAYOS, channelId, PaymentAccountStatus.ACTIVE)
+                .findByProviderAndProviderChannelIdAndIsDeletedFalse(PaymentProvider.PAYOS, channelId)
                 .orElseThrow(() -> new AppException(ErrorCode.PAYMENT_ACCOUNT_NOT_CONFIGURED));
         PayOS client = payOsClientFactory.getClient(account);
         final WebhookData verified;
@@ -288,7 +287,11 @@ public class PaymentServiceImpl implements PaymentService {
     }
 
     private void processVerifiedWebhook(Webhook webhook, WebhookData data) {
-        PaymentTransaction payment = paymentTransactionRepository.findByGatewayOrderCodeForUpdate(data.getOrderCode())
+        PaymentTransaction locator = paymentTransactionRepository.findByGatewayOrderCodeAndIsDeletedFalse(data.getOrderCode())
+                .orElseThrow(() -> new AppException(ErrorCode.PAYMENT_TRANSACTION_NOT_FOUND));
+        Booking booking = bookingRepository.findByIdForUpdate(locator.getBooking().getBookingId())
+                .orElseThrow(() -> new AppException(ErrorCode.BOOKING_NOT_FOUND));
+        PaymentTransaction payment = paymentTransactionRepository.findByIdForUpdate(locator.getPaymentTransactionId())
                 .orElseThrow(() -> new AppException(ErrorCode.PAYMENT_TRANSACTION_NOT_FOUND));
         String eventKey = data.getOrderCode() + ":" + Objects.toString(data.getReference(), "NO_REFERENCE");
         if (webhookEventRepository.existsByProviderAndGatewayEventKey(PaymentProvider.PAYOS, eventKey)) {
@@ -329,7 +332,7 @@ public class PaymentServiceImpl implements PaymentService {
             payment.getGatewayMetadata().put("counterAccountNumber", data.getCounterAccountNumber());
             payment.getGatewayMetadata().put("counterAccountName", data.getCounterAccountName());
             paymentTransactionRepository.saveAndFlush(payment);
-            applySuccessfulPayment(payment);
+            applySuccessfulPayment(payment, booking);
         }
 
         event.setProcessingStatus(PaymentWebhookEvent.ProcessingStatus.PROCESSED);
@@ -341,16 +344,23 @@ public class PaymentServiceImpl implements PaymentService {
         }
     }
 
-    private void applySuccessfulPayment(PaymentTransaction payment) {
+    void applySuccessfulPayment(PaymentTransaction payment) {
         Booking booking = bookingRepository.findByIdForUpdate(payment.getBooking().getBookingId())
                 .orElseThrow(() -> new AppException(ErrorCode.BOOKING_NOT_FOUND));
-        BigDecimal totalPaid = paymentTransactionRepository.sumPaidByBooking(booking.getBookingId());
+        applySuccessfulPayment(payment, booking);
+    }
 
-        if (payment.getPaymentStage() != PaymentStage.REMAINING) {
-            if (booking.getBookingStatus() != BookingStatus.PAYMENT_PENDING
-                    || booking.getHoldExpiresAt() == null
-                    || !booking.getHoldExpiresAt().isAfter(LocalDateTime.now())) {
-                createLatePaymentRefund(payment, booking);
+    private void applySuccessfulPayment(PaymentTransaction payment, Booking booking) {
+        BigDecimal totalPaid = calculateNetPaid(booking.getBookingId());
+
+        if (payment.getPaymentStage() == PaymentStage.REMAINING) {
+            if (!isRemainingPaymentStillValid(booking)) {
+                handleLatePayment(payment, booking);
+                return;
+            }
+        } else {
+            if (!isInitialPaymentStillValid(booking)) {
+                handleLatePayment(payment, booking);
                 return;
             }
             TourSchedule schedule = tourScheduleRepository.findByIdForUpdate(booking.getSchedule().getScheduleId())
@@ -370,6 +380,54 @@ public class PaymentServiceImpl implements PaymentService {
         bookingRepository.save(booking);
     }
 
+    private boolean isInitialPaymentStillValid(Booking booking) {
+        return booking.getBookingStatus() == BookingStatus.PAYMENT_PENDING
+                && booking.getPaymentStatus() == PaymentStatus.UNPAID
+                && booking.getHoldExpiresAt() != null
+                && booking.getHoldExpiresAt().isAfter(LocalDateTime.now());
+    }
+
+    private boolean isRemainingPaymentStillValid(Booking booking) {
+        return booking.getPaymentPlan() == PaymentPlan.DEPOSIT
+                && booking.getPaymentStatus() == PaymentStatus.PARTIALLY_PAID
+                && EnumSet.of(BookingStatus.PENDING_CONFIRMATION, BookingStatus.CONFIRMED)
+                .contains(booking.getBookingStatus())
+                && booking.getRemainingDueAt() != null
+                && booking.getRemainingDueAt().isAfter(LocalDateTime.now());
+    }
+
+    private void handleLatePayment(PaymentTransaction payment, Booking booking) {
+        if (isOverdueBalanceStillActive(payment, booking)) {
+            releaseCapacityForOverdueBalance(booking);
+            booking.setBookingStatus(BookingStatus.CANCELLED);
+            booking.setCancellationReason(
+                    "Tự động hủy do quá hạn thanh toán phần còn lại; tiền cọc không tự động hoàn");
+            booking.setCancelledAt(LocalDateTime.now());
+            booking.setConfirmationExpiresAt(null);
+            booking.setRemainingDueAt(null);
+        }
+        createLatePaymentRefund(payment, booking);
+    }
+
+    private boolean isOverdueBalanceStillActive(PaymentTransaction payment, Booking booking) {
+        return payment.getPaymentStage() == PaymentStage.REMAINING
+                && booking.getPaymentPlan() == PaymentPlan.DEPOSIT
+                && booking.getPaymentStatus() == PaymentStatus.PARTIALLY_PAID
+                && EnumSet.of(BookingStatus.PENDING_CONFIRMATION, BookingStatus.CONFIRMED)
+                .contains(booking.getBookingStatus())
+                && booking.getRemainingDueAt() != null
+                && !booking.getRemainingDueAt().isAfter(LocalDateTime.now());
+    }
+
+    private void releaseCapacityForOverdueBalance(Booking booking) {
+        TourSchedule schedule = tourScheduleRepository.findByIdForUpdate(booking.getSchedule().getScheduleId())
+                .orElseThrow(() -> new AppException(ErrorCode.SCHEDULE_NOT_FOUND));
+        int pax = booking.getNumberOfParticipants();
+        schedule.setBookedSlots(Math.max(0, schedule.getBookedSlots() - pax));
+        schedule.setAvailableSlots(schedule.getAvailableSlots() + pax);
+        tourScheduleRepository.save(schedule);
+    }
+
     private void consumeVoucher(Booking booking) {
         if (booking.getVoucher() == null || booking.getVoucherState() != VoucherReservationState.RESERVED) return;
         Voucher voucher = voucherRepository.findByCodeForUpdate(booking.getVoucher().getCode())
@@ -381,10 +439,16 @@ public class PaymentServiceImpl implements PaymentService {
     }
 
     private void createLatePaymentRefund(PaymentTransaction payment, Booking booking) {
+        String idempotencyKey = "late-payment:" + payment.getPaymentTransactionId();
+        if (refundTransactionRepository.findByIdempotencyKeyAndIsDeletedFalse(idempotencyKey).isPresent()) {
+            booking.setPaymentStatus(PaymentStatus.REFUND_PENDING);
+            bookingRepository.save(booking);
+            return;
+        }
         RefundTransaction refund = new RefundTransaction();
         refund.setPaymentTransaction(payment);
         refund.setBooking(booking);
-        refund.setIdempotencyKey("late-payment:" + payment.getPaymentTransactionId());
+        refund.setIdempotencyKey(idempotencyKey);
         refund.setAmount(payment.getPaidAmount());
         refund.setReason(RefundReason.PAYMENT_ADJUSTMENT);
         refund.setReasonDetail("Payment arrived after the booking hold was no longer valid");
@@ -579,15 +643,19 @@ public class PaymentServiceImpl implements PaymentService {
         }
     }
 
-    private void refreshBookingPaymentStatus(Booking detachedBooking) {
+    void refreshBookingPaymentStatus(Booking detachedBooking) {
         Booking booking = bookingRepository.findByIdForUpdate(detachedBooking.getBookingId())
                 .orElseThrow(() -> new AppException(ErrorCode.BOOKING_NOT_FOUND));
         BigDecimal paid = paymentTransactionRepository.sumPaidByBooking(booking.getBookingId());
         BigDecimal refunded = refundTransactionRepository.sumByBookingAndStatuses(
                 booking.getBookingId(), List.of(RefundStatus.REFUNDED));
         BigDecimal pending = refundTransactionRepository.sumByBookingAndStatuses(
-                booking.getBookingId(), List.of(RefundStatus.PENDING, RefundStatus.PROCESSING));
+                booking.getBookingId(), List.of(RefundStatus.PENDING, RefundStatus.PROCESSING, RefundStatus.FAILED));
+        BigDecimal netPaid = paid.subtract(refunded).max(BigDecimal.ZERO);
         if (pending.signum() > 0) booking.setPaymentStatus(PaymentStatus.REFUND_PENDING);
+        else if (isActiveBooking(booking)) booking.setPaymentStatus(
+                netPaid.compareTo(booking.getTotalPrice()) >= 0 ? PaymentStatus.PAID
+                        : netPaid.signum() > 0 ? PaymentStatus.PARTIALLY_PAID : PaymentStatus.UNPAID);
         else if (refunded.signum() == 0) booking.setPaymentStatus(
                 paid.compareTo(booking.getTotalPrice()) >= 0 ? PaymentStatus.PAID
                         : paid.signum() > 0 ? PaymentStatus.PARTIALLY_PAID : PaymentStatus.UNPAID);
@@ -595,6 +663,18 @@ public class PaymentServiceImpl implements PaymentService {
         else booking.setPaymentStatus(PaymentStatus.PARTIALLY_REFUNDED);
         booking.setRefundAmount(refunded);
         bookingRepository.save(booking);
+    }
+
+    private BigDecimal calculateNetPaid(UUID bookingId) {
+        BigDecimal paid = paymentTransactionRepository.sumPaidByBooking(bookingId);
+        BigDecimal refunded = refundTransactionRepository.sumByBookingAndStatuses(
+                bookingId, List.of(RefundStatus.REFUNDED));
+        return paid.subtract(refunded).max(BigDecimal.ZERO);
+    }
+
+    private boolean isActiveBooking(Booking booking) {
+        return EnumSet.of(BookingStatus.PAYMENT_PENDING, BookingStatus.PENDING_CONFIRMATION,
+                BookingStatus.CONFIRMED).contains(booking.getBookingStatus());
     }
 
     private void requireRefundDestination(RefundTransaction refund) {
