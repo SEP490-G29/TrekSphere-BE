@@ -206,6 +206,26 @@ public class ChatController {
     }
 
     @Operation(
+            summary = "Thêm một thành viên lại vào nhóm chat",
+            description = "Thêm một thành viên vào nhóm chat. Chỉ áp dụng cho GROUP chat và chỉ người tạo (chủ nhóm) mới có quyền thực hiện."
+    )
+    @PostMapping("/conversations/{id}/members/{memberId}")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<ApiResponse<Void>> addMember(
+            @PathVariable UUID id,
+            @PathVariable UUID memberId,
+            @AuthenticationPrincipal CustomUserDetails userDetails
+    ) {
+        conversationService.addMember(id, memberId, userDetails);
+
+        return ResponseEntity.ok(ApiResponse.success(
+                HttpStatus.OK,
+                null,
+                "Đã thêm thành viên vào nhóm chat"
+        ));
+    }
+
+    @Operation(
             summary = "Danh sách thành viên nhóm chat",
             description = "Lấy danh sách thành viên của một cuộc hội thoại."
     )

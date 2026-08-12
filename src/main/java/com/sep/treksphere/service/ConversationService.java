@@ -57,6 +57,12 @@ public interface ConversationService {
             CustomUserDetails userDetails
     );
 
+    void addMember(
+            UUID conversationId,
+            UUID memberId,
+            CustomUserDetails userDetails
+    );
+
     List<UserResponse> getConversationMembers(
             UUID conversationId,
             CustomUserDetails userDetails

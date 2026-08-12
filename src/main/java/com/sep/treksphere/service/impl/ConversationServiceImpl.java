@@ -292,6 +292,40 @@ public class ConversationServiceImpl implements ConversationService {
         conversationRepository.save(conversation);
     }
 
+    @Override
+    @Transactional
+    public void addMember(UUID conversationId, UUID memberId, CustomUserDetails userDetails) {
+        UUID currentUserId = userDetails.getUser().getUserId();
+        Conversation conversation = conversationRepository.findById(conversationId)
+                .orElseThrow(() -> new AppException(ErrorCode.CONVERSATION_NOT_FOUND));
+
+        if (conversation.getIsDeleted()) {
+            throw new AppException(ErrorCode.CONVERSATION_NOT_FOUND);
+        }
+
+        if (conversation.getConversationType() != ConversationType.GROUP) {
+            throw new AppException(ErrorCode.VALIDATION_ERROR, "Không thể thêm thành viên vào chat 1-1");
+        }
+
+        if (conversation.getCreatedBy() == null || !conversation.getCreatedBy().equals(currentUserId.toString())) {
+            throw new AppException(ErrorCode.ACCESS_DENIED, "Chỉ trưởng nhóm mới có quyền thêm thành viên");
+        }
+
+        boolean alreadyInChat = conversation.getParticipants().stream()
+                .anyMatch(p -> p.getUserId().equals(memberId));
+        
+        if (alreadyInChat) {
+            throw new AppException(ErrorCode.VALIDATION_ERROR, "Thành viên này đã ở trong nhóm chat");
+        }
+
+        User memberToAdd = userRepository.findById(memberId)
+                .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
+
+        conversation.getParticipants().add(memberToAdd);
+        conversationRepository.save(conversation);
+    }
+
+
     private void broadcastMessageAfterCommit(MessageResponse response) {
         TransactionSynchronizationManager.registerSynchronization(
                 new TransactionSynchronization() {
