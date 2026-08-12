@@ -41,7 +41,8 @@ import java.util.*;
 @RequiredArgsConstructor
 public class BookingServiceImpl implements BookingService {
 
-    private static final Set<RefundStatus> PENDING_REFUNDS = EnumSet.of(RefundStatus.PENDING, RefundStatus.PROCESSING);
+    private static final Set<RefundStatus> PENDING_REFUNDS = EnumSet.of(
+            RefundStatus.PENDING, RefundStatus.PROCESSING, RefundStatus.FAILED);
 
     private final BookingRepository bookingRepository;
     private final TourScheduleRepository tourScheduleRepository;

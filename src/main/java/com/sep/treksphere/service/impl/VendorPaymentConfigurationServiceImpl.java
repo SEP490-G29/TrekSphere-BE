@@ -14,14 +14,19 @@ import com.sep.treksphere.service.VendorPaymentConfigurationService;
 import com.sep.treksphere.service.payment.PaymentCredentialCipher;
 import com.sep.treksphere.service.payment.PayOsClientFactory;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import vn.payos.exception.APIException;
+import vn.payos.exception.PayOSException;
+import vn.payos.exception.WebhookException;
 
 import java.math.BigDecimal;
 import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class VendorPaymentConfigurationServiceImpl implements VendorPaymentConfigurationService {
 
     private final VendorRepository vendorRepository;
@@ -33,12 +38,17 @@ public class VendorPaymentConfigurationServiceImpl implements VendorPaymentConfi
     private final PaymentWorkflowProperties properties;
 
     @Override
-    @Transactional
     public VendorPaymentAccountResponse configurePayOsAccount(String email, PayOsAccountConfigRequest request) {
         Vendor vendor = requireManagedVendor(email);
-        VendorPaymentAccount account = accountRepository
+        var existing = accountRepository
                 .findByVendor_VendorIdAndProviderAndIsDefaultTrueAndIsDeletedFalse(vendor.getVendorId(), PaymentProvider.PAYOS)
-                .orElseGet(VendorPaymentAccount::new);
+                .orElse(null);
+        VendorPaymentAccount account = existing != null ? existing : new VendorPaymentAccount();
+        String previousChannelId = existing != null ? existing.getProviderChannelId() : null;
+        String previousApiKey = existing != null ? existing.getApiKeyEncrypted() : null;
+        String previousChecksumKey = existing != null ? existing.getChecksumKeyEncrypted() : null;
+        PaymentAccountStatus previousStatus = existing != null ? existing.getOnboardingStatus() : null;
+
         account.setVendor(vendor);
         account.setProvider(PaymentProvider.PAYOS);
         account.setProviderChannelId(request.getClientId().trim());
@@ -48,17 +58,25 @@ public class VendorPaymentConfigurationServiceImpl implements VendorPaymentConfi
         account.setIsDeleted(false);
         account.setOnboardingStatus(PaymentAccountStatus.PENDING);
 
-        var client = clientFactory.getClient(account);
         String webhookUrl = webhookUrl(account.getProviderChannelId());
         if (webhookUrl == null) {
             throw new AppException(ErrorCode.PAYMENT_ACCOUNT_NOT_CONFIGURED,
                     "PAYMENT_WEBHOOK_BASE_URL chưa được cấu hình bằng HTTPS public URL.");
         }
+
+        // payOS confirms a webhook by calling it immediately. Persist PENDING
+        // before that external call so the callback can load the channel and
+        // verify its signature. With one outer transaction the callback cannot
+        // see this row and incorrectly returns PAYMENT_ACCOUNT_NOT_CONFIGURED.
+        account = accountRepository.saveAndFlush(account);
+
         try {
-            client.webhooks().confirm(webhookUrl);
-        } catch (Exception exception) {
-            throw new AppException(ErrorCode.PAYMENT_GATEWAY_ERROR,
-                    "Không thể xác minh credential hoặc đăng ký webhook payOS.");
+            var client = clientFactory.getClient(account);
+            confirmPayOsWebhook(client, webhookUrl, account.getProviderChannelId());
+        } catch (RuntimeException exception) {
+            restoreAccountAfterFailedVerification(account, existing != null, previousChannelId,
+                    previousApiKey, previousChecksumKey, previousStatus);
+            throw exception;
         }
         account.setOnboardingStatus(PaymentAccountStatus.ACTIVE);
         return toAccountResponse(accountRepository.save(account));
@@ -162,5 +180,51 @@ public class VendorPaymentConfigurationServiceImpl implements VendorPaymentConfi
         String base = properties.getWebhookBaseUrl();
         if (base == null || base.isBlank()) return null;
         return base.replaceAll("/+$", "") + "/" + channelId;
+    }
+
+    private void confirmPayOsWebhook(vn.payos.PayOS client, String webhookUrl, String channelId) {
+        try {
+            client.webhooks().confirm(webhookUrl);
+        } catch (APIException exception) {
+            int status = exception.getStatusCode().orElse(0);
+            String providerCode = exception.getErrorCode().orElse("unknown");
+            log.warn("payOS account verification rejected for channel suffix={} status={} code={}",
+                    maskedSuffix(channelId), status, providerCode);
+            if (status >= 400 && status < 500 && status != 429) {
+                throw new AppException(ErrorCode.PAYMENT_ACCOUNT_VERIFICATION_FAILED);
+            }
+            throw new AppException(ErrorCode.PAYMENT_GATEWAY_ERROR);
+        } catch (WebhookException exception) {
+            log.warn("payOS webhook confirmation rejected for channel suffix={} type={}",
+                    maskedSuffix(channelId), exception.getClass().getSimpleName());
+            throw new AppException(ErrorCode.PAYMENT_ACCOUNT_VERIFICATION_FAILED);
+        } catch (PayOSException exception) {
+            log.warn("payOS unavailable while verifying channel suffix={} type={}",
+                    maskedSuffix(channelId), exception.getClass().getSimpleName());
+            throw new AppException(ErrorCode.PAYMENT_GATEWAY_ERROR);
+        }
+    }
+
+    private String maskedSuffix(String value) {
+        if (value == null || value.isBlank()) return "unknown";
+        return value.length() <= 4 ? "****" : "****" + value.substring(value.length() - 4);
+    }
+
+    private void restoreAccountAfterFailedVerification(
+            VendorPaymentAccount account,
+            boolean existed,
+            String previousChannelId,
+            String previousApiKey,
+            String previousChecksumKey,
+            PaymentAccountStatus previousStatus) {
+        if (!existed) {
+            accountRepository.delete(account);
+            return;
+        }
+        account.setProviderChannelId(previousChannelId);
+        account.setApiKeyEncrypted(previousApiKey);
+        account.setChecksumKeyEncrypted(previousChecksumKey);
+        account.setOnboardingStatus(previousStatus);
+        accountRepository.save(account);
     }
 }

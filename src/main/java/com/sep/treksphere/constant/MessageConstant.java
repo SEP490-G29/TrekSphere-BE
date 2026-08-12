@@ -390,6 +390,8 @@ public class MessageConstant {
     public static final String PAYMENT_NOT_ALLOWED = "Booking không thể tạo giao dịch thanh toán ở trạng thái hiện tại";
     public static final String PAYMENT_TRANSACTION_NOT_FOUND = "Không tìm thấy giao dịch thanh toán";
     public static final String PAYMENT_GATEWAY_ERROR = "Cổng thanh toán đang gặp lỗi, vui lòng thử lại";
+    public static final String PAYMENT_ACCOUNT_VERIFICATION_FAILED =
+            "Không thể xác minh kết nối payOS. Vui lòng kiểm tra lại Client ID, API Key và Checksum Key";
     public static final String INVALID_PAYMENT_WEBHOOK = "Webhook thanh toán không hợp lệ";
     public static final String REFUND_NOT_FOUND = "Không tìm thấy giao dịch hoàn tiền";
     public static final String REFUND_DESTINATION_REQUIRED = "Cần cung cấp đầy đủ ngân hàng, số tài khoản và tên chủ tài khoản để hoàn tiền";

@@ -17,6 +17,8 @@ import java.util.UUID;
 public interface RefundTransactionRepository extends JpaRepository<RefundTransaction, UUID> {
     List<RefundTransaction> findByBooking_BookingIdAndIsDeletedFalseOrderByCreatedAtAsc(UUID bookingId);
 
+    Optional<RefundTransaction> findByIdempotencyKeyAndIsDeletedFalse(String idempotencyKey);
+
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select r from RefundTransaction r join fetch r.booking b join fetch r.paymentTransaction p " +
             "join fetch p.vendorPaymentAccount where r.refundTransactionId = :refundId and r.isDeleted = false")
