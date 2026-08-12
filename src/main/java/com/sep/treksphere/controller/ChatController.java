@@ -7,6 +7,7 @@ import com.sep.treksphere.dto.response.ApiResponse;
 import com.sep.treksphere.dto.response.ConversationResponse;
 import com.sep.treksphere.dto.response.MessageResponse;
 import com.sep.treksphere.dto.response.PaginationResponse;
+import com.sep.treksphere.dto.response.UserResponse;
 import com.sep.treksphere.security.CustomUserDetails;
 import com.sep.treksphere.service.ConversationService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -19,6 +20,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
@@ -27,6 +29,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.List;
 import java.util.UUID;
 
 @RestController
@@ -160,6 +163,64 @@ public class ChatController {
                 HttpStatus.OK,
                 null,
                 MessageConstant.MESSAGES_MARKED_READ_SUCCESS
+        ));
+    }
+
+    @Operation(
+            summary = "Xóa cuộc hội thoại",
+            description = "Xóa cuộc hội thoại. Với DIRECT chat, thành viên nào cũng có thể xóa. Với GROUP chat, chỉ người tạo (chủ nhóm) mới có quyền xóa."
+    )
+    @DeleteMapping("/conversations/{id}")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<ApiResponse<Void>> deleteConversation(
+            @PathVariable UUID id,
+            @AuthenticationPrincipal CustomUserDetails userDetails
+    ) {
+        conversationService.deleteConversation(id, userDetails);
+
+        return ResponseEntity.ok(ApiResponse.success(
+                HttpStatus.OK,
+                null,
+                "Xóa cuộc hội thoại thành công"
+        ));
+    }
+
+    @Operation(
+            summary = "Đuổi thành viên khỏi nhóm chat",
+            description = "Xóa một thành viên khỏi nhóm chat. Chỉ áp dụng cho GROUP chat và chỉ người tạo (chủ nhóm) mới có quyền thực hiện."
+    )
+    @DeleteMapping("/conversations/{id}/members/{memberId}")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<ApiResponse<Void>> removeMember(
+            @PathVariable UUID id,
+            @PathVariable UUID memberId,
+            @AuthenticationPrincipal CustomUserDetails userDetails
+    ) {
+        conversationService.removeMember(id, memberId, userDetails);
+
+        return ResponseEntity.ok(ApiResponse.success(
+                HttpStatus.OK,
+                null,
+                "Đã xóa thành viên khỏi nhóm chat"
+        ));
+    }
+
+    @Operation(
+            summary = "Danh sách thành viên nhóm chat",
+            description = "Lấy danh sách thành viên của một cuộc hội thoại."
+    )
+    @GetMapping("/conversations/{id}/members")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<ApiResponse<List<UserResponse>>> getConversationMembers(
+            @PathVariable UUID id,
+            @AuthenticationPrincipal CustomUserDetails userDetails
+    ) {
+        List<UserResponse> result = conversationService.getConversationMembers(id, userDetails);
+
+        return ResponseEntity.ok(ApiResponse.success(
+                HttpStatus.OK,
+                result,
+                "Lấy danh sách thành viên thành công"
         ));
     }
 }

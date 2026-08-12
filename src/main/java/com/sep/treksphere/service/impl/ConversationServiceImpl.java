@@ -6,11 +6,14 @@ import com.sep.treksphere.dto.request.MessageCreateRequest;
 import com.sep.treksphere.dto.response.ConversationResponse;
 import com.sep.treksphere.dto.response.MessageResponse;
 import com.sep.treksphere.dto.response.PaginationResponse;
+import com.sep.treksphere.dto.response.UserResponse;
 import com.sep.treksphere.entity.Conversation;
 import com.sep.treksphere.entity.MatchingGroup;
 import com.sep.treksphere.entity.Message;
 import com.sep.treksphere.entity.User;
 import java.util.Optional;
+import java.util.List;
+import java.util.stream.Collectors;
 import com.sep.treksphere.enums.chat.ConversationType;
 import com.sep.treksphere.enums.user.UserStatus;
 import com.sep.treksphere.exception.AppException;
@@ -224,6 +227,71 @@ public class ConversationServiceImpl implements ConversationService {
         messageRepository.markMessagesAsRead(conversationId, currentUserId);
     }
 
+    @Override
+    @Transactional
+    public void deleteConversation(UUID conversationId, CustomUserDetails userDetails) {
+        UUID currentUserId = userDetails.getUser().getUserId();
+        Conversation conversation = conversationRepository.findById(conversationId)
+                .orElseThrow(() -> new AppException(ErrorCode.CONVERSATION_NOT_FOUND));
+
+        if (conversation.getIsDeleted()) {
+            throw new AppException(ErrorCode.CONVERSATION_NOT_FOUND);
+        }
+
+        if (conversation.getConversationType() == ConversationType.DIRECT) {
+            boolean isParticipant = conversation.getParticipants().stream()
+                    .anyMatch(p -> p.getUserId().equals(currentUserId));
+            if (!isParticipant) {
+                throw new AppException(ErrorCode.ACCESS_DENIED);
+            }
+        } else if (conversation.getConversationType() == ConversationType.GROUP) {
+            if (conversation.getCreatedBy() == null || !conversation.getCreatedBy().equals(currentUserId.toString())) {
+                throw new AppException(ErrorCode.ACCESS_DENIED, "Chỉ trưởng nhóm mới có quyền xóa nhóm chat");
+            }
+        }
+
+        // Unlink from MatchingGroup if necessary
+        matchingGroupRepository.findByConversationConversationId(conversationId).ifPresent(mg -> {
+            mg.setConversation(null);
+            matchingGroupRepository.save(mg);
+        });
+
+        conversation.setIsDeleted(true);
+        conversationRepository.save(conversation);
+    }
+
+    @Override
+    @Transactional
+    public void removeMember(UUID conversationId, UUID memberId, CustomUserDetails userDetails) {
+        UUID currentUserId = userDetails.getUser().getUserId();
+        Conversation conversation = conversationRepository.findById(conversationId)
+                .orElseThrow(() -> new AppException(ErrorCode.CONVERSATION_NOT_FOUND));
+
+        if (conversation.getIsDeleted()) {
+            throw new AppException(ErrorCode.CONVERSATION_NOT_FOUND);
+        }
+
+        if (conversation.getConversationType() != ConversationType.GROUP) {
+            throw new AppException(ErrorCode.VALIDATION_ERROR, "Không thể xóa thành viên khỏi chat 1-1");
+        }
+
+        if (conversation.getCreatedBy() == null || !conversation.getCreatedBy().equals(currentUserId.toString())) {
+            throw new AppException(ErrorCode.ACCESS_DENIED, "Chỉ trưởng nhóm mới có quyền xóa thành viên");
+        }
+
+        if (currentUserId.equals(memberId)) {
+            throw new AppException(ErrorCode.VALIDATION_ERROR, "Không thể tự xóa bản thân bằng chức năng này");
+        }
+
+        User memberToRemove = conversation.getParticipants().stream()
+                .filter(p -> p.getUserId().equals(memberId))
+                .findFirst()
+                .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND, "Thành viên không có trong nhóm chat"));
+
+        conversation.getParticipants().remove(memberToRemove);
+        conversationRepository.save(conversation);
+    }
+
     private void broadcastMessageAfterCommit(MessageResponse response) {
         TransactionSynchronizationManager.registerSynchronization(
                 new TransactionSynchronization() {
@@ -282,6 +350,10 @@ public class ConversationServiceImpl implements ConversationService {
                         .orElse(null)
                 : null;
 
+        boolean isGroupLeader = conversation.getConversationType() == ConversationType.GROUP 
+                && conversation.getCreatedBy() != null 
+                && conversation.getCreatedBy().equals(currentUserId.toString());
+
         return ConversationResponse.builder()
                 .conversationId(conversation.getConversationId())
                 .title(otherParticipant != null
@@ -295,7 +367,35 @@ public class ConversationServiceImpl implements ConversationService {
                 .lastMessageContent(null)
                 .unreadCount(0L)
                 .isNew(isNew)
+                .isGroupLeader(isGroupLeader)
                 .build();
+    }
+
+    @Override
+    public List<UserResponse> getConversationMembers(UUID conversationId, CustomUserDetails userDetails) {
+        Conversation conversation = conversationRepository.findById(conversationId)
+                .orElseThrow(() -> new AppException(ErrorCode.CONVERSATION_NOT_FOUND));
+
+        if (conversation.getIsDeleted()) {
+            throw new AppException(ErrorCode.CONVERSATION_NOT_FOUND);
+        }
+
+        // Verify user is in conversation
+        boolean isParticipant = conversation.getParticipants().stream()
+                .anyMatch(p -> p.getUserId().equals(userDetails.getUser().getUserId()));
+        
+        if (!isParticipant) {
+            throw new AppException(ErrorCode.ACCESS_DENIED, "Không có quyền xem thành viên nhóm này");
+        }
+
+        return conversation.getParticipants().stream()
+                .map(user -> UserResponse.builder()
+                        .id(user.getUserId().toString())
+                        .email(user.getEmail())
+                        .fullName(user.getFullName())
+                        .avatarUrl(user.getAvatarUrl())
+                        .build())
+                .collect(Collectors.toList());
     }
 
     private MessageResponse toMessageResponse(Message message) {
@@ -341,6 +441,10 @@ public class ConversationServiceImpl implements ConversationService {
                         conversation.getConversationId(),
                         currentUserId
                 );
+        
+        boolean isGroupLeader = conversation.getConversationType() == ConversationType.GROUP 
+                && conversation.getCreatedBy() != null 
+                && conversation.getCreatedBy().equals(currentUserId.toString());
 
         return ConversationResponse.builder()
                 .conversationId(conversation.getConversationId())
@@ -350,6 +454,7 @@ public class ConversationServiceImpl implements ConversationService {
                 .lastMessageAt(conversation.getLastMessageAt())
                 .lastMessageContent(lastMessageContent)
                 .unreadCount(unreadCount)
+                .isGroupLeader(isGroupLeader)
                 .build();
     }
 }

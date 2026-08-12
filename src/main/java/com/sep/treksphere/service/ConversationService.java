@@ -7,8 +7,10 @@ import com.sep.treksphere.dto.response.MessageResponse;
 import com.sep.treksphere.dto.response.PaginationResponse;
 import com.sep.treksphere.security.CustomUserDetails;
 
-import java.util.UUID;
+import com.sep.treksphere.dto.response.UserResponse;
 
+import java.util.List;
+import java.util.UUID;
 public interface ConversationService {
 
     PaginationResponse<ConversationResponse> getConversations(
@@ -40,6 +42,22 @@ public interface ConversationService {
     );
 
     void markMessagesAsRead(
+            UUID conversationId,
+            CustomUserDetails userDetails
+    );
+
+    void deleteConversation(
+            UUID conversationId,
+            CustomUserDetails userDetails
+    );
+
+    void removeMember(
+            UUID conversationId,
+            UUID memberId,
+            CustomUserDetails userDetails
+    );
+
+    List<UserResponse> getConversationMembers(
             UUID conversationId,
             CustomUserDetails userDetails
     );
