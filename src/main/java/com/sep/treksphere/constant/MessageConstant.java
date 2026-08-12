@@ -386,6 +386,16 @@ public class MessageConstant {
     public static final String BOOKING_PARTICIPANTS_REQUIRED = "Danh sách người tham gia không được để trống";
     public static final String BOOKING_CANCEL_REASON_REQUIRED = "Lý do huỷ tour không được để trống";
     public static final String BOOKING_PROOF_IMAGE_REQUIRED = "Đường dẫn ảnh minh chứng không được để trống";
+    public static final String PAYMENT_ACCOUNT_NOT_CONFIGURED = "Vendor chưa cấu hình kênh thanh toán payOS hoạt động";
+    public static final String PAYMENT_NOT_ALLOWED = "Booking không thể tạo giao dịch thanh toán ở trạng thái hiện tại";
+    public static final String PAYMENT_TRANSACTION_NOT_FOUND = "Không tìm thấy giao dịch thanh toán";
+    public static final String PAYMENT_GATEWAY_ERROR = "Cổng thanh toán đang gặp lỗi, vui lòng thử lại";
+    public static final String INVALID_PAYMENT_WEBHOOK = "Webhook thanh toán không hợp lệ";
+    public static final String REFUND_NOT_FOUND = "Không tìm thấy giao dịch hoàn tiền";
+    public static final String REFUND_DESTINATION_REQUIRED = "Cần cung cấp đầy đủ ngân hàng, số tài khoản và tên chủ tài khoản để hoàn tiền";
+    public static final String REFUND_NOT_PROCESSABLE = "Giao dịch hoàn tiền không thể xử lý ở trạng thái hiện tại";
+    public static final String PAYMENT_PLAN_NOT_ALLOWED = "Phương án thanh toán không được áp dụng cho tour này";
+    public static final String IDEMPOTENCY_CONFLICT = "Idempotency-Key đã được dùng với nội dung booking khác";
 
     // Vendor Booking Messages
     public static final String PAYMENT_CONFIRMED_SUCCESSFULLY = "Xác nhận thanh toán thành công";

@@ -8,6 +8,7 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
+import com.sep.treksphere.enums.booking.PaymentPlan;
 
 @Data
 @Builder
@@ -35,6 +36,14 @@ public class BookingDetailResponse {
     // Status details
     private BookingStatus bookingStatus;
     private PaymentStatus paymentStatus;
+    private PaymentPlan paymentPlan;
+    private LocalDateTime holdExpiresAt;
+    private LocalDateTime confirmationExpiresAt;
+    private LocalDateTime remainingDueAt;
+    private LocalDateTime participationPolicyAcceptedAt;
+    private BigDecimal paidAmount;
+    private BigDecimal pendingRefundAmount;
+    private Boolean onlinePaymentEnabled;
     private String proofImageUrl;
     private String cancellationReason;
     private LocalDateTime cancelledAt;
@@ -51,12 +60,6 @@ public class BookingDetailResponse {
     private String userEmail;
     private String userFullName;
     private String userPhone;
-
-    // Vendor payment details
-    private String vendorBankName;
-    private String vendorBankAccount;
-    private String vendorCompanyName;
-    private String paymentQrUrl;
 
     // Trekker refund bank info
     private String refundBankName;

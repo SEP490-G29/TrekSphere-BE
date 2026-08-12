@@ -5,6 +5,7 @@ import com.sep.treksphere.enums.tour.DifficultyLevel;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.Min;
+import jakarta.validation.Valid;
 import lombok.Getter;
 import lombok.Setter;
 
@@ -53,5 +54,9 @@ public class UpdateTourRequest {
 
     @Schema(description = "Các dịch vụ không bao gồm", example = "- Chi phí cá nhân\n- Vé cáp treo")
     private String excludes;
+
+    @Valid
+    @Schema(description = "Điều kiện tham gia và yêu cầu an toàn của tour")
+    private TourParticipationPolicyRequest participationPolicy;
 
 }

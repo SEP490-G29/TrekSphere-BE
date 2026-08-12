@@ -83,28 +83,6 @@ public class BookingMapper {
             }
         }
 
-        String vendorBankName = null;
-        String vendorBankAccount = null;
-        String vendorCompanyName = null;
-        String paymentQrUrl = null;
-
-        if (b.getSchedule() != null && b.getSchedule().getTour() != null && b.getSchedule().getTour().getVendor() != null) {
-            var vendor = b.getSchedule().getTour().getVendor();
-            vendorBankName = vendor.getBankName();
-            vendorBankAccount = vendor.getBankAccount();
-            vendorCompanyName = vendor.getCompanyName();
-
-            String generatedQr = com.sep.treksphere.utils.VietQrUtils.generateVietQrUrl(
-                    vendorBankName,
-                    vendorBankAccount,
-                    b.getTotalPrice(),
-                    b.getBookingCode(),
-                    vendorCompanyName
-            );
-
-            paymentQrUrl = (generatedQr != null) ? generatedQr : vendor.getPaymentQrUrl();
-        }
-
         String userId = null;
         String userEmail = null;
         String userFullName = null;
@@ -141,6 +119,11 @@ public class BookingMapper {
                 .refundAmount(b.getRefundAmount())
                 .bookingStatus(b.getBookingStatus())
                 .paymentStatus(b.getPaymentStatus())
+                .paymentPlan(b.getPaymentPlan())
+                .holdExpiresAt(b.getHoldExpiresAt())
+                .confirmationExpiresAt(b.getConfirmationExpiresAt())
+                .remainingDueAt(b.getRemainingDueAt())
+                .participationPolicyAcceptedAt(b.getParticipationPolicyAcceptedAt())
                 .proofImageUrl(b.getProofImageUrl())
                 .cancellationReason(b.getCancellationReason())
                 .cancelledAt(b.getCancelledAt())
@@ -151,10 +134,6 @@ public class BookingMapper {
                 .userEmail(userEmail)
                 .userFullName(userFullName)
                 .userPhone(userPhone)
-                .vendorBankName(vendorBankName)
-                .vendorBankAccount(vendorBankAccount)
-                .vendorCompanyName(vendorCompanyName)
-                .paymentQrUrl(paymentQrUrl)
                 .refundBankName(b.getRefundBankName())
                 .refundAccountNumber(b.getRefundAccountNumber())
                 .refundAccountHolder(b.getRefundAccountHolder())

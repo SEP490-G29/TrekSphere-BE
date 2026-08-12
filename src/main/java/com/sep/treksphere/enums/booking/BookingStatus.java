@@ -1,5 +1,12 @@
 package com.sep.treksphere.enums.booking;
 
 public enum BookingStatus {
-    PENDING, CONFIRMED, CANCELLED, COMPLETED
+    PAYMENT_PENDING,
+    PENDING_CONFIRMATION,
+    CONFIRMED,
+    IN_PROGRESS,
+    COMPLETED,
+    EXPIRED,
+    REJECTED,
+    CANCELLED
 }

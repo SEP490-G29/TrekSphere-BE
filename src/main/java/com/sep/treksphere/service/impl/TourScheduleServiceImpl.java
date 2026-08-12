@@ -95,12 +95,9 @@ public class TourScheduleServiceImpl implements TourScheduleService {
         schedule.setPrice(request.getPrice());
         schedule.setAvailableSlots(request.getAvailableSlots());
         schedule.setBookedSlots(0);
-
-        // Nếu Tour chưa APPROVED/HIDDEN, Schedule sẽ khởi tạo với trạng thái CLOSED (chưa mở đặt chỗ)
-        ScheduleStatus initialStatus = (tour.getStatus() == TourStatus.APPROVED || tour.getStatus() == TourStatus.HIDDEN)
-                ? ScheduleStatus.OPEN
-                : ScheduleStatus.CLOSED;
-        schedule.setStatus(initialStatus);
+        schedule.setHeldSlots(0);
+        schedule.setMinPaxRequired(tour.getMinCapacity());
+        schedule.setStatus(ScheduleStatus.OPEN);
 
         TourSchedule savedSchedule = tourScheduleRepository.save(schedule);
 
@@ -121,13 +118,15 @@ public class TourScheduleServiceImpl implements TourScheduleService {
         Vendor vendor = resolveVendorByUser(userEmail);
         validateTourBelongsToVendor(schedule.getTour(), vendor);
 
-        // Validation: Lịch khởi hành đã COMPLETED hoặc CANCELLED thì không được phép sửa
+        // Validation: Lịch khởi hành đã COMPLETED hoặc CANCELLED thì không được phép
+        // sửa
         if (schedule.getStatus() == ScheduleStatus.COMPLETED || schedule.getStatus() == ScheduleStatus.CANCELLED) {
             throw new AppException(ErrorCode.SCHEDULE_NOT_EDITABLE);
         }
 
         // Kiểm tra xem Schedule đã có khách đặt chỗ chưa
-        boolean hasBookings = bookingRepository.existsByScheduleAndBookingStatusNotAndIsDeletedFalse(schedule, BookingStatus.CANCELLED)
+        boolean hasBookings = bookingRepository.existsByScheduleAndBookingStatusNotAndIsDeletedFalse(schedule,
+                BookingStatus.CANCELLED)
                 || (schedule.getBookedSlots() != null && schedule.getBookedSlots() > 0);
 
         // Nếu ĐÃ CÓ khách đặt, yêu cầu bắt buộc phải truyền lý do (reason)
@@ -135,7 +134,8 @@ public class TourScheduleServiceImpl implements TourScheduleService {
             throw new AppException(ErrorCode.SCHEDULE_CHANGE_REASON_REQUIRED);
         }
 
-        LocalDate departureDate = request.getDepartureDate() != null ? request.getDepartureDate() : schedule.getDepartureDate();
+        LocalDate departureDate = request.getDepartureDate() != null ? request.getDepartureDate()
+                : schedule.getDepartureDate();
         LocalDate returnDate = request.getReturnDate() != null ? request.getReturnDate() : schedule.getReturnDate();
 
         if (request.getDepartureDate() != null) {
@@ -161,7 +161,8 @@ public class TourScheduleServiceImpl implements TourScheduleService {
             if (request.getAvailableSlots() < currentBooked) {
                 throw new AppException(ErrorCode.SCHEDULE_SLOTS_LESS_THAN_BOOKED);
             }
-            if (schedule.getTour().getMaxCapacity() != null && request.getAvailableSlots() > schedule.getTour().getMaxCapacity()) {
+            if (schedule.getTour().getMaxCapacity() != null
+                    && request.getAvailableSlots() > schedule.getTour().getMaxCapacity()) {
                 throw new AppException(ErrorCode.SCHEDULE_SLOTS_EXCEED_MAX_CAPACITY);
             }
             schedule.setAvailableSlots(request.getAvailableSlots());
@@ -175,14 +176,16 @@ public class TourScheduleServiceImpl implements TourScheduleService {
 
         // Nếu ĐÃ CÓ khách đặt, gửi Notification tới từng khách hàng có Booking active
         if (hasBookings) {
-            List<Booking> activeBookings = bookingRepository.findByScheduleAndBookingStatusNotAndIsDeletedFalse(schedule, BookingStatus.CANCELLED);
+            List<Booking> activeBookings = bookingRepository
+                    .findByScheduleAndBookingStatusNotAndIsDeletedFalse(schedule, BookingStatus.CANCELLED);
             for (Booking booking : activeBookings) {
                 Notification notification = new Notification();
                 notification.setRecipient(booking.getUser());
                 notification.setTitle("Lịch khởi hành tour đã có sự thay đổi");
                 notification.setEventType(NotificationEventType.SCHEDULE_UPDATED);
                 notification.setContent("Lịch khởi hành tour \"" + schedule.getTour().getTourName() +
-                        "\" (khởi hành ngày " + savedSchedule.getDepartureDate() + ") đã được điều chỉnh. Lý do: " + request.getReason().trim());
+                        "\" (khởi hành ngày " + savedSchedule.getDepartureDate() + ") đã được điều chỉnh. Lý do: "
+                        + request.getReason().trim());
                 notification.setReferenceType(ReferenceType.BOOKING);
                 notification.setReferenceId(booking.getBookingId());
                 notificationRepository.save(notification);
@@ -203,13 +206,21 @@ public class TourScheduleServiceImpl implements TourScheduleService {
                 .orElseThrow(() -> new AppException(ErrorCode.VENDOR_NOT_FOUND));
         validateTourBelongsToVendor(schedule.getTour(), vendor);
 
-        // Validation: Lịch khởi hành đã COMPLETED hoặc CANCELLED thì không được phép xóa
+        // Validation: Lịch khởi hành đã COMPLETED hoặc CANCELLED thì không được phép
+        // xóa
         if (schedule.getStatus() == ScheduleStatus.COMPLETED || schedule.getStatus() == ScheduleStatus.CANCELLED) {
             throw new AppException(ErrorCode.SCHEDULE_NOT_EDITABLE);
         }
 
         // Check if there are active bookings
-        boolean hasBookings = bookingRepository.existsByScheduleAndBookingStatusNotAndIsDeletedFalse(schedule, BookingStatus.CANCELLED)
+        boolean hasBookings = bookingRepository.existsByScheduleAndBookingStatusInAndIsDeletedFalse(
+                schedule,
+                java.util.EnumSet.of(
+                        BookingStatus.PAYMENT_PENDING,
+                        BookingStatus.PENDING_CONFIRMATION,
+                        BookingStatus.CONFIRMED,
+                        BookingStatus.IN_PROGRESS,
+                        BookingStatus.COMPLETED))
                 || (schedule.getBookedSlots() != null && schedule.getBookedSlots() > 0);
         if (hasBookings) {
             throw new AppException(ErrorCode.SCHEDULE_HAS_BOOKINGS);

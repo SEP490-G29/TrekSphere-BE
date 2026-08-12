@@ -29,4 +29,7 @@ public class ConversationCreateRequest {
     @NotEmpty(message = MessageConstant.CONVERSATION_PARTICIPANTS_REQUIRED)
     @Schema(description = "Danh sách người tham gia, không bao gồm người tạo")
     private List<UUID> participantIds;
+
+    @Schema(description = "ID của Matching Group nếu tạo chat từ nhóm ghép")
+    private UUID matchingGroupId;
 }

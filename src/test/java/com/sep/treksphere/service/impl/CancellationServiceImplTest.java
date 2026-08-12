@@ -1,0 +1,145 @@
+package com.sep.treksphere.service.impl;
+
+import com.sep.treksphere.dto.request.BookingCancelRequest;
+import com.sep.treksphere.entity.*;
+import com.sep.treksphere.enums.booking.*;
+import com.sep.treksphere.repository.*;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+
+import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.UUID;
+
+import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.Mockito.*;
+
+@ExtendWith(MockitoExtension.class)
+class CancellationServiceImplTest {
+
+    @Mock private BookingRepository bookingRepository;
+    @Mock private BookingPolicySnapshotRepository snapshotRepository;
+    @Mock private PaymentTransactionRepository paymentTransactionRepository;
+    @Mock private RefundTransactionRepository refundTransactionRepository;
+    @Mock private TourScheduleRepository tourScheduleRepository;
+    @Mock private VoucherRepository voucherRepository;
+    @Mock private UserRepository userRepository;
+    @Mock private VendorRepository vendorRepository;
+    @Mock private VendorStaffRepository vendorStaffRepository;
+
+    @InjectMocks private CancellationServiceImpl service;
+
+    private UUID bookingId;
+    private User user;
+    private Booking booking;
+    private TourSchedule schedule;
+    private BookingPolicySnapshot snapshot;
+    private PaymentTransaction payment;
+
+    @BeforeEach
+    void setUp() {
+        bookingId = UUID.randomUUID();
+        user = new User();
+        user.setUserId(UUID.randomUUID());
+        user.setEmail("trekker@example.com");
+
+        Vendor vendor = new Vendor();
+        vendor.setVendorId(UUID.randomUUID());
+        Tour tour = new Tour();
+        tour.setTourId(UUID.randomUUID());
+        tour.setVendor(vendor);
+
+        schedule = new TourSchedule();
+        schedule.setScheduleId(UUID.randomUUID());
+        schedule.setTour(tour);
+        schedule.setDepartureDate(LocalDate.now().plusDays(10));
+        schedule.setAvailableSlots(5);
+        schedule.setBookedSlots(2);
+        schedule.setHeldSlots(0);
+
+        booking = new Booking();
+        booking.setBookingId(bookingId);
+        booking.setUser(user);
+        booking.setSchedule(schedule);
+        booking.setBookingStatus(BookingStatus.CONFIRMED);
+        booking.setPaymentStatus(PaymentStatus.PAID);
+        booking.setNumberOfParticipants(2);
+        booking.setTotalPrice(new BigDecimal("3000000.00"));
+
+        snapshot = new BookingPolicySnapshot();
+        snapshot.setBookingId(bookingId);
+        snapshot.setBooking(booking);
+        snapshot.setNonRefundableCost(new BigDecimal("500000.00"));
+        snapshot.setPolicyJson(List.of(
+                Map.of("cancelBeforeDays", 14, "refundPercentage", 100, "description", "Từ 14 ngày"),
+                Map.of("cancelBeforeDays", 7, "refundPercentage", 70, "description", "Từ 7 ngày"),
+                Map.of("cancelBeforeDays", 3, "refundPercentage", 30, "description", "Từ 3 ngày")
+        ));
+
+        payment = new PaymentTransaction();
+        payment.setPaymentTransactionId(UUID.randomUUID());
+        payment.setBooking(booking);
+        payment.setStatus(PaymentTransactionStatus.PAID);
+        payment.setPaidAmount(new BigDecimal("3000000.00"));
+
+        when(userRepository.findByEmail(user.getEmail())).thenReturn(Optional.of(user));
+        when(snapshotRepository.findById(bookingId)).thenReturn(Optional.of(snapshot));
+        when(paymentTransactionRepository.sumPaidByBooking(bookingId)).thenReturn(new BigDecimal("3000000.00"));
+        when(refundTransactionRepository.sumByBookingAndStatuses(eq(bookingId), anyCollection()))
+                .thenReturn(BigDecimal.ZERO);
+    }
+
+    @Test
+    void quoteUsesBookingSnapshotAndNonRefundableCost() {
+        when(bookingRepository.findById(bookingId)).thenReturn(Optional.of(booking));
+
+        var quote = service.quoteForTrekker(user.getEmail(), bookingId);
+
+        assertEquals(70, quote.getRefundPercentage());
+        assertEquals(new BigDecimal("1750000"), quote.getRefundAmount());
+        assertEquals(new BigDecimal("1250000.00"), quote.getCancellationFee());
+        assertEquals("Từ 7 ngày", quote.getAppliedPolicyDescription());
+        assertTrue(quote.getRefundDestinationRequired());
+    }
+
+    @Test
+    void cancellationReleasesCapacityAndCreatesPendingRefund() {
+        when(bookingRepository.findByIdForUpdate(bookingId)).thenReturn(Optional.of(booking));
+        when(tourScheduleRepository.findByIdForUpdate(schedule.getScheduleId())).thenReturn(Optional.of(schedule));
+        when(paymentTransactionRepository.findByBooking_BookingIdAndIsDeletedFalseOrderByCreatedAtAsc(bookingId))
+                .thenReturn(List.of(payment));
+        when(refundTransactionRepository.sumByPaymentAndStatuses(eq(payment.getPaymentTransactionId()), anyCollection()))
+                .thenReturn(BigDecimal.ZERO);
+        when(bookingRepository.save(any(Booking.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        BookingCancelRequest request = new BookingCancelRequest();
+        request.setCancellationReason("Thay đổi kế hoạch");
+        request.setRefundBankBin("970422");
+        request.setRefundAccountNumber("0123456789");
+        request.setRefundAccountName("NGUYEN VAN A");
+
+        Booking result = service.cancelByTrekker(user.getEmail(), bookingId, request);
+
+        assertEquals(BookingStatus.CANCELLED, result.getBookingStatus());
+        assertEquals(PaymentStatus.REFUND_PENDING, result.getPaymentStatus());
+        assertEquals(0, schedule.getBookedSlots());
+        assertEquals(7, schedule.getAvailableSlots());
+
+        ArgumentCaptor<RefundTransaction> refundCaptor = ArgumentCaptor.forClass(RefundTransaction.class);
+        verify(refundTransactionRepository).save(refundCaptor.capture());
+        RefundTransaction refund = refundCaptor.getValue();
+        assertEquals(new BigDecimal("1750000"), refund.getAmount());
+        assertEquals(RefundStatus.PENDING, refund.getStatus());
+        assertEquals(RefundReason.TREKKER_CANCEL, refund.getReason());
+        assertEquals("0123456789", refund.getDestinationAccountNumber());
+    }
+}

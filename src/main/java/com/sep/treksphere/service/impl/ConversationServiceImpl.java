@@ -7,6 +7,7 @@ import com.sep.treksphere.dto.response.ConversationResponse;
 import com.sep.treksphere.dto.response.MessageResponse;
 import com.sep.treksphere.dto.response.PaginationResponse;
 import com.sep.treksphere.entity.Conversation;
+import com.sep.treksphere.entity.MatchingGroup;
 import com.sep.treksphere.entity.Message;
 import com.sep.treksphere.entity.User;
 import java.util.Optional;
@@ -15,6 +16,7 @@ import com.sep.treksphere.enums.user.UserStatus;
 import com.sep.treksphere.exception.AppException;
 import com.sep.treksphere.exception.ErrorCode;
 import com.sep.treksphere.repository.ConversationRepository;
+import com.sep.treksphere.repository.MatchingGroupRepository;
 import com.sep.treksphere.repository.MessageRepository;
 import com.sep.treksphere.repository.UserRepository;
 import com.sep.treksphere.security.CustomUserDetails;
@@ -40,6 +42,7 @@ public class ConversationServiceImpl implements ConversationService {
     private final ConversationRepository conversationRepository;
     private final MessageRepository messageRepository;
     private final UserRepository userRepository;
+    private final MatchingGroupRepository matchingGroupRepository;
     private final SimpMessagingTemplate messagingTemplate;
 
     @Override
@@ -98,6 +101,12 @@ public class ConversationServiceImpl implements ConversationService {
             if (existing.isPresent()) {
                 return toCreatedConversationResponse(existing.get(), currentUserId, false);
             }
+        } else if (request.getConversationType() == ConversationType.GROUP && request.getMatchingGroupId() != null) {
+            MatchingGroup matchingGroup = matchingGroupRepository.findById(request.getMatchingGroupId())
+                    .orElseThrow(() -> new AppException(ErrorCode.MATCHING_GROUP_NOT_FOUND));
+            if (matchingGroup.getConversation() != null) {
+                return toCreatedConversationResponse(matchingGroup.getConversation(), currentUserId, false);
+            }
         }
 
         Conversation conversation = new Conversation();
@@ -107,7 +116,36 @@ public class ConversationServiceImpl implements ConversationService {
         conversation.getParticipants().addAll(participants);
 
         Conversation savedConversation = conversationRepository.save(conversation);
+
+        if (request.getConversationType() == ConversationType.GROUP && request.getMatchingGroupId() != null) {
+            MatchingGroup matchingGroup = matchingGroupRepository.findById(request.getMatchingGroupId())
+                    .orElseThrow(() -> new AppException(ErrorCode.MATCHING_GROUP_NOT_FOUND));
+            matchingGroup.setConversation(savedConversation);
+            matchingGroupRepository.save(matchingGroup);
+        }
+
         return toCreatedConversationResponse(savedConversation, currentUserId, true);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public ConversationResponse checkConversation(ConversationCreateRequest request, CustomUserDetails userDetails) {
+        UUID currentUserId = userDetails.getUser().getUserId();
+        Set<UUID> participantIds = new LinkedHashSet<>(request.getParticipantIds());
+
+        if (request.getConversationType() == ConversationType.DIRECT) {
+            if (!participantIds.isEmpty()) {
+                UUID recipientId = participantIds.iterator().next();
+                Optional<Conversation> existing = conversationRepository.findDirectConversation(currentUserId, recipientId);
+                return existing.map(c -> toCreatedConversationResponse(c, currentUserId, false)).orElse(null);
+            }
+        } else if (request.getConversationType() == ConversationType.GROUP && request.getMatchingGroupId() != null) {
+            MatchingGroup matchingGroup = matchingGroupRepository.findById(request.getMatchingGroupId()).orElse(null);
+            if (matchingGroup != null && matchingGroup.getConversation() != null) {
+                return toCreatedConversationResponse(matchingGroup.getConversation(), currentUserId, false);
+            }
+        }
+        return null;
     }
 
     @Override

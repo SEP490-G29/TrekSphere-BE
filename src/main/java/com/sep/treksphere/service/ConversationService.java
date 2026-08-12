@@ -22,6 +22,11 @@ public interface ConversationService {
             CustomUserDetails userDetails
     );
 
+    ConversationResponse checkConversation(
+            ConversationCreateRequest request,
+            CustomUserDetails userDetails
+    );
+
     PaginationResponse<MessageResponse> getMessages(
             UUID conversationId,
             int page,

@@ -1,5 +1,10 @@
 package com.sep.treksphere.enums.booking;
 
 public enum PaymentStatus {
-    PENDING, PAID, REFUNDED, PARTIALLY_REFUNDED
+    UNPAID,
+    PARTIALLY_PAID,
+    PAID,
+    REFUND_PENDING,
+    PARTIALLY_REFUNDED,
+    REFUNDED
 }

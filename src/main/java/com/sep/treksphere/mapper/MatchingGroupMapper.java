@@ -30,6 +30,7 @@ public interface MatchingGroupMapper {
     @Mapping(target = "myMembershipStatus", ignore = true)
     @Mapping(target = "canJoin", ignore = true)
     @Mapping(target = "canLeave", ignore = true)
+    @Mapping(target = "hasConversation", expression = "java(matchingGroup.getConversation() != null)")
     MatchingGroupDetailResponse toDetailResponse(MatchingGroup matchingGroup);
 
     @Mapping(target = "userId", source = "user.userId")

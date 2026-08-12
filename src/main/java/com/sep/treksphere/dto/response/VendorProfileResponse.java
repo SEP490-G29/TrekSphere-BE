@@ -20,8 +20,5 @@ public class VendorProfileResponse {
     private String contactPhone;
     private String taxCode;
     private String businessLicenseUrl;
-    private String bankAccount;
-    private String bankName;
-    private String paymentQrUrl;
     private VendorStatus status;
 }

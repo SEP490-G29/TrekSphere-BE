@@ -14,12 +14,12 @@ public class BookingCancelRequest {
     @Schema(description = "Lý do hủy đơn đặt tour", example = "Thay đổi lịch trình cá nhân")
     private String cancellationReason;
 
-    @Schema(description = "Tên ngân hàng nhận hoàn tiền", example = "Vietcombank")
-    private String refundBankName;
+    @Schema(description = "Mã BIN ngân hàng nhận hoàn tiền", example = "970422")
+    private String refundBankBin;
 
-    @Schema(description = "Số tài khoản nhận hoàn tiền", example = "1234567890")
+    @Schema(description = "Số tài khoản nhận hoàn tiền", example = "0123456789")
     private String refundAccountNumber;
 
     @Schema(description = "Tên chủ tài khoản nhận hoàn tiền", example = "NGUYEN VAN A")
-    private String refundAccountHolder;
+    private String refundAccountName;
 }

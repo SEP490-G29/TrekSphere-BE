@@ -88,6 +88,14 @@ application:
     same-site: Strict
   frontend:
     url: ${FRONTEND_URL}
+  payment:
+    hold-duration: ${PAYMENT_HOLD_DURATION:PT15M}
+    vendor-confirmation-duration: ${VENDOR_CONFIRMATION_DURATION:PT24H}
+    checkout-link-duration: ${PAYMENT_LINK_DURATION:PT15M}
+    return-url: ${PAYMENT_RETURN_URL:${FRONTEND_URL}/payment/success}
+    cancel-url: ${PAYMENT_CANCEL_URL:${FRONTEND_URL}/payment/cancel}
+    webhook-base-url: ${PAYMENT_WEBHOOK_BASE_URL:}
+    credential-encryption-key: ${PAYMENT_CREDENTIAL_ENCRYPTION_KEY:}
   email-verification:
     rate-limit:
       cooldown-seconds: 60

@@ -48,6 +48,9 @@ public class Voucher extends BaseEntity {
     private Integer usedCount = 0;
 
     @Column(nullable = false)
+    private Integer reservedCount = 0;
+
+    @Column(nullable = false)
     private Integer maxUsage;
 
     @Column(nullable = false, precision = 12, scale = 2)

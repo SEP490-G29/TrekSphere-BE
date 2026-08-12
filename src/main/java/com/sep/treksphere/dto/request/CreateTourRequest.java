@@ -7,6 +7,7 @@ import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.Valid;
 import lombok.Getter;
 import lombok.Setter;
 
@@ -63,5 +64,10 @@ public class CreateTourRequest {
 
     @Schema(description = "Các dịch vụ không bao gồm", example = "- Chi phí cá nhân\n- Vé cáp treo")
     private String excludes;
+
+    @Valid
+    @NotNull(message = "Điều kiện tham gia là bắt buộc.")
+    @Schema(description = "Điều kiện tham gia và yêu cầu an toàn của tour")
+    private TourParticipationPolicyRequest participationPolicy;
 
 }
