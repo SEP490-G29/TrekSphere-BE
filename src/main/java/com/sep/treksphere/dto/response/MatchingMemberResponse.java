@@ -18,4 +18,5 @@ public class MatchingMemberResponse {
     private MatchingRole role;
     private JoinStatus status;
     private LocalDateTime createdAt;
+    private Boolean isInConversation;
 }

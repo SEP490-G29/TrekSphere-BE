@@ -33,4 +33,5 @@ public class MatchingGroupDetailResponse {
     private Boolean canJoin;
     private Boolean canLeave;
     private Boolean hasConversation;
+    private Boolean isInConversation;
 }
