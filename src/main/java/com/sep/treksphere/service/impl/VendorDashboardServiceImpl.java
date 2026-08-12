@@ -102,7 +102,7 @@ public class VendorDashboardServiceImpl implements VendorDashboardService {
                 vendor.getVendorId(), dateRange.getStart(), dateRange.getEnd()
         ).stream()
                 .filter(b -> b.getBookingStatus() != BookingStatus.CANCELLED)
-                .filter(b -> b.getPaymentStatus() != PaymentStatus.PENDING)
+                .filter(b -> b.getPaymentStatus() != PaymentStatus.UNPAID)
                 .toList();
 
         Map<String, BigDecimal> revenueMap = new LinkedHashMap<>();
@@ -168,7 +168,7 @@ public class VendorDashboardServiceImpl implements VendorDashboardService {
                     .sum();
 
             BigDecimal totalRevenue = tourBookings.stream()
-                    .filter(b -> b.getPaymentStatus() != PaymentStatus.PENDING)
+                    .filter(b -> b.getPaymentStatus() != PaymentStatus.UNPAID)
                     .map(Booking::getTotalPrice)
                     .reduce(BigDecimal.ZERO, BigDecimal::add);
 
@@ -398,7 +398,7 @@ public class VendorDashboardServiceImpl implements VendorDashboardService {
     private BigDecimal calculateTotalRevenue(List<Booking> bookings) {
         return bookings.stream()
                 .filter(b -> b.getBookingStatus() != BookingStatus.CANCELLED)
-                .filter(b -> b.getPaymentStatus() != PaymentStatus.PENDING)
+                .filter(b -> b.getPaymentStatus() != PaymentStatus.UNPAID)
                 .map(Booking::getTotalPrice)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
     }

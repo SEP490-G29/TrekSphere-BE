@@ -12,10 +12,12 @@ import java.util.UUID;
 @Setter
 public class VendorBookingFilterRequest extends BaseFilterRequest {
 
-    @Schema(description = "Lọc theo trạng thái đơn đặt tour (PENDING, CONFIRMED, CANCELLED, COMPLETED)")
+    @Schema(description = "Lọc theo trạng thái booking",
+            allowableValues = {"PAYMENT_PENDING", "PENDING_CONFIRMATION", "CONFIRMED", "IN_PROGRESS", "COMPLETED", "EXPIRED", "REJECTED", "CANCELLED"})
     private BookingStatus bookingStatus;
 
-    @Schema(description = "Lọc theo trạng thái thanh toán (PENDING, PAID, REFUNDED, PARTIALLY_REFUNDED)")
+    @Schema(description = "Lọc theo trạng thái thanh toán",
+            allowableValues = {"UNPAID", "PARTIALLY_PAID", "PAID", "REFUND_PENDING", "PARTIALLY_REFUNDED", "REFUNDED"})
     private PaymentStatus paymentStatus;
 
     @Schema(description = "Lọc theo UUID của Tour")

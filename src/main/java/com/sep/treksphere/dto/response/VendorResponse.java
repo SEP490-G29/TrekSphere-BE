@@ -18,7 +18,5 @@ public class VendorResponse {
     private String logoUrl;
     private String contactEmail;
     private String contactPhone;
-    private String bankAccount;
-    private String bankName;
     private VendorStatus status;
 }

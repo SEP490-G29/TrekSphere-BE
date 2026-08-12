@@ -18,11 +18,5 @@ public class VendorProfileUpdateRequest {
     @Pattern(regexp = ValidationConstant.VENDOR_PHONE_REGEX, message = MessageConstant.INVALID_PHONE)
     private String contactPhone;
 
-    private String bankAccount;
-    
-    private String bankName;
-    
     private MultipartFile logo;
-    
-    private MultipartFile paymentQr;
 }

@@ -140,23 +140,10 @@ public class VendorServiceImpl implements VendorService {
         if (StringUtils.hasText(request.getDescription())) {
             vendor.setDescription(request.getDescription().trim());
         }
-        if (StringUtils.hasText(request.getBankAccount())) {
-            vendor.setBankAccount(request.getBankAccount().trim());
-        }
-        if (StringUtils.hasText(request.getBankName())) {
-            vendor.setBankName(request.getBankName().trim());
-        }
-
         if (request.getLogo() != null && !request.getLogo().isEmpty()) {
             log.info("Uploading new logo for vendor ID: {}", vendor.getVendorId());
             String logoUrl = fileService.uploadFile(request.getLogo(), "vendor-logos");
             vendor.setLogoUrl(logoUrl);
-        }
-
-        if (request.getPaymentQr() != null && !request.getPaymentQr().isEmpty()) {
-            log.info("Uploading new payment QR for vendor ID: {}", vendor.getVendorId());
-            String qrUrl = fileService.uploadFile(request.getPaymentQr(), "vendor-qrs");
-            vendor.setPaymentQrUrl(qrUrl);
         }
 
         vendor = vendorRepository.save(vendor);

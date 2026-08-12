@@ -1,7 +1,6 @@
 package com.sep.treksphere.entity;
 
-import com.sep.treksphere.enums.booking.BookingStatus;
-import com.sep.treksphere.enums.booking.PaymentStatus;
+import com.sep.treksphere.enums.booking.*;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -55,11 +54,33 @@ public class Booking extends BaseEntity {
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
-    private PaymentStatus paymentStatus = PaymentStatus.PENDING;
+    private PaymentStatus paymentStatus = PaymentStatus.UNPAID;
 
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false, length = 10)
-    private BookingStatus bookingStatus = BookingStatus.PENDING;
+    @Column(nullable = false, length = 40)
+    private BookingStatus bookingStatus = BookingStatus.PAYMENT_PENDING;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 20)
+    private PaymentPlan paymentPlan = PaymentPlan.FULL_PAYMENT;
+
+    private LocalDateTime holdExpiresAt;
+
+    private LocalDateTime confirmationExpiresAt;
+
+    private LocalDateTime remainingDueAt;
+
+    private LocalDateTime participationPolicyAcceptedAt;
+
+    @Column(length = 255)
+    private String bookingRequestKey;
+
+    @Column(length = 64)
+    private String bookingRequestHash;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 20)
+    private VoucherReservationState voucherState = VoucherReservationState.NONE;
 
     @Column(length = 500)
     private String proofImageUrl;

@@ -69,7 +69,6 @@ public class BlogController {
         description = "Trekker hoặc VendorStaff đăng bài viết blog mới. Blog được đăng với trạng thái PUBLISHED."
     )
     @SecurityRequirement(name = "bearerAuth")
-    @PreAuthorize("hasAnyRole('TREKKER', 'VENDOR_STAFF', 'VENDOR')")
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<ApiResponse<BlogDetailResponse>> createBlog(
             @Valid @ModelAttribute CreateBlogRequest request,

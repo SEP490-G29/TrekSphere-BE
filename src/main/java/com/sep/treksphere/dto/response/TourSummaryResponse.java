@@ -35,6 +35,9 @@ public class TourSummaryResponse {
     private String vendorId;
     private String vendorName;
 
+    private Boolean onlineBookingEnabled;
+    private String onlineBookingDisabledReason;
+
     private Double averageRating;
     private int totalReviews;
 

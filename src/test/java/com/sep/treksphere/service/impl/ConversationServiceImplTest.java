@@ -171,13 +171,11 @@ class ConversationServiceImplTest {
                 any(),
                 any(UserStatus.class)
         )).thenReturn(List.of(recipient));
-
         Conversation existingConversation = new Conversation();
         existingConversation.setConversationId(UUID.randomUUID());
         existingConversation.setConversationType(ConversationType.DIRECT);
         existingConversation.getParticipants().add(currentUser);
         existingConversation.getParticipants().add(recipient);
-
         when(conversationRepository.findDirectConversation(
                 currentUser.getUserId(),
                 recipient.getUserId()
@@ -186,6 +184,8 @@ class ConversationServiceImplTest {
         ConversationResponse response = conversationService.createConversation(request, userDetails);
 
         assertEquals(existingConversation.getConversationId(), response.getConversationId());
+        assertEquals(recipient.getFullName(), response.getTitle());
+        assertEquals(false, response.getIsNew());
         verify(conversationRepository, never()).save(any());
     }
 

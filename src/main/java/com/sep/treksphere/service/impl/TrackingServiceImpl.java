@@ -87,6 +87,12 @@ public class TrackingServiceImpl implements TrackingService {
         tourSession.setStatus(TourSessionStatus.IN_PROGRESS);
         tourSession.setStartedAt(now);
         tourSessionRepository.save(tourSession);
+        bookingRepository.findBySchedule_ScheduleIdAndBookingStatusAndIsDeletedFalse(
+                        tourSession.getTourSchedule().getScheduleId(), BookingStatus.CONFIRMED)
+                .forEach(booking -> {
+                    booking.setBookingStatus(BookingStatus.IN_PROGRESS);
+                    bookingRepository.save(booking);
+                });
         log.info("Tour session {} successfully updated to IN_PROGRESS at {}", sessionId, now);
 
         List<SessionCheckpointLog> logs = initializeCheckpointLogs(tourSession, checkpoints, request, now);
@@ -205,6 +211,12 @@ public class TrackingServiceImpl implements TrackingService {
         tourSession.setStatus(TourSessionStatus.COMPLETED);
         tourSession.setEndedAt(now);
         tourSessionRepository.save(tourSession);
+        bookingRepository.findBySchedule_ScheduleIdAndBookingStatusAndIsDeletedFalse(
+                        tourSession.getTourSchedule().getScheduleId(), BookingStatus.IN_PROGRESS)
+                .forEach(booking -> {
+                    booking.setBookingStatus(BookingStatus.COMPLETED);
+                    bookingRepository.save(booking);
+                });
         log.info("Tour session {} successfully completed at {}", sessionId, now);
 
         return TourSessionEndResponse.builder()

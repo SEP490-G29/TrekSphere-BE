@@ -10,14 +10,18 @@ import com.sep.treksphere.exception.AppException;
 import com.sep.treksphere.exception.ErrorCode;
 import com.sep.treksphere.mapper.TourMapper;
 import com.sep.treksphere.repository.BookingRepository;
+import com.sep.treksphere.repository.CancellationPolicyRepository;
 import com.sep.treksphere.repository.NotificationRepository;
 import com.sep.treksphere.repository.ReviewRepository;
 import com.sep.treksphere.repository.TourCheckpointRepository;
 import com.sep.treksphere.repository.TourImageRepository;
+import com.sep.treksphere.repository.TourParticipationPolicyRepository;
 import com.sep.treksphere.repository.TourRepository;
 import com.sep.treksphere.repository.TourScheduleRepository;
+import com.sep.treksphere.repository.TourPaymentPolicyRepository;
 import com.sep.treksphere.repository.UserRepository;
 import com.sep.treksphere.repository.VendorRepository;
+import com.sep.treksphere.repository.VendorPaymentAccountRepository;
 import com.sep.treksphere.repository.VendorStaffRepository;
 import com.sep.treksphere.service.FileService;
 import org.junit.jupiter.api.BeforeEach;
@@ -51,10 +55,14 @@ class TourServiceImplTest {
     @Mock private TourImageRepository tourImageRepository;
     @Mock private TourCheckpointRepository tourCheckpointRepository;
     @Mock private TourScheduleRepository tourScheduleRepository;
+    @Mock private TourPaymentPolicyRepository tourPaymentPolicyRepository;
+    @Mock private TourParticipationPolicyRepository tourParticipationPolicyRepository;
     @Mock private ReviewRepository reviewRepository;
     @Mock private NotificationRepository notificationRepository;
     @Mock private BookingRepository bookingRepository;
+    @Mock private CancellationPolicyRepository cancellationPolicyRepository;
     @Mock private VendorRepository vendorRepository;
+    @Mock private VendorPaymentAccountRepository vendorPaymentAccountRepository;
     @Mock private VendorStaffRepository vendorStaffRepository;
     @Mock private UserRepository userRepository;
     @Mock private TourMapper tourMapper;
@@ -211,6 +219,9 @@ class TourServiceImplTest {
         when(tourImageRepository.findByTourOrderBySortOrderAsc(tour)).thenReturn(List.of());
         when(tourCheckpointRepository.findByTourAndIsDeletedFalseOrderByCheckpointOrderAsc(tour)).thenReturn(List.of());
         when(tourScheduleRepository.findByTourAndIsDeletedFalseOrderByDepartureDateAsc(tour)).thenReturn(List.of());
+        when(cancellationPolicyRepository
+                .findByVendorAndIsActiveTrueAndIsDeletedFalseOrderByCancelBeforeDaysDesc(vendor))
+                .thenReturn(List.of());
         when(reviewRepository.findAverageRatingByTourAndStatus(any(), any())).thenReturn(null);
         when(reviewRepository.countByTourAndStatusAndIsDeletedFalse(any(), any())).thenReturn(0);
     }

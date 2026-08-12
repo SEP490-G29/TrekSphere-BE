@@ -3,6 +3,7 @@ package com.sep.treksphere.service.impl;
 import com.sep.treksphere.dto.request.BaseFilterRequest;
 import com.sep.treksphere.dto.request.CreateTourRequest;
 import com.sep.treksphere.dto.request.UpdateTourRequest;
+import com.sep.treksphere.dto.request.TourParticipationPolicyRequest;
 import com.sep.treksphere.dto.response.*;
 import com.sep.treksphere.entity.CancellationPolicy;
 import com.sep.treksphere.entity.Notification;
@@ -10,6 +11,7 @@ import com.sep.treksphere.entity.Tour;
 import com.sep.treksphere.entity.TourCheckpoint;
 import com.sep.treksphere.entity.TourImage;
 import com.sep.treksphere.entity.TourSchedule;
+import com.sep.treksphere.entity.TourParticipationPolicy;
 import com.sep.treksphere.entity.User;
 import com.sep.treksphere.entity.Vendor;
 import com.sep.treksphere.enums.blog.ReviewStatus;
@@ -18,6 +20,8 @@ import com.sep.treksphere.enums.system.ReferenceType;
 import com.sep.treksphere.enums.tour.DifficultyLevel;
 import com.sep.treksphere.enums.tour.ScheduleStatus;
 import com.sep.treksphere.enums.tour.TourStatus;
+import com.sep.treksphere.enums.booking.PaymentAccountStatus;
+import com.sep.treksphere.enums.booking.PaymentProvider;
 import com.sep.treksphere.exception.AppException;
 import com.sep.treksphere.exception.ErrorCode;
 import com.sep.treksphere.mapper.TourMapper;
@@ -29,6 +33,9 @@ import com.sep.treksphere.repository.TourCheckpointRepository;
 import com.sep.treksphere.repository.TourImageRepository;
 import com.sep.treksphere.repository.TourRepository;
 import com.sep.treksphere.repository.TourScheduleRepository;
+import com.sep.treksphere.repository.TourPaymentPolicyRepository;
+import com.sep.treksphere.repository.TourParticipationPolicyRepository;
+import com.sep.treksphere.repository.VendorPaymentAccountRepository;
 import com.sep.treksphere.repository.UserRepository;
 import com.sep.treksphere.repository.VendorRepository;
 import com.sep.treksphere.repository.VendorStaffRepository;
@@ -49,6 +56,8 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.UUID;
 
 @Service
@@ -59,6 +68,9 @@ public class TourServiceImpl implements TourService {
     private final TourImageRepository tourImageRepository;
     private final TourCheckpointRepository tourCheckpointRepository;
     private final TourScheduleRepository tourScheduleRepository;
+    private final TourPaymentPolicyRepository tourPaymentPolicyRepository;
+    private final TourParticipationPolicyRepository tourParticipationPolicyRepository;
+    private final VendorPaymentAccountRepository vendorPaymentAccountRepository;
     private final CancellationPolicyRepository cancellationPolicyRepository;
     private final ReviewRepository reviewRepository;
     private final NotificationRepository notificationRepository;
@@ -118,6 +130,7 @@ public class TourServiceImpl implements TourService {
     private TourSummaryResponse toSummaryResponse(Tour tour) {
         Double avgRating = reviewRepository.findAverageRatingByTourAndStatus(tour, ReviewStatus.APPROVED);
         int totalReviews = reviewRepository.countByTourAndStatusAndIsDeletedFalse(tour, ReviewStatus.APPROVED);
+        BookingReadiness readiness = getBookingReadiness(tour);
 
         return TourSummaryResponse.builder()
                 .tourId(tour.getTourId().toString())
@@ -136,6 +149,8 @@ public class TourServiceImpl implements TourService {
                 .excludes(tour.getExcludes())
                 .vendorId(tour.getVendor().getVendorId().toString())
                 .vendorName(tour.getVendor().getCompanyName())
+                .onlineBookingEnabled(readiness.enabled())
+                .onlineBookingDisabledReason(readiness.disabledReason())
                 .averageRating(avgRating)
                 .totalReviews(totalReviews)
                 .createdAt(tour.getCreatedAt())
@@ -155,6 +170,22 @@ public class TourServiceImpl implements TourService {
         List<CancellationPolicyResponse> policyResponses = policies.stream()
                 .map(this::toPolicyResponse)
                 .toList();
+        TourPaymentPolicyResponse paymentPolicy = tourPaymentPolicyRepository
+                .findByTourIdAndIsActiveTrueAndIsDeletedFalse(tour.getTourId())
+                .map(policy -> TourPaymentPolicyResponse.builder()
+                        .tourId(policy.getTourId())
+                        .paymentOption(policy.getPaymentOption())
+                        .depositType(policy.getDepositType())
+                        .depositValue(policy.getDepositValue())
+                        .remainingDueDaysBeforeDeparture(policy.getRemainingDueDaysBeforeDeparture())
+                        .policyVersion(policy.getPolicyVersion())
+                        .build())
+                .orElse(null);
+        TourParticipationPolicyResponse participationPolicy = tourParticipationPolicyRepository
+                .findByTourIdAndIsActiveTrueAndIsDeletedFalse(tour.getTourId())
+                .map(this::toParticipationPolicyResponse)
+                .orElse(null);
+        BookingReadiness readiness = getBookingReadiness(tour);
 
         return TourDetailResponse.builder()
                 // Tour info
@@ -195,6 +226,12 @@ public class TourServiceImpl implements TourService {
                 .schedules(schedules.stream().map(this::toScheduleResponse).toList())
                 // Cancellation policies
                 .cancellationPolicies(policyResponses)
+                // Payment/refund policy displayed before creating a booking
+                .paymentPolicy(paymentPolicy)
+                .participationPolicy(participationPolicy)
+                .onlineBookingEnabled(readiness.enabled())
+                .onlineBookingDisabledReason(readiness.disabledReason())
+                .nonRefundableCost(tour.getNonRefundableCost())
                 // Review stats
                 .averageRating(avgRating)
                 .totalReviews(totalReviews)
@@ -209,6 +246,107 @@ public class TourServiceImpl implements TourService {
                 .description(policy.getDescription())
                 .isActive(policy.getIsActive())
                 .build();
+    }
+
+    private BookingReadiness getBookingReadiness(Tour tour) {
+        if (tour.getStatus() != TourStatus.APPROVED) {
+            return new BookingReadiness(false, "Tour chưa được duyệt để nhận đặt online.");
+        }
+        boolean hasPayOsAccount = vendorPaymentAccountRepository
+                .existsByVendor_VendorIdAndProviderAndOnboardingStatusAndIsDefaultTrueAndIsDeletedFalse(
+                        tour.getVendor().getVendorId(), PaymentProvider.PAYOS, PaymentAccountStatus.ACTIVE);
+        if (!hasPayOsAccount) {
+            return new BookingReadiness(false, "Nhà tổ chức chưa hoàn tất kết nối payOS.");
+        }
+        if (!tourPaymentPolicyRepository.existsByTourIdAndIsActiveTrueAndIsDeletedFalse(tour.getTourId())) {
+            return new BookingReadiness(false, "Tour chưa có chính sách thanh toán.");
+        }
+        if (!tourParticipationPolicyRepository.existsByTourIdAndIsActiveTrueAndIsDeletedFalse(tour.getTourId())) {
+            return new BookingReadiness(false, "Tour chưa có điều kiện tham gia.");
+        }
+        return new BookingReadiness(true, null);
+    }
+
+    private record BookingReadiness(boolean enabled, String disabledReason) {}
+
+    private TourParticipationPolicyResponse toParticipationPolicyResponse(TourParticipationPolicy policy) {
+        return TourParticipationPolicyResponse.builder()
+                .tourId(policy.getTourId())
+                .policyVersion(policy.getPolicyVersion())
+                .minAge(policy.getMinAge() == null ? null : policy.getMinAge().intValue())
+                .maxAge(policy.getMaxAge() == null ? null : policy.getMaxAge().intValue())
+                .minHeightCm(policy.getMinHeightCm())
+                .maxHeightCm(policy.getMaxHeightCm())
+                .minWeightKg(policy.getMinWeightKg())
+                .maxWeightKg(policy.getMaxWeightKg())
+                .fitnessLevel(policy.getFitnessLevel())
+                .healthRequirements(policy.getHealthRequirements())
+                .restrictedMedicalConditions(policy.getRestrictedMedicalConditions())
+                .requiredExperience(policy.getRequiredExperience())
+                .requiredSkills(policy.getRequiredSkills())
+                .requiredEquipment(policy.getRequiredEquipment())
+                .requiredDocuments(policy.getRequiredDocuments())
+                .requiresHealthDeclaration(policy.getRequiresHealthDeclaration())
+                .requiresMedicalCertificate(policy.getRequiresMedicalCertificate())
+                .guardianRequiredUnderAge(policy.getGuardianRequiredUnderAge() == null
+                        ? null : policy.getGuardianRequiredUnderAge().intValue())
+                .additionalRequirements((String) policy.getAdditionalRules().get("notes"))
+                .build();
+    }
+
+    private void saveParticipationPolicy(Tour tour, TourParticipationPolicyRequest request) {
+        if (request == null) return;
+        validateParticipationPolicy(request);
+
+        TourParticipationPolicy policy = tourParticipationPolicyRepository.findById(tour.getTourId())
+                .orElseGet(TourParticipationPolicy::new);
+        boolean existing = policy.getTourId() != null;
+        policy.setTour(tour);
+        policy.setPolicyVersion(existing ? policy.getPolicyVersion() + 1 : 1);
+        policy.setMinAge(request.getMinAge() == null ? null : request.getMinAge().shortValue());
+        policy.setMaxAge(request.getMaxAge() == null ? null : request.getMaxAge().shortValue());
+        policy.setMinHeightCm(request.getMinHeightCm());
+        policy.setMaxHeightCm(request.getMaxHeightCm());
+        policy.setMinWeightKg(request.getMinWeightKg());
+        policy.setMaxWeightKg(request.getMaxWeightKg());
+        policy.setFitnessLevel(request.getFitnessLevel());
+        policy.setHealthRequirements(trimToNull(request.getHealthRequirements()));
+        policy.setRestrictedMedicalConditions(trimToNull(request.getRestrictedMedicalConditions()));
+        policy.setRequiredExperience(trimToNull(request.getRequiredExperience()));
+        policy.setRequiredSkills(trimToNull(request.getRequiredSkills()));
+        policy.setRequiredEquipment(trimToNull(request.getRequiredEquipment()));
+        policy.setRequiredDocuments(trimToNull(request.getRequiredDocuments()));
+        policy.setRequiresHealthDeclaration(!Boolean.FALSE.equals(request.getRequiresHealthDeclaration()));
+        policy.setRequiresMedicalCertificate(Boolean.TRUE.equals(request.getRequiresMedicalCertificate()));
+        policy.setGuardianRequiredUnderAge(request.getGuardianRequiredUnderAge() == null
+                ? null : request.getGuardianRequiredUnderAge().shortValue());
+        Map<String, Object> rules = new HashMap<>();
+        if (StringUtils.hasText(request.getAdditionalRequirements())) {
+            rules.put("notes", request.getAdditionalRequirements().trim());
+        }
+        policy.setAdditionalRules(rules);
+        policy.setIsActive(true);
+        policy.setIsDeleted(false);
+        tourParticipationPolicyRepository.save(policy);
+    }
+
+    private void validateParticipationPolicy(TourParticipationPolicyRequest request) {
+        if (request.getMinAge() != null && request.getMaxAge() != null
+                && request.getMinAge() > request.getMaxAge()) {
+            throw new AppException(ErrorCode.VALIDATION_ERROR, "Tuổi tối thiểu không được lớn hơn tuổi tối đa.");
+        }
+        if (request.getMinHeightCm() != null && request.getMaxHeightCm() != null
+                && request.getMinHeightCm().compareTo(request.getMaxHeightCm()) > 0) {
+            throw new AppException(ErrorCode.VALIDATION_ERROR, "Chiều cao tối thiểu không được lớn hơn chiều cao tối đa.");
+        }
+        if (request.getMinWeightKg() != null && request.getMaxWeightKg() != null
+                && request.getMinWeightKg().compareTo(request.getMaxWeightKg()) > 0) {
+            throw new AppException(ErrorCode.VALIDATION_ERROR, "Cân nặng tối thiểu không được lớn hơn cân nặng tối đa.");
+        }
+    }
+
+    private String trimToNull(String value) {
+        return StringUtils.hasText(value) ? value.trim() : null;
     }
 
     private TourCheckpointResponse toCheckpointResponse(TourCheckpoint checkpoint) {
@@ -348,6 +486,7 @@ public class TourServiceImpl implements TourService {
         }
 
         tour = tourRepository.save(tour);
+        saveParticipationPolicy(tour, request.getParticipationPolicy());
 
         // Upload tour gallery images (batch)
         List<TourImage> savedImages = new ArrayList<>();
@@ -380,11 +519,13 @@ public class TourServiceImpl implements TourService {
         }
 
         // Phân quyền sửa theo role:
-        // Manager: sửa được PENDING_APPROVAL hoặc HIDDEN
+        // Manager: được cập nhật cả tour đang bán; booking cũ vẫn giữ policy snapshot.
         // Staff   : sửa được DRAFT, REJECTED hoặc HIDDEN
         boolean isManager = vendorRepository.findByManager_Email(userEmail).isPresent();
         if (isManager) {
-            if (tour.getStatus() != TourStatus.PENDING_APPROVAL && tour.getStatus() != TourStatus.HIDDEN) {
+            if (tour.getStatus() != TourStatus.PENDING_APPROVAL
+                    && tour.getStatus() != TourStatus.APPROVED
+                    && tour.getStatus() != TourStatus.HIDDEN) {
                 throw new AppException(ErrorCode.TOUR_UPDATE_NOT_ALLOWED);
             }
         } else {
@@ -402,6 +543,7 @@ public class TourServiceImpl implements TourService {
         }
 
         tour = tourRepository.save(tour);
+        saveParticipationPolicy(tour, request.getParticipationPolicy());
 
         // Smart replace tour gallery images:
         // - tourImages == null  → không gửi field → giữ nguyên ảnh cũ

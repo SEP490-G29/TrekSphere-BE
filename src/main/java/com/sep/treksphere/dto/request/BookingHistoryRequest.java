@@ -9,6 +9,7 @@ import lombok.Setter;
 @Setter
 public class BookingHistoryRequest extends BaseFilterRequest {
 
-    @Schema(description = "Trạng thái đặt tour để lọc (PENDING, CONFIRMED, CANCELLED, COMPLETED)", example = "PENDING")
+    @Schema(description = "Trạng thái booking", example = "PAYMENT_PENDING",
+            allowableValues = {"PAYMENT_PENDING", "PENDING_CONFIRMATION", "CONFIRMED", "IN_PROGRESS", "COMPLETED", "EXPIRED", "REJECTED", "CANCELLED"})
     private BookingStatus status;
 }

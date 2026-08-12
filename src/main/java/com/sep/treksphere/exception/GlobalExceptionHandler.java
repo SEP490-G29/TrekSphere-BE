@@ -10,6 +10,7 @@ import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authorization.AuthorizationDeniedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.MissingRequestCookieException;
+import org.springframework.web.bind.MissingRequestHeaderException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.multipart.MaxUploadSizeExceededException;
@@ -69,15 +70,25 @@ public class GlobalExceptionHandler {
                 .body(ApiResponse.error(HttpStatus.UNAUTHORIZED, "Phiên đăng nhập không hợp lệ"));
     }
 
+    @ExceptionHandler(MissingRequestHeaderException.class)
+    public ResponseEntity<ApiResponse<Void>> handleMissingRequestHeaderException(MissingRequestHeaderException ex) {
+        log.warn("MissingRequestHeaderException: {}", ex.getMessage());
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(ApiResponse.error(HttpStatus.BAD_REQUEST,
+                        "Thiếu header bắt buộc: " + ex.getHeaderName()));
+    }
+
     @ExceptionHandler(org.springframework.http.converter.HttpMessageNotReadableException.class)
-    public ResponseEntity<ApiResponse<Void>> handleHttpMessageNotReadableException(org.springframework.http.converter.HttpMessageNotReadableException ex) {
+    public ResponseEntity<ApiResponse<Void>> handleHttpMessageNotReadableException(
+            org.springframework.http.converter.HttpMessageNotReadableException ex) {
         log.warn("HttpMessageNotReadableException: {}", ex.getMessage());
         return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                 .body(ApiResponse.error(HttpStatus.BAD_REQUEST, "Thiếu hoặc sai định dạng Request Body (JSON)"));
     }
 
     @ExceptionHandler(org.springframework.web.method.annotation.MethodArgumentTypeMismatchException.class)
-    public ResponseEntity<ApiResponse<Void>> handleMethodArgumentTypeMismatchException(org.springframework.web.method.annotation.MethodArgumentTypeMismatchException ex) {
+    public ResponseEntity<ApiResponse<Void>> handleMethodArgumentTypeMismatchException(
+            org.springframework.web.method.annotation.MethodArgumentTypeMismatchException ex) {
         log.warn("MethodArgumentTypeMismatchException: {}", ex.getMessage());
         return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                 .body(ApiResponse.error(HttpStatus.BAD_REQUEST, "Tham số đường dẫn (ID) không đúng định dạng UUID"));
@@ -86,7 +97,8 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(IllegalArgumentException.class)
     public ResponseEntity<ApiResponse<Void>> handleIllegalArgumentException(IllegalArgumentException ex) {
         log.warn("IllegalArgumentException: {}", ex.getMessage());
-        String msg = (ex.getMessage() != null && !ex.getMessage().isBlank()) ? ex.getMessage() : "Dữ liệu tham số không hợp lệ";
+        String msg = (ex.getMessage() != null && !ex.getMessage().isBlank()) ? ex.getMessage()
+                : "Dữ liệu tham số không hợp lệ";
         return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                 .body(ApiResponse.error(HttpStatus.BAD_REQUEST, msg));
     }
@@ -98,7 +110,7 @@ public class GlobalExceptionHandler {
                 .body(ApiResponse.error(HttpStatus.UNAUTHORIZED, "Email hoặc mật khẩu không đúng"));
     }
 
-    @ExceptionHandler({AccessDeniedException.class, AuthorizationDeniedException.class})
+    @ExceptionHandler({ AccessDeniedException.class, AuthorizationDeniedException.class })
     public ResponseEntity<ApiResponse<Void>> handleAccessDeniedException(Exception ex) {
         log.warn("AccessDeniedException: {}", ex.getMessage());
         return ResponseEntity.status(HttpStatus.FORBIDDEN)

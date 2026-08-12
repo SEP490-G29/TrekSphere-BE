@@ -14,15 +14,15 @@ import java.util.UUID;
 
 public interface BookingService {
     PaginationResponse<BookingResponse> getMyBookingHistory(String email, BookingStatus status, Pageable pageable);
+
     BookingDetailResponse getBookingDetail(String email, UUID bookingId);
-    BookingDetailResponse createBooking(String email, BookingRequest request);
+
+    BookingDetailResponse createBooking(String email, String idempotencyKey, BookingRequest request);
+
     BookingDetailResponse cancelBooking(String email, UUID bookingId, BookingCancelRequest request);
-    BookingDetailResponse submitPaymentProof(String email, UUID bookingId, MultipartFile proofImage);
 
     // Vendor Booking Management
     PaginationResponse<BookingResponse> getVendorBookings(String email, VendorBookingFilterRequest request);
-    BookingDetailResponse confirmVendorPayment(String email, UUID bookingId);
+
     BookingDetailResponse confirmVendorBooking(String email, UUID bookingId);
-    BookingDetailResponse confirmVendorRefund(String email, UUID bookingId, MultipartFile refundProofImage);
-    BookingDetailResponse rejectVendorBooking(String email, UUID bookingId, BookingCancelRequest request);
 }
