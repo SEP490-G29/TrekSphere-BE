@@ -5,6 +5,7 @@ import com.sep.treksphere.dto.request.TourPaymentPolicyRequest;
 import com.sep.treksphere.dto.response.ApiResponse;
 import com.sep.treksphere.dto.response.TourPaymentPolicyResponse;
 import com.sep.treksphere.dto.response.VendorPaymentAccountResponse;
+import com.sep.treksphere.dto.response.VendorPayoutAccountResponse;
 import com.sep.treksphere.security.CustomUserDetails;
 import com.sep.treksphere.service.VendorPaymentConfigurationService;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
@@ -42,6 +43,21 @@ public class VendorPaymentConfigurationController {
             @AuthenticationPrincipal CustomUserDetails user) {
         return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK,
                 service.getPayOsAccount(user.getUsername())));
+    }
+
+    @PutMapping("/payout-account")
+    public ResponseEntity<ApiResponse<VendorPayoutAccountResponse>> configurePayoutAccount(
+            @AuthenticationPrincipal CustomUserDetails user,
+            @Valid @RequestBody PayOsAccountConfigRequest request) {
+        return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK,
+                service.configurePayoutAccount(user.getUsername(), request)));
+    }
+
+    @GetMapping("/payout-account")
+    public ResponseEntity<ApiResponse<VendorPayoutAccountResponse>> getPayoutAccount(
+            @AuthenticationPrincipal CustomUserDetails user) {
+        return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK,
+                service.getPayoutAccount(user.getUsername())));
     }
 
     @PutMapping("/tours/{tourId}/policy")

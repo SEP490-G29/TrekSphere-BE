@@ -4,12 +4,15 @@ import com.sep.treksphere.dto.request.PayOsAccountConfigRequest;
 import com.sep.treksphere.dto.request.TourPaymentPolicyRequest;
 import com.sep.treksphere.dto.response.TourPaymentPolicyResponse;
 import com.sep.treksphere.dto.response.VendorPaymentAccountResponse;
+import com.sep.treksphere.dto.response.VendorPayoutAccountResponse;
 
 import java.util.UUID;
 
 public interface VendorPaymentConfigurationService {
     VendorPaymentAccountResponse configurePayOsAccount(String email, PayOsAccountConfigRequest request);
     VendorPaymentAccountResponse getPayOsAccount(String email);
+    VendorPayoutAccountResponse configurePayoutAccount(String email, PayOsAccountConfigRequest request);
+    VendorPayoutAccountResponse getPayoutAccount(String email);
     TourPaymentPolicyResponse updateTourPaymentPolicy(String email, UUID tourId, TourPaymentPolicyRequest request);
     TourPaymentPolicyResponse getTourPaymentPolicy(String email, UUID tourId);
 }

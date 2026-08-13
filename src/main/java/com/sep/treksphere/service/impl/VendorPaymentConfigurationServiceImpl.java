@@ -5,6 +5,7 @@ import com.sep.treksphere.dto.request.PayOsAccountConfigRequest;
 import com.sep.treksphere.dto.request.TourPaymentPolicyRequest;
 import com.sep.treksphere.dto.response.TourPaymentPolicyResponse;
 import com.sep.treksphere.dto.response.VendorPaymentAccountResponse;
+import com.sep.treksphere.dto.response.VendorPayoutAccountResponse;
 import com.sep.treksphere.entity.*;
 import com.sep.treksphere.enums.booking.*;
 import com.sep.treksphere.exception.AppException;
@@ -90,6 +91,61 @@ public class VendorPaymentConfigurationServiceImpl implements VendorPaymentConfi
                 .findByVendor_VendorIdAndProviderAndIsDefaultTrueAndIsDeletedFalse(vendor.getVendorId(), PaymentProvider.PAYOS)
                 .orElseThrow(() -> new AppException(ErrorCode.PAYMENT_ACCOUNT_NOT_CONFIGURED));
         return toAccountResponse(account);
+    }
+
+    @Override
+    @Transactional
+    public VendorPayoutAccountResponse configurePayoutAccount(
+            String email, PayOsAccountConfigRequest request) {
+        Vendor vendor = requireManagedVendor(email);
+        VendorPaymentAccount account = accountRepository
+                .findByVendor_VendorIdAndProviderAndIsDefaultTrueAndIsDeletedFalse(
+                        vendor.getVendorId(), PaymentProvider.PAYOS)
+                .orElseThrow(() -> new AppException(ErrorCode.PAYMENT_ACCOUNT_NOT_CONFIGURED,
+                        "Cần kết nối Kênh Thu payOS trước khi thêm Kênh Chi."));
+
+        account.setPayoutProviderChannelId(request.getClientId().trim());
+        account.setPayoutApiKeyEncrypted(credentialCipher.encrypt(request.getApiKey().trim()));
+        account.setPayoutChecksumKeyEncrypted(credentialCipher.encrypt(request.getChecksumKey().trim()));
+        account.setPayoutStatus(PaymentAccountStatus.PENDING);
+
+        try {
+            var payoutClient = new vn.payos.PayOS(
+                    account.getPayoutProviderChannelId(),
+                    credentialCipher.decrypt(account.getPayoutApiKeyEncrypted()),
+                    credentialCipher.decrypt(account.getPayoutChecksumKeyEncrypted()));
+            var payoutInfo = payoutClient.payoutsAccount().balance();
+            account.setPayoutAccountNumber(payoutInfo.getAccountNumber());
+            account.setPayoutAccountName(payoutInfo.getAccountName());
+        } catch (APIException exception) {
+            int status = exception.getStatusCode().orElse(0);
+            log.warn("payOS payout channel verification rejected suffix={} status={} code={}",
+                    maskedSuffix(account.getPayoutProviderChannelId()), status,
+                    exception.getErrorCode().orElse("unknown"));
+            if (status >= 400 && status < 500 && status != 429) {
+                throw new AppException(ErrorCode.PAYMENT_ACCOUNT_VERIFICATION_FAILED,
+                        "Không thể xác minh Kênh Chi. Kiểm tra bộ khóa, kích hoạt Kênh Chi và IP được phép trên payOS.");
+            }
+            throw new AppException(ErrorCode.PAYMENT_GATEWAY_ERROR);
+        } catch (PayOSException exception) {
+            log.warn("payOS unavailable while verifying payout channel suffix={} type={}",
+                    maskedSuffix(account.getPayoutProviderChannelId()),
+                    exception.getClass().getSimpleName());
+            throw new AppException(ErrorCode.PAYMENT_GATEWAY_ERROR);
+        }
+
+        account.setPayoutStatus(PaymentAccountStatus.ACTIVE);
+        return toPayoutResponse(accountRepository.save(account));
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public VendorPayoutAccountResponse getPayoutAccount(String email) {
+        Vendor vendor = requireManagedVendor(email);
+        return accountRepository.findByVendor_VendorIdAndProviderAndIsDefaultTrueAndIsDeletedFalse(
+                        vendor.getVendorId(), PaymentProvider.PAYOS)
+                .map(this::toPayoutResponse)
+                .orElseGet(() -> VendorPayoutAccountResponse.builder().configured(false).build());
     }
 
     @Override
@@ -182,6 +238,20 @@ public class VendorPaymentConfigurationServiceImpl implements VendorPaymentConfi
         return base.replaceAll("/+$", "") + "/" + channelId;
     }
 
+    private VendorPayoutAccountResponse toPayoutResponse(VendorPaymentAccount account) {
+        boolean configured = account.getPayoutProviderChannelId() != null
+                && account.getPayoutStatus() != null;
+        return VendorPayoutAccountResponse.builder()
+                .configured(configured)
+                .clientId(account.getPayoutProviderChannelId())
+                .credentialsConfigured(account.getPayoutApiKeyEncrypted() != null
+                        && account.getPayoutChecksumKeyEncrypted() != null)
+                .status(account.getPayoutStatus())
+                .maskedAccountNumber(mask(account.getPayoutAccountNumber()))
+                .accountName(account.getPayoutAccountName())
+                .build();
+    }
+
     private void confirmPayOsWebhook(vn.payos.PayOS client, String webhookUrl, String channelId) {
         try {
             client.webhooks().confirm(webhookUrl);
@@ -208,6 +278,11 @@ public class VendorPaymentConfigurationServiceImpl implements VendorPaymentConfi
     private String maskedSuffix(String value) {
         if (value == null || value.isBlank()) return "unknown";
         return value.length() <= 4 ? "****" : "****" + value.substring(value.length() - 4);
+    }
+
+    private String mask(String value) {
+        if (value == null || value.length() <= 4) return value;
+        return "*".repeat(value.length() - 4) + value.substring(value.length() - 4);
     }
 
     private void restoreAccountAfterFailedVerification(

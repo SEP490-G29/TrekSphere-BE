@@ -38,6 +38,24 @@ public class VendorPaymentAccount {
     @Column(nullable = false, columnDefinition = "TEXT")
     private String checksumKeyEncrypted;
 
+    @Column(length = 255)
+    private String payoutProviderChannelId;
+
+    @Column(columnDefinition = "TEXT")
+    private String payoutApiKeyEncrypted;
+
+    @Column(columnDefinition = "TEXT")
+    private String payoutChecksumKeyEncrypted;
+
+    @Enumerated(EnumType.STRING)
+    @Column(length = 20)
+    private PaymentAccountStatus payoutStatus;
+
+    @Column(length = 50)
+    private String payoutAccountNumber;
+
+    private String payoutAccountName;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
     private PaymentAccountStatus onboardingStatus = PaymentAccountStatus.PENDING;

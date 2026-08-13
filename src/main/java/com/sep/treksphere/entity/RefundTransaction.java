@@ -58,7 +58,7 @@ public class RefundTransaction {
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
-    private RefundMethod refundMethod = RefundMethod.GATEWAY_REFUND;
+    private RefundMethod refundMethod = RefundMethod.MANUAL;
 
     @Column(length = 20)
     private String destinationBin;
@@ -67,6 +67,9 @@ public class RefundTransaction {
     private String destinationAccountNumber;
     private String destinationAccountName;
     private String gatewayRefundId;
+
+    @Column(length = 100)
+    private String manualBankReference;
 
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(nullable = false, columnDefinition = "jsonb")
@@ -79,6 +82,14 @@ public class RefundTransaction {
     private LocalDateTime completedAt;
     private LocalDateTime dueAt;
     private LocalDateTime nextRetryAt;
+    private LocalDateTime manualSubmittedAt;
+    private LocalDateTime adminReviewedAt;
+
+    @Column(length = 500)
+    private String manualReceiptUrl;
+
+    @Column(length = 500)
+    private String adminReviewNote;
 
     @Column(nullable = false)
     private Integer attemptCount = 0;

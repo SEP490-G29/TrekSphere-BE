@@ -24,6 +24,20 @@ public class PayOsClientFactory {
                 credentialCipher.decrypt(account.getChecksumKeyEncrypted()));
     }
 
+    public PayOS getPayoutClient(VendorPaymentAccount account) {
+        if (account == null || account.getPayoutStatus() != com.sep.treksphere.enums.booking.PaymentAccountStatus.ACTIVE
+                || isBlank(account.getPayoutProviderChannelId())
+                || isBlank(account.getPayoutApiKeyEncrypted())
+                || isBlank(account.getPayoutChecksumKeyEncrypted())) {
+            throw new AppException(ErrorCode.PAYMENT_ACCOUNT_NOT_CONFIGURED,
+                    "Vendor chưa cấu hình Kênh Chi payOS hoạt động");
+        }
+        return new PayOS(
+                account.getPayoutProviderChannelId(),
+                credentialCipher.decrypt(account.getPayoutApiKeyEncrypted()),
+                credentialCipher.decrypt(account.getPayoutChecksumKeyEncrypted()));
+    }
+
     private boolean isBlank(String value) {
         return value == null || value.isBlank();
     }

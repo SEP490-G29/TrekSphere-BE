@@ -22,9 +22,11 @@ public class RefundTransactionResponse {
     private RefundStatus status;
     private RefundMethod refundMethod;
     private String destinationBin;
+    private String destinationAccountNumber;
     private String maskedDestinationAccountNumber;
     private String destinationAccountName;
     private String gatewayRefundId;
+    private String manualBankReference;
     private LocalDateTime requestedAt;
     private LocalDateTime processingAt;
     private LocalDateTime completedAt;
@@ -33,4 +35,11 @@ public class RefundTransactionResponse {
     private Integer attemptCount;
     private String failureCode;
     private String failureMessage;
+    private String bookingCode;
+    private String vendorName;
+    private boolean automaticPayoutAvailable;
+    private String manualReceiptUrl;
+    private LocalDateTime manualSubmittedAt;
+    private LocalDateTime adminReviewedAt;
+    private String adminReviewNote;
 }

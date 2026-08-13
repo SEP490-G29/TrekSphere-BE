@@ -4,6 +4,7 @@ import com.sep.treksphere.entity.RefundTransaction;
 import com.sep.treksphere.enums.booking.RefundStatus;
 import jakarta.persistence.LockModeType;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -17,6 +18,8 @@ import java.util.Optional;
 import java.util.UUID;
 
 public interface RefundTransactionRepository extends JpaRepository<RefundTransaction, UUID> {
+    @EntityGraph(attributePaths = {"booking", "booking.schedule", "booking.schedule.tour",
+            "booking.schedule.tour.vendor", "paymentTransaction", "paymentTransaction.vendorPaymentAccount"})
     List<RefundTransaction> findByBooking_BookingIdAndIsDeletedFalseOrderByCreatedAtAsc(UUID bookingId);
 
     Optional<RefundTransaction> findByIdempotencyKeyAndIsDeletedFalse(String idempotencyKey);
@@ -36,6 +39,7 @@ public interface RefundTransactionRepository extends JpaRepository<RefundTransac
     BigDecimal sumByPaymentAndStatuses(@Param("paymentId") UUID paymentId,
                                        @Param("statuses") Collection<RefundStatus> statuses);
 
+    @EntityGraph(attributePaths = {"paymentTransaction", "paymentTransaction.vendorPaymentAccount"})
     List<RefundTransaction> findTop100ByStatusAndGatewayRefundIdIsNotNullAndIsDeletedFalseOrderByProcessingAtAsc(
             RefundStatus status);
 
@@ -56,4 +60,9 @@ public interface RefundTransactionRepository extends JpaRepository<RefundTransac
 
     boolean existsByBooking_Schedule_Tour_Vendor_VendorIdAndStatusAndIsDeletedFalse(
             UUID vendorId, RefundStatus status);
+
+    @EntityGraph(attributePaths = {"booking", "booking.schedule", "booking.schedule.tour",
+            "booking.schedule.tour.vendor", "paymentTransaction", "paymentTransaction.vendorPaymentAccount"})
+    List<RefundTransaction> findTop100ByStatusInAndIsDeletedFalseOrderByRequestedAtAsc(
+            Collection<RefundStatus> statuses);
 }

@@ -22,6 +22,7 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
 import java.util.*;
 
@@ -30,8 +31,8 @@ import java.util.*;
 public class CancellationServiceImpl implements CancellationService {
 
     private static final Set<RefundStatus> ACTIVE_REFUNDS = EnumSet.of(
-            RefundStatus.PENDING, RefundStatus.PROCESSING, RefundStatus.AWAITING_VENDOR_FUNDS,
-            RefundStatus.OVERDUE, RefundStatus.REFUNDED);
+            RefundStatus.PENDING, RefundStatus.AWAITING_VENDOR_ACTION, RefundStatus.PROCESSING,
+            RefundStatus.MANUAL_REVIEW, RefundStatus.OVERDUE, RefundStatus.REFUNDED);
 
     private final BookingRepository bookingRepository;
     private final BookingPolicySnapshotRepository snapshotRepository;
@@ -263,7 +264,7 @@ public class CancellationServiceImpl implements CancellationService {
             refund.setAmount(allocation);
             refund.setReason(RefundReason.TREKKER_CANCEL);
             refund.setReasonDetail(request.getCancellationReason());
-            refund.setRefundMethod(RefundMethod.GATEWAY_REFUND);
+            refund.setRefundMethod(RefundMethod.MANUAL);
             refund.setDestinationBin(request.getRefundBankBin().trim());
             refund.setDestinationAccountNumber(request.getRefundAccountNumber().trim());
             refund.setDestinationAccountName(request.getRefundAccountName().trim());
@@ -293,7 +294,7 @@ public class CancellationServiceImpl implements CancellationService {
             refund.setAmount(amount);
             refund.setReason(request.getReason());
             refund.setReasonDetail(request.getReasonDetail());
-            refund.setRefundMethod(RefundMethod.GATEWAY_REFUND);
+            refund.setRefundMethod(RefundMethod.MANUAL);
             refund.setDestinationBin(string(payment.getGatewayMetadata().get("counterAccountBankId")));
             refund.setDestinationAccountNumber(string(payment.getGatewayMetadata().get("counterAccountNumber")));
             refund.setDestinationAccountName(string(payment.getGatewayMetadata().get("counterAccountName")));
@@ -315,7 +316,38 @@ public class CancellationServiceImpl implements CancellationService {
         refund.setRequestedAt(now);
         refund.setDueAt(now.plus(dueDuration));
         RefundTransaction saved = refundTransactionRepository.save(refund);
+        notifyRefundRequested(saved);
         eventPublisher.publishEvent(new RefundRequestedEvent(saved.getRefundTransactionId()));
+    }
+
+    private void notifyRefundRequested(RefundTransaction refund) {
+        Booking booking = refund.getBooking();
+        String deadline = refund.getDueAt().format(DateTimeFormatter.ofPattern("HH:mm dd/MM/yyyy"));
+        saveRefundNotification(booking.getUser(), "Yêu cầu hoàn tiền đã được tạo",
+                "Khoản hoàn " + refund.getAmount().setScale(0, RoundingMode.HALF_UP)
+                        + " VND cho booking " + booking.getBookingCode()
+                        + ": nhà tổ chức phải chuyển tiền hoặc gửi biên nhận trước " + deadline
+                        + ". Thời gian ngân hàng ghi có có thể muộn hơn.",
+                booking.getBookingId());
+        User manager = booking.getSchedule().getTour().getVendor().getManager();
+        if (manager != null) {
+            saveRefundNotification(manager, "Có yêu cầu hoàn tiền mới",
+                    "Booking " + booking.getBookingCode() + " cần hoàn "
+                            + refund.getAmount().setScale(0, RoundingMode.HALF_UP)
+                            + " VND trước " + deadline + ".",
+                    booking.getBookingId());
+        }
+    }
+
+    private void saveRefundNotification(User recipient, String title, String content, UUID bookingId) {
+        Notification notification = new Notification();
+        notification.setRecipient(recipient);
+        notification.setTitle(title);
+        notification.setEventType(NotificationEventType.REFUND_PENDING);
+        notification.setContent(content);
+        notification.setReferenceType(ReferenceType.BOOKING);
+        notification.setReferenceId(bookingId);
+        notificationRepository.save(notification);
     }
 
     private void notifyVendorOfTrekkerCancellation(Booking booking) {
@@ -334,7 +366,7 @@ public class CancellationServiceImpl implements CancellationService {
                 "Booking " + booking.getBookingCode() + " đã bị nhà tổ chức hủy. Lý do: "
                         + booking.getCancellationReason()
                         + (booking.getPaymentStatus() == PaymentStatus.REFUND_PENDING
-                        ? " Yêu cầu hoàn tiền đã được tạo và đang được xử lý tự động." : ""),
+                        ? " Yêu cầu hoàn tiền đã được tạo và có hạn xử lý hiển thị trong chi tiết booking." : ""),
                 booking.getBookingId());
     }
 

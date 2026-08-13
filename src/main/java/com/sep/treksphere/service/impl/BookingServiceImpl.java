@@ -45,8 +45,9 @@ import java.util.*;
 public class BookingServiceImpl implements BookingService {
 
     private static final Set<RefundStatus> PENDING_REFUNDS = EnumSet.of(
-            RefundStatus.PENDING, RefundStatus.PROCESSING, RefundStatus.FAILED,
-            RefundStatus.AWAITING_VENDOR_FUNDS, RefundStatus.OVERDUE);
+            RefundStatus.PENDING, RefundStatus.AWAITING_VENDOR_ACTION,
+            RefundStatus.PROCESSING, RefundStatus.MANUAL_REVIEW,
+            RefundStatus.FAILED, RefundStatus.OVERDUE);
 
     private final BookingRepository bookingRepository;
     private final TourScheduleRepository tourScheduleRepository;
