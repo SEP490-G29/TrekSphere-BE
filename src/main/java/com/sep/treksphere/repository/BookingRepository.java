@@ -21,6 +21,9 @@ import jakarta.persistence.LockModeType;
 
 @Repository
 public interface BookingRepository extends JpaRepository<Booking, UUID> {
+        @Query("select b.schedule.scheduleId from Booking b where b.bookingId = :bookingId and b.isDeleted = false")
+        Optional<UUID> findScheduleIdByBookingId(@Param("bookingId") UUID bookingId);
+
         boolean existsByScheduleAndBookingStatusNotAndIsDeletedFalse(TourSchedule schedule,
                         BookingStatus bookingStatus);
 

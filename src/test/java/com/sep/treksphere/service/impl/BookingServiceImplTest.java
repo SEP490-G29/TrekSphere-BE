@@ -2,9 +2,11 @@ package com.sep.treksphere.service.impl;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.sep.treksphere.config.PaymentWorkflowProperties;
+import com.sep.treksphere.event.BookingConfirmedEvent;
 import com.sep.treksphere.dto.request.BookingParticipantRequest;
 import com.sep.treksphere.dto.request.BookingRequest;
 import com.sep.treksphere.entity.Booking;
+import com.sep.treksphere.entity.Notification;
 import com.sep.treksphere.entity.Tour;
 import com.sep.treksphere.entity.TourSchedule;
 import com.sep.treksphere.entity.User;
@@ -16,6 +18,8 @@ import com.sep.treksphere.exception.AppException;
 import com.sep.treksphere.exception.ErrorCode;
 import com.sep.treksphere.mapper.BookingMapper;
 import com.sep.treksphere.repository.BookingRepository;
+import com.sep.treksphere.repository.CancellationPolicyRepository;
+import com.sep.treksphere.repository.NotificationRepository;
 import com.sep.treksphere.repository.PaymentTransactionRepository;
 import com.sep.treksphere.repository.RefundTransactionRepository;
 import com.sep.treksphere.repository.TourParticipationPolicyRepository;
@@ -33,7 +37,9 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.Spy;
+import org.mockito.ArgumentCaptor;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.context.ApplicationEventPublisher;
 
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
@@ -42,11 +48,13 @@ import java.util.HexFormat;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import java.time.LocalDate;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.anyCollection;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -65,6 +73,9 @@ class BookingServiceImplTest {
     @Mock private VendorPaymentAccountRepository vendorPaymentAccountRepository;
     @Mock private PaymentTransactionRepository paymentTransactionRepository;
     @Mock private RefundTransactionRepository refundTransactionRepository;
+    @Mock private CancellationPolicyRepository cancellationPolicyRepository;
+    @Mock private NotificationRepository notificationRepository;
+    @Mock private ApplicationEventPublisher eventPublisher;
     @Mock private CancellationService cancellationService;
     @Mock private PaymentWorkflowProperties paymentProperties;
     @Spy private BookingMapper bookingMapper = new BookingMapper();
@@ -116,8 +127,9 @@ class BookingServiceImplTest {
         existing.setBookingRequestKey("stable-key");
         existing.setBookingRequestHash(hash(request));
 
-        when(userRepository.findByEmailForUpdate(user.getEmail())).thenReturn(Optional.of(user));
-        when(bookingRepository.findByUser_UserIdAndBookingRequestKeyAndIsDeletedFalse(
+        org.mockito.Mockito.lenient().when(userRepository.findByEmailForUpdate(user.getEmail()))
+                .thenReturn(Optional.of(user));
+        org.mockito.Mockito.lenient().when(bookingRepository.findByUser_UserIdAndBookingRequestKeyAndIsDeletedFalse(
                 user.getUserId(), "stable-key")).thenReturn(Optional.of(existing));
     }
 
@@ -145,6 +157,44 @@ class BookingServiceImplTest {
 
         assertEquals(ErrorCode.IDEMPOTENCY_CONFLICT, exception.getErrorCode());
         verify(tourScheduleRepository, never()).findByIdForUpdate(request.getScheduleId());
+    }
+
+    @Test
+    void vendorConfirmationCreatesNotificationAndPublishesEmailEvent() {
+        String vendorEmail = "vendor@example.com";
+        Vendor vendor = existing.getSchedule().getTour().getVendor();
+        vendor.setCompanyName("TrekSphere Adventure");
+        existing.getSchedule().getTour().setTourName("Fansipan 2N1Đ");
+        existing.getSchedule().getTour().setDurationDays(2);
+        existing.getSchedule().getTour().setLocation("Sa Pa, Lào Cai");
+        existing.getSchedule().setDepartureDate(LocalDate.of(2026, 9, 15));
+        existing.getSchedule().setReturnDate(LocalDate.of(2026, 9, 16));
+        existing.setBookingStatus(BookingStatus.PENDING_CONFIRMATION);
+        existing.setPaymentStatus(PaymentStatus.PAID);
+        user.setFullName("Nguyễn Văn A");
+
+        when(vendorRepository.findByManager_Email(vendorEmail)).thenReturn(Optional.of(vendor));
+        when(bookingRepository.findByIdForUpdate(existing.getBookingId())).thenReturn(Optional.of(existing));
+        when(bookingRepository.save(existing)).thenReturn(existing);
+        when(paymentTransactionRepository.sumPaidByBooking(existing.getBookingId()))
+                .thenReturn(existing.getTotalPrice());
+        when(paymentTransactionRepository.existsByBooking_BookingIdAndIsDeletedFalse(existing.getBookingId()))
+                .thenReturn(true);
+        when(refundTransactionRepository.sumByBookingAndStatuses(eq(existing.getBookingId()), anyCollection()))
+                .thenReturn(BigDecimal.ZERO);
+
+        var response = service.confirmVendorBooking(vendorEmail, existing.getBookingId());
+
+        assertEquals(BookingStatus.CONFIRMED, response.getBookingStatus());
+        ArgumentCaptor<Notification> notification = ArgumentCaptor.forClass(Notification.class);
+        verify(notificationRepository).save(notification.capture());
+        assertEquals(existing.getBookingId(), notification.getValue().getReferenceId());
+
+        ArgumentCaptor<BookingConfirmedEvent> event = ArgumentCaptor.forClass(BookingConfirmedEvent.class);
+        verify(eventPublisher).publishEvent(event.capture());
+        assertEquals("BK-IDEMPOTENT", event.getValue().emailData().bookingCode());
+        assertEquals("trekker@example.com", event.getValue().emailData().recipientEmail());
+        assertEquals("Fansipan 2N1Đ", event.getValue().emailData().tourName());
     }
 
     private String hash(BookingRequest bookingRequest) throws Exception {

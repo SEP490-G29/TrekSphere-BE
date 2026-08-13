@@ -2,6 +2,7 @@ package com.sep.treksphere.service.impl;
 
 import com.sep.treksphere.dto.request.CreateScheduleRequest;
 import com.sep.treksphere.dto.request.UpdateScheduleRequest;
+import com.sep.treksphere.dto.request.VendorBookingCancelRequest;
 import com.sep.treksphere.dto.response.TourScheduleResponse;
 import com.sep.treksphere.entity.Booking;
 import com.sep.treksphere.entity.Notification;
@@ -11,6 +12,7 @@ import com.sep.treksphere.entity.TourSession;
 import com.sep.treksphere.entity.Vendor;
 import com.sep.treksphere.entity.VendorStaff;
 import com.sep.treksphere.enums.booking.BookingStatus;
+import com.sep.treksphere.enums.booking.RefundReason;
 import com.sep.treksphere.enums.system.NotificationEventType;
 import com.sep.treksphere.enums.system.ReferenceType;
 import com.sep.treksphere.enums.tour.ScheduleStatus;
@@ -25,6 +27,7 @@ import com.sep.treksphere.repository.TourScheduleRepository;
 import com.sep.treksphere.repository.TourSessionRepository;
 import com.sep.treksphere.repository.VendorRepository;
 import com.sep.treksphere.repository.VendorStaffRepository;
+import com.sep.treksphere.service.CancellationService;
 import com.sep.treksphere.service.TourScheduleService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -33,13 +36,23 @@ import org.springframework.util.StringUtils;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.EnumSet;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
 public class TourScheduleServiceImpl implements TourScheduleService {
+
+    private static final Set<BookingStatus> CANCELLABLE_BOOKING_STATUSES = EnumSet.of(
+            BookingStatus.PAYMENT_PENDING,
+            BookingStatus.PENDING_CONFIRMATION,
+            BookingStatus.CONFIRMED);
+    private static final Set<BookingStatus> BLOCKING_BOOKING_STATUSES = EnumSet.of(
+            BookingStatus.IN_PROGRESS,
+            BookingStatus.COMPLETED);
 
     private final TourScheduleRepository tourScheduleRepository;
     private final TourSessionRepository tourSessionRepository;
@@ -48,6 +61,7 @@ public class TourScheduleServiceImpl implements TourScheduleService {
     private final VendorStaffRepository vendorStaffRepository;
     private final BookingRepository bookingRepository;
     private final NotificationRepository notificationRepository;
+    private final CancellationService cancellationService;
 
     @Override
     @Transactional(readOnly = true)
@@ -112,7 +126,7 @@ public class TourScheduleServiceImpl implements TourScheduleService {
     @Override
     @Transactional
     public TourScheduleResponse updateSchedule(String userEmail, UUID scheduleId, UpdateScheduleRequest request) {
-        TourSchedule schedule = tourScheduleRepository.findByScheduleIdAndIsDeletedFalse(scheduleId)
+        TourSchedule schedule = tourScheduleRepository.findByIdForUpdate(scheduleId)
                 .orElseThrow(() -> new AppException(ErrorCode.SCHEDULE_NOT_FOUND));
 
         Vendor vendor = resolveVendorByUser(userEmail);
@@ -124,13 +138,17 @@ public class TourScheduleServiceImpl implements TourScheduleService {
             throw new AppException(ErrorCode.SCHEDULE_NOT_EDITABLE);
         }
 
-        // Kiểm tra xem Schedule đã có khách đặt chỗ chưa
-        boolean hasBookings = bookingRepository.existsByScheduleAndBookingStatusNotAndIsDeletedFalse(schedule,
-                BookingStatus.CANCELLED)
+        List<Booking> scheduleBookings = bookingRepository.findByScheduleId(scheduleId);
+        List<Booking> activeBookings = scheduleBookings.stream()
+                .filter(booking -> CANCELLABLE_BOOKING_STATUSES.contains(booking.getBookingStatus())
+                        || BLOCKING_BOOKING_STATUSES.contains(booking.getBookingStatus()))
+                .toList();
+        boolean hasBookings = !activeBookings.isEmpty()
                 || (schedule.getBookedSlots() != null && schedule.getBookedSlots() > 0);
+        boolean isCancellingSchedule = request.getStatus() == ScheduleStatus.CANCELLED;
 
-        // Nếu ĐÃ CÓ khách đặt, yêu cầu bắt buộc phải truyền lý do (reason)
-        if (hasBookings && !StringUtils.hasText(request.getReason())) {
+        // Hủy lịch hoặc điều chỉnh lịch đã có khách đều phải có lý do.
+        if ((isCancellingSchedule || hasBookings) && !StringUtils.hasText(request.getReason())) {
             throw new AppException(ErrorCode.SCHEDULE_CHANGE_REASON_REQUIRED);
         }
 
@@ -168,23 +186,39 @@ public class TourScheduleServiceImpl implements TourScheduleService {
             schedule.setAvailableSlots(request.getAvailableSlots());
         }
 
+        if (isCancellingSchedule) {
+            boolean hasStartedBookings = activeBookings.stream()
+                    .anyMatch(booking -> BLOCKING_BOOKING_STATUSES.contains(booking.getBookingStatus()));
+            if (hasStartedBookings) {
+                throw new AppException(ErrorCode.SCHEDULE_NOT_EDITABLE,
+                        "Không thể hủy lịch đã bắt đầu hoặc đã hoàn thành.");
+            }
+
+            VendorBookingCancelRequest cancellationRequest = new VendorBookingCancelRequest();
+            cancellationRequest.setReason(RefundReason.VENDOR_CANCEL);
+            cancellationRequest.setReasonDetail(request.getReason().trim());
+            for (Booking booking : activeBookings) {
+                cancellationService.cancelByVendor(userEmail, booking.getBookingId(), cancellationRequest);
+            }
+        }
+
         if (request.getStatus() != null) {
             schedule.setStatus(request.getStatus());
         }
 
         TourSchedule savedSchedule = tourScheduleRepository.save(schedule);
 
-        // Nếu ĐÃ CÓ khách đặt, gửi Notification tới từng khách hàng có Booking active
-        if (hasBookings) {
-            List<Booking> activeBookings = bookingRepository
-                    .findByScheduleAndBookingStatusNotAndIsDeletedFalse(schedule, BookingStatus.CANCELLED);
+        // Hủy schedule đã được CancellationService gửi notification cho từng booking.
+        // Chỉ gửi tại đây khi lịch được điều chỉnh để tránh thông báo trùng.
+        if (hasBookings && !isCancellingSchedule) {
             for (Booking booking : activeBookings) {
                 Notification notification = new Notification();
                 notification.setRecipient(booking.getUser());
                 notification.setTitle("Lịch khởi hành tour đã có sự thay đổi");
                 notification.setEventType(NotificationEventType.SCHEDULE_UPDATED);
-                notification.setContent("Lịch khởi hành tour \"" + schedule.getTour().getTourName() +
-                        "\" (khởi hành ngày " + savedSchedule.getDepartureDate() + ") đã được điều chỉnh. Lý do: "
+                notification.setContent("Lịch khởi hành tour \"" + schedule.getTour().getTourName()
+                        + "\" (khởi hành ngày " + savedSchedule.getDepartureDate() + ") "
+                        + "đã được điều chỉnh. Lý do: "
                         + request.getReason().trim());
                 notification.setReferenceType(ReferenceType.BOOKING);
                 notification.setReferenceId(booking.getBookingId());

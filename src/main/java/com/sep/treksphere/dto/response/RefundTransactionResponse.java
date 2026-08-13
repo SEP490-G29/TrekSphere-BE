@@ -28,6 +28,9 @@ public class RefundTransactionResponse {
     private LocalDateTime requestedAt;
     private LocalDateTime processingAt;
     private LocalDateTime completedAt;
+    private LocalDateTime dueAt;
+    private LocalDateTime nextRetryAt;
+    private Integer attemptCount;
     private String failureCode;
     private String failureMessage;
 }

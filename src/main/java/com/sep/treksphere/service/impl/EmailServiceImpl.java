@@ -5,9 +5,11 @@ import com.sendgrid.Request;
 import com.sendgrid.Response;
 import com.sendgrid.SendGrid;
 import com.sendgrid.helpers.mail.Mail;
+import com.sendgrid.helpers.mail.objects.Attachments;
 import com.sendgrid.helpers.mail.objects.Content;
 import com.sendgrid.helpers.mail.objects.Email;
 import com.sep.treksphere.exception.AppException;
+import com.sep.treksphere.dto.email.BookingConfirmationEmailData;
 import com.sep.treksphere.exception.ErrorCode;
 import com.sep.treksphere.service.EmailService;
 import lombok.extern.slf4j.Slf4j;
@@ -17,16 +19,24 @@ import org.thymeleaf.TemplateEngine;
 import org.thymeleaf.context.Context;
 
 import java.io.IOException;
+import java.io.InputStream;
+import java.util.Base64;
 
 @Service
 @Slf4j
 public class EmailServiceImpl implements EmailService {
+
+    private static final String BOOKING_LOGO_CID = "treksphere-logo";
+    private static final String BOOKING_LOGO_RESOURCE = "/email/treksphere-mark-dark.png";
 
     private final TemplateEngine templateEngine;
     private final SendGrid sendGrid;
 
     @Value("${sendgrid.from-email}")
     private String fromEmail;
+
+    @Value("${application.frontend.url}")
+    private String frontendUrl;
 
     public EmailServiceImpl(TemplateEngine templateEngine, SendGrid sendGrid) {
         this.templateEngine = templateEngine;
@@ -62,7 +72,36 @@ public class EmailServiceImpl implements EmailService {
         sendEmail(toEmail, "TrekSphere - Lời mời tham gia doanh nghiệp " + companyName, "vendor-staff-invitation", context);
     }
 
+    @Override
+    public void sendBookingConfirmationEmail(BookingConfirmationEmailData data) {
+        Context context = new Context();
+        context.setVariable("recipientName", data.recipientName());
+        context.setVariable("recipientEmail", data.recipientEmail());
+        context.setVariable("bookingCode", data.bookingCode());
+        context.setVariable("tourName", data.tourName());
+        context.setVariable("departureDate", data.departureDate());
+        context.setVariable("returnDate", data.returnDate());
+        context.setVariable("duration", data.duration());
+        context.setVariable("meetingPoint", data.meetingPoint());
+        context.setVariable("participantCount", data.participantCount());
+        context.setVariable("vendorName", data.vendorName());
+        context.setVariable("totalPrice", data.totalPrice());
+        context.setVariable("paidAmount", data.paidAmount());
+        context.setVariable("paymentStatus", data.paymentStatus());
+        context.setVariable("bookingDetailUrl", frontendUrl.replaceAll("/+$", "")
+                + "/bookings/" + data.bookingId());
+
+        sendEmail(data.recipientEmail(),
+                "TrekSphere - Booking " + data.bookingCode() + " đã được xác nhận",
+                "booking-confirmation", context, true);
+    }
+
     private void sendEmail(String toAddress, String subject, String templateName, Context context) {
+        sendEmail(toAddress, subject, templateName, context, false);
+    }
+
+    private void sendEmail(String toAddress, String subject, String templateName, Context context,
+                           boolean includeBrandLogo) {
         log.info("Preparing to send email [{}] to {}", templateName, toAddress);
         try {
             String htmlContent = templateEngine.process(templateName, context);
@@ -71,6 +110,9 @@ public class EmailServiceImpl implements EmailService {
             Email to = new Email(toAddress);
             Content content = new Content("text/html", htmlContent);
             Mail mail = new Mail(from, subject, to, content);
+            if (includeBrandLogo) {
+                mail.addAttachments(createInlineBrandLogo());
+            }
 
             Request request = new Request();
             request.setMethod(Method.POST);
@@ -87,6 +129,21 @@ public class EmailServiceImpl implements EmailService {
         } catch (IOException e) {
             log.error("Failed to send email [{}] to {}", templateName, toAddress, e);
             throw new AppException(ErrorCode.EMAIL_SEND_FAILED);
+        }
+    }
+
+    private Attachments createInlineBrandLogo() throws IOException {
+        try (InputStream input = EmailServiceImpl.class.getResourceAsStream(BOOKING_LOGO_RESOURCE)) {
+            if (input == null) {
+                throw new IOException("TrekSphere email logo resource was not found");
+            }
+            Attachments logo = new Attachments();
+            logo.setContent(Base64.getEncoder().encodeToString(input.readAllBytes()));
+            logo.setType("image/png");
+            logo.setFilename("treksphere-logo.png");
+            logo.setDisposition("inline");
+            logo.setContentId(BOOKING_LOGO_CID);
+            return logo;
         }
     }
 }

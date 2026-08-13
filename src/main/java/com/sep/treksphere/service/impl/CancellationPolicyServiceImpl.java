@@ -4,10 +4,12 @@ import com.sep.treksphere.dto.request.CancellationPolicyRequest;
 import com.sep.treksphere.dto.response.CancellationPolicyResponse;
 import com.sep.treksphere.entity.CancellationPolicy;
 import com.sep.treksphere.entity.Vendor;
+import com.sep.treksphere.entity.VendorStaff;
 import com.sep.treksphere.exception.AppException;
 import com.sep.treksphere.exception.ErrorCode;
 import com.sep.treksphere.repository.CancellationPolicyRepository;
 import com.sep.treksphere.repository.VendorRepository;
+import com.sep.treksphere.repository.VendorStaffRepository;
 import com.sep.treksphere.service.CancellationPolicyService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -22,11 +24,12 @@ public class CancellationPolicyServiceImpl implements CancellationPolicyService 
 
     private final CancellationPolicyRepository cancellationPolicyRepository;
     private final VendorRepository vendorRepository;
+    private final VendorStaffRepository vendorStaffRepository;
 
     @Override
     @Transactional(readOnly = true)
     public List<CancellationPolicyResponse> getVendorPolicies(String email) {
-        Vendor vendor = getVendorByManagerEmail(email);
+        Vendor vendor = getVendorByAssociatedUser(email);
         List<CancellationPolicy> policies = cancellationPolicyRepository
                 .findByVendorAndIsDeletedFalseOrderByCancelBeforeDaysDesc(vendor);
         return policies.stream().map(this::toResponse).toList();
@@ -109,6 +112,13 @@ public class CancellationPolicyServiceImpl implements CancellationPolicyService 
     private Vendor getVendorByManagerEmail(String email) {
         return vendorRepository.findByManager_Email(email)
                 .orElseThrow(() -> new AppException(ErrorCode.ACCESS_DENIED));
+    }
+
+    private Vendor getVendorByAssociatedUser(String email) {
+        return vendorRepository.findByManager_Email(email).orElseGet(() ->
+                vendorStaffRepository.findByUser_EmailAndIsActiveTrueAndIsDeletedFalse(email)
+                        .map(VendorStaff::getVendor)
+                        .orElseThrow(() -> new AppException(ErrorCode.ACCESS_DENIED)));
     }
 
     private CancellationPolicyResponse toResponse(CancellationPolicy policy) {

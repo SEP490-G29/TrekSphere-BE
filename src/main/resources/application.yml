@@ -92,6 +92,10 @@ application:
     hold-duration: ${PAYMENT_HOLD_DURATION:PT15M}
     vendor-confirmation-duration: ${VENDOR_CONFIRMATION_DURATION:PT24H}
     checkout-link-duration: ${PAYMENT_LINK_DURATION:PT15M}
+    refund-due-duration: ${REFUND_DUE_DURATION:PT48H}
+    refund-retry-base-delay: ${REFUND_RETRY_BASE_DELAY:PT5M}
+    refund-retry-max-delay: ${REFUND_RETRY_MAX_DELAY:PT6H}
+    refund-auto-processing-delay-ms: ${REFUND_AUTO_PROCESSING_DELAY_MS:60000}
     return-url: ${PAYMENT_RETURN_URL:${FRONTEND_URL}/payment/success}
     cancel-url: ${PAYMENT_CANCEL_URL:${FRONTEND_URL}/payment/cancel}
     webhook-base-url: ${PAYMENT_WEBHOOK_BASE_URL:}

@@ -1,8 +1,11 @@
 package com.sep.treksphere.service.impl;
 
 import com.sep.treksphere.dto.request.BookingCancelRequest;
+import com.sep.treksphere.config.PaymentWorkflowProperties;
 import com.sep.treksphere.entity.*;
 import com.sep.treksphere.enums.booking.*;
+import com.sep.treksphere.repository.NotificationRepository;
+import org.springframework.context.ApplicationEventPublisher;
 import com.sep.treksphere.repository.*;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -35,6 +38,9 @@ class CancellationServiceImplTest {
     @Mock private UserRepository userRepository;
     @Mock private VendorRepository vendorRepository;
     @Mock private VendorStaffRepository vendorStaffRepository;
+    @Mock private NotificationRepository notificationRepository;
+    @Mock private ApplicationEventPublisher eventPublisher;
+    @Mock private PaymentWorkflowProperties paymentProperties;
 
     @InjectMocks private CancellationServiceImpl service;
 
@@ -54,6 +60,7 @@ class CancellationServiceImplTest {
 
         Vendor vendor = new Vendor();
         vendor.setVendorId(UUID.randomUUID());
+        vendor.setManager(new User());
         Tour tour = new Tour();
         tour.setTourId(UUID.randomUUID());
         tour.setVendor(vendor);
@@ -96,6 +103,7 @@ class CancellationServiceImplTest {
         when(paymentTransactionRepository.sumPaidByBooking(bookingId)).thenReturn(new BigDecimal("3000000.00"));
         when(refundTransactionRepository.sumByBookingAndStatuses(eq(bookingId), anyCollection()))
                 .thenReturn(BigDecimal.ZERO);
+        lenient().when(paymentProperties.getRefundDueDuration()).thenReturn(java.time.Duration.ofHours(48));
     }
 
     @Test
@@ -112,13 +120,31 @@ class CancellationServiceImplTest {
     }
 
     @Test
+    void legacyBookingWithoutCancellationPolicyGetsFullRefundQuote() {
+        when(bookingRepository.findById(bookingId)).thenReturn(Optional.of(booking));
+        when(snapshotRepository.findById(bookingId)).thenReturn(Optional.empty());
+
+        var quote = service.quoteForTrekker(user.getEmail(), bookingId);
+
+        assertEquals(100, quote.getRefundPercentage());
+        assertEquals(new BigDecimal("3000000.00"), quote.getRefundAmount());
+        assertEquals(BigDecimal.ZERO, quote.getNonRefundableCost());
+    }
+
+    @Test
     void cancellationReleasesCapacityAndCreatesPendingRefund() {
+        when(bookingRepository.findScheduleIdByBookingId(bookingId)).thenReturn(Optional.of(schedule.getScheduleId()));
         when(bookingRepository.findByIdForUpdate(bookingId)).thenReturn(Optional.of(booking));
         when(tourScheduleRepository.findByIdForUpdate(schedule.getScheduleId())).thenReturn(Optional.of(schedule));
         when(paymentTransactionRepository.findByBooking_BookingIdAndIsDeletedFalseOrderByCreatedAtAsc(bookingId))
                 .thenReturn(List.of(payment));
         when(refundTransactionRepository.sumByPaymentAndStatuses(eq(payment.getPaymentTransactionId()), anyCollection()))
                 .thenReturn(BigDecimal.ZERO);
+        when(refundTransactionRepository.save(any(RefundTransaction.class))).thenAnswer(invocation -> {
+            RefundTransaction refund = invocation.getArgument(0);
+            refund.setRefundTransactionId(UUID.randomUUID());
+            return refund;
+        });
         when(bookingRepository.save(any(Booking.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         BookingCancelRequest request = new BookingCancelRequest();

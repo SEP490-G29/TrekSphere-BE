@@ -40,6 +40,8 @@ public interface UserRepository extends JpaRepository<User, UUID> {
             UserStatus status
     );
 
+    List<User> findDistinctByRoles_RoleNameAndIsDeletedFalse(String roleName);
+
     @Query("SELECT DISTINCT u FROM User u LEFT JOIN u.roles r " +
            "WHERE u.isDeleted = false " +
            "AND (r.roleName IS NULL OR r.roleName <> 'ADMIN') " +

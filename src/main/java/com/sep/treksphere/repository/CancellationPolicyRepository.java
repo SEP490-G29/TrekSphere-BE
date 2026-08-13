@@ -13,6 +13,7 @@ import java.util.UUID;
 public interface CancellationPolicyRepository extends JpaRepository<CancellationPolicy, UUID> {
     List<CancellationPolicy> findByVendorAndIsActiveTrueAndIsDeletedFalseOrderByCancelBeforeDaysDesc(Vendor vendor);
     List<CancellationPolicy> findByVendorAndIsDeletedFalseOrderByCancelBeforeDaysDesc(Vendor vendor);
+    boolean existsByVendorAndIsActiveTrueAndIsDeletedFalse(Vendor vendor);
     Optional<CancellationPolicy> findByCancellationPolicyIdAndIsDeletedFalse(UUID cancellationPolicyId);
     boolean existsByVendorAndCancelBeforeDaysAndIsDeletedFalse(Vendor vendor, Integer cancelBeforeDays);
     boolean existsByVendorAndCancelBeforeDaysAndCancellationPolicyIdNotAndIsDeletedFalse(Vendor vendor, Integer cancelBeforeDays, UUID cancellationPolicyId);
