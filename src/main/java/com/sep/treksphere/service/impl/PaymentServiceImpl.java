@@ -4,6 +4,7 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.sep.treksphere.config.PaymentWorkflowProperties;
 import com.sep.treksphere.dto.request.ManualRefundCompletionRequest;
+import com.sep.treksphere.dto.request.AdminManualRefundReviewRequest;
 import com.sep.treksphere.dto.request.RefundDestinationRequest;
 import com.sep.treksphere.dto.response.PaymentCheckoutResponse;
 import com.sep.treksphere.dto.response.PaymentTransactionResponse;
@@ -55,7 +56,8 @@ public class PaymentServiceImpl implements PaymentService {
             PaymentTransactionStatus.PAID
     );
     private static final Set<RefundStatus> ACTIVE_REFUND_STATUSES = EnumSet.of(
-            RefundStatus.PENDING, RefundStatus.PROCESSING, RefundStatus.AWAITING_VENDOR_FUNDS,
+            RefundStatus.PENDING, RefundStatus.AWAITING_VENDOR_ACTION,
+            RefundStatus.PROCESSING, RefundStatus.MANUAL_REVIEW,
             RefundStatus.OVERDUE, RefundStatus.REFUNDED
     );
 
@@ -457,7 +459,8 @@ public class PaymentServiceImpl implements PaymentService {
         refund.setAmount(payment.getPaidAmount());
         refund.setReason(RefundReason.PAYMENT_ADJUSTMENT);
         refund.setReasonDetail("Payment arrived after the booking hold was no longer valid");
-        refund.setRefundMethod(RefundMethod.GATEWAY_REFUND);
+        refund.setRefundMethod(RefundMethod.MANUAL);
+        refund.setDueAt(refundDueAt());
         refund.setDestinationBin(Objects.toString(payment.getGatewayMetadata().get("counterAccountBankId"), null));
         refund.setDestinationAccountNumber(Objects.toString(payment.getGatewayMetadata().get("counterAccountNumber"), null));
         refund.setDestinationAccountName(Objects.toString(payment.getGatewayMetadata().get("counterAccountName"), null));
@@ -512,10 +515,18 @@ public class PaymentServiceImpl implements PaymentService {
     }
 
     private RefundTransactionResponse executeRefund(UUID refundId, User approver) {
+        Boolean automaticPayoutAvailable = transactionTemplate.execute(status -> {
+            RefundTransaction current = refundTransactionRepository.findByIdForUpdate(refundId)
+                    .orElseThrow(() -> new AppException(ErrorCode.REFUND_NOT_FOUND));
+            return hasActivePayoutChannel(current.getPaymentTransaction().getVendorPaymentAccount());
+        });
+        if (!Boolean.TRUE.equals(automaticPayoutAvailable)) {
+            return transactionTemplate.execute(status -> markAwaitingVendorAction(refundId));
+        }
         RefundTransaction prepared = transactionTemplate.execute(status -> prepareRefund(refundId, approver));
         if (prepared == null) throw new AppException(ErrorCode.REFUND_NOT_PROCESSABLE);
         try {
-            PayOS client = payOsClientFactory.getClient(
+            PayOS client = payOsClientFactory.getPayoutClient(
                     prepared.getPaymentTransaction().getVendorPaymentAccount());
             String referenceId = "refund_" + prepared.getRefundTransactionId();
             PayoutBatchRequest request = PayoutBatchRequest.builder()
@@ -553,12 +564,16 @@ public class PaymentServiceImpl implements PaymentService {
         RefundTransaction refund = refundTransactionRepository.findByIdForUpdate(refundId)
                 .orElseThrow(() -> new AppException(ErrorCode.REFUND_NOT_FOUND));
         if (!EnumSet.of(RefundStatus.PENDING, RefundStatus.FAILED,
-                RefundStatus.AWAITING_VENDOR_FUNDS, RefundStatus.OVERDUE).contains(refund.getStatus())) {
+                RefundStatus.AWAITING_VENDOR_ACTION, RefundStatus.OVERDUE).contains(refund.getStatus())) {
             throw new AppException(ErrorCode.REFUND_NOT_PROCESSABLE);
         }
         requireRefundDestination(refund);
         refund.setApprovedBy(approver);
-        refund.setRefundMethod(RefundMethod.GATEWAY_REFUND);
+        if (!hasActivePayoutChannel(refund.getPaymentTransaction().getVendorPaymentAccount())) {
+            throw new AppException(ErrorCode.REFUND_NOT_PROCESSABLE,
+                    "Vendor chưa có Kênh Chi payOS hoạt động; cần hoàn thủ công.");
+        }
+        refund.setRefundMethod(RefundMethod.PAYOUT);
         refund.setStatus(RefundStatus.PROCESSING);
         refund.setProcessingAt(LocalDateTime.now());
         refund.setAttemptCount(Objects.requireNonNullElse(refund.getAttemptCount(), 0) + 1);
@@ -609,13 +624,42 @@ public class PaymentServiceImpl implements PaymentService {
         RefundTransaction refund = refundTransactionRepository.findByIdForUpdate(refundId)
                 .orElseThrow(() -> new AppException(ErrorCode.REFUND_NOT_FOUND));
         boolean insufficientFunds = isInsufficientFundsFailure(message);
-        refund.setStatus(insufficientFunds ? RefundStatus.AWAITING_VENDOR_FUNDS : RefundStatus.FAILED);
+        refund.setStatus(insufficientFunds ? RefundStatus.AWAITING_VENDOR_ACTION : RefundStatus.FAILED);
+        if (insufficientFunds) refund.setRefundMethod(RefundMethod.MANUAL);
         refund.setFailureCode(code);
         refund.setFailureMessage(message);
         refund.setNextRetryAt(LocalDateTime.now().plus(calculateRetryDelay(refund.getAttemptCount())));
         refundTransactionRepository.save(refund);
         refreshBookingPaymentStatus(refund.getBooking());
         return toRefundResponse(refund);
+    }
+
+    private RefundTransactionResponse markAwaitingVendorAction(UUID refundId) {
+        RefundTransaction refund = refundTransactionRepository.findByIdForUpdate(refundId)
+                .orElseThrow(() -> new AppException(ErrorCode.REFUND_NOT_FOUND));
+        if (refund.getStatus() == RefundStatus.MANUAL_REVIEW
+                || refund.getStatus() == RefundStatus.REFUNDED
+                || refund.getStatus() == RefundStatus.CANCELLED) {
+            return toRefundResponse(refund);
+        }
+        boolean notify = refund.getStatus() != RefundStatus.AWAITING_VENDOR_ACTION;
+        refund.setRefundMethod(RefundMethod.MANUAL);
+        refund.setStatus(RefundStatus.AWAITING_VENDOR_ACTION);
+        refund.setNextRetryAt(null);
+        refund.setFailureCode(null);
+        refund.setFailureMessage(null);
+        refundTransactionRepository.save(refund);
+        refreshBookingPaymentStatus(refund.getBooking());
+        if (notify) createManualActionNotifications(refund);
+        return toRefundResponse(refund);
+    }
+
+    private boolean hasActivePayoutChannel(VendorPaymentAccount account) {
+        return account != null
+                && account.getPayoutStatus() == PaymentAccountStatus.ACTIVE
+                && !isBlank(account.getPayoutProviderChannelId())
+                && !isBlank(account.getPayoutApiKeyEncrypted())
+                && !isBlank(account.getPayoutChecksumKeyEncrypted());
     }
 
     private boolean isInsufficientFundsFailure(String message) {
@@ -642,7 +686,8 @@ public class PaymentServiceImpl implements PaymentService {
     @Override
     public RefundTransactionResponse completeManualRefund(String email, UUID refundId, ManualRefundCompletionRequest request) {
         return transactionTemplate.execute(status -> {
-            User approver = userRepository.findByEmail(email).orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
+            User submitter = userRepository.findByEmail(email)
+                    .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
             Vendor vendor = requireAssociatedVendor(email);
             RefundTransaction refund = refundTransactionRepository.findByIdForUpdate(refundId)
                     .orElseThrow(() -> new AppException(ErrorCode.REFUND_NOT_FOUND));
@@ -650,22 +695,75 @@ public class PaymentServiceImpl implements PaymentService {
                 throw new AppException(ErrorCode.ACCESS_DENIED);
             }
             if (!EnumSet.of(RefundStatus.PENDING, RefundStatus.FAILED,
-                    RefundStatus.AWAITING_VENDOR_FUNDS, RefundStatus.OVERDUE).contains(refund.getStatus())) {
+                    RefundStatus.AWAITING_VENDOR_ACTION, RefundStatus.OVERDUE).contains(refund.getStatus())) {
                 throw new AppException(ErrorCode.REFUND_NOT_PROCESSABLE);
             }
             requireRefundDestination(refund);
-            refund.setApprovedBy(approver);
             refund.setRefundMethod(RefundMethod.MANUAL);
-            refund.setGatewayRefundId(request.getBankReference());
+            refund.setManualBankReference(request.getBankReference().trim());
             refund.getGatewayMetadata().put("manualNote", Objects.toString(request.getNote(), ""));
-            refund.setStatus(RefundStatus.REFUNDED);
-            refund.setCompletedAt(LocalDateTime.now());
+            refund.getGatewayMetadata().put("submittedBy", submitter.getUserId().toString());
+            refund.setManualReceiptUrl(request.getReceiptImageUrl().trim());
+            refund.setManualSubmittedAt(LocalDateTime.now());
+            refund.setStatus(RefundStatus.MANUAL_REVIEW);
+            refund.setCompletedAt(null);
+            refund.setFailureCode(null);
+            refund.setFailureMessage(null);
+            refund.setNextRetryAt(null);
             refundTransactionRepository.save(refund);
             refreshBookingPaymentStatus(refund.getBooking());
-            releaseVendorRefundHoldWhenEligible(refund);
-            createRefundCompletedNotification(refund);
+            createManualReviewNotifications(refund);
             return toRefundResponse(refund);
         });
+    }
+
+    @Override
+    public RefundTransactionResponse reviewManualRefund(
+            String email, UUID refundId, AdminManualRefundReviewRequest request) {
+        return transactionTemplate.execute(status -> {
+            User admin = userRepository.findByEmail(email)
+                    .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
+            if (!isAdmin(admin)) throw new AppException(ErrorCode.ACCESS_DENIED);
+            RefundTransaction refund = refundTransactionRepository.findByIdForUpdate(refundId)
+                    .orElseThrow(() -> new AppException(ErrorCode.REFUND_NOT_FOUND));
+            if (refund.getStatus() != RefundStatus.MANUAL_REVIEW) {
+                throw new AppException(ErrorCode.REFUND_NOT_PROCESSABLE);
+            }
+            refund.setApprovedBy(admin);
+            refund.setAdminReviewedAt(LocalDateTime.now());
+            refund.setAdminReviewNote(request.getNote().trim());
+            if (Boolean.TRUE.equals(request.getApproved())) {
+                refund.setStatus(RefundStatus.REFUNDED);
+                refund.setCompletedAt(LocalDateTime.now());
+                refundTransactionRepository.save(refund);
+                refreshBookingPaymentStatus(refund.getBooking());
+                releaseVendorRefundHoldWhenEligible(refund);
+                createRefundCompletedNotification(refund);
+            } else {
+                refund.setManualBankReference(null);
+                refund.setManualReceiptUrl(null);
+                refund.setManualSubmittedAt(null);
+                refund.setStatus(refund.getDueAt() != null && !refund.getDueAt().isAfter(LocalDateTime.now())
+                        ? RefundStatus.OVERDUE : RefundStatus.AWAITING_VENDOR_ACTION);
+                refund.setFailureCode("MANUAL_PROOF_REJECTED");
+                refund.setFailureMessage("Admin từ chối bằng chứng hoàn tiền: " + request.getNote().trim());
+                refundTransactionRepository.save(refund);
+                if (refund.getStatus() == RefundStatus.OVERDUE) applyVendorRefundHold(refund);
+                refreshBookingPaymentStatus(refund.getBooking());
+                createManualReviewRejectedNotifications(refund);
+            }
+            return toRefundResponse(refund);
+        });
+    }
+
+    @Override
+    public List<RefundTransactionResponse> getAdminRefunds(RefundStatus status) {
+        Collection<RefundStatus> statuses = status == null
+                ? EnumSet.of(RefundStatus.MANUAL_REVIEW, RefundStatus.OVERDUE)
+                : EnumSet.of(status);
+        return refundTransactionRepository
+                .findTop100ByStatusInAndIsDeletedFalseOrderByRequestedAtAsc(statuses)
+                .stream().map(this::toRefundResponse).toList();
     }
 
     @Override
@@ -678,7 +776,7 @@ public class PaymentServiceImpl implements PaymentService {
                 throw new AppException(ErrorCode.ACCESS_DENIED);
             }
             if (!EnumSet.of(RefundStatus.PENDING, RefundStatus.FAILED,
-                    RefundStatus.AWAITING_VENDOR_FUNDS, RefundStatus.OVERDUE).contains(refund.getStatus())) {
+                    RefundStatus.AWAITING_VENDOR_ACTION, RefundStatus.OVERDUE).contains(refund.getStatus())) {
                 throw new AppException(ErrorCode.REFUND_NOT_PROCESSABLE);
             }
             refund.setDestinationBin(request.getBankBin().trim());
@@ -694,7 +792,8 @@ public class PaymentServiceImpl implements PaymentService {
         for (RefundTransaction refund : refundTransactionRepository
                 .findTop100ByStatusAndGatewayRefundIdIsNotNullAndIsDeletedFalseOrderByProcessingAtAsc(RefundStatus.PROCESSING)) {
             try {
-                PayOS client = payOsClientFactory.getClient(refund.getPaymentTransaction().getVendorPaymentAccount());
+                PayOS client = payOsClientFactory.getPayoutClient(
+                        refund.getPaymentTransaction().getVendorPaymentAccount());
                 Payout payout = client.payouts().get(refund.getGatewayRefundId());
                 transactionTemplate.executeWithoutResult(status -> applyPayoutResult(refund.getRefundTransactionId(), payout));
             } catch (Exception exception) {
@@ -707,8 +806,7 @@ public class PaymentServiceImpl implements PaymentService {
     public void processDueRefundsAutomatically() {
         markPastDueRefunds();
         List<UUID> refundIds = refundTransactionRepository.findDueForAutomaticProcessing(
-                EnumSet.of(RefundStatus.PENDING, RefundStatus.FAILED,
-                        RefundStatus.AWAITING_VENDOR_FUNDS, RefundStatus.OVERDUE),
+                EnumSet.of(RefundStatus.PENDING, RefundStatus.FAILED),
                 LocalDateTime.now(), PageRequest.of(0, 100));
         for (UUID refundId : refundIds) {
             try {
@@ -721,7 +819,8 @@ public class PaymentServiceImpl implements PaymentService {
 
     private void markPastDueRefunds() {
         List<UUID> overdueIds = refundTransactionRepository.findPastDueIds(
-                EnumSet.of(RefundStatus.PENDING, RefundStatus.FAILED, RefundStatus.AWAITING_VENDOR_FUNDS),
+                EnumSet.of(RefundStatus.PENDING, RefundStatus.FAILED,
+                        RefundStatus.AWAITING_VENDOR_ACTION),
                 LocalDateTime.now(), PageRequest.of(0, 100));
         for (UUID refundId : overdueIds) {
             transactionTemplate.executeWithoutResult(status -> markRefundOverdue(refundId));
@@ -732,22 +831,14 @@ public class PaymentServiceImpl implements PaymentService {
         RefundTransaction refund = refundTransactionRepository.findByIdForUpdate(refundId)
                 .orElseThrow(() -> new AppException(ErrorCode.REFUND_NOT_FOUND));
         if (!EnumSet.of(RefundStatus.PENDING, RefundStatus.FAILED,
-                RefundStatus.AWAITING_VENDOR_FUNDS).contains(refund.getStatus())) return;
+                RefundStatus.AWAITING_VENDOR_ACTION).contains(refund.getStatus())) return;
         refund.setStatus(RefundStatus.OVERDUE);
         refund.setFailureCode("REFUND_OVERDUE");
         refund.setFailureMessage("Vendor chưa hoàn tất refund trong thời hạn quy định.");
         refund.setNextRetryAt(LocalDateTime.now());
         refundTransactionRepository.save(refund);
 
-        Vendor vendor = refund.getBooking().getSchedule().getTour().getVendor();
-        VendorPaymentAccount paymentAccount = refund.getPaymentTransaction().getVendorPaymentAccount();
-        holdPaymentAccount(paymentAccount);
-        vendorPaymentAccountRepository
-                .findByVendor_VendorIdAndProviderAndIsDefaultTrueAndIsDeletedFalse(
-                        vendor.getVendorId(), PaymentProvider.PAYOS)
-                .filter(defaultAccount -> !Objects.equals(defaultAccount.getVendorPaymentAccountId(),
-                        paymentAccount.getVendorPaymentAccountId()))
-                .ifPresent(this::holdPaymentAccount);
+        applyVendorRefundHold(refund);
         createRefundOverdueNotifications(refund);
         refreshBookingPaymentStatus(refund.getBooking());
     }
@@ -757,6 +848,18 @@ public class PaymentServiceImpl implements PaymentService {
             account.setRefundHold(true);
             vendorPaymentAccountRepository.save(account);
         }
+    }
+
+    private void applyVendorRefundHold(RefundTransaction refund) {
+        Vendor vendor = refund.getBooking().getSchedule().getTour().getVendor();
+        VendorPaymentAccount paymentAccount = refund.getPaymentTransaction().getVendorPaymentAccount();
+        holdPaymentAccount(paymentAccount);
+        vendorPaymentAccountRepository
+                .findByVendor_VendorIdAndProviderAndIsDefaultTrueAndIsDeletedFalse(
+                        vendor.getVendorId(), PaymentProvider.PAYOS)
+                .filter(defaultAccount -> !Objects.equals(defaultAccount.getVendorPaymentAccountId(),
+                        paymentAccount.getVendorPaymentAccountId()))
+                .ifPresent(this::holdPaymentAccount);
     }
 
     private void createRefundOverdueNotifications(RefundTransaction refund) {
@@ -775,6 +878,57 @@ public class PaymentServiceImpl implements PaymentService {
             notification.setReferenceId(refund.getBooking().getBookingId());
             notificationRepository.save(notification);
         }
+    }
+
+    private void createManualActionNotifications(RefundTransaction refund) {
+        Vendor vendor = refund.getBooking().getSchedule().getTour().getVendor();
+        if (vendor.getManager() != null) {
+            saveRefundNotification(vendor.getManager(), "Cần hoàn tiền thủ công",
+                    "Booking " + refund.getBooking().getBookingCode() + " cần hoàn "
+                            + refund.getAmount().setScale(0, RoundingMode.HALF_UP)
+                            + " VND. Hãy chuyển khoản và gửi biên nhận trước hạn.", refund);
+        }
+        saveRefundNotification(refund.getBooking().getUser(), "Đang chờ nhà tổ chức hoàn tiền",
+                "Yêu cầu hoàn cho booking " + refund.getBooking().getBookingCode()
+                        + " đang chờ nhà tổ chức chuyển khoản. Hạn xử lý hiển thị trong chi tiết booking.", refund);
+    }
+
+    private void createManualReviewNotifications(RefundTransaction refund) {
+        for (User admin : userRepository.findDistinctByRoles_RoleNameAndIsDeletedFalse("ADMIN")) {
+            saveRefundNotification(admin, "Cần xác minh biên nhận hoàn tiền",
+                    "Vendor đã gửi biên nhận hoàn tiền cho booking "
+                            + refund.getBooking().getBookingCode() + ".", refund,
+                    NotificationEventType.REFUND_MANUAL_REVIEW);
+        }
+        saveRefundNotification(refund.getBooking().getUser(), "Nhà tổ chức đã gửi bằng chứng hoàn tiền",
+                "Biên nhận hoàn tiền cho booking " + refund.getBooking().getBookingCode()
+                        + " đang chờ TrekSphere xác minh.", refund,
+                NotificationEventType.REFUND_MANUAL_REVIEW);
+    }
+
+    private void createManualReviewRejectedNotifications(RefundTransaction refund) {
+        Vendor vendor = refund.getBooking().getSchedule().getTour().getVendor();
+        if (vendor.getManager() != null) {
+            saveRefundNotification(vendor.getManager(), "Biên nhận hoàn tiền chưa được chấp nhận",
+                    refund.getFailureMessage(), refund, NotificationEventType.REFUND_PENDING);
+        }
+    }
+
+    private void saveRefundNotification(User recipient, String title, String content,
+                                        RefundTransaction refund) {
+        saveRefundNotification(recipient, title, content, refund, NotificationEventType.REFUND_PENDING);
+    }
+
+    private void saveRefundNotification(User recipient, String title, String content,
+                                        RefundTransaction refund, NotificationEventType eventType) {
+        Notification notification = new Notification();
+        notification.setRecipient(recipient);
+        notification.setTitle(title);
+        notification.setEventType(eventType);
+        notification.setContent(content);
+        notification.setReferenceType(ReferenceType.BOOKING);
+        notification.setReferenceId(refund.getBooking().getBookingId());
+        notificationRepository.save(notification);
     }
 
     private void releaseVendorRefundHoldWhenEligible(RefundTransaction refund) {
@@ -808,7 +962,8 @@ public class PaymentServiceImpl implements PaymentService {
                 booking.getBookingId(), List.of(RefundStatus.REFUNDED));
         BigDecimal pending = refundTransactionRepository.sumByBookingAndStatuses(
                 booking.getBookingId(), List.of(RefundStatus.PENDING, RefundStatus.PROCESSING,
-                        RefundStatus.FAILED, RefundStatus.AWAITING_VENDOR_FUNDS, RefundStatus.OVERDUE));
+                        RefundStatus.FAILED, RefundStatus.AWAITING_VENDOR_ACTION,
+                        RefundStatus.MANUAL_REVIEW, RefundStatus.OVERDUE));
         BigDecimal netPaid = paid.subtract(refunded).max(BigDecimal.ZERO);
         if (pending.signum() > 0) booking.setPaymentStatus(PaymentStatus.REFUND_PENDING);
         else if (isActiveBooking(booking)) booking.setPaymentStatus(
@@ -916,6 +1071,7 @@ public class PaymentServiceImpl implements PaymentService {
     }
 
     private RefundTransactionResponse toRefundResponse(RefundTransaction refund) {
+        VendorPaymentAccount paymentAccount = refund.getPaymentTransaction().getVendorPaymentAccount();
         return RefundTransactionResponse.builder()
                 .refundTransactionId(refund.getRefundTransactionId())
                 .bookingId(refund.getBooking().getBookingId())
@@ -926,9 +1082,11 @@ public class PaymentServiceImpl implements PaymentService {
                 .status(refund.getStatus())
                 .refundMethod(refund.getRefundMethod())
                 .destinationBin(refund.getDestinationBin())
+                .destinationAccountNumber(refund.getDestinationAccountNumber())
                 .maskedDestinationAccountNumber(mask(refund.getDestinationAccountNumber()))
                 .destinationAccountName(refund.getDestinationAccountName())
                 .gatewayRefundId(refund.getGatewayRefundId())
+                .manualBankReference(refund.getManualBankReference())
                 .requestedAt(refund.getRequestedAt())
                 .processingAt(refund.getProcessingAt())
                 .completedAt(refund.getCompletedAt())
@@ -937,6 +1095,13 @@ public class PaymentServiceImpl implements PaymentService {
                 .attemptCount(refund.getAttemptCount())
                 .failureCode(refund.getFailureCode())
                 .failureMessage(refund.getFailureMessage())
+                .bookingCode(refund.getBooking().getBookingCode())
+                .vendorName(refund.getBooking().getSchedule().getTour().getVendor().getCompanyName())
+                .automaticPayoutAvailable(hasActivePayoutChannel(paymentAccount))
+                .manualReceiptUrl(refund.getManualReceiptUrl())
+                .manualSubmittedAt(refund.getManualSubmittedAt())
+                .adminReviewedAt(refund.getAdminReviewedAt())
+                .adminReviewNote(refund.getAdminReviewNote())
                 .build();
     }
 
@@ -948,6 +1113,14 @@ public class PaymentServiceImpl implements PaymentService {
     private BigDecimal decimal(Object value) {
         if (value == null) return BigDecimal.ZERO;
         return new BigDecimal(value.toString());
+    }
+
+    private LocalDateTime refundDueAt() {
+        java.time.Duration duration = properties.getRefundDueDuration();
+        if (duration == null || duration.isNegative() || duration.isZero()) {
+            duration = java.time.Duration.ofHours(48);
+        }
+        return LocalDateTime.now().plus(duration);
     }
 
     private String mask(String account) {

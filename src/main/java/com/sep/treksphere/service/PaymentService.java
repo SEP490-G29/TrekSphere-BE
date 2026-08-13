@@ -1,6 +1,8 @@
 package com.sep.treksphere.service;
 
 import com.sep.treksphere.dto.request.ManualRefundCompletionRequest;
+import com.sep.treksphere.dto.request.AdminManualRefundReviewRequest;
+import com.sep.treksphere.enums.booking.RefundStatus;
 import com.sep.treksphere.dto.request.RefundDestinationRequest;
 import com.sep.treksphere.dto.response.PaymentCheckoutResponse;
 import com.sep.treksphere.dto.response.PaymentTransactionResponse;
@@ -18,5 +20,7 @@ public interface PaymentService {
     RefundTransactionResponse processRefund(String email, UUID refundId);
     RefundTransactionResponse processRefundAutomatically(UUID refundId);
     RefundTransactionResponse completeManualRefund(String email, UUID refundId, ManualRefundCompletionRequest request);
+    RefundTransactionResponse reviewManualRefund(String email, UUID refundId, AdminManualRefundReviewRequest request);
+    List<RefundTransactionResponse> getAdminRefunds(RefundStatus status);
     RefundTransactionResponse updateRefundDestination(String email, UUID refundId, RefundDestinationRequest request);
 }

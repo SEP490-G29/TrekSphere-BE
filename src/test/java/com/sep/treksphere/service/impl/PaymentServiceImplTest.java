@@ -2,11 +2,15 @@ package com.sep.treksphere.service.impl;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.sep.treksphere.config.PaymentWorkflowProperties;
+import com.sep.treksphere.dto.request.AdminManualRefundReviewRequest;
+import com.sep.treksphere.dto.request.ManualRefundCompletionRequest;
 import com.sep.treksphere.entity.Booking;
 import com.sep.treksphere.entity.PaymentTransaction;
 import com.sep.treksphere.entity.RefundTransaction;
+import com.sep.treksphere.entity.Role;
 import com.sep.treksphere.entity.Tour;
 import com.sep.treksphere.entity.TourSchedule;
+import com.sep.treksphere.entity.User;
 import com.sep.treksphere.entity.Vendor;
 import com.sep.treksphere.entity.VendorPaymentAccount;
 import com.sep.treksphere.enums.booking.BookingStatus;
@@ -16,6 +20,7 @@ import com.sep.treksphere.enums.booking.PaymentStatus;
 import com.sep.treksphere.enums.booking.PaymentTransactionStatus;
 import com.sep.treksphere.enums.booking.RefundReason;
 import com.sep.treksphere.enums.booking.RefundStatus;
+import com.sep.treksphere.enums.booking.PaymentAccountStatus;
 import com.sep.treksphere.repository.BookingPolicySnapshotRepository;
 import com.sep.treksphere.repository.BookingRepository;
 import com.sep.treksphere.repository.PaymentTransactionRepository;
@@ -79,6 +84,7 @@ class PaymentServiceImplTest {
     private Booking booking;
     private TourSchedule schedule;
     private PaymentTransaction payment;
+    private User trekker;
 
     @BeforeEach
     void setUp() {
@@ -105,6 +111,10 @@ class PaymentServiceImplTest {
         booking.setPaymentStatus(PaymentStatus.PARTIALLY_PAID);
         booking.setBookingStatus(BookingStatus.CONFIRMED);
         booking.setRemainingDueAt(LocalDateTime.now().plusDays(1));
+        trekker = new User();
+        trekker.setUserId(UUID.randomUUID());
+        trekker.setEmail("trekker@example.com");
+        booking.setUser(trekker);
 
         payment = new PaymentTransaction();
         payment.setPaymentTransactionId(UUID.randomUUID());
@@ -259,7 +269,8 @@ class PaymentServiceImplTest {
                         RefundStatus.PENDING,
                         RefundStatus.PROCESSING,
                         RefundStatus.FAILED,
-                        RefundStatus.AWAITING_VENDOR_FUNDS,
+                        RefundStatus.AWAITING_VENDOR_ACTION,
+                        RefundStatus.MANUAL_REVIEW,
                         RefundStatus.OVERDUE)))
                 .thenReturn(new BigDecimal("1000000.00"));
 
@@ -281,7 +292,8 @@ class PaymentServiceImplTest {
                         RefundStatus.PENDING,
                         RefundStatus.PROCESSING,
                         RefundStatus.FAILED,
-                        RefundStatus.AWAITING_VENDOR_FUNDS,
+                        RefundStatus.AWAITING_VENDOR_ACTION,
+                        RefundStatus.MANUAL_REVIEW,
                         RefundStatus.OVERDUE)))
                 .thenReturn(BigDecimal.ZERO);
 
@@ -303,15 +315,96 @@ class PaymentServiceImplTest {
         when(paymentTransactionRepository.sumPaidByBooking(booking.getBookingId()))
                 .thenReturn(new BigDecimal("1000000.00"));
         stubPendingRefundAmount();
-        when(payOsClientFactory.getClient(payment.getVendorPaymentAccount()))
+        payment.getVendorPaymentAccount().setPayoutStatus(PaymentAccountStatus.ACTIVE);
+        payment.getVendorPaymentAccount().setPayoutProviderChannelId("payout-client");
+        payment.getVendorPaymentAccount().setPayoutApiKeyEncrypted("encrypted-api-key");
+        payment.getVendorPaymentAccount().setPayoutChecksumKeyEncrypted("encrypted-checksum-key");
+        when(payOsClientFactory.getPayoutClient(payment.getVendorPaymentAccount()))
                 .thenThrow(new RuntimeException("Insufficient balance"));
 
         var response = service.processRefundAutomatically(refund.getRefundTransactionId());
 
-        assertEquals(RefundStatus.AWAITING_VENDOR_FUNDS, response.getStatus());
+        assertEquals(RefundStatus.AWAITING_VENDOR_ACTION, response.getStatus());
         assertEquals(1, response.getAttemptCount());
         assertNotNull(response.getNextRetryAt());
         assertEquals(PaymentStatus.REFUND_PENDING, booking.getPaymentStatus());
+    }
+
+    @Test
+    void manualRefundSubmissionWaitsForAdminReview() {
+        RefundTransaction refund = pendingRefund();
+        User vendorManager = new User();
+        vendorManager.setUserId(UUID.randomUUID());
+        vendorManager.setEmail("vendor@example.com");
+        ManualRefundCompletionRequest request = new ManualRefundCompletionRequest();
+        request.setBankReference("FT260813001");
+        request.setReceiptImageUrl("https://cdn.example.com/refund-receipt.jpg");
+        request.setNote("Đã chuyển đủ tiền");
+        stubTransactionExecution();
+        stubBookingPersistence();
+        when(userRepository.findByEmail(vendorManager.getEmail())).thenReturn(Optional.of(vendorManager));
+        when(vendorRepository.findByManager_Email(vendorManager.getEmail()))
+                .thenReturn(Optional.of(schedule.getTour().getVendor()));
+        when(refundTransactionRepository.findByIdForUpdate(refund.getRefundTransactionId()))
+                .thenReturn(Optional.of(refund));
+        when(refundTransactionRepository.save(any(RefundTransaction.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+        when(paymentTransactionRepository.sumPaidByBooking(booking.getBookingId()))
+                .thenReturn(refund.getAmount());
+        stubPendingRefundAmount();
+        when(userRepository.findDistinctByRoles_RoleNameAndIsDeletedFalse("ADMIN"))
+                .thenReturn(List.of());
+
+        var response = service.completeManualRefund(
+                vendorManager.getEmail(), refund.getRefundTransactionId(), request);
+
+        assertEquals(RefundStatus.MANUAL_REVIEW, response.getStatus());
+        assertEquals("FT260813001", response.getManualBankReference());
+        assertEquals(request.getReceiptImageUrl(), response.getManualReceiptUrl());
+        assertNull(response.getCompletedAt());
+        assertEquals(PaymentStatus.REFUND_PENDING, booking.getPaymentStatus());
+    }
+
+    @Test
+    void adminApprovalIsRequiredBeforeManualRefundBecomesRefunded() {
+        RefundTransaction refund = pendingRefund();
+        refund.setStatus(RefundStatus.MANUAL_REVIEW);
+        refund.setManualBankReference("FT260813001");
+        refund.setManualReceiptUrl("https://cdn.example.com/refund-receipt.jpg");
+        booking.setBookingStatus(BookingStatus.CANCELLED);
+        payment.getVendorPaymentAccount().setRefundHold(true);
+        User admin = new User();
+        admin.setUserId(UUID.randomUUID());
+        admin.setEmail("admin@example.com");
+        Role role = new Role();
+        role.setRoleName("ADMIN");
+        admin.getRoles().add(role);
+        AdminManualRefundReviewRequest request = new AdminManualRefundReviewRequest();
+        request.setApproved(true);
+        request.setNote("Đã đối chiếu đúng số tiền và mã giao dịch");
+        stubTransactionExecution();
+        stubBookingPersistence();
+        when(userRepository.findByEmail(admin.getEmail())).thenReturn(Optional.of(admin));
+        when(refundTransactionRepository.findByIdForUpdate(refund.getRefundTransactionId()))
+                .thenReturn(Optional.of(refund));
+        when(refundTransactionRepository.save(any(RefundTransaction.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+        when(paymentTransactionRepository.sumPaidByBooking(booking.getBookingId()))
+                .thenReturn(refund.getAmount());
+        when(refundTransactionRepository.sumByBookingAndStatuses(
+                booking.getBookingId(), List.of(RefundStatus.REFUNDED)))
+                .thenReturn(refund.getAmount());
+        when(vendorPaymentAccountRepository.findByVendor_VendorIdAndRefundHoldTrueAndIsDeletedFalse(
+                schedule.getTour().getVendor().getVendorId()))
+                .thenReturn(List.of(payment.getVendorPaymentAccount()));
+
+        var response = service.reviewManualRefund(
+                admin.getEmail(), refund.getRefundTransactionId(), request);
+
+        assertEquals(RefundStatus.REFUNDED, response.getStatus());
+        assertNotNull(response.getCompletedAt());
+        assertEquals(PaymentStatus.REFUNDED, booking.getPaymentStatus());
+        assertEquals(false, payment.getVendorPaymentAccount().getRefundHold());
     }
 
     @Test
@@ -367,7 +460,8 @@ class PaymentServiceImplTest {
                         RefundStatus.PENDING,
                         RefundStatus.PROCESSING,
                         RefundStatus.FAILED,
-                        RefundStatus.AWAITING_VENDOR_FUNDS,
+                        RefundStatus.AWAITING_VENDOR_ACTION,
+                        RefundStatus.MANUAL_REVIEW,
                         RefundStatus.OVERDUE)))
                 .thenReturn(new BigDecimal("1000000.00"));
     }

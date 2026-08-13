@@ -1,5 +1,6 @@
 package com.sep.treksphere.service.impl;
 
+import com.sep.treksphere.config.PaymentWorkflowProperties;
 import com.sep.treksphere.entity.*;
 import com.sep.treksphere.enums.booking.*;
 import com.sep.treksphere.exception.AppException;
@@ -29,6 +30,7 @@ public class BookingExpiryScheduler {
     private final PaymentTransactionRepository paymentRepository;
     private final RefundTransactionRepository refundRepository;
     private final TransactionTemplate transactionTemplate;
+    private final PaymentWorkflowProperties paymentProperties;
 
     @Scheduled(fixedDelayString = "${application.payment.booking-expiry-delay-ms:60000}")
     public void expireStaleBookings() {
@@ -156,7 +158,9 @@ public class BookingExpiryScheduler {
                 .findByBooking_BookingIdAndIsDeletedFalseOrderByCreatedAtAsc(booking.getBookingId())) {
             if (payment.getStatus() != PaymentTransactionStatus.PAID) continue;
             BigDecimal allocated = refundRepository.sumByPaymentAndStatuses(payment.getPaymentTransactionId(),
-                    EnumSet.of(RefundStatus.PENDING, RefundStatus.PROCESSING, RefundStatus.REFUNDED));
+                    EnumSet.of(RefundStatus.PENDING, RefundStatus.AWAITING_VENDOR_ACTION,
+                            RefundStatus.PROCESSING, RefundStatus.MANUAL_REVIEW,
+                            RefundStatus.OVERDUE, RefundStatus.REFUNDED));
             BigDecimal amount = payment.getPaidAmount().subtract(allocated).max(BigDecimal.ZERO);
             if (amount.signum() <= 0) continue;
             RefundTransaction refund = new RefundTransaction();
@@ -166,7 +170,8 @@ public class BookingExpiryScheduler {
             refund.setAmount(amount);
             refund.setReason(reason);
             refund.setReasonDetail(detail);
-            refund.setRefundMethod(RefundMethod.GATEWAY_REFUND);
+            refund.setRefundMethod(RefundMethod.MANUAL);
+            refund.setDueAt(refundDueAt());
             Map<String, Object> metadata = payment.getGatewayMetadata();
             refund.setDestinationBin(string(metadata.get("counterAccountBankId")));
             refund.setDestinationAccountNumber(string(metadata.get("counterAccountNumber")));
@@ -178,5 +183,13 @@ public class BookingExpiryScheduler {
     private String string(Object value) {
         String result = value == null ? null : value.toString();
         return result == null || result.isBlank() ? null : result;
+    }
+
+    private LocalDateTime refundDueAt() {
+        java.time.Duration duration = paymentProperties.getRefundDueDuration();
+        if (duration == null || duration.isNegative() || duration.isZero()) {
+            duration = java.time.Duration.ofHours(48);
+        }
+        return LocalDateTime.now().plus(duration);
     }
 }
