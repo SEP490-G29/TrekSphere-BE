@@ -1,6 +1,7 @@
 package com.sep.treksphere.service;
 
 import com.sep.treksphere.dto.request.SessionCheckpointLogRequest;
+import com.sep.treksphere.dto.request.SkipCheckpointRequest;
 import com.sep.treksphere.dto.request.TourSessionAttendanceRequest;
 import com.sep.treksphere.dto.request.SessionEquipmentCheckRequest;
 import com.sep.treksphere.dto.request.CreateSosAlertRequest;
@@ -23,14 +24,20 @@ public interface TrackingService {
 
     TourSessionStartResponse startSession(
             UUID coordinatorId,
-            UUID sessionId,
-            SessionCheckpointLogRequest request
+            UUID sessionId
     );
 
     SessionCheckpointLogResponse checkinCheckpoint(
             UUID coordinatorId,
             UUID sessionId,
             SessionCheckpointLogRequest request
+    );
+
+    SessionCheckpointLogResponse skipCheckpoint(
+            UUID coordinatorId,
+            UUID sessionId,
+            UUID checkpointId,
+            SkipCheckpointRequest request
     );
 
     List<SessionCheckpointStatusResponse> getSessionCheckpointLogs(
@@ -40,8 +47,7 @@ public interface TrackingService {
 
     TourSessionEndResponse endSession(
             UUID coordinatorId,
-            UUID sessionId,
-            SessionCheckpointLogRequest request
+            UUID sessionId
     );
 
     TourSessionAttendanceResponse recordAttendance(

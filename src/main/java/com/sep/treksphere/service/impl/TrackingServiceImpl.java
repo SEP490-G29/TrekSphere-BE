@@ -3,6 +3,7 @@ package com.sep.treksphere.service.impl;
 import com.sep.treksphere.constant.ValidationConstant;
 import com.sep.treksphere.dto.request.ParticipantAttendanceItem;
 import com.sep.treksphere.dto.request.SessionCheckpointLogRequest;
+import com.sep.treksphere.dto.request.SkipCheckpointRequest;
 import com.sep.treksphere.dto.request.TourSessionAttendanceRequest;
 import com.sep.treksphere.dto.request.SessionEquipmentCheckRequest;
 import com.sep.treksphere.dto.request.CreateSosAlertRequest;
@@ -27,6 +28,7 @@ import com.sep.treksphere.exception.AppException;
 import com.sep.treksphere.exception.ErrorCode;
 import com.sep.treksphere.repository.*;
 import com.sep.treksphere.service.TrackingService;
+import com.sep.treksphere.service.TrackingRevisionService;
 import com.sep.treksphere.utils.GeoUtils;
 import com.sep.treksphere.utils.PaginationUtils;
 import lombok.RequiredArgsConstructor;
@@ -59,13 +61,15 @@ public class TrackingServiceImpl implements TrackingService {
     private final UserRepository userRepository;
     private final BookingRepository bookingRepository;
     private final SosAlertRepository sosAlertRepository;
+    private final TrackingRevisionService trackingRevisionService;
 
     @Override
     @Transactional
-    public TourSessionStartResponse startSession(UUID coordinatorId, UUID sessionId, SessionCheckpointLogRequest request) {
-        log.info("Attempting to start tour session with ID: {} by coordinator ID: {} with coordinates: [lat: {}, lon: {}]",
-                sessionId, coordinatorId, request.getLatitude(), request.getLongitude());
+    public TourSessionStartResponse startSession(UUID coordinatorId, UUID sessionId) {
+        log.info("Attempting to start tour session with ID: {} by coordinator ID: {}",
+                sessionId, coordinatorId);
 
+        trackingRevisionService.increment(sessionId);
         TourSession tourSession = getActiveTourSessionForUpdate(sessionId);
         CoordinatorSchedule assignment = getActiveCoordinatorAssignment(sessionId, coordinatorId);
         requireLeadCoordinator(assignment, coordinatorId, sessionId);
@@ -81,7 +85,6 @@ public class TrackingServiceImpl implements TrackingService {
         List<TourCheckpoint> checkpoints = getValidCheckpoints(tour, sessionId);
         validateStartAttendance(tourSession);
         validateEquipmentReadiness(sessionId);
-        validateWithinCheckpointRadius(request, checkpoints.get(0), coordinatorId);
 
         LocalDateTime now = LocalDateTime.now();
         tourSession.setStatus(TourSessionStatus.IN_PROGRESS);
@@ -95,7 +98,7 @@ public class TrackingServiceImpl implements TrackingService {
                 });
         log.info("Tour session {} successfully updated to IN_PROGRESS at {}", sessionId, now);
 
-        List<SessionCheckpointLog> logs = initializeCheckpointLogs(tourSession, checkpoints, request, now);
+        List<SessionCheckpointLog> logs = initializeCheckpointLogs(tourSession, checkpoints);
         sessionCheckpointLogRepository.saveAll(logs);
         log.info("Initialized {} session checkpoint logs for tour session {}", logs.size(), sessionId);
 
@@ -112,7 +115,8 @@ public class TrackingServiceImpl implements TrackingService {
         log.info("Attempting checkpoint check-in for tour session ID: {} by coordinator ID: {} with coordinates: [lat: {}, lon: {}]",
                 sessionId, coordinatorId, request.getLatitude(), request.getLongitude());
 
-        TourSession tourSession = getActiveTourSession(sessionId);
+        trackingRevisionService.increment(sessionId);
+        TourSession tourSession = getActiveTourSessionForUpdate(sessionId);
         getActiveCoordinatorAssignment(sessionId, coordinatorId);
 
         if (tourSession.getStatus() != TourSessionStatus.IN_PROGRESS) {
@@ -150,6 +154,51 @@ public class TrackingServiceImpl implements TrackingService {
     }
 
     @Override
+    @Transactional
+    public SessionCheckpointLogResponse skipCheckpoint(
+            UUID coordinatorId,
+            UUID sessionId,
+            UUID checkpointId,
+            SkipCheckpointRequest request
+    ) {
+        log.info("Attempting to skip checkpoint {} of tour session {} by coordinator {}",
+                checkpointId, sessionId, coordinatorId);
+
+        trackingRevisionService.increment(sessionId);
+        TourSession tourSession = getActiveTourSessionForUpdate(sessionId);
+        CoordinatorSchedule assignment = getActiveCoordinatorAssignment(sessionId, coordinatorId);
+        requireLeadCoordinator(assignment, coordinatorId, sessionId);
+
+        if (tourSession.getStatus() != TourSessionStatus.IN_PROGRESS) {
+            throw new AppException(ErrorCode.SESSION_NOT_IN_PROGRESS);
+        }
+
+        SessionCheckpointLog target = sessionCheckpointLogRepository
+                .findBySessionAndCheckpointForUpdate(sessionId, checkpointId)
+                .orElseThrow(() -> new AppException(ErrorCode.CHECKPOINT_NOT_FOUND));
+        if (target.getStatus() != SessionCheckpointLogStatus.PENDING) {
+            throw new AppException(ErrorCode.CHECKPOINT_ALREADY_PROCESSED);
+        }
+
+        List<SessionCheckpointLog> pendingLogs = sessionCheckpointLogRepository
+                .findByTourSession_TourSessionIdAndStatusAndIsDeletedFalseOrderByCheckpoint_CheckpointOrderAsc(
+                        sessionId, SessionCheckpointLogStatus.PENDING);
+        if (pendingLogs.isEmpty()
+                || !pendingLogs.getFirst().getCheckpoint().getCheckpointId().equals(checkpointId)) {
+            throw new AppException(ErrorCode.CHECKPOINT_NOT_NEXT);
+        }
+
+        target.setStatus(SessionCheckpointLogStatus.SKIPPED);
+        target.setNote(request.getReason().trim());
+        sessionCheckpointLogRepository.save(target);
+
+        log.info("Checkpoint '{}' (order: {}) of session {} was skipped",
+                target.getCheckpoint().getCheckpointName(),
+                target.getCheckpoint().getCheckpointOrder(), sessionId);
+        return mapToSessionCheckpointLogResponse(target);
+    }
+
+    @Override
     @Transactional(readOnly = true)
     public List<SessionCheckpointStatusResponse> getSessionCheckpointLogs(UUID userId, UUID sessionId) {
         log.info("User {} is requesting checkpoint logs for tour session {}", userId, sessionId);
@@ -166,11 +215,12 @@ public class TrackingServiceImpl implements TrackingService {
 
     @Override
     @Transactional
-    public TourSessionEndResponse endSession(UUID coordinatorId, UUID sessionId, SessionCheckpointLogRequest request) {
-        log.info("Attempting to end tour session with ID: {} by coordinator ID: {} with destination coordinates: [lat: {}, lon: {}]",
-                sessionId, coordinatorId, request.getLatitude(), request.getLongitude());
+    public TourSessionEndResponse endSession(UUID coordinatorId, UUID sessionId) {
+        log.info("Attempting to end tour session with ID: {} by coordinator ID: {}",
+                sessionId, coordinatorId);
 
-        TourSession tourSession = getActiveTourSession(sessionId);
+        trackingRevisionService.increment(sessionId);
+        TourSession tourSession = getActiveTourSessionForUpdate(sessionId);
         CoordinatorSchedule assignment = getActiveCoordinatorAssignment(sessionId, coordinatorId);
         requireLeadCoordinator(assignment, coordinatorId, sessionId);
 
@@ -179,35 +229,22 @@ public class TrackingServiceImpl implements TrackingService {
             throw new AppException(ErrorCode.SESSION_NOT_IN_PROGRESS);
         }
 
-        LocalDateTime now = LocalDateTime.now();
-
-        List<SessionCheckpointLog> allLogs = sessionCheckpointLogRepository
-                .findByTourSession_TourSessionIdAndIsDeletedFalseOrderByCheckpoint_CheckpointOrderAsc(sessionId);
-
-        if (!allLogs.isEmpty()) {
-            SessionCheckpointLog destinationLog = allLogs.get(allLogs.size() - 1);
-            TourCheckpoint destinationCheckpoint = destinationLog.getCheckpoint();
-
-            validateWithinCheckpointRadius(request, destinationCheckpoint, coordinatorId);
-
-            destinationLog.setStatus(SessionCheckpointLogStatus.REACHED);
-            destinationLog.setReachedAt(now);
-            destinationLog.setActualLatitude(request.getLatitude());
-            destinationLog.setActualLongitude(request.getLongitude());
-            destinationLog.setNote(request.getNote());
-
-            for (int i = 0; i < allLogs.size() - 1; i++) {
-                SessionCheckpointLog logItem = allLogs.get(i);
-                if (logItem.getStatus() == SessionCheckpointLogStatus.PENDING) {
-                    logItem.setStatus(SessionCheckpointLogStatus.SKIPPED);
-                    log.info("Checkpoint '{}' (order: {}) automatically marked as SKIPPED due to session completion",
-                            logItem.getCheckpoint().getCheckpointName(), logItem.getCheckpoint().getCheckpointOrder());
-                }
-            }
-
-            sessionCheckpointLogRepository.saveAll(allLogs);
+        validateEndAttendance(tourSession);
+        if (sosAlertRepository
+                .findFirstByTourSession_TourSessionIdAndStatusAndIsDeletedFalseOrderByCreatedAtDesc(
+                        sessionId, SosAlertStatus.PENDING)
+                .isPresent()) {
+            throw new AppException(ErrorCode.ACTIVE_SOS_EXISTS);
         }
 
+        List<SessionCheckpointLog> pendingLogs = sessionCheckpointLogRepository
+                .findByTourSession_TourSessionIdAndStatusAndIsDeletedFalseOrderByCheckpoint_CheckpointOrderAsc(
+                        sessionId, SessionCheckpointLogStatus.PENDING);
+        if (!pendingLogs.isEmpty()) {
+            throw new AppException(ErrorCode.SESSION_HAS_PENDING_CHECKPOINTS);
+        }
+
+        LocalDateTime now = LocalDateTime.now();
         tourSession.setStatus(TourSessionStatus.COMPLETED);
         tourSession.setEndedAt(now);
         tourSessionRepository.save(tourSession);
@@ -232,13 +269,13 @@ public class TrackingServiceImpl implements TrackingService {
         log.info("Attempting to record attendance (type: {}) for tour session ID: {} by coordinator ID: {}",
                 request.getAttendanceType(), sessionId, coordinatorId);
 
-        TourSession tourSession = getActiveTourSession(sessionId);
+        trackingRevisionService.increment(sessionId);
+        TourSession tourSession = getActiveTourSessionForUpdate(sessionId);
         getActiveCoordinatorAssignment(sessionId, coordinatorId);
 
         AttendanceType attendanceType = request.getAttendanceType();
         boolean isStartAllowed = attendanceType == AttendanceType.START
-                && (tourSession.getStatus() == TourSessionStatus.PENDING
-                || tourSession.getStatus() == TourSessionStatus.IN_PROGRESS);
+                && tourSession.getStatus() == TourSessionStatus.PENDING;
         boolean isEndAllowed = attendanceType == AttendanceType.END
                 && tourSession.getStatus() == TourSessionStatus.IN_PROGRESS;
 
@@ -257,10 +294,13 @@ public class TrackingServiceImpl implements TrackingService {
             throw new AppException(ErrorCode.DUPLICATE_PARTICIPANT_IN_ATTENDANCE);
         }
 
+        BookingStatus requiredBookingStatus = attendanceType == AttendanceType.START
+                ? BookingStatus.CONFIRMED
+                : BookingStatus.IN_PROGRESS;
         List<BookingParticipant> activeParticipants = bookingParticipantRepository
                 .findActiveParticipantsByScheduleId(
                         tourSession.getTourSchedule().getScheduleId(),
-                        BookingStatus.CONFIRMED
+                        requiredBookingStatus
                 );
 
         Map<UUID, BookingParticipant> activeParticipantMap = activeParticipants.stream()
@@ -323,6 +363,13 @@ public class TrackingServiceImpl implements TrackingService {
                     log.warn("Session equipment allocation {} not found", sessionEquipmentId);
                     return new AppException(ErrorCode.SESSION_EQUIPMENT_NOT_FOUND);
                 });
+
+        UUID equipmentSessionId = sessionEquipment.getTourSession().getTourSessionId();
+        trackingRevisionService.increment(equipmentSessionId);
+        TourSession equipmentSession = getActiveTourSessionForUpdate(equipmentSessionId);
+        if (equipmentSession.getStatus() != TourSessionStatus.PENDING) {
+            throw new AppException(ErrorCode.SESSION_ALREADY_STARTED);
+        }
 
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> {
@@ -392,11 +439,8 @@ public class TrackingServiceImpl implements TrackingService {
     public SosAlertResponse createSosAlert(UUID senderId, CreateSosAlertRequest request) {
         log.info("User {} is attempting to trigger SOS alert for tour session ID: {}", senderId, request.getTourSessionId());
 
-        TourSession tourSession = tourSessionRepository.findByTourSessionIdAndIsDeletedFalse(request.getTourSessionId())
-                .orElseThrow(() -> {
-                    log.warn("Tour session with ID {} not found", request.getTourSessionId());
-                    return new AppException(ErrorCode.SESSION_NOT_FOUND);
-                });
+        trackingRevisionService.increment(request.getTourSessionId());
+        TourSession tourSession = getActiveTourSessionForUpdate(request.getTourSessionId());
 
         if (tourSession.getStatus() != TourSessionStatus.IN_PROGRESS) {
             log.warn("Tour session {} is not in progress. Current status: {}", request.getTourSessionId(), tourSession.getStatus());
@@ -428,7 +472,7 @@ public class TrackingServiceImpl implements TrackingService {
         if (!isAuthorized) {
             boolean isBooker = bookingRepository
                     .existsByUser_UserIdAndSchedule_ScheduleIdAndBookingStatusAndIsDeletedFalse(
-                            senderId, scheduleId, BookingStatus.CONFIRMED);
+                            senderId, scheduleId, BookingStatus.IN_PROGRESS);
 
             if (isBooker) {
                 isAuthorized = true;
@@ -442,13 +486,13 @@ public class TrackingServiceImpl implements TrackingService {
                 if (email != null) {
                     isParticipant = bookingParticipantRepository
                             .existsByEmailAndBooking_Schedule_ScheduleIdAndBooking_BookingStatusAndIsDeletedFalse(
-                                    email, scheduleId, BookingStatus.CONFIRMED);
+                                    email, scheduleId, BookingStatus.IN_PROGRESS);
                 }
 
                 if (!isParticipant && phone != null) {
                     isParticipant = bookingParticipantRepository
                             .existsByPhoneAndBooking_Schedule_ScheduleIdAndBooking_BookingStatusAndIsDeletedFalse(
-                                    phone, scheduleId, BookingStatus.CONFIRMED);
+                                    phone, scheduleId, BookingStatus.IN_PROGRESS);
                 }
 
                 if (isParticipant) {
@@ -550,11 +594,16 @@ public class TrackingServiceImpl implements TrackingService {
     public SosAlertResponse resolveSosAlert(UUID userId, UUID sosId) {
         log.info("User {} is attempting to resolve SOS alert {}", userId, sosId);
 
-        SosAlert sosAlert = sosAlertRepository.findById(sosId)
+        SosAlert sosLookup = sosAlertRepository.findById(sosId)
                 .orElseThrow(() -> {
                     log.warn("SosAlert {} not found", sosId);
                     return new AppException(ErrorCode.SOS_ALERT_NOT_FOUND);
                 });
+
+        UUID sosSessionId = sosLookup.getTourSession().getTourSessionId();
+        trackingRevisionService.increment(sosSessionId);
+        getActiveTourSessionForUpdate(sosSessionId);
+        SosAlert sosAlert = sosAlertRepository.findByIdForUpdate(sosId).orElseThrow();
 
         if (sosAlert.getStatus() == SosAlertStatus.RESOLVED) {
             log.warn("SosAlert {} is already resolved", sosId);
@@ -799,6 +848,20 @@ public class TrackingServiceImpl implements TrackingService {
         }
     }
 
+    private void validateEndAttendance(TourSession tourSession) {
+        List<BookingParticipant> participants = bookingParticipantRepository
+                .findActiveParticipantsByScheduleId(
+                        tourSession.getTourSchedule().getScheduleId(),
+                        BookingStatus.IN_PROGRESS
+                );
+        boolean incomplete = participants.isEmpty() || participants.stream()
+                .filter(participant -> Boolean.TRUE.equals(participant.getIsPresentStart()))
+                .anyMatch(participant -> !Boolean.TRUE.equals(participant.getIsPresentEnd()));
+        if (incomplete) {
+            throw new AppException(ErrorCode.END_ATTENDANCE_INCOMPLETE);
+        }
+    }
+
     private void validateEquipmentReadiness(UUID sessionId) {
         boolean hasUncheckedEquipment = sessionEquipmentRepository
                 .findByTourSession_TourSessionIdAndIsDeletedFalse(sessionId)
@@ -812,25 +875,14 @@ public class TrackingServiceImpl implements TrackingService {
 
     private List<SessionCheckpointLog> initializeCheckpointLogs(
             TourSession tourSession,
-            List<TourCheckpoint> checkpoints,
-            SessionCheckpointLogRequest request,
-            LocalDateTime reachedAt
+            List<TourCheckpoint> checkpoints
     ) {
         List<SessionCheckpointLog> logs = new ArrayList<>(checkpoints.size());
-        for (int index = 0; index < checkpoints.size(); index++) {
+        for (TourCheckpoint checkpoint : checkpoints) {
             SessionCheckpointLog checkpointLog = new SessionCheckpointLog();
             checkpointLog.setTourSession(tourSession);
-            checkpointLog.setCheckpoint(checkpoints.get(index));
-
-            if (index == 0) {
-                checkpointLog.setStatus(SessionCheckpointLogStatus.REACHED);
-                checkpointLog.setReachedAt(reachedAt);
-                checkpointLog.setActualLatitude(request.getLatitude());
-                checkpointLog.setActualLongitude(request.getLongitude());
-                checkpointLog.setNote(request.getNote());
-            } else {
-                checkpointLog.setStatus(SessionCheckpointLogStatus.PENDING);
-            }
+            checkpointLog.setCheckpoint(checkpoint);
+            checkpointLog.setStatus(SessionCheckpointLogStatus.PENDING);
             logs.add(checkpointLog);
         }
         return logs;
@@ -862,6 +914,7 @@ public class TrackingServiceImpl implements TrackingService {
                 .checkpointAltitude(checkpoint.getAltitude())
                 .checkpointImageUrl(checkpoint.getCheckpointImageUrl())
                 .status(checkpointLog.getStatus())
+                .note(checkpointLog.getNote())
                 .build();
     }
 
