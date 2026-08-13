@@ -8,10 +8,12 @@ import org.springframework.stereotype.Repository;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.repository.query.Param;
 
 import java.util.UUID;
 import java.util.Optional;
+import jakarta.persistence.LockModeType;
 
 @Repository
 public interface SosAlertRepository extends JpaRepository<SosAlert, UUID> {
@@ -38,4 +40,8 @@ public interface SosAlertRepository extends JpaRepository<SosAlert, UUID> {
             @Param("vendorId") UUID vendorId,
             Pageable pageable
     );
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT s FROM SosAlert s WHERE s.sosAlertId = :sosId AND s.isDeleted = false")
+    Optional<SosAlert> findByIdForUpdate(@Param("sosId") UUID sosId);
 }

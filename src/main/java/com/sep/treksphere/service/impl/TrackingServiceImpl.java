@@ -27,6 +27,7 @@ import com.sep.treksphere.exception.AppException;
 import com.sep.treksphere.exception.ErrorCode;
 import com.sep.treksphere.repository.*;
 import com.sep.treksphere.service.TrackingService;
+import com.sep.treksphere.service.TrackingRevisionService;
 import com.sep.treksphere.utils.GeoUtils;
 import com.sep.treksphere.utils.PaginationUtils;
 import lombok.RequiredArgsConstructor;
@@ -59,6 +60,7 @@ public class TrackingServiceImpl implements TrackingService {
     private final UserRepository userRepository;
     private final BookingRepository bookingRepository;
     private final SosAlertRepository sosAlertRepository;
+    private final TrackingRevisionService trackingRevisionService;
 
     @Override
     @Transactional
@@ -66,6 +68,7 @@ public class TrackingServiceImpl implements TrackingService {
         log.info("Attempting to start tour session with ID: {} by coordinator ID: {} with coordinates: [lat: {}, lon: {}]",
                 sessionId, coordinatorId, request.getLatitude(), request.getLongitude());
 
+        trackingRevisionService.increment(sessionId);
         TourSession tourSession = getActiveTourSessionForUpdate(sessionId);
         CoordinatorSchedule assignment = getActiveCoordinatorAssignment(sessionId, coordinatorId);
         requireLeadCoordinator(assignment, coordinatorId, sessionId);
@@ -112,7 +115,8 @@ public class TrackingServiceImpl implements TrackingService {
         log.info("Attempting checkpoint check-in for tour session ID: {} by coordinator ID: {} with coordinates: [lat: {}, lon: {}]",
                 sessionId, coordinatorId, request.getLatitude(), request.getLongitude());
 
-        TourSession tourSession = getActiveTourSession(sessionId);
+        trackingRevisionService.increment(sessionId);
+        TourSession tourSession = getActiveTourSessionForUpdate(sessionId);
         getActiveCoordinatorAssignment(sessionId, coordinatorId);
 
         if (tourSession.getStatus() != TourSessionStatus.IN_PROGRESS) {
@@ -170,13 +174,22 @@ public class TrackingServiceImpl implements TrackingService {
         log.info("Attempting to end tour session with ID: {} by coordinator ID: {} with destination coordinates: [lat: {}, lon: {}]",
                 sessionId, coordinatorId, request.getLatitude(), request.getLongitude());
 
-        TourSession tourSession = getActiveTourSession(sessionId);
+        trackingRevisionService.increment(sessionId);
+        TourSession tourSession = getActiveTourSessionForUpdate(sessionId);
         CoordinatorSchedule assignment = getActiveCoordinatorAssignment(sessionId, coordinatorId);
         requireLeadCoordinator(assignment, coordinatorId, sessionId);
 
         if (tourSession.getStatus() != TourSessionStatus.IN_PROGRESS) {
             log.warn("Tour session {} is not in progress. Current status: {}", sessionId, tourSession.getStatus());
             throw new AppException(ErrorCode.SESSION_NOT_IN_PROGRESS);
+        }
+
+        validateEndAttendance(tourSession);
+        if (sosAlertRepository
+                .findFirstByTourSession_TourSessionIdAndStatusAndIsDeletedFalseOrderByCreatedAtDesc(
+                        sessionId, SosAlertStatus.PENDING)
+                .isPresent()) {
+            throw new AppException(ErrorCode.ACTIVE_SOS_EXISTS);
         }
 
         LocalDateTime now = LocalDateTime.now();
@@ -232,13 +245,13 @@ public class TrackingServiceImpl implements TrackingService {
         log.info("Attempting to record attendance (type: {}) for tour session ID: {} by coordinator ID: {}",
                 request.getAttendanceType(), sessionId, coordinatorId);
 
-        TourSession tourSession = getActiveTourSession(sessionId);
+        trackingRevisionService.increment(sessionId);
+        TourSession tourSession = getActiveTourSessionForUpdate(sessionId);
         getActiveCoordinatorAssignment(sessionId, coordinatorId);
 
         AttendanceType attendanceType = request.getAttendanceType();
         boolean isStartAllowed = attendanceType == AttendanceType.START
-                && (tourSession.getStatus() == TourSessionStatus.PENDING
-                || tourSession.getStatus() == TourSessionStatus.IN_PROGRESS);
+                && tourSession.getStatus() == TourSessionStatus.PENDING;
         boolean isEndAllowed = attendanceType == AttendanceType.END
                 && tourSession.getStatus() == TourSessionStatus.IN_PROGRESS;
 
@@ -257,10 +270,13 @@ public class TrackingServiceImpl implements TrackingService {
             throw new AppException(ErrorCode.DUPLICATE_PARTICIPANT_IN_ATTENDANCE);
         }
 
+        BookingStatus requiredBookingStatus = attendanceType == AttendanceType.START
+                ? BookingStatus.CONFIRMED
+                : BookingStatus.IN_PROGRESS;
         List<BookingParticipant> activeParticipants = bookingParticipantRepository
                 .findActiveParticipantsByScheduleId(
                         tourSession.getTourSchedule().getScheduleId(),
-                        BookingStatus.CONFIRMED
+                        requiredBookingStatus
                 );
 
         Map<UUID, BookingParticipant> activeParticipantMap = activeParticipants.stream()
@@ -323,6 +339,13 @@ public class TrackingServiceImpl implements TrackingService {
                     log.warn("Session equipment allocation {} not found", sessionEquipmentId);
                     return new AppException(ErrorCode.SESSION_EQUIPMENT_NOT_FOUND);
                 });
+
+        UUID equipmentSessionId = sessionEquipment.getTourSession().getTourSessionId();
+        trackingRevisionService.increment(equipmentSessionId);
+        TourSession equipmentSession = getActiveTourSessionForUpdate(equipmentSessionId);
+        if (equipmentSession.getStatus() != TourSessionStatus.PENDING) {
+            throw new AppException(ErrorCode.SESSION_ALREADY_STARTED);
+        }
 
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> {
@@ -392,11 +415,8 @@ public class TrackingServiceImpl implements TrackingService {
     public SosAlertResponse createSosAlert(UUID senderId, CreateSosAlertRequest request) {
         log.info("User {} is attempting to trigger SOS alert for tour session ID: {}", senderId, request.getTourSessionId());
 
-        TourSession tourSession = tourSessionRepository.findByTourSessionIdAndIsDeletedFalse(request.getTourSessionId())
-                .orElseThrow(() -> {
-                    log.warn("Tour session with ID {} not found", request.getTourSessionId());
-                    return new AppException(ErrorCode.SESSION_NOT_FOUND);
-                });
+        trackingRevisionService.increment(request.getTourSessionId());
+        TourSession tourSession = getActiveTourSessionForUpdate(request.getTourSessionId());
 
         if (tourSession.getStatus() != TourSessionStatus.IN_PROGRESS) {
             log.warn("Tour session {} is not in progress. Current status: {}", request.getTourSessionId(), tourSession.getStatus());
@@ -428,7 +448,7 @@ public class TrackingServiceImpl implements TrackingService {
         if (!isAuthorized) {
             boolean isBooker = bookingRepository
                     .existsByUser_UserIdAndSchedule_ScheduleIdAndBookingStatusAndIsDeletedFalse(
-                            senderId, scheduleId, BookingStatus.CONFIRMED);
+                            senderId, scheduleId, BookingStatus.IN_PROGRESS);
 
             if (isBooker) {
                 isAuthorized = true;
@@ -442,13 +462,13 @@ public class TrackingServiceImpl implements TrackingService {
                 if (email != null) {
                     isParticipant = bookingParticipantRepository
                             .existsByEmailAndBooking_Schedule_ScheduleIdAndBooking_BookingStatusAndIsDeletedFalse(
-                                    email, scheduleId, BookingStatus.CONFIRMED);
+                                    email, scheduleId, BookingStatus.IN_PROGRESS);
                 }
 
                 if (!isParticipant && phone != null) {
                     isParticipant = bookingParticipantRepository
                             .existsByPhoneAndBooking_Schedule_ScheduleIdAndBooking_BookingStatusAndIsDeletedFalse(
-                                    phone, scheduleId, BookingStatus.CONFIRMED);
+                                    phone, scheduleId, BookingStatus.IN_PROGRESS);
                 }
 
                 if (isParticipant) {
@@ -550,11 +570,16 @@ public class TrackingServiceImpl implements TrackingService {
     public SosAlertResponse resolveSosAlert(UUID userId, UUID sosId) {
         log.info("User {} is attempting to resolve SOS alert {}", userId, sosId);
 
-        SosAlert sosAlert = sosAlertRepository.findById(sosId)
+        SosAlert sosLookup = sosAlertRepository.findById(sosId)
                 .orElseThrow(() -> {
                     log.warn("SosAlert {} not found", sosId);
                     return new AppException(ErrorCode.SOS_ALERT_NOT_FOUND);
                 });
+
+        UUID sosSessionId = sosLookup.getTourSession().getTourSessionId();
+        trackingRevisionService.increment(sosSessionId);
+        getActiveTourSessionForUpdate(sosSessionId);
+        SosAlert sosAlert = sosAlertRepository.findByIdForUpdate(sosId).orElseThrow();
 
         if (sosAlert.getStatus() == SosAlertStatus.RESOLVED) {
             log.warn("SosAlert {} is already resolved", sosId);
@@ -796,6 +821,20 @@ public class TrackingServiceImpl implements TrackingService {
         if (participants.stream().noneMatch(participant -> Boolean.TRUE.equals(participant.getIsPresentStart()))) {
             log.warn("No participants are present for tour session {}", tourSession.getTourSessionId());
             throw new AppException(ErrorCode.NO_PRESENT_PARTICIPANTS);
+        }
+    }
+
+    private void validateEndAttendance(TourSession tourSession) {
+        List<BookingParticipant> participants = bookingParticipantRepository
+                .findActiveParticipantsByScheduleId(
+                        tourSession.getTourSchedule().getScheduleId(),
+                        BookingStatus.IN_PROGRESS
+                );
+        boolean incomplete = participants.isEmpty() || participants.stream()
+                .filter(participant -> Boolean.TRUE.equals(participant.getIsPresentStart()))
+                .anyMatch(participant -> !Boolean.TRUE.equals(participant.getIsPresentEnd()));
+        if (incomplete) {
+            throw new AppException(ErrorCode.END_ATTENDANCE_INCOMPLETE);
         }
     }
 

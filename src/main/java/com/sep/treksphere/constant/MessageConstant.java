@@ -482,6 +482,9 @@ public class MessageConstant {
     public static final String GROUP_PARTICIPANT_COUNT_INVALID = "Cuộc hội thoại nhóm phải có ít nhất hai người tham gia";
     public static final String GROUP_TITLE_REQUIRED = "Tên cuộc hội thoại nhóm không được để trống";
 
+    public static final String END_ATTENDANCE_INCOMPLETE = "Chưa hoàn tất điểm danh cuối chuyến cho tất cả người tham gia";
+    public static final String ACTIVE_SOS_EXISTS = "Không thể kết thúc tour khi vẫn còn SOS đang chờ xử lý";
+
     // Report Messages
     public static final String REPORT_NOT_FOUND = "Báo cáo vi phạm không tồn tại";
     public static final String REPORT_TARGET_NOT_FOUND = "Nội dung bị báo cáo không tồn tại";

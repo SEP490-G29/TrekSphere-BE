@@ -26,6 +26,16 @@ public interface BookingParticipantRepository extends JpaRepository<BookingParti
             @Param("bookingStatus") BookingStatus bookingStatus
     );
 
+    @Query("SELECT bp FROM BookingParticipant bp JOIN bp.booking b " +
+           "WHERE b.schedule.scheduleId = :scheduleId " +
+           "AND b.bookingStatus IN :bookingStatuses " +
+           "AND b.isDeleted = false " +
+           "AND bp.isDeleted = false")
+    List<BookingParticipant> findActiveParticipantsByScheduleIdAndStatuses(
+            @Param("scheduleId") UUID scheduleId,
+            @Param("bookingStatuses") List<BookingStatus> bookingStatuses
+    );
+
     boolean existsByEmailAndBooking_Schedule_ScheduleIdAndBooking_BookingStatusAndIsDeletedFalse(
             String email, UUID scheduleId, BookingStatus bookingStatus
     );
