@@ -25,4 +25,5 @@ public class ConversationResponse {
     private String lastMessageContent;
     private Long unreadCount;
     private Boolean isNew;
+    private Boolean isGroupLeader;
 }

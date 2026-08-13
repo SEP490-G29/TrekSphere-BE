@@ -159,7 +159,10 @@ public enum ErrorCode {
             MessageConstant.PAYMENT_ACCOUNT_NOT_CONFIGURED),
     PAYMENT_NOT_ALLOWED(7015, HttpStatus.BAD_REQUEST, MessageConstant.PAYMENT_NOT_ALLOWED),
     PAYMENT_TRANSACTION_NOT_FOUND(7016, HttpStatus.NOT_FOUND, MessageConstant.PAYMENT_TRANSACTION_NOT_FOUND),
-    PAYMENT_GATEWAY_ERROR(7017, HttpStatus.BAD_GATEWAY, MessageConstant.PAYMENT_GATEWAY_ERROR),
+    // Do not emit 502 from the application: Cloudflare replaces origin 502 bodies,
+    // hiding our JSON error from the frontend. 503 preserves the API envelope and
+    // more accurately represents a temporarily unavailable upstream provider.
+    PAYMENT_GATEWAY_ERROR(7017, HttpStatus.SERVICE_UNAVAILABLE, MessageConstant.PAYMENT_GATEWAY_ERROR),
     INVALID_PAYMENT_WEBHOOK(7018, HttpStatus.BAD_REQUEST, MessageConstant.INVALID_PAYMENT_WEBHOOK),
     REFUND_NOT_FOUND(7019, HttpStatus.NOT_FOUND, MessageConstant.REFUND_NOT_FOUND),
     REFUND_DESTINATION_REQUIRED(7020, HttpStatus.BAD_REQUEST, MessageConstant.REFUND_DESTINATION_REQUIRED),
@@ -168,6 +171,8 @@ public enum ErrorCode {
     IDEMPOTENCY_CONFLICT(7023, HttpStatus.CONFLICT, MessageConstant.IDEMPOTENCY_CONFLICT),
     POLICY_NOT_FOUND(7024, HttpStatus.NOT_FOUND, MessageConstant.POLICY_NOT_FOUND),
     POLICY_DUPLICATE_DAYS(7025, HttpStatus.CONFLICT, MessageConstant.POLICY_DUPLICATE_DAYS),
+    PAYMENT_ACCOUNT_VERIFICATION_FAILED(7026, HttpStatus.UNPROCESSABLE_ENTITY,
+            MessageConstant.PAYMENT_ACCOUNT_VERIFICATION_FAILED),
     // Logistics
     TOUR_SESSION_NOT_FOUND(8001, HttpStatus.NOT_FOUND, MessageConstant.TOUR_SESSION_NOT_FOUND),
     TOUR_SESSION_ALREADY_STARTED(8002, HttpStatus.BAD_REQUEST, MessageConstant.TOUR_SESSION_ALREADY_STARTED),

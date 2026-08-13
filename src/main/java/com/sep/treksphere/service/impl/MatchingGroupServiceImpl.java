@@ -38,6 +38,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Set;
@@ -121,10 +122,19 @@ public class MatchingGroupServiceImpl implements MatchingGroupService {
 
         MatchingGroupDetailResponse response = matchingGroupMapper.toDetailResponse(matchingGroup);
 
+        Set<UUID> usersInConversation = new HashSet<>();
+        if (matchingGroup.getConversation() != null && !Boolean.TRUE.equals(matchingGroup.getConversation().getIsDeleted())) {
+            matchingGroup.getConversation().getParticipants().forEach(p -> usersInConversation.add(p.getUserId()));
+        }
+
         List<MatchingMemberResponse> acceptedMembers = matchingGroup.getMembers().stream()
                 .filter(member -> member.getStatus() == JoinStatus.ACCEPTED
                         && !Boolean.TRUE.equals(member.getIsDeleted()))
-                .map(matchingGroupMapper::toMemberResponse)
+                .map(member -> {
+                    MatchingMemberResponse memResponse = matchingGroupMapper.toMemberResponse(member);
+                    memResponse.setIsInConversation(usersInConversation.contains(member.getUser().getUserId()));
+                    return memResponse;
+                })
                 .toList();
 
         response.setMembers(acceptedMembers);
@@ -151,6 +161,13 @@ public class MatchingGroupServiceImpl implements MatchingGroupService {
         response.setMyMembershipStatus(membershipStatus);
         response.setCanJoin(viewerId != null && !isOwner && !hasActiveMembership && groupIsJoinable);
         response.setCanLeave(viewerId != null && !isOwner && hasActiveMembership);
+        
+        boolean isInConversation = false;
+        if (viewerId != null && matchingGroup.getConversation() != null && !Boolean.TRUE.equals(matchingGroup.getConversation().getIsDeleted())) {
+            isInConversation = matchingGroup.getConversation().getParticipants().stream()
+                    .anyMatch(p -> p.getUserId().equals(viewerId));
+        }
+        response.setIsInConversation(isInConversation);
 
         return response;
     }
