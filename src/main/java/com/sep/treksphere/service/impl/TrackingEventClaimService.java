@@ -15,6 +15,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.sql.Timestamp;
 import java.time.Instant;
 import java.util.HexFormat;
 import java.util.UUID;
@@ -47,7 +48,8 @@ public class TrackingEventClaimService {
                 ON CONFLICT DO NOTHING
                 """,
                 eventId, request.getClientEventId(), sessionId, actorId, deviceId,
-                request.getSequenceNumber(), request.getType().name(), request.getOccurredAt(), now,
+                request.getSequenceNumber(), request.getType().name(),
+                Timestamp.from(request.getOccurredAt()), Timestamp.from(now),
                 request.getPayload().toString(), payloadHash, request.getBaseRevision());
 
         if (inserted == 1) {

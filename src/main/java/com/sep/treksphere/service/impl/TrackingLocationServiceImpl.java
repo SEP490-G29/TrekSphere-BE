@@ -19,6 +19,7 @@ import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.math.BigDecimal;
+import java.sql.Timestamp;
 import java.time.*;
 import java.util.*;
 
@@ -88,7 +89,8 @@ public class TrackingLocationServiceImpl implements TrackingLocationService {
                     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     ON CONFLICT (sample_id) DO NOTHING
                     """, sample.getSampleId(), sessionId, actorId, request.getDeviceId(),
-                    sample.getRecordedAt(), receivedAt, sample.getLatitude(), sample.getLongitude(),
+                    Timestamp.from(sample.getRecordedAt()), Timestamp.from(receivedAt),
+                    sample.getLatitude(), sample.getLongitude(),
                     sample.getAccuracyMeters(), sample.getSpeedMetersPerSecond(), sample.getHeadingDegrees(),
                     status.name(), late);
             if (inserted == 1) accepted.add(sample.getSampleId());
