@@ -26,4 +26,5 @@ public class SessionCheckpointStatusResponse {
     private BigDecimal checkpointAltitude;
     private String checkpointImageUrl;
     private SessionCheckpointLogStatus status;
+    private String note;
 }

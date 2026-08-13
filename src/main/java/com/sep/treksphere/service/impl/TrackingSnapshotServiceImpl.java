@@ -71,6 +71,7 @@ public class TrackingSnapshotServiceImpl implements TrackingSnapshotService {
                             .longitude(checkpoint.getLongitude())
                             .status(log == null ? SessionCheckpointLogStatus.PENDING : log.getStatus())
                             .reachedAt(log == null ? null : log.getReachedAt())
+                            .note(log == null ? null : log.getNote())
                             .build();
                 }).toList())
                 .latestSos(latestSos)

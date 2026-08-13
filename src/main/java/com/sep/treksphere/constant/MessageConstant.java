@@ -224,6 +224,12 @@ public class MessageConstant {
     public static final String NO_PENDING_CHECKPOINTS = "Tất cả các trạm dừng của chuyến đi này đã hoàn thành check-in";
     public static final String SESSION_NOT_IN_PROGRESS = "Phiên đi tour này hiện tại không hoạt động";
     public static final String CHECKIN_SUCCESSFUL = "Ghi nhận trạm dừng thành công";
+    public static final String CHECKPOINT_SKIPPED_SUCCESSFULLY = "Bỏ qua trạm dừng thành công";
+    public static final String CHECKPOINT_SKIP_REASON_REQUIRED = "Lý do bỏ qua trạm dừng không được để trống";
+    public static final String CHECKPOINT_SKIP_REASON_MAX_LENGTH = "Lý do bỏ qua trạm dừng không được vượt quá 1000 ký tự";
+    public static final String SESSION_HAS_PENDING_CHECKPOINTS = "Không thể kết thúc tour vì vẫn còn trạm dừng chưa được xử lý";
+    public static final String CHECKPOINT_NOT_NEXT = "Chỉ có thể xử lý trạm dừng tiếp theo của hành trình";
+    public static final String CHECKPOINT_ALREADY_PROCESSED = "Trạm dừng này đã được xử lý trước đó";
     public static final String ATTENDANCE_RECORDED_SUCCESSFULLY = "Ghi nhận điểm danh thành công";
     public static final String INVALID_ATTENDANCE_TYPE = "Loại điểm danh không hợp lệ (phải là START hoặc END)";
     public static final String PARTICIPANT_NOT_FOUND_IN_SESSION = "Thành viên tham gia không thuộc phiên đi tour này";

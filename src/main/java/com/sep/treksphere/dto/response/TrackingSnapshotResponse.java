@@ -56,6 +56,7 @@ public class TrackingSnapshotResponse {
         private BigDecimal longitude;
         private SessionCheckpointLogStatus status;
         private LocalDateTime reachedAt;
+        private String note;
     }
 
     @Data

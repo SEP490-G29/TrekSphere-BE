@@ -89,8 +89,7 @@ public class TrackingEventProcessor {
                 yield new ResourceOutcome("TOUR_SESSION", sessionId, "Đã đồng bộ điểm danh " + type);
             }
             case SESSION_STARTED -> {
-                SessionCheckpointLogRequest request = checkpointRequest(payload);
-                TourSessionStartResponse response = trackingService.startSession(actorId, sessionId, request);
+                TourSessionStartResponse response = trackingService.startSession(actorId, sessionId);
                 TourSession session = tourSessionRepository.findById(sessionId).orElseThrow();
                 session.setStartedAt(occurredAt);
                 yield new ResourceOutcome("TOUR_SESSION", response.getTourSessionId(), "Đã bắt đầu tour");
@@ -119,6 +118,26 @@ public class TrackingEventProcessor {
                 yield new ResourceOutcome("SESSION_CHECKPOINT_LOG", response.getSessionCheckpointLogId(),
                         "Đã ghi nhận checkpoint");
             }
+            case CHECKPOINT_SKIPPED -> {
+                UUID checkpointId = requiredUuid(payload, "checkpointId");
+                SessionCheckpointLog target = checkpointLogRepository
+                        .findBySessionAndCheckpointForUpdate(sessionId, checkpointId)
+                        .orElseThrow(() -> new AppException(ErrorCode.CHECKPOINT_NOT_FOUND));
+                if (target.getStatus() == SessionCheckpointLogStatus.SKIPPED) {
+                    yield new ResourceOutcome("SESSION_CHECKPOINT_LOG",
+                            target.getSessionCheckpointLogId(), "Checkpoint đã được bỏ qua trước đó", true);
+                }
+                if (target.getStatus() != SessionCheckpointLogStatus.PENDING) {
+                    throw new AppException(ErrorCode.CHECKPOINT_ALREADY_PROCESSED);
+                }
+                SessionCheckpointLogResponse response = trackingService.skipCheckpoint(
+                        actorId,
+                        sessionId,
+                        checkpointId,
+                        new SkipCheckpointRequest(requiredText(payload, "reason")));
+                yield new ResourceOutcome("SESSION_CHECKPOINT_LOG", response.getSessionCheckpointLogId(),
+                        "Đã bỏ qua checkpoint");
+            }
             case SOS_CREATED -> {
                 CreateSosAlertRequest request = new CreateSosAlertRequest(
                         sessionId,
@@ -129,8 +148,7 @@ public class TrackingEventProcessor {
                 yield new ResourceOutcome("SOS_ALERT", response.getSosAlertId(), "Đã gửi SOS");
             }
             case SESSION_ENDED -> {
-                TourSessionEndResponse response = trackingService.endSession(
-                        actorId, sessionId, checkpointRequest(payload));
+                TourSessionEndResponse response = trackingService.endSession(actorId, sessionId);
                 TourSession session = tourSessionRepository.findById(sessionId).orElseThrow();
                 session.setEndedAt(occurredAt);
                 yield new ResourceOutcome("TOUR_SESSION", response.getTourSessionId(), "Đã kết thúc tour");

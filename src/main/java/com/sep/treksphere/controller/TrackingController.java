@@ -2,6 +2,7 @@ package com.sep.treksphere.controller;
 
 import com.sep.treksphere.constant.MessageConstant;
 import com.sep.treksphere.dto.request.SessionCheckpointLogRequest;
+import com.sep.treksphere.dto.request.SkipCheckpointRequest;
 import com.sep.treksphere.dto.response.ApiResponse;
 import com.sep.treksphere.dto.response.PaginationResponse;
 import com.sep.treksphere.dto.response.SessionCheckpointLogResponse;
@@ -50,19 +51,34 @@ public class TrackingController {
     private final TrackingService trackingService;
 
     @PostMapping("/{sessionId}/start")
-    @Operation(summary = "Bắt đầu phiên đi tour thực tế", description = "Lead Coordinator bắt đầu Tour Session sau khi lịch khởi hành hợp lệ, hoàn tất điểm danh START, kiểm tra dụng cụ và cấu hình đầy đủ checkpoint. Hệ thống xác thực GPS tại điểm xuất phát, chuyển session sang IN_PROGRESS và khởi tạo nhật ký checkpoint.")
+    @Operation(summary = "Bắt đầu phiên đi tour thực tế", description = "Lead Coordinator chuyển Tour Session sang IN_PROGRESS sau khi thỏa các điều kiện khởi hành. Các nhật ký checkpoint được khởi tạo ở trạng thái PENDING; thao tác này không tự check-in checkpoint đầu tiên và không yêu cầu GPS.")
     @SecurityRequirement(name = "bearerAuth")
     @PreAuthorize("hasRole('COORDINATOR')")
     public ResponseEntity<ApiResponse<TourSessionStartResponse>> startSession(
             @AuthenticationPrincipal CustomUserDetails userDetails,
-            @PathVariable UUID sessionId,
-            @RequestBody @Valid SessionCheckpointLogRequest request
+            @PathVariable UUID sessionId
     ) {
-        TourSessionStartResponse data = trackingService.startSession(userDetails.getUser().getUserId(), sessionId, request);
+        TourSessionStartResponse data = trackingService.startSession(userDetails.getUser().getUserId(), sessionId);
 
         ApiResponse<TourSessionStartResponse> response = ApiResponse.success(HttpStatus.OK, data, MessageConstant.SESSION_STARTED_SUCCESSFULLY);
 
         return ResponseEntity.ok(response);
+    }
+
+    @PostMapping("/{sessionId}/checkpoints/{checkpointId}/skip")
+    @Operation(summary = "Bỏ qua checkpoint tiếp theo", description = "Lead Coordinator bỏ qua checkpoint tiếp theo đang PENDING và bắt buộc cung cấp lý do. Thao tác không yêu cầu GPS.")
+    @SecurityRequirement(name = "bearerAuth")
+    @PreAuthorize("hasRole('COORDINATOR')")
+    public ResponseEntity<ApiResponse<SessionCheckpointLogResponse>> skipCheckpoint(
+            @AuthenticationPrincipal CustomUserDetails userDetails,
+            @PathVariable UUID sessionId,
+            @PathVariable UUID checkpointId,
+            @RequestBody @Valid SkipCheckpointRequest request
+    ) {
+        SessionCheckpointLogResponse data = trackingService.skipCheckpoint(
+                userDetails.getUser().getUserId(), sessionId, checkpointId, request);
+        return ResponseEntity.ok(ApiResponse.success(
+                HttpStatus.OK, data, MessageConstant.CHECKPOINT_SKIPPED_SUCCESSFULLY));
     }
 
     @PostMapping("/{sessionId}/checkpoint-logs")
@@ -110,18 +126,16 @@ public class TrackingController {
     }
 
     @PostMapping("/{sessionId}/end")
-    @Operation(summary = "Kết thúc phiên đi tour thực tế", description = "Chuyển trạng thái của Tour Session sang COMPLETED, lưu thời gian kết thúc thực tế và tự động check-in trạm đích (trạm cuối cùng).")
+    @Operation(summary = "Kết thúc phiên đi tour thực tế", description = "Chuyển Tour Session sang COMPLETED khi điểm danh cuối, SOS và toàn bộ checkpoint đã được xử lý. Thao tác không tự check-in hoặc bỏ qua checkpoint và không yêu cầu GPS.")
     @SecurityRequirement(name = "bearerAuth")
     @PreAuthorize("hasRole('COORDINATOR')")
     public ResponseEntity<ApiResponse<TourSessionEndResponse>> endSession(
             @AuthenticationPrincipal CustomUserDetails userDetails,
-            @PathVariable UUID sessionId,
-            @RequestBody @Valid SessionCheckpointLogRequest request
+            @PathVariable UUID sessionId
     ) {
         TourSessionEndResponse data = trackingService.endSession(
                 userDetails.getUser().getUserId(),
-                sessionId,
-                request
+                sessionId
         );
 
         ApiResponse<TourSessionEndResponse> response = ApiResponse.success(
