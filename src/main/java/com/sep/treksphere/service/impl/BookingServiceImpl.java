@@ -3,6 +3,7 @@ package com.sep.treksphere.service.impl;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.sep.treksphere.config.PaymentWorkflowProperties;
+import com.sep.treksphere.dto.email.BookingConfirmationEmailData;
 import com.sep.treksphere.dto.request.*;
 import com.sep.treksphere.dto.response.*;
 import com.sep.treksphere.entity.*;
@@ -12,6 +13,7 @@ import com.sep.treksphere.enums.voucher.DiscountType;
 import com.sep.treksphere.enums.voucher.VoucherStatus;
 import com.sep.treksphere.exception.AppException;
 import com.sep.treksphere.exception.ErrorCode;
+import com.sep.treksphere.event.BookingConfirmedEvent;
 import com.sep.treksphere.mapper.BookingMapper;
 import com.sep.treksphere.repository.*;
 import com.sep.treksphere.service.BookingService;
@@ -20,6 +22,7 @@ import com.sep.treksphere.utils.PaginationUtils;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
@@ -42,7 +45,8 @@ import java.util.*;
 public class BookingServiceImpl implements BookingService {
 
     private static final Set<RefundStatus> PENDING_REFUNDS = EnumSet.of(
-            RefundStatus.PENDING, RefundStatus.PROCESSING, RefundStatus.FAILED);
+            RefundStatus.PENDING, RefundStatus.PROCESSING, RefundStatus.FAILED,
+            RefundStatus.AWAITING_VENDOR_FUNDS, RefundStatus.OVERDUE);
 
     private final BookingRepository bookingRepository;
     private final TourScheduleRepository tourScheduleRepository;
@@ -59,6 +63,9 @@ public class BookingServiceImpl implements BookingService {
     private final BookingMapper bookingMapper;
     private final PaymentWorkflowProperties paymentProperties;
     private final ObjectMapper objectMapper;
+    private final CancellationPolicyRepository cancellationPolicyRepository;
+    private final NotificationRepository notificationRepository;
+    private final ApplicationEventPublisher eventPublisher;
 
     @Override
     @Transactional(readOnly = true)
@@ -104,6 +111,7 @@ public class BookingServiceImpl implements BookingService {
                 .orElseThrow(() -> new AppException(ErrorCode.SCHEDULE_NOT_FOUND));
         validateSchedule(schedule, request.getParticipants().size());
         requireOnlinePaymentAccount(schedule);
+        requireCancellationPolicy(schedule);
 
         TourParticipationPolicy participationPolicy = tourParticipationPolicyRepository
                 .findByTourIdAndIsActiveTrueAndIsDeletedFalse(schedule.getTour().getTourId())
@@ -186,7 +194,15 @@ public class BookingServiceImpl implements BookingService {
                         PaymentAccountStatus.ACTIVE);
         if (!enabled) {
             throw new AppException(ErrorCode.PAYMENT_ACCOUNT_NOT_CONFIGURED,
-                    "Nhà tổ chức chưa hoàn tất kết nối payOS nên tour chưa nhận đặt online.");
+                    "Tour chưa đủ điều kiện đặt online.");
+        }
+    }
+
+    private void requireCancellationPolicy(TourSchedule schedule) {
+        if (!cancellationPolicyRepository.existsByVendorAndIsActiveTrueAndIsDeletedFalse(
+                schedule.getTour().getVendor())) {
+            throw new AppException(ErrorCode.VALIDATION_ERROR,
+                    "Tour chưa có chính sách hủy hoạt động nên chưa thể nhận đặt online.");
         }
     }
 
@@ -307,7 +323,57 @@ public class BookingServiceImpl implements BookingService {
         }
         booking.setBookingStatus(BookingStatus.CONFIRMED);
         booking.setConfirmationExpiresAt(null);
-        return toDetail(bookingRepository.save(booking));
+        Booking saved = bookingRepository.save(booking);
+        createBookingConfirmedNotification(saved);
+        eventPublisher.publishEvent(new BookingConfirmedEvent(toBookingConfirmationEmailData(saved)));
+        return toDetail(saved);
+    }
+
+    private void createBookingConfirmedNotification(Booking booking) {
+        Notification notification = new Notification();
+        notification.setRecipient(booking.getUser());
+        notification.setTitle("Booking đã được xác nhận");
+        notification.setEventType(com.sep.treksphere.enums.system.NotificationEventType.BOOKING_CONFIRMED);
+        notification.setContent("Booking " + booking.getBookingCode() + " cho tour \""
+                + booking.getSchedule().getTour().getTourName() + "\" đã được nhà tổ chức xác nhận.");
+        notification.setReferenceType(com.sep.treksphere.enums.system.ReferenceType.BOOKING);
+        notification.setReferenceId(booking.getBookingId());
+        notificationRepository.save(notification);
+    }
+
+    private BookingConfirmationEmailData toBookingConfirmationEmailData(Booking booking) {
+        TourSchedule schedule = booking.getSchedule();
+        return new BookingConfirmationEmailData(
+                booking.getBookingId(),
+                booking.getBookingCode(),
+                booking.getUser().getEmail(),
+                booking.getUser().getFullName(),
+                schedule.getTour().getTourName(),
+                schedule.getDepartureDate().format(DateTimeFormatter.ofPattern("dd/MM/yyyy")),
+                schedule.getReturnDate().format(DateTimeFormatter.ofPattern("dd/MM/yyyy")),
+                schedule.getTour().getDurationDays() + " ngày",
+                schedule.getTour().getLocation(),
+                booking.getNumberOfParticipants(),
+                schedule.getTour().getVendor().getCompanyName(),
+                formatCurrency(booking.getTotalPrice()),
+                formatCurrency(resolvePaidAmount(booking)),
+                formatPaymentStatus(booking.getPaymentStatus()));
+    }
+
+    private String formatCurrency(BigDecimal amount) {
+        return java.text.NumberFormat.getCurrencyInstance(new Locale("vi", "VN"))
+                .format(amount == null ? BigDecimal.ZERO : amount);
+    }
+
+    private String formatPaymentStatus(PaymentStatus status) {
+        return switch (status) {
+            case UNPAID -> "Chưa thanh toán";
+            case PARTIALLY_PAID -> "Đã thanh toán một phần";
+            case PAID -> "Đã thanh toán";
+            case REFUND_PENDING -> "Đang hoàn tiền";
+            case PARTIALLY_REFUNDED -> "Đã hoàn tiền một phần";
+            case REFUNDED -> "Đã hoàn tiền";
+        };
     }
 
     private BookingDetailResponse toDetail(Booking booking) {
@@ -351,7 +417,7 @@ public class BookingServiceImpl implements BookingService {
 
     private Vendor getAssociatedVendor(String email) {
         return vendorRepository.findByManager_Email(email)
-                .orElseGet(() -> vendorStaffRepository.findByUser_Email(email)
+                .orElseGet(() -> vendorStaffRepository.findByUser_EmailAndIsActiveTrueAndIsDeletedFalse(email)
                         .map(VendorStaff::getVendor)
                         .orElseThrow(() -> new AppException(ErrorCode.ACCESS_DENIED)));
     }

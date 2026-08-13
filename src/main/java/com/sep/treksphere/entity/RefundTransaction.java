@@ -49,7 +49,7 @@ public class RefundTransaction {
     private String reasonDetail;
 
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false, length = 20)
+    @Column(nullable = false, length = 30)
     private RefundStatus status = RefundStatus.PENDING;
 
     @ManyToOne(fetch = FetchType.LAZY)
@@ -77,6 +77,12 @@ public class RefundTransaction {
 
     private LocalDateTime processingAt;
     private LocalDateTime completedAt;
+    private LocalDateTime dueAt;
+    private LocalDateTime nextRetryAt;
+
+    @Column(nullable = false)
+    private Integer attemptCount = 0;
+
     @Column(length = 100)
     private String failureCode;
 
@@ -95,6 +101,7 @@ public class RefundTransaction {
     void onCreate() {
         var now = LocalDateTime.now();
         if (requestedAt == null) requestedAt = now;
+        if (dueAt == null) dueAt = now.plusHours(48);
         if (createdAt == null) createdAt = now;
     }
 

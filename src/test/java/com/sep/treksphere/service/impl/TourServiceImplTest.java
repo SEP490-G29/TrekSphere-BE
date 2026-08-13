@@ -1,5 +1,6 @@
 package com.sep.treksphere.service.impl;
 
+import com.sep.treksphere.dto.request.BaseFilterRequest;
 import com.sep.treksphere.entity.Notification;
 import com.sep.treksphere.entity.Tour;
 import com.sep.treksphere.entity.User;
@@ -32,6 +33,7 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 
 import java.time.LocalDate;
@@ -135,6 +137,47 @@ class TourServiceImplTest {
                 eq(departureDate),
                 eq(returnDate),
                 any(Pageable.class));
+    }
+
+    @Test
+    void getTours_MasksInternalBookingDisabledReasonForPublicApi() {
+        tour.setStatus(TourStatus.APPROVED);
+        when(tourRepository.searchTours(
+                eq(TourStatus.APPROVED),
+                eq(null),
+                eq(null),
+                eq(null),
+                eq(null),
+                eq(null),
+                any(Pageable.class)))
+                .thenReturn(new PageImpl<>(List.of(tour)));
+
+        var response = service.getTours(null, null, null, null, null, 0, 10, "createdAt", "desc");
+
+        assertThat(response.getContent()).hasSize(1);
+        assertThat(response.getContent().getFirst().getOnlineBookingEnabled()).isFalse();
+        assertThat(response.getContent().getFirst().getOnlineBookingDisabledReason())
+                .isEqualTo("Tour chưa đủ điều kiện đặt online.");
+    }
+
+    @Test
+    void getVendorTours_ReturnsDetailedBookingDisabledReason() {
+        tour.setStatus(TourStatus.APPROVED);
+        BaseFilterRequest request = new BaseFilterRequest();
+        when(vendorRepository.findByManager_Email(MANAGER_EMAIL)).thenReturn(Optional.of(vendor));
+        when(tourRepository.findByVendorIdForManager(
+                eq(vendor.getVendorId()),
+                any(),
+                eq(null),
+                any(Pageable.class)))
+                .thenReturn(new PageImpl<>(List.of(tour)));
+
+        var response = service.getVendorTours(MANAGER_EMAIL, request);
+
+        assertThat(response.getContent()).hasSize(1);
+        assertThat(response.getContent().getFirst().getOnlineBookingEnabled()).isFalse();
+        assertThat(response.getContent().getFirst().getOnlineBookingDisabledReason())
+                .isEqualTo("Nhà tổ chức chưa hoàn tất kết nối payOS.");
     }
 
     @Test

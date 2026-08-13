@@ -14,6 +14,7 @@ import com.sep.treksphere.entity.TourSchedule;
 import com.sep.treksphere.entity.TourParticipationPolicy;
 import com.sep.treksphere.entity.User;
 import com.sep.treksphere.entity.Vendor;
+import com.sep.treksphere.entity.VendorPaymentAccount;
 import com.sep.treksphere.enums.blog.ReviewStatus;
 import com.sep.treksphere.enums.system.NotificationEventType;
 import com.sep.treksphere.enums.system.ReferenceType;
@@ -63,6 +64,8 @@ import java.util.UUID;
 @Service
 @RequiredArgsConstructor
 public class TourServiceImpl implements TourService {
+
+    private static final String PUBLIC_BOOKING_DISABLED_REASON = "Tour chưa đủ điều kiện đặt online.";
 
     private final TourRepository tourRepository;
     private final TourImageRepository tourImageRepository;
@@ -124,13 +127,19 @@ public class TourServiceImpl implements TourService {
         List<TourSchedule> schedules = tourScheduleRepository.findByTourAndIsDeletedFalseOrderByDepartureDateAsc(tour);
         Double avgRating = reviewRepository.findAverageRatingByTourAndStatus(tour, ReviewStatus.APPROVED);
         int totalReviews = reviewRepository.countByTourAndStatusAndIsDeletedFalse(tour, ReviewStatus.APPROVED);
-        return toDetailResponse(tour, images, checkpoints, schedules, avgRating, totalReviews);
+        return toDetailResponse(tour, images, checkpoints, schedules, avgRating, totalReviews, false);
     }
 
     private TourSummaryResponse toSummaryResponse(Tour tour) {
+        return toSummaryResponse(tour, false);
+    }
+
+    private TourSummaryResponse toSummaryResponse(Tour tour, boolean includeDetailedBookingDisabledReason) {
         Double avgRating = reviewRepository.findAverageRatingByTourAndStatus(tour, ReviewStatus.APPROVED);
         int totalReviews = reviewRepository.countByTourAndStatusAndIsDeletedFalse(tour, ReviewStatus.APPROVED);
-        BookingReadiness readiness = getBookingReadiness(tour);
+        BookingReadiness readiness = includeDetailedBookingDisabledReason
+                ? getBookingReadiness(tour)
+                : getPublicBookingReadiness(tour);
 
         return TourSummaryResponse.builder()
                 .tourId(tour.getTourId().toString())
@@ -164,6 +173,17 @@ public class TourServiceImpl implements TourService {
             List<TourSchedule> schedules,
             Double avgRating,
             int totalReviews) {
+        return toDetailResponse(tour, images, checkpoints, schedules, avgRating, totalReviews, true);
+    }
+
+    private TourDetailResponse toDetailResponse(
+            Tour tour,
+            List<TourImage> images,
+            List<TourCheckpoint> checkpoints,
+            List<TourSchedule> schedules,
+            Double avgRating,
+            int totalReviews,
+            boolean includeDetailedBookingDisabledReason) {
         List<CancellationPolicy> policies = (tour.getVendor() != null)
                 ? cancellationPolicyRepository.findByVendorAndIsActiveTrueAndIsDeletedFalseOrderByCancelBeforeDaysDesc(tour.getVendor())
                 : List.of();
@@ -185,7 +205,9 @@ public class TourServiceImpl implements TourService {
                 .findByTourIdAndIsActiveTrueAndIsDeletedFalse(tour.getTourId())
                 .map(this::toParticipationPolicyResponse)
                 .orElse(null);
-        BookingReadiness readiness = getBookingReadiness(tour);
+        BookingReadiness readiness = includeDetailedBookingDisabledReason
+                ? getBookingReadiness(tour)
+                : getPublicBookingReadiness(tour);
 
         return TourDetailResponse.builder()
                 // Tour info
@@ -250,21 +272,40 @@ public class TourServiceImpl implements TourService {
 
     private BookingReadiness getBookingReadiness(Tour tour) {
         if (tour.getStatus() != TourStatus.APPROVED) {
-            return new BookingReadiness(false, "Tour chưa được duyệt để nhận đặt online.");
+            return new BookingReadiness(false, PUBLIC_BOOKING_DISABLED_REASON);
         }
         boolean hasPayOsAccount = vendorPaymentAccountRepository
                 .existsByVendor_VendorIdAndProviderAndOnboardingStatusAndIsDefaultTrueAndIsDeletedFalse(
                         tour.getVendor().getVendorId(), PaymentProvider.PAYOS, PaymentAccountStatus.ACTIVE);
         if (!hasPayOsAccount) {
+            boolean refundHold = vendorPaymentAccountRepository
+                    .findByVendor_VendorIdAndProviderAndIsDefaultTrueAndIsDeletedFalse(
+                            tour.getVendor().getVendorId(), PaymentProvider.PAYOS)
+                    .map(VendorPaymentAccount::getRefundHold)
+                    .orElse(false);
+            if (refundHold) {
+                return new BookingReadiness(false,
+                        "Nhà tổ chức đang có khoản hoàn tiền quá hạn nên tạm dừng nhận booking online.");
+            }
             return new BookingReadiness(false, "Nhà tổ chức chưa hoàn tất kết nối payOS.");
         }
         if (!tourPaymentPolicyRepository.existsByTourIdAndIsActiveTrueAndIsDeletedFalse(tour.getTourId())) {
             return new BookingReadiness(false, "Tour chưa có chính sách thanh toán.");
         }
+        if (!cancellationPolicyRepository.existsByVendorAndIsActiveTrueAndIsDeletedFalse(tour.getVendor())) {
+            return new BookingReadiness(false, "Nhà tổ chức chưa có chính sách hủy tour.");
+        }
         if (!tourParticipationPolicyRepository.existsByTourIdAndIsActiveTrueAndIsDeletedFalse(tour.getTourId())) {
             return new BookingReadiness(false, "Tour chưa có điều kiện tham gia.");
         }
         return new BookingReadiness(true, null);
+    }
+
+    private BookingReadiness getPublicBookingReadiness(Tour tour) {
+        BookingReadiness readiness = getBookingReadiness(tour);
+        return readiness.enabled()
+                ? readiness
+                : new BookingReadiness(false, PUBLIC_BOOKING_DISABLED_REASON);
     }
 
     private record BookingReadiness(boolean enabled, String disabledReason) {}
@@ -437,7 +478,11 @@ public class TourServiceImpl implements TourService {
             );
         }
 
-        return PaginationUtils.toPaginationResponse(tourPage.map(this::toSummaryResponse));
+        return PaginationUtils.toPaginationResponse(tourPage.map(this::toVendorSummaryResponse));
+    }
+
+    private TourSummaryResponse toVendorSummaryResponse(Tour tour) {
+        return toSummaryResponse(tour, true);
     }
 
     @Override

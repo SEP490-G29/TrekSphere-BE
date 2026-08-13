@@ -1,16 +1,21 @@
 package com.sep.treksphere.service.impl;
 
+import com.sep.treksphere.config.PaymentWorkflowProperties;
 import com.sep.treksphere.dto.request.BookingCancelRequest;
 import com.sep.treksphere.dto.request.VendorBookingCancelRequest;
 import com.sep.treksphere.dto.response.CancellationQuoteResponse;
 import com.sep.treksphere.entity.*;
 import com.sep.treksphere.enums.booking.*;
+import com.sep.treksphere.enums.system.NotificationEventType;
+import com.sep.treksphere.enums.system.ReferenceType;
+import com.sep.treksphere.event.RefundRequestedEvent;
 import com.sep.treksphere.exception.AppException;
 import com.sep.treksphere.exception.ErrorCode;
 import com.sep.treksphere.repository.*;
 import com.sep.treksphere.service.CancellationService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
@@ -25,7 +30,8 @@ import java.util.*;
 public class CancellationServiceImpl implements CancellationService {
 
     private static final Set<RefundStatus> ACTIVE_REFUNDS = EnumSet.of(
-            RefundStatus.PENDING, RefundStatus.PROCESSING, RefundStatus.REFUNDED);
+            RefundStatus.PENDING, RefundStatus.PROCESSING, RefundStatus.AWAITING_VENDOR_FUNDS,
+            RefundStatus.OVERDUE, RefundStatus.REFUNDED);
 
     private final BookingRepository bookingRepository;
     private final BookingPolicySnapshotRepository snapshotRepository;
@@ -36,6 +42,9 @@ public class CancellationServiceImpl implements CancellationService {
     private final UserRepository userRepository;
     private final VendorRepository vendorRepository;
     private final VendorStaffRepository vendorStaffRepository;
+    private final NotificationRepository notificationRepository;
+    private final ApplicationEventPublisher eventPublisher;
+    private final PaymentWorkflowProperties paymentProperties;
 
     private record QuoteData(BigDecimal paid, BigDecimal existingRefunds, BigDecimal availablePaid,
                              BigDecimal nonRefundableCost, int percentage, BigDecimal refund,
@@ -72,7 +81,9 @@ public class CancellationServiceImpl implements CancellationService {
         booking.setConfirmationExpiresAt(null);
         booking.setHoldExpiresAt(null);
         booking.setRefundAmount(BigDecimal.ZERO);
-        return bookingRepository.save(booking);
+        Booking saved = bookingRepository.save(booking);
+        notifyVendorOfTrekkerCancellation(saved);
+        return saved;
     }
 
     @Override
@@ -83,8 +94,9 @@ public class CancellationServiceImpl implements CancellationService {
                     "Vendor chỉ được dùng lý do VENDOR_CANCEL hoặc INSUFFICIENT_PAX.");
         }
         Vendor vendor = vendorRepository.findByManager_Email(email).orElseGet(() ->
-                vendorStaffRepository.findByUser_Email(email).map(VendorStaff::getVendor)
+                vendorStaffRepository.findByUser_EmailAndIsActiveTrueAndIsDeletedFalse(email).map(VendorStaff::getVendor)
                         .orElseThrow(() -> new AppException(ErrorCode.ACCESS_DENIED)));
+        lockScheduleForBooking(bookingId);
         Booking booking = bookingRepository.findByIdForUpdate(bookingId)
                 .orElseThrow(() -> new AppException(ErrorCode.BOOKING_NOT_FOUND));
         if (!vendor.getVendorId().equals(booking.getSchedule().getTour().getVendor().getVendorId())) {
@@ -112,12 +124,15 @@ public class CancellationServiceImpl implements CancellationService {
         booking.setHoldExpiresAt(null);
         booking.setConfirmationExpiresAt(null);
         booking.setRefundAmount(BigDecimal.ZERO);
-        return bookingRepository.save(booking);
+        Booking saved = bookingRepository.save(booking);
+        notifyTrekkerOfVendorCancellation(saved);
+        return saved;
     }
 
     private Booking requireOwnedBooking(String email, UUID bookingId, boolean lock) {
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
+        if (lock) lockScheduleForBooking(bookingId);
         Booking booking = (lock ? bookingRepository.findByIdForUpdate(bookingId) : bookingRepository.findById(bookingId))
                 .filter(b -> !Boolean.TRUE.equals(b.getIsDeleted()))
                 .orElseThrow(() -> new AppException(ErrorCode.BOOKING_NOT_FOUND));
@@ -125,6 +140,13 @@ public class CancellationServiceImpl implements CancellationService {
             throw new AppException(ErrorCode.ACCESS_DENIED);
         }
         return booking;
+    }
+
+    private void lockScheduleForBooking(UUID bookingId) {
+        UUID scheduleId = bookingRepository.findScheduleIdByBookingId(bookingId)
+                .orElseThrow(() -> new AppException(ErrorCode.BOOKING_NOT_FOUND));
+        tourScheduleRepository.findByIdForUpdate(scheduleId)
+                .orElseThrow(() -> new AppException(ErrorCode.SCHEDULE_NOT_FOUND));
     }
 
     private void validateCancellable(Booking booking) {
@@ -141,9 +163,12 @@ public class CancellationServiceImpl implements CancellationService {
         BigDecimal availablePaid = paid.subtract(existingRefunds).max(BigDecimal.ZERO);
         long days = ChronoUnit.DAYS.between(LocalDate.now(), booking.getSchedule().getDepartureDate());
 
-        BookingPolicySnapshot snapshot = snapshotRepository.findById(booking.getBookingId())
-                .orElseThrow(() -> new AppException(ErrorCode.BOOKING_CANNOT_CANCEL,
-                        "Thiếu snapshot chính sách hủy của booking."));
+        BookingPolicySnapshot snapshot = snapshotRepository.findById(booking.getBookingId()).orElse(null);
+        if (snapshot == null || snapshot.getPolicyJson() == null || snapshot.getPolicyJson().isEmpty()) {
+            return new QuoteData(paid, existingRefunds, availablePaid, BigDecimal.ZERO,
+                    100, availablePaid, days,
+                    "Booking thiếu chính sách hủy tại thời điểm đặt nên được hoàn 100%.");
+        }
         int percentage = 0;
         String description = "Không hoàn tiền theo chính sách đã áp dụng";
         int selectedThreshold = Integer.MIN_VALUE;
@@ -242,7 +267,7 @@ public class CancellationServiceImpl implements CancellationService {
             refund.setDestinationBin(request.getRefundBankBin().trim());
             refund.setDestinationAccountNumber(request.getRefundAccountNumber().trim());
             refund.setDestinationAccountName(request.getRefundAccountName().trim());
-            refundTransactionRepository.save(refund);
+            prepareAndPublishRefund(refund);
             remaining = remaining.subtract(allocation);
         }
         if (remaining.signum() > 0) {
@@ -272,13 +297,56 @@ public class CancellationServiceImpl implements CancellationService {
             refund.setDestinationBin(string(payment.getGatewayMetadata().get("counterAccountBankId")));
             refund.setDestinationAccountNumber(string(payment.getGatewayMetadata().get("counterAccountNumber")));
             refund.setDestinationAccountName(string(payment.getGatewayMetadata().get("counterAccountName")));
-            refundTransactionRepository.save(refund);
+            prepareAndPublishRefund(refund);
             remaining = remaining.subtract(amount);
         }
         if (remaining.signum() > 0) {
             throw new AppException(ErrorCode.REFUND_NOT_PROCESSABLE,
                     "Không thể phân bổ đầy đủ refund cho các payment đã trả.");
         }
+    }
+
+    private void prepareAndPublishRefund(RefundTransaction refund) {
+        LocalDateTime now = LocalDateTime.now();
+        java.time.Duration dueDuration = paymentProperties.getRefundDueDuration();
+        if (dueDuration == null || dueDuration.isNegative() || dueDuration.isZero()) {
+            dueDuration = java.time.Duration.ofHours(48);
+        }
+        refund.setRequestedAt(now);
+        refund.setDueAt(now.plus(dueDuration));
+        RefundTransaction saved = refundTransactionRepository.save(refund);
+        eventPublisher.publishEvent(new RefundRequestedEvent(saved.getRefundTransactionId()));
+    }
+
+    private void notifyVendorOfTrekkerCancellation(Booking booking) {
+        User manager = booking.getSchedule().getTour().getVendor().getManager();
+        if (manager == null) return;
+        saveCancellationNotification(manager,
+                "Khách đã hủy booking",
+                "Trekker đã hủy booking " + booking.getBookingCode() + ". Lý do: "
+                        + booking.getCancellationReason(),
+                booking.getBookingId());
+    }
+
+    private void notifyTrekkerOfVendorCancellation(Booking booking) {
+        saveCancellationNotification(booking.getUser(),
+                "Booking đã bị nhà tổ chức hủy",
+                "Booking " + booking.getBookingCode() + " đã bị nhà tổ chức hủy. Lý do: "
+                        + booking.getCancellationReason()
+                        + (booking.getPaymentStatus() == PaymentStatus.REFUND_PENDING
+                        ? " Yêu cầu hoàn tiền đã được tạo và đang được xử lý tự động." : ""),
+                booking.getBookingId());
+    }
+
+    private void saveCancellationNotification(User recipient, String title, String content, UUID bookingId) {
+        Notification notification = new Notification();
+        notification.setRecipient(recipient);
+        notification.setTitle(title);
+        notification.setEventType(NotificationEventType.BOOKING_CANCELLED);
+        notification.setContent(content);
+        notification.setReferenceType(ReferenceType.BOOKING);
+        notification.setReferenceId(bookingId);
+        notificationRepository.save(notification);
     }
 
     private CancellationQuoteResponse toResponse(QuoteData quote) {

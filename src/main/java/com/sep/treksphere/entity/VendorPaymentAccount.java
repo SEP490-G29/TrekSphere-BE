@@ -46,6 +46,9 @@ public class VendorPaymentAccount {
     private Boolean isDefault = true;
 
     @Column(nullable = false)
+    private Boolean refundHold = false;
+
+    @Column(nullable = false)
     private Boolean isDeleted = false;
 
     @Column(nullable = false, updatable = false)

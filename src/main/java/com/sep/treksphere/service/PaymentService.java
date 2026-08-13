@@ -16,6 +16,7 @@ public interface PaymentService {
     List<RefundTransactionResponse> getBookingRefunds(String email, UUID bookingId);
     void handlePayOsWebhook(String channelId, Webhook webhook);
     RefundTransactionResponse processRefund(String email, UUID refundId);
+    RefundTransactionResponse processRefundAutomatically(UUID refundId);
     RefundTransactionResponse completeManualRefund(String email, UUID refundId, ManualRefundCompletionRequest request);
     RefundTransactionResponse updateRefundDestination(String email, UUID refundId, RefundDestinationRequest request);
 }

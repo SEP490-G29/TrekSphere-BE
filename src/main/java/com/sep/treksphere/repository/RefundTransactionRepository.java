@@ -7,8 +7,10 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
+import org.springframework.data.domain.Pageable;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
@@ -36,4 +38,22 @@ public interface RefundTransactionRepository extends JpaRepository<RefundTransac
 
     List<RefundTransaction> findTop100ByStatusAndGatewayRefundIdIsNotNullAndIsDeletedFalseOrderByProcessingAtAsc(
             RefundStatus status);
+
+    @Query("select r.refundTransactionId from RefundTransaction r " +
+            "where r.status in :statuses and r.isDeleted = false " +
+            "and (r.nextRetryAt is null or r.nextRetryAt <= :now) " +
+            "order by r.requestedAt asc")
+    List<UUID> findDueForAutomaticProcessing(@Param("statuses") Collection<RefundStatus> statuses,
+                                              @Param("now") LocalDateTime now,
+                                              Pageable pageable);
+
+    @Query("select r.refundTransactionId from RefundTransaction r " +
+            "where r.status in :statuses and r.dueAt <= :now and r.isDeleted = false " +
+            "order by r.dueAt asc")
+    List<UUID> findPastDueIds(@Param("statuses") Collection<RefundStatus> statuses,
+                              @Param("now") LocalDateTime now,
+                              Pageable pageable);
+
+    boolean existsByBooking_Schedule_Tour_Vendor_VendorIdAndStatusAndIsDeletedFalse(
+            UUID vendorId, RefundStatus status);
 }

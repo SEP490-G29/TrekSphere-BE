@@ -8,6 +8,7 @@ import com.sep.treksphere.entity.RefundTransaction;
 import com.sep.treksphere.entity.Tour;
 import com.sep.treksphere.entity.TourSchedule;
 import com.sep.treksphere.entity.Vendor;
+import com.sep.treksphere.entity.VendorPaymentAccount;
 import com.sep.treksphere.enums.booking.BookingStatus;
 import com.sep.treksphere.enums.booking.PaymentPlan;
 import com.sep.treksphere.enums.booking.PaymentStage;
@@ -19,6 +20,7 @@ import com.sep.treksphere.repository.BookingPolicySnapshotRepository;
 import com.sep.treksphere.repository.BookingRepository;
 import com.sep.treksphere.repository.PaymentTransactionRepository;
 import com.sep.treksphere.repository.PaymentWebhookEventRepository;
+import com.sep.treksphere.repository.NotificationRepository;
 import com.sep.treksphere.repository.RefundTransactionRepository;
 import com.sep.treksphere.repository.TourScheduleRepository;
 import com.sep.treksphere.repository.UserRepository;
@@ -35,15 +37,18 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.transaction.support.TransactionTemplate;
+import org.springframework.transaction.support.TransactionCallback;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -63,6 +68,7 @@ class PaymentServiceImplTest {
     @Mock private UserRepository userRepository;
     @Mock private VendorRepository vendorRepository;
     @Mock private VendorStaffRepository vendorStaffRepository;
+    @Mock private NotificationRepository notificationRepository;
     @Mock private PayOsClientFactory payOsClientFactory;
     @Mock private PaymentWorkflowProperties properties;
     @Mock private ObjectMapper objectMapper;
@@ -252,7 +258,9 @@ class PaymentServiceImplTest {
                 booking.getBookingId(), List.of(
                         RefundStatus.PENDING,
                         RefundStatus.PROCESSING,
-                        RefundStatus.FAILED)))
+                        RefundStatus.FAILED,
+                        RefundStatus.AWAITING_VENDOR_FUNDS,
+                        RefundStatus.OVERDUE)))
                 .thenReturn(new BigDecimal("1000000.00"));
 
         service.refreshBookingPaymentStatus(booking);
@@ -272,13 +280,109 @@ class PaymentServiceImplTest {
                 booking.getBookingId(), List.of(
                         RefundStatus.PENDING,
                         RefundStatus.PROCESSING,
-                        RefundStatus.FAILED)))
+                        RefundStatus.FAILED,
+                        RefundStatus.AWAITING_VENDOR_FUNDS,
+                        RefundStatus.OVERDUE)))
                 .thenReturn(BigDecimal.ZERO);
 
         service.refreshBookingPaymentStatus(booking);
 
         assertEquals(PaymentStatus.PARTIALLY_PAID, booking.getPaymentStatus());
         assertEquals(new BigDecimal("1000000.00"), booking.getRefundAmount());
+    }
+
+    @Test
+    void automaticRefundRetriesWhenVendorPayOsBalanceIsInsufficient() {
+        RefundTransaction refund = pendingRefund();
+        stubTransactionExecution();
+        stubBookingPersistence();
+        when(refundTransactionRepository.findByIdForUpdate(refund.getRefundTransactionId()))
+                .thenReturn(Optional.of(refund));
+        when(refundTransactionRepository.save(any(RefundTransaction.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+        when(paymentTransactionRepository.sumPaidByBooking(booking.getBookingId()))
+                .thenReturn(new BigDecimal("1000000.00"));
+        stubPendingRefundAmount();
+        when(payOsClientFactory.getClient(payment.getVendorPaymentAccount()))
+                .thenThrow(new RuntimeException("Insufficient balance"));
+
+        var response = service.processRefundAutomatically(refund.getRefundTransactionId());
+
+        assertEquals(RefundStatus.AWAITING_VENDOR_FUNDS, response.getStatus());
+        assertEquals(1, response.getAttemptCount());
+        assertNotNull(response.getNextRetryAt());
+        assertEquals(PaymentStatus.REFUND_PENDING, booking.getPaymentStatus());
+    }
+
+    @Test
+    void overdueRefundPlacesVendorOnOnlineBookingHold() {
+        RefundTransaction refund = pendingRefund();
+        refund.setDueAt(LocalDateTime.now().minusMinutes(1));
+        stubTransactionExecution();
+        stubBookingPersistence();
+        when(refundTransactionRepository.findPastDueIds(any(Collection.class), any(LocalDateTime.class), any()))
+                .thenReturn(List.of(refund.getRefundTransactionId()));
+        when(refundTransactionRepository.findDueForAutomaticProcessing(
+                any(Collection.class), any(LocalDateTime.class), any())).thenReturn(List.of());
+        when(refundTransactionRepository.findByIdForUpdate(refund.getRefundTransactionId()))
+                .thenReturn(Optional.of(refund));
+        when(refundTransactionRepository.save(any(RefundTransaction.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+        when(paymentTransactionRepository.sumPaidByBooking(booking.getBookingId()))
+                .thenReturn(new BigDecimal("1000000.00"));
+        stubPendingRefundAmount();
+        when(userRepository.findDistinctByRoles_RoleNameAndIsDeletedFalse("ADMIN"))
+                .thenReturn(List.of());
+
+        service.processDueRefundsAutomatically();
+
+        assertEquals(RefundStatus.OVERDUE, refund.getStatus());
+        assertEquals(true, payment.getVendorPaymentAccount().getRefundHold());
+        verify(vendorPaymentAccountRepository).save(payment.getVendorPaymentAccount());
+    }
+
+    private RefundTransaction pendingRefund() {
+        VendorPaymentAccount account = new VendorPaymentAccount();
+        account.setVendor(schedule.getTour().getVendor());
+        payment.setVendorPaymentAccount(account);
+
+        RefundTransaction refund = new RefundTransaction();
+        refund.setRefundTransactionId(UUID.randomUUID());
+        refund.setBooking(booking);
+        refund.setPaymentTransaction(payment);
+        refund.setAmount(new BigDecimal("1000000.00"));
+        refund.setReason(RefundReason.TREKKER_CANCEL);
+        refund.setIdempotencyKey("refund-test-" + refund.getRefundTransactionId());
+        refund.setDestinationBin("970422");
+        refund.setDestinationAccountNumber("0123456789");
+        refund.setDestinationAccountName("NGUYEN VAN A");
+        refund.setRequestedAt(LocalDateTime.now());
+        refund.setDueAt(LocalDateTime.now().plusHours(48));
+        return refund;
+    }
+
+    private void stubPendingRefundAmount() {
+        when(refundTransactionRepository.sumByBookingAndStatuses(
+                booking.getBookingId(), List.of(
+                        RefundStatus.PENDING,
+                        RefundStatus.PROCESSING,
+                        RefundStatus.FAILED,
+                        RefundStatus.AWAITING_VENDOR_FUNDS,
+                        RefundStatus.OVERDUE)))
+                .thenReturn(new BigDecimal("1000000.00"));
+    }
+
+    @SuppressWarnings("unchecked")
+    private void stubTransactionExecution() {
+        org.mockito.Mockito.lenient().when(transactionTemplate.execute(any(TransactionCallback.class)))
+                .thenAnswer(invocation ->
+                        ((TransactionCallback<Object>) invocation.getArgument(0)).doInTransaction(null));
+        org.mockito.Mockito.lenient().doAnswer(invocation -> {
+            java.util.function.Consumer<org.springframework.transaction.TransactionStatus> callback =
+                    invocation.getArgument(0);
+            callback.accept(null);
+            return null;
+        }).when(transactionTemplate).executeWithoutResult(any());
     }
 
     private void stubBookingPersistence() {
