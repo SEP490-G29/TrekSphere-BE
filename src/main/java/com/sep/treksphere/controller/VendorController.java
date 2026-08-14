@@ -1,7 +1,7 @@
 package com.sep.treksphere.controller;
 
 import com.sep.treksphere.constant.MessageConstant;
-import com.sep.treksphere.dto.request.BaseFilterRequest;
+import com.sep.treksphere.dto.request.VendorFilterRequest;
 import com.sep.treksphere.dto.request.VendorProfileUpdateRequest;
 import com.sep.treksphere.dto.request.VendorStatusUpdateRequest;
 import com.sep.treksphere.dto.response.ApiResponse;
@@ -43,7 +43,7 @@ public class VendorController {
     @PreAuthorize("hasRole('ADMIN')")
     @GetMapping
     public ResponseEntity<ApiResponse<PaginationResponse<VendorResponse>>> getVendors(
-            @Valid @ModelAttribute BaseFilterRequest request) {
+            @Valid @ModelAttribute VendorFilterRequest request) {
         
         PaginationResponse<VendorResponse> response = vendorService.getVendors(request);
         return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, response));

@@ -1,6 +1,6 @@
 package com.sep.treksphere.service.impl;
 
-import com.sep.treksphere.dto.request.BaseFilterRequest;
+import com.sep.treksphere.dto.request.VendorFilterRequest;
 import com.sep.treksphere.dto.request.VendorProfileUpdateRequest;
 import com.sep.treksphere.dto.request.VendorStatusUpdateRequest;
 import com.sep.treksphere.dto.response.PaginationResponse;
@@ -41,9 +41,10 @@ public class VendorServiceImpl implements VendorService {
 
     @Override
     @Transactional(readOnly = true)
-    public PaginationResponse<VendorResponse> getVendors(BaseFilterRequest request) {
-        Page<Vendor> vendorsPage = vendorRepository.findByKeyword(
+    public PaginationResponse<VendorResponse> getVendors(VendorFilterRequest request) {
+        Page<Vendor> vendorsPage = vendorRepository.findByKeywordAndStatus(
                 request.getKeyword(),
+                request.getStatus(),
                 request.getPageable()
         );
 
