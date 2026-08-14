@@ -333,6 +333,7 @@ public class MessageConstant {
     public static final String SCHEDULE_CHANGE_REASON_REQUIRED = "Vui lòng nhập lý do điều chỉnh lịch trình đã có khách đặt";
     public static final String SCHEDULE_SLOTS_LESS_THAN_BOOKED = "Số chỗ mở bán không thể nhỏ hơn số chỗ khách đã đặt";
     public static final String SCHEDULE_SLOTS_EXCEED_MAX_CAPACITY = "Số chỗ mở bán không thể vượt quá sức chứa tối đa của Tour";
+    public static final String SCHEDULE_DURATION_EXCEEDS_TOUR = "Khoảng thời gian lịch khởi hành không được vượt quá số ngày của Tour";
     // Porter Profile Messages
     public static final String PORTER_NOT_FOUND = "Không tìm thấy thông tin hồ sơ porter";
     public static final String PORTER_NAME_REQUIRED = "Tên porter không được để trống";
