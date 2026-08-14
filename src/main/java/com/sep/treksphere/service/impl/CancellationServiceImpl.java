@@ -323,15 +323,16 @@ public class CancellationServiceImpl implements CancellationService {
     private void notifyRefundRequested(RefundTransaction refund) {
         Booking booking = refund.getBooking();
         String deadline = refund.getDueAt().format(DateTimeFormatter.ofPattern("HH:mm dd/MM/yyyy"));
-        saveRefundNotification(booking.getUser(), "Yêu cầu hoàn tiền đã được tạo",
+        saveRefundNotification(booking.getUser(), "Khoản hoàn tiền đã được tạo",
                 "Khoản hoàn " + refund.getAmount().setScale(0, RoundingMode.HALF_UP)
                         + " VND cho booking " + booking.getBookingCode()
-                        + ": nhà tổ chức phải chuyển tiền hoặc gửi biên nhận trước " + deadline
+                        + " đang được xử lý. Nếu Kênh Chi payOS không hoạt động, nhà tổ chức sẽ chuyển khoản"
+                        + " và gửi biên nhận trước " + deadline
                         + ". Thời gian ngân hàng ghi có có thể muộn hơn.",
                 booking.getBookingId());
         User manager = booking.getSchedule().getTour().getVendor().getManager();
         if (manager != null) {
-            saveRefundNotification(manager, "Có yêu cầu hoàn tiền mới",
+            saveRefundNotification(manager, "Khoản hoàn tiền cần xử lý",
                     "Booking " + booking.getBookingCode() + " cần hoàn "
                             + refund.getAmount().setScale(0, RoundingMode.HALF_UP)
                             + " VND trước " + deadline + ".",
@@ -366,7 +367,7 @@ public class CancellationServiceImpl implements CancellationService {
                 "Booking " + booking.getBookingCode() + " đã bị nhà tổ chức hủy. Lý do: "
                         + booking.getCancellationReason()
                         + (booking.getPaymentStatus() == PaymentStatus.REFUND_PENDING
-                        ? " Yêu cầu hoàn tiền đã được tạo và có hạn xử lý hiển thị trong chi tiết booking." : ""),
+                         ? " Khoản hoàn tiền đã được tạo và có hạn xử lý hiển thị trong chi tiết booking." : ""),
                 booking.getBookingId());
     }
 
