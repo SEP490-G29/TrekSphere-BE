@@ -96,6 +96,7 @@ public class TourScheduleServiceImpl implements TourScheduleService {
         if (request.getReturnDate().isBefore(request.getDepartureDate())) {
             throw new AppException(ErrorCode.SCHEDULE_RETURN_BEFORE_DEPARTURE);
         }
+        validateScheduleDuration(tour, request.getDepartureDate(), request.getReturnDate());
 
         // Validation: availableSlots không được vượt quá maxCapacity của Tour
         if (tour.getMaxCapacity() != null && request.getAvailableSlots() > tour.getMaxCapacity()) {
@@ -167,6 +168,7 @@ public class TourScheduleServiceImpl implements TourScheduleService {
             if (returnDate.isBefore(departureDate)) {
                 throw new AppException(ErrorCode.SCHEDULE_RETURN_BEFORE_DEPARTURE);
             }
+            validateScheduleDuration(schedule.getTour(), departureDate, returnDate);
             schedule.setReturnDate(returnDate);
         }
 
@@ -292,6 +294,16 @@ public class TourScheduleServiceImpl implements TourScheduleService {
     private void validateTourBelongsToVendor(Tour tour, Vendor vendor) {
         if (!tour.getVendor().getVendorId().equals(vendor.getVendorId())) {
             throw new AppException(ErrorCode.TOUR_NOT_BELONG_TO_VENDOR);
+        }
+    }
+
+    private void validateScheduleDuration(Tour tour, LocalDate departureDate, LocalDate returnDate) {
+        Integer durationDays = tour.getDurationDays();
+        if (durationDays != null && durationDays > 0
+                && returnDate.isAfter(departureDate.plusDays(durationDays - 1L))) {
+            throw new AppException(
+                    ErrorCode.SCHEDULE_DURATION_EXCEEDS_TOUR,
+                    "Lịch khởi hành không được vượt quá thời lượng " + durationDays + " ngày của Tour.");
         }
     }
 

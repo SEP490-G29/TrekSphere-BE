@@ -393,6 +393,20 @@ public class LogisticsAllocationServiceImpl implements LogisticsAllocationServic
 
     @Override
     @Transactional(readOnly = true)
+    public TourSessionSummaryResponse getSessionBySchedule(UUID scheduleId, UUID vendorUserId) {
+        TourSession session = tourSessionRepository.findByTourSchedule_ScheduleIdAndIsDeletedFalse(scheduleId)
+                .orElseThrow(() -> new AppException(ErrorCode.TOUR_SESSION_NOT_FOUND));
+
+        UUID vendorId = resolveVendorId(vendorUserId);
+        if (!session.getTourSchedule().getTour().getVendor().getVendorId().equals(vendorId)) {
+            throw new AppException(ErrorCode.TOUR_NOT_BELONG_TO_VENDOR);
+        }
+
+        return tourSessionMapper.toSummaryResponse(session);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
     public TourSessionAllocationResponse getAllocations(UUID sessionId, UUID userId, boolean isCoordinator) {
         TourSession session = tourSessionRepository.findByIdWithVendor(sessionId)
                 .orElseThrow(() -> new AppException(ErrorCode.TOUR_SESSION_NOT_FOUND));

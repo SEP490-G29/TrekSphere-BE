@@ -1,10 +1,12 @@
 package com.sep.treksphere.service.impl;
 
+import com.sep.treksphere.dto.request.CreateScheduleRequest;
 import com.sep.treksphere.dto.request.UpdateScheduleRequest;
 import com.sep.treksphere.dto.request.VendorBookingCancelRequest;
 import com.sep.treksphere.entity.Booking;
 import com.sep.treksphere.entity.Tour;
 import com.sep.treksphere.entity.TourSchedule;
+import com.sep.treksphere.entity.TourSession;
 import com.sep.treksphere.entity.User;
 import com.sep.treksphere.entity.Vendor;
 import com.sep.treksphere.enums.booking.BookingStatus;
@@ -35,7 +37,10 @@ import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.anyCollection;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -68,6 +73,7 @@ class TourScheduleServiceImplTest {
         tour.setTourId(UUID.randomUUID());
         tour.setTourName("Trek test");
         tour.setVendor(vendor);
+        tour.setDurationDays(3);
 
         schedule = new TourSchedule();
         schedule.setScheduleId(UUID.randomUUID());
@@ -89,9 +95,64 @@ class TourScheduleServiceImplTest {
         booking.setUser(trekker);
         booking.setBookingStatus(BookingStatus.CONFIRMED);
 
-        when(tourScheduleRepository.findByIdForUpdate(schedule.getScheduleId()))
+        lenient().when(tourScheduleRepository.findByIdForUpdate(schedule.getScheduleId()))
                 .thenReturn(Optional.of(schedule));
         when(vendorRepository.findByManager_Email(vendorEmail)).thenReturn(Optional.of(vendor));
+    }
+
+    @Test
+    void createScheduleRejectsDateRangeLongerThanTourDuration() {
+        Tour tour = schedule.getTour();
+        when(tourRepository.findById(tour.getTourId())).thenReturn(Optional.of(tour));
+
+        CreateScheduleRequest request = new CreateScheduleRequest();
+        request.setDepartureDate(LocalDate.now().plusDays(10));
+        request.setReturnDate(LocalDate.now().plusDays(16));
+        request.setPrice(new BigDecimal("1000000"));
+        request.setAvailableSlots(8);
+
+        AppException exception = assertThrows(AppException.class,
+                () -> service.createSchedule(vendorEmail, tour.getTourId(), request));
+
+        assertEquals(com.sep.treksphere.exception.ErrorCode.SCHEDULE_DURATION_EXCEEDS_TOUR,
+                exception.getErrorCode());
+        verify(tourScheduleRepository, never()).save(org.mockito.ArgumentMatchers.any());
+    }
+
+    @Test
+    void deleteScheduleSoftDeletesScheduleAndLinkedSession() {
+        schedule.setBookedSlots(0);
+        TourSession session = new TourSession();
+        session.setTourSchedule(schedule);
+        session.setIsDeleted(false);
+        when(tourScheduleRepository.findByScheduleIdAndIsDeletedFalse(schedule.getScheduleId()))
+                .thenReturn(Optional.of(schedule));
+        when(bookingRepository.existsByScheduleAndBookingStatusInAndIsDeletedFalse(
+                eq(schedule), anyCollection())).thenReturn(false);
+        when(tourSessionRepository.findByTourSchedule_ScheduleIdAndIsDeletedFalse(
+                schedule.getScheduleId())).thenReturn(Optional.of(session));
+
+        service.deleteSchedule(vendorEmail, schedule.getScheduleId());
+
+        assertTrue(schedule.getIsDeleted());
+        assertTrue(session.getIsDeleted());
+        verify(tourScheduleRepository).save(schedule);
+        verify(tourSessionRepository).save(session);
+    }
+
+    @Test
+    void deleteScheduleRejectsScheduleWithActiveBookings() {
+        when(tourScheduleRepository.findByScheduleIdAndIsDeletedFalse(schedule.getScheduleId()))
+                .thenReturn(Optional.of(schedule));
+        when(bookingRepository.existsByScheduleAndBookingStatusInAndIsDeletedFalse(
+                eq(schedule), anyCollection())).thenReturn(true);
+
+        AppException exception = assertThrows(AppException.class,
+                () -> service.deleteSchedule(vendorEmail, schedule.getScheduleId()));
+
+        assertEquals(com.sep.treksphere.exception.ErrorCode.SCHEDULE_HAS_BOOKINGS,
+                exception.getErrorCode());
+        verify(tourScheduleRepository, never()).save(schedule);
     }
 
     @Test
