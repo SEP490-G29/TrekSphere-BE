@@ -23,6 +23,7 @@ public interface LogisticsAllocationService {
     void emergencyCancelSchedule(UUID scheduleId, CancelScheduleRequest request, UUID vendorUserId, boolean isManager);
 
     PaginationResponse<TourSessionSummaryResponse> getVendorSessions(UUID vendorUserId, UUID tourId, TourSessionStatus status, int page, int size);
+    TourSessionSummaryResponse getSessionBySchedule(UUID scheduleId, UUID vendorUserId);
     TourSessionAllocationResponse getAllocations(UUID sessionId, UUID vendorUserId, boolean isCoordinator);
 
     PaginationResponse<StaffScheduleResponse> getCoordinatorSchedules(UUID coordinatorId, UUID vendorUserId, TourSessionStatus status, int page, int size);

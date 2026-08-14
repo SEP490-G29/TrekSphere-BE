@@ -113,6 +113,18 @@ public class VendorLogisticsController {
         return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, response, "Lấy danh sách Tour Session thành công"));
     }
 
+    @Operation(summary = "Lấy phiên vận hành theo lịch khởi hành", description = "Tìm phiên vận hành tương ứng với một lịch khởi hành thuộc Vendor hiện tại")
+    @GetMapping("/by-schedule/{scheduleId}")
+    @PreAuthorize("hasAnyRole('VENDOR_MANAGER', 'VENDOR_STAFF')")
+    public ResponseEntity<ApiResponse<TourSessionSummaryResponse>> getSessionBySchedule(
+            @PathVariable UUID scheduleId,
+            @AuthenticationPrincipal CustomUserDetails user) {
+        TourSessionSummaryResponse response = logisticsAllocationService
+                .getSessionBySchedule(scheduleId, user.getUser().getUserId());
+        return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, response,
+                "Lấy phiên vận hành thành công"));
+    }
+
     @Operation(summary = "Lấy chi tiết phân bổ", description = "Lấy thông tin chi tiết phân bổ nhân sự của một Phiên Tour cụ thể (Vendor/Coordinator)")
     @GetMapping("/{sessionId}/allocations")
     @PreAuthorize("hasAnyRole('VENDOR_MANAGER', 'VENDOR_STAFF', 'COORDINATOR')")
