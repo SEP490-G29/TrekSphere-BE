@@ -110,7 +110,7 @@ public class ReviewServiceImpl implements ReviewService {
         review.setBooking(booking);
         review.setRating(request.getRating());
         review.setContent(request.getContent());
-        review.setStatus(ReviewStatus.PENDING);
+        review.setStatus(ReviewStatus.APPROVED);
 
         review = reviewRepository.save(review);
 
