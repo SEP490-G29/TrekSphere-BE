@@ -21,8 +21,10 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import java.util.UUID;
 import com.sep.treksphere.dto.request.AssignPorterRequest;
 import com.sep.treksphere.dto.request.AssignEquipmentRequest;
-import com.sep.treksphere.dto.response.StaffScheduleResponse;
 import com.sep.treksphere.dto.request.CancelScheduleRequest;
+import com.sep.treksphere.dto.request.ReturnEquipmentRequest;
+import com.sep.treksphere.dto.request.BulkReturnEquipmentRequest;
+import com.sep.treksphere.dto.response.StaffScheduleResponse;
 import com.sep.treksphere.constant.MessageConstant;
 
 import static com.sep.treksphere.constant.MessageConstant.COORDINATOR_ASSIGNED_SUCCESSFULLY;
@@ -172,5 +174,47 @@ public class VendorLogisticsController {
                 
         logisticsAllocationService.emergencyCancelSchedule(scheduleId, request, user.getUser().getUserId(), isManager);
         return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, MessageConstant.SCHEDULE_CANCELLED_SUCCESSFULLY));
+    }
+
+    @Operation(summary = "Hoàn trả trang bị sau tour (Đơn lẻ)", description = "Hoàn trả số lượng trang bị đã phân bổ cho tour session, ghi nhận số lượng trả/hỏng/mất và lý do.")
+    @PutMapping("/equipments/allocations/{sessionEquipmentId}/return")
+    @PreAuthorize("hasAnyRole('VENDOR_MANAGER', 'VENDOR_STAFF', 'COORDINATOR')")
+    public ResponseEntity<ApiResponse<Void>> returnEquipment(
+            @PathVariable UUID sessionEquipmentId,
+            @Valid @RequestBody ReturnEquipmentRequest request,
+            @AuthenticationPrincipal CustomUserDetails user) {
+        logisticsAllocationService.returnEquipment(sessionEquipmentId, request, user.getUser().getUserId());
+        return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, "Hoàn trả trang bị thành công"));
+    }
+
+    @Operation(summary = "Hoàn trả trang bị sau tour (Hàng loạt)", description = "Hoàn trả danh sách trang bị đã phân bổ cho tour session theo mảng từ Frontend.")
+    @PutMapping("/{sessionId}/equipments/bulk-return")
+    @PreAuthorize("hasAnyRole('VENDOR_MANAGER', 'VENDOR_STAFF', 'COORDINATOR')")
+    public ResponseEntity<ApiResponse<Void>> bulkReturnEquipment(
+            @PathVariable UUID sessionId,
+            @Valid @RequestBody BulkReturnEquipmentRequest request,
+            @AuthenticationPrincipal CustomUserDetails user) {
+        logisticsAllocationService.bulkReturnEquipment(sessionId, request, user.getUser().getUserId());
+        return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, "Gửi báo cáo hoàn trả trang bị thành công"));
+    }
+
+    @Operation(summary = "Vendor xác nhận nhập kho trang bị hoàn trả (Đơn lẻ)", description = "Dành cho Vendor Manager/Staff kiểm đếm và xác nhận hoàn bổ số lượng về kho.")
+    @PostMapping("/equipments/allocations/{sessionEquipmentId}/confirm-return")
+    @PreAuthorize("hasAnyRole('VENDOR_MANAGER', 'VENDOR_STAFF')")
+    public ResponseEntity<ApiResponse<Void>> confirmEquipmentReturn(
+            @PathVariable UUID sessionEquipmentId,
+            @AuthenticationPrincipal CustomUserDetails user) {
+        logisticsAllocationService.confirmEquipmentReturn(sessionEquipmentId, user.getUser().getUserId());
+        return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, "Xác nhận nhập kho trang bị thành công"));
+    }
+
+    @Operation(summary = "Vendor xác nhận nhập kho trang bị hoàn trả (Hàng loạt)", description = "Dành cho Vendor Manager/Staff xác nhận toàn bộ danh sách hoàn trả chờ xử lý của phiên tour.")
+    @PostMapping("/{sessionId}/equipments/confirm-return")
+    @PreAuthorize("hasAnyRole('VENDOR_MANAGER', 'VENDOR_STAFF')")
+    public ResponseEntity<ApiResponse<Void>> bulkConfirmEquipmentReturn(
+            @PathVariable UUID sessionId,
+            @AuthenticationPrincipal CustomUserDetails user) {
+        logisticsAllocationService.bulkConfirmEquipmentReturn(sessionId, user.getUser().getUserId());
+        return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, "Xác nhận nhập kho toàn bộ trang bị thành công"));
     }
 }

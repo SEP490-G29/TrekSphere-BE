@@ -34,6 +34,8 @@ import vn.payos.model.v1.payouts.batch.PayoutBatchItem;
 import vn.payos.model.v1.payouts.batch.PayoutBatchRequest;
 import vn.payos.model.v2.paymentRequests.CreatePaymentLinkRequest;
 import vn.payos.model.v2.paymentRequests.CreatePaymentLinkResponse;
+import vn.payos.model.v2.paymentRequests.PaymentLink;
+import vn.payos.model.v2.paymentRequests.PaymentLinkStatus;
 import vn.payos.model.webhooks.Webhook;
 import vn.payos.model.webhooks.WebhookData;
 
@@ -89,28 +91,38 @@ public class PaymentServiceImpl implements PaymentService {
             throw new AppException(ErrorCode.PAYMENT_GATEWAY_ERROR);
         }
         if (prepared.existing() != null) {
-            return prepared.existing();
+            if (!isGatewayCheckoutTerminal(prepared)) {
+                return prepared.existing();
+            }
+            prepared = transactionTemplate.execute(status -> prepareCheckout(email, bookingId));
+            if (prepared == null) {
+                throw new AppException(ErrorCode.PAYMENT_GATEWAY_ERROR);
+            }
+            if (prepared.existing() != null) {
+                return prepared.existing();
+            }
         }
 
-        PayOS client = payOsClientFactory.getClient(prepared.account());
-        String returnUrl = withBookingId(properties.getReturnUrl(), prepared.bookingId());
-        String cancelUrl = withBookingId(properties.getCancelUrl(), prepared.bookingId());
+        final PreparedCheckout activeCheckout = prepared;
+        PayOS client = payOsClientFactory.getClient(activeCheckout.account());
+        String returnUrl = withBookingId(properties.getReturnUrl(), activeCheckout.bookingId());
+        String cancelUrl = withBookingId(properties.getCancelUrl(), activeCheckout.bookingId());
         CreatePaymentLinkRequest request = CreatePaymentLinkRequest.builder()
-                .orderCode(prepared.orderCode())
-                .amount(prepared.amount())
-                .description(prepared.description())
+                .orderCode(activeCheckout.orderCode())
+                .amount(activeCheckout.amount())
+                .description(activeCheckout.description())
                 .returnUrl(returnUrl)
                 .cancelUrl(cancelUrl)
-                .expiredAt(prepared.expiresAt().atZone(BUSINESS_ZONE).toEpochSecond())
+                .expiredAt(activeCheckout.expiresAt().atZone(BUSINESS_ZONE).toEpochSecond())
                 .build();
 
         try {
             CreatePaymentLinkResponse gatewayResponse = client.paymentRequests().create(request);
-            return transactionTemplate.execute(status -> completeCheckout(prepared.transactionId(), gatewayResponse));
+            return transactionTemplate.execute(status -> completeCheckout(activeCheckout.transactionId(), gatewayResponse));
         } catch (Exception exception) {
-            log.error("payOS create checkout failed for transaction {}", prepared.transactionId(), exception);
+            log.error("payOS create checkout failed for transaction {}", activeCheckout.transactionId(), exception);
             transactionTemplate.executeWithoutResult(status -> markPaymentFailed(
-                    prepared.transactionId(), "PAYOS_CREATE_FAILED", safeMessage(exception)));
+                    activeCheckout.transactionId(), "PAYOS_CREATE_FAILED", safeMessage(exception)));
             throw new AppException(ErrorCode.PAYMENT_GATEWAY_ERROR);
         }
     }
@@ -132,7 +144,12 @@ public class PaymentServiceImpl implements PaymentService {
             PaymentTransaction transaction = existing.get();
             if (transaction.getStatus() == PaymentTransactionStatus.PAID ||
                     (transaction.getExpiredAt() != null && transaction.getExpiredAt().isAfter(LocalDateTime.now()))) {
-                return new PreparedCheckout(null, bookingId, null, null, 0, null, null, toCheckoutResponse(transaction));
+                VendorPaymentAccount existingAccount = vendorPaymentAccountRepository
+                        .findById(transaction.getVendorPaymentAccount().getVendorPaymentAccountId())
+                        .orElseThrow(() -> new AppException(ErrorCode.PAYMENT_ACCOUNT_NOT_CONFIGURED));
+                return new PreparedCheckout(transaction.getPaymentTransactionId(), bookingId, existingAccount,
+                        transaction.getGatewayOrderCode(), 0, null, transaction.getExpiredAt(),
+                        toCheckoutResponse(transaction));
             }
             transaction.setStatus(PaymentTransactionStatus.EXPIRED);
             paymentTransactionRepository.save(transaction);
@@ -182,6 +199,122 @@ public class PaymentServiceImpl implements PaymentService {
         if (description.length() > 25) description = description.substring(0, 25);
         return new PreparedCheckout(transaction.getPaymentTransactionId(), bookingId, account,
                 transaction.getGatewayOrderCode(), amount.longValueExact(), description, expiresAt, null);
+    }
+
+    private boolean isGatewayCheckoutTerminal(PreparedCheckout prepared) {
+        if (prepared.orderCode() == null || prepared.account() == null) {
+            return false;
+        }
+        try {
+            PaymentLink paymentLink = payOsClientFactory.getClient(prepared.account())
+                    .paymentRequests().get(prepared.orderCode());
+            PaymentLinkStatus status = paymentLink.getStatus();
+            if (!EnumSet.of(PaymentLinkStatus.CANCELLED, PaymentLinkStatus.EXPIRED,
+                    PaymentLinkStatus.FAILED).contains(status)) {
+                return false;
+            }
+            transactionTemplate.executeWithoutResult(transactionStatus ->
+                    markGatewayCheckoutTerminal(prepared.transactionId(), status));
+            return true;
+        } catch (Exception exception) {
+            log.warn("Unable to reconcile payOS checkout {} before reuse", prepared.orderCode(), exception);
+            throw new AppException(ErrorCode.PAYMENT_GATEWAY_ERROR);
+        }
+    }
+
+    @Override
+    public PaymentTransactionResponse cancelCheckout(String email, UUID bookingId, Long orderCode) {
+        PaymentTransaction target = transactionTemplate.execute(status ->
+                prepareCheckoutCancellation(email, bookingId, orderCode));
+        if (target == null) {
+            throw new AppException(ErrorCode.PAYMENT_TRANSACTION_NOT_FOUND);
+        }
+        if (!EnumSet.of(PaymentTransactionStatus.CREATED, PaymentTransactionStatus.PENDING,
+                PaymentTransactionStatus.PROCESSING).contains(target.getStatus())) {
+            return toPaymentResponse(target);
+        }
+
+        VendorPaymentAccount account = vendorPaymentAccountRepository
+                .findById(target.getVendorPaymentAccount().getVendorPaymentAccountId())
+                .orElseThrow(() -> new AppException(ErrorCode.PAYMENT_ACCOUNT_NOT_CONFIGURED));
+        try {
+            PayOS client = payOsClientFactory.getClient(account);
+            PaymentLink paymentLink = client.paymentRequests().get(orderCode);
+            if (paymentLink.getStatus() == PaymentLinkStatus.PENDING) {
+                paymentLink = client.paymentRequests().cancel(orderCode,
+                        "Khach hang huy phien thanh toan");
+            }
+            PaymentLinkStatus gatewayStatus = paymentLink.getStatus();
+            PaymentTransactionResponse response = transactionTemplate.execute(status ->
+                    reconcileCancelledCheckout(target.getPaymentTransactionId(), gatewayStatus));
+            if (response == null) {
+                throw new AppException(ErrorCode.PAYMENT_TRANSACTION_NOT_FOUND);
+            }
+            return response;
+        } catch (AppException exception) {
+            throw exception;
+        } catch (Exception exception) {
+            log.warn("Unable to cancel payOS checkout {}", orderCode, exception);
+            throw new AppException(ErrorCode.PAYMENT_GATEWAY_ERROR);
+        }
+    }
+
+    private PaymentTransaction prepareCheckoutCancellation(String email, UUID bookingId, Long orderCode) {
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
+        Booking booking = bookingRepository.findByIdForUpdate(bookingId)
+                .orElseThrow(() -> new AppException(ErrorCode.BOOKING_NOT_FOUND));
+        if (!booking.getUser().getUserId().equals(user.getUserId())) {
+            throw new AppException(ErrorCode.ACCESS_DENIED);
+        }
+        PaymentTransaction payment = paymentTransactionRepository
+                .findByGatewayOrderCodeAndIsDeletedFalse(orderCode)
+                .orElseThrow(() -> new AppException(ErrorCode.PAYMENT_TRANSACTION_NOT_FOUND));
+        if (!payment.getBooking().getBookingId().equals(bookingId)) {
+            throw new AppException(ErrorCode.ACCESS_DENIED);
+        }
+        return payment;
+    }
+
+    private PaymentTransactionResponse reconcileCancelledCheckout(
+            UUID paymentTransactionId, PaymentLinkStatus gatewayStatus) {
+        PaymentTransaction payment = paymentTransactionRepository.findByIdForUpdate(paymentTransactionId)
+                .orElseThrow(() -> new AppException(ErrorCode.PAYMENT_TRANSACTION_NOT_FOUND));
+        if (payment.getStatus() == PaymentTransactionStatus.PAID) {
+            return toPaymentResponse(payment);
+        }
+        if (gatewayStatus == PaymentLinkStatus.CANCELLED || gatewayStatus == PaymentLinkStatus.EXPIRED
+                || gatewayStatus == PaymentLinkStatus.FAILED) {
+            markGatewayCheckoutTerminal(payment, gatewayStatus);
+        } else if (gatewayStatus == PaymentLinkStatus.PROCESSING
+                || gatewayStatus == PaymentLinkStatus.UNDERPAID
+                || gatewayStatus == PaymentLinkStatus.PAID) {
+            payment.setStatus(PaymentTransactionStatus.PROCESSING);
+            paymentTransactionRepository.save(payment);
+        }
+        return toPaymentResponse(payment);
+    }
+
+    private void markGatewayCheckoutTerminal(UUID paymentTransactionId, PaymentLinkStatus gatewayStatus) {
+        PaymentTransaction payment = paymentTransactionRepository.findByIdForUpdate(paymentTransactionId)
+                .orElseThrow(() -> new AppException(ErrorCode.PAYMENT_TRANSACTION_NOT_FOUND));
+        if (payment.getStatus() != PaymentTransactionStatus.PAID) {
+            markGatewayCheckoutTerminal(payment, gatewayStatus);
+        }
+    }
+
+    private void markGatewayCheckoutTerminal(PaymentTransaction payment, PaymentLinkStatus gatewayStatus) {
+        if (gatewayStatus == PaymentLinkStatus.CANCELLED) {
+            payment.setStatus(PaymentTransactionStatus.CANCELLED);
+            payment.setCancelledAt(LocalDateTime.now());
+        } else if (gatewayStatus == PaymentLinkStatus.EXPIRED) {
+            payment.setStatus(PaymentTransactionStatus.EXPIRED);
+        } else {
+            payment.setStatus(PaymentTransactionStatus.FAILED);
+            payment.setFailureCode("PAYOS_CHECKOUT_FAILED");
+            payment.setFailureMessage("payOS đã đóng phiên thanh toán.");
+        }
+        paymentTransactionRepository.save(payment);
     }
 
     private PaymentStage resolveNextStage(Booking booking) {
@@ -336,6 +469,7 @@ public class PaymentServiceImpl implements PaymentService {
             payment.setPaidAt(LocalDateTime.now());
             payment.setGatewayReference(data.getReference());
             payment.getGatewayMetadata().put("counterAccountBankId", data.getCounterAccountBankId());
+            payment.getGatewayMetadata().put("counterAccountBankName", data.getCounterAccountBankName());
             payment.getGatewayMetadata().put("counterAccountNumber", data.getCounterAccountNumber());
             payment.getGatewayMetadata().put("counterAccountName", data.getCounterAccountName());
             paymentTransactionRepository.saveAndFlush(payment);
@@ -461,9 +595,6 @@ public class PaymentServiceImpl implements PaymentService {
         refund.setReasonDetail("Payment arrived after the booking hold was no longer valid");
         refund.setRefundMethod(RefundMethod.MANUAL);
         refund.setDueAt(refundDueAt());
-        refund.setDestinationBin(Objects.toString(payment.getGatewayMetadata().get("counterAccountBankId"), null));
-        refund.setDestinationAccountNumber(Objects.toString(payment.getGatewayMetadata().get("counterAccountNumber"), null));
-        refund.setDestinationAccountName(Objects.toString(payment.getGatewayMetadata().get("counterAccountName"), null));
         refundTransactionRepository.save(refund);
         booking.setPaymentStatus(PaymentStatus.REFUND_PENDING);
         bookingRepository.save(booking);
@@ -515,6 +646,14 @@ public class PaymentServiceImpl implements PaymentService {
     }
 
     private RefundTransactionResponse executeRefund(UUID refundId, User approver) {
+        RefundTransactionResponse waitingForDestination = transactionTemplate.execute(status -> {
+            RefundTransaction current = refundTransactionRepository.findByIdForUpdate(refundId)
+                    .orElseThrow(() -> new AppException(ErrorCode.REFUND_NOT_FOUND));
+            return hasRefundDestination(current) ? null : toRefundResponse(current);
+        });
+        if (waitingForDestination != null) {
+            return waitingForDestination;
+        }
         Boolean automaticPayoutAvailable = transactionTemplate.execute(status -> {
             RefundTransaction current = refundTransactionRepository.findByIdForUpdate(refundId)
                     .orElseThrow(() -> new AppException(ErrorCode.REFUND_NOT_FOUND));
@@ -700,7 +839,6 @@ public class PaymentServiceImpl implements PaymentService {
             }
             requireRefundDestination(refund);
             refund.setRefundMethod(RefundMethod.MANUAL);
-            refund.setManualBankReference(request.getBankReference().trim());
             refund.getGatewayMetadata().put("manualNote", Objects.toString(request.getNote(), ""));
             refund.getGatewayMetadata().put("submittedBy", submitter.getUserId().toString());
             refund.setManualReceiptUrl(request.getReceiptImageUrl().trim());
@@ -780,6 +918,7 @@ public class PaymentServiceImpl implements PaymentService {
                 throw new AppException(ErrorCode.REFUND_NOT_PROCESSABLE);
             }
             refund.setDestinationBin(request.getBankBin().trim());
+            refund.setDestinationBankName(isBlank(request.getBankName()) ? null : request.getBankName().trim());
             refund.setDestinationAccountNumber(request.getAccountNumber().trim());
             refund.setDestinationAccountName(request.getAccountName().trim());
             refundTransactionRepository.save(refund);
@@ -991,10 +1130,15 @@ public class PaymentServiceImpl implements PaymentService {
     }
 
     private void requireRefundDestination(RefundTransaction refund) {
-        if (isBlank(refund.getDestinationBin()) || isBlank(refund.getDestinationAccountNumber())
-                || isBlank(refund.getDestinationAccountName())) {
+        if (!hasRefundDestination(refund)) {
             throw new AppException(ErrorCode.REFUND_DESTINATION_REQUIRED);
         }
+    }
+
+    private boolean hasRefundDestination(RefundTransaction refund) {
+        return !isBlank(refund.getDestinationBin()) && !isBlank(refund.getDestinationBankName())
+                && !isBlank(refund.getDestinationAccountNumber())
+                && !isBlank(refund.getDestinationAccountName());
     }
 
     private Vendor requireAssociatedVendor(String email) {
@@ -1082,6 +1226,7 @@ public class PaymentServiceImpl implements PaymentService {
                 .status(refund.getStatus())
                 .refundMethod(refund.getRefundMethod())
                 .destinationBin(refund.getDestinationBin())
+                .destinationBankName(refund.getDestinationBankName())
                 .destinationAccountNumber(refund.getDestinationAccountNumber())
                 .maskedDestinationAccountNumber(mask(refund.getDestinationAccountNumber()))
                 .destinationAccountName(refund.getDestinationAccountName())

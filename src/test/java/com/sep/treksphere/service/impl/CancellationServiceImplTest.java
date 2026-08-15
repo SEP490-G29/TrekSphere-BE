@@ -4,6 +4,8 @@ import com.sep.treksphere.dto.request.BookingCancelRequest;
 import com.sep.treksphere.config.PaymentWorkflowProperties;
 import com.sep.treksphere.entity.*;
 import com.sep.treksphere.enums.booking.*;
+import com.sep.treksphere.exception.AppException;
+import com.sep.treksphere.exception.ErrorCode;
 import com.sep.treksphere.repository.NotificationRepository;
 import org.springframework.context.ApplicationEventPublisher;
 import com.sep.treksphere.repository.*;
@@ -132,6 +134,43 @@ class CancellationServiceImplTest {
     }
 
     @Test
+    void quoteRequiresCustomerEnteredDestinationAndDoesNotPrefillFromWebhook() {
+        payment.getGatewayMetadata().put("counterAccountBankId", "970422");
+        payment.getGatewayMetadata().put("counterAccountBankName", "MB Bank");
+        payment.getGatewayMetadata().put("counterAccountNumber", "0123456789");
+        payment.getGatewayMetadata().put("counterAccountName", "NGUYEN VAN A");
+        when(bookingRepository.findById(bookingId)).thenReturn(Optional.of(booking));
+        var quote = service.quoteForTrekker(user.getEmail(), bookingId);
+
+        assertTrue(quote.getRefundDestinationRequired());
+        assertNull(quote.getRefundBankBin());
+        assertNull(quote.getRefundBankName());
+        assertNull(quote.getRefundAccountNumber());
+        assertNull(quote.getRefundAccountName());
+    }
+
+    @Test
+    void cancellationRejectsMissingCustomerDestinationEvenWhenWebhookHasSenderAccount() {
+        payment.getGatewayMetadata().put("counterAccountBankId", "970422");
+        payment.getGatewayMetadata().put("counterAccountBankName", "MB Bank");
+        payment.getGatewayMetadata().put("counterAccountNumber", "0123456789");
+        payment.getGatewayMetadata().put("counterAccountName", "NGUYEN VAN A");
+        when(bookingRepository.findScheduleIdByBookingId(bookingId)).thenReturn(Optional.of(schedule.getScheduleId()));
+        when(bookingRepository.findByIdForUpdate(bookingId)).thenReturn(Optional.of(booking));
+        when(tourScheduleRepository.findByIdForUpdate(schedule.getScheduleId())).thenReturn(Optional.of(schedule));
+
+        BookingCancelRequest request = new BookingCancelRequest();
+        request.setCancellationReason("Thay đổi kế hoạch");
+
+        AppException exception = assertThrows(AppException.class,
+                () -> service.cancelByTrekker(user.getEmail(), bookingId, request));
+
+        assertEquals(ErrorCode.REFUND_DESTINATION_REQUIRED, exception.getErrorCode());
+        verify(paymentTransactionRepository, never())
+                .findByBooking_BookingIdAndIsDeletedFalseOrderByCreatedAtAsc(bookingId);
+    }
+
+    @Test
     void cancellationReleasesCapacityAndCreatesPendingRefund() {
         when(bookingRepository.findScheduleIdByBookingId(bookingId)).thenReturn(Optional.of(schedule.getScheduleId()));
         when(bookingRepository.findByIdForUpdate(bookingId)).thenReturn(Optional.of(booking));
@@ -150,6 +189,7 @@ class CancellationServiceImplTest {
         BookingCancelRequest request = new BookingCancelRequest();
         request.setCancellationReason("Thay đổi kế hoạch");
         request.setRefundBankBin("970422");
+        request.setRefundBankName("MB Bank");
         request.setRefundAccountNumber("0123456789");
         request.setRefundAccountName("NGUYEN VAN A");
 
@@ -166,6 +206,7 @@ class CancellationServiceImplTest {
         assertEquals(new BigDecimal("1750000"), refund.getAmount());
         assertEquals(RefundStatus.PENDING, refund.getStatus());
         assertEquals(RefundReason.TREKKER_CANCEL, refund.getReason());
+        assertEquals("MB Bank", refund.getDestinationBankName());
         assertEquals("0123456789", refund.getDestinationAccountNumber());
     }
 }

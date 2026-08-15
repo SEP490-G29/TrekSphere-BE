@@ -1,10 +1,12 @@
 package com.sep.treksphere.entity;
 
+import com.sep.treksphere.enums.logistics.EquipmentReturnStatus;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
+import java.time.LocalDateTime;
 import java.util.UUID;
 
 @Entity
@@ -38,4 +40,25 @@ public class SessionEquipment extends BaseEntity {
 
     @Column(columnDefinition = "TEXT")
     private String note;
+
+    private Integer returnedQuantity;
+
+    private Integer missingQuantity;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "return_status", nullable = false)
+    private EquipmentReturnStatus returnStatus = EquipmentReturnStatus.NOT_RETURNED;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "submitted_by")
+    private User submittedBy;
+
+    private LocalDateTime submittedAt;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "confirmed_by")
+    private User confirmedBy;
+
+    private LocalDateTime confirmedAt;
 }
+

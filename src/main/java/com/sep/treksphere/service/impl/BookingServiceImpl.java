@@ -230,27 +230,32 @@ public class BookingServiceImpl implements BookingService {
         }
     }
 
-    private PaymentPlan resolvePaymentPlan(PaymentPlan requested, TourPaymentPolicy policy, TourSchedule schedule) {
+    PaymentPlan resolvePaymentPlan(PaymentPlan requested, TourPaymentPolicy policy, TourSchedule schedule) {
+        boolean depositConfigured = policy.getPaymentOption() == PaymentOption.FULL_PAYMENT_ONLY
+                || (policy.getDepositType() != null && policy.getDepositValue() != null
+                && policy.getRemainingDueDaysBeforeDeparture() != null);
+        if (!depositConfigured) {
+            throw new AppException(ErrorCode.PAYMENT_PLAN_NOT_ALLOWED, "Cấu hình đặt cọc của tour chưa đầy đủ.");
+        }
+        boolean depositDeadlineOpen = policy.getPaymentOption() != PaymentOption.FULL_PAYMENT_ONLY
+                && schedule.getDepartureDate().minusDays(policy.getRemainingDueDaysBeforeDeparture())
+                .isAfter(LocalDate.now());
         PaymentPlan selected = requested;
         if (selected == null) {
-            selected = policy.getPaymentOption() == PaymentOption.DEPOSIT_ONLY
+            selected = policy.getPaymentOption() == PaymentOption.DEPOSIT_ONLY && depositDeadlineOpen
                     ? PaymentPlan.DEPOSIT
                     : PaymentPlan.FULL_PAYMENT;
         }
-        if (policy.getPaymentOption() == PaymentOption.FULL_PAYMENT_ONLY && selected == PaymentPlan.DEPOSIT
-                || policy.getPaymentOption() == PaymentOption.DEPOSIT_ONLY && selected == PaymentPlan.FULL_PAYMENT) {
+        if (policy.getPaymentOption() == PaymentOption.FULL_PAYMENT_ONLY && selected == PaymentPlan.DEPOSIT) {
             throw new AppException(ErrorCode.PAYMENT_PLAN_NOT_ALLOWED);
         }
         if (selected == PaymentPlan.DEPOSIT) {
-            if (policy.getDepositType() == null || policy.getDepositValue() == null
-                    || policy.getRemainingDueDaysBeforeDeparture() == null) {
-                throw new AppException(ErrorCode.PAYMENT_PLAN_NOT_ALLOWED, "Cấu hình đặt cọc của tour chưa đầy đủ.");
-            }
-            LocalDate dueDate = schedule.getDepartureDate().minusDays(policy.getRemainingDueDaysBeforeDeparture());
-            if (!dueDate.isAfter(LocalDate.now())) {
+            if (!depositDeadlineOpen) {
                 throw new AppException(ErrorCode.PAYMENT_PLAN_NOT_ALLOWED,
                         "Đã qua hạn đặt cọc; booking này phải thanh toán toàn bộ.");
             }
+        } else if (policy.getPaymentOption() == PaymentOption.DEPOSIT_ONLY && depositDeadlineOpen) {
+            throw new AppException(ErrorCode.PAYMENT_PLAN_NOT_ALLOWED);
         }
         return selected;
     }

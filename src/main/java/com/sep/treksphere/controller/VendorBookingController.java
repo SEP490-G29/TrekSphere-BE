@@ -84,7 +84,7 @@ public class VendorBookingController {
                 paymentService.processRefund(userDetails.getUsername(), refundId)));
     }
 
-    @Operation(summary = "Xác nhận refund chuyển khoản thủ công", description = "Yêu cầu mã tham chiếu ngân hàng; không thay đổi số tiền refund")
+    @Operation(summary = "Gửi biên nhận hoàn tiền thủ công", description = "Ảnh biên nhận được admin đối soát; không thay đổi số tiền refund")
     @PreAuthorize("hasRole('VENDOR_MANAGER')")
     @PostMapping("/refunds/{refundId}/complete-manual")
     public ResponseEntity<ApiResponse<RefundTransactionResponse>> completeManualRefund(

@@ -459,6 +459,7 @@ public class MessageConstant {
     public static final String INVALID_RETURN_QUANTITY = "Số lượng trả về không hợp lệ (tổng vượt quá số lượng mượn)";
     public static final String EQUIPMENT_ID_REQUIRED = "Trang bị không được để trống";
     public static final String QUANTITY_REQUIRED_AND_MIN = "Số lượng phải lớn hơn 0";
+    public static final String QUANTITY_MIN_ZERO = "Số lượng không được nhỏ hơn 0";
     public static final String RETURN_QUANTITY_REQUIRED = "Số lượng trả về nguyên vẹn không được để trống";
     public static final String MISSING_QUANTITY_REQUIRED = "Số lượng thất lạc/hư hỏng không được để trống";
     // Review Messages

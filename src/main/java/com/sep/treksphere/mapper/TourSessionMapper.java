@@ -65,6 +65,14 @@ public interface TourSessionMapper {
     @Mapping(source = "equipment.equipmentName", target = "equipmentName")
     @Mapping(source = "quantity", target = "quantity")
     @Mapping(source = "note", target = "note")
+    @Mapping(source = "isChecked", target = "isChecked")
+    @Mapping(source = "returnedQuantity", target = "returnedQuantity")
+    @Mapping(source = "missingQuantity", target = "missingQuantity")
+    @Mapping(source = "returnStatus", target = "returnStatus")
+    @Mapping(source = "submittedBy.fullName", target = "submittedByName")
+    @Mapping(source = "submittedAt", target = "submittedAt")
+    @Mapping(source = "confirmedBy.fullName", target = "confirmedByName")
+    @Mapping(source = "confirmedAt", target = "confirmedAt")
     EquipmentAllocationDto toEquipmentAllocationDto(SessionEquipment sessionEquipment);
 
     List<EquipmentAllocationDto> toEquipmentAllocationDtoList(List<SessionEquipment> sessionEquipments);
