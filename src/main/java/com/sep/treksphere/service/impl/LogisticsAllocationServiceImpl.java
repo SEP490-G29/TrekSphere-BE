@@ -34,19 +34,23 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import java.util.stream.Collectors;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 import java.time.LocalDateTime;
 import com.sep.treksphere.dto.request.AssignPorterRequest;
 import com.sep.treksphere.dto.request.AssignEquipmentRequest;
 import com.sep.treksphere.dto.request.CancelScheduleRequest;
+import com.sep.treksphere.dto.request.ReturnEquipmentRequest;
+import com.sep.treksphere.dto.request.ReturnEquipmentItemRequest;
+import com.sep.treksphere.dto.request.BulkReturnEquipmentRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.LocalDateTime;
-import java.util.Optional;
-import java.util.UUID;
+import com.sep.treksphere.entity.User;
+import com.sep.treksphere.enums.logistics.EquipmentReturnStatus;
+import com.sep.treksphere.repository.UserRepository;
 
 @Service
 @RequiredArgsConstructor
@@ -62,6 +66,7 @@ public class LogisticsAllocationServiceImpl implements LogisticsAllocationServic
     private final VendorStaffRepository vendorStaffRepository;
     private final VendorEquipmentRepository vendorEquipmentRepository;
     private final SessionEquipmentRepository sessionEquipmentRepository;
+    private final UserRepository userRepository;
     private final TourSessionMapper tourSessionMapper;
     private final SessionEquipmentMapper sessionEquipmentMapper;
 
@@ -465,5 +470,186 @@ public class LogisticsAllocationServiceImpl implements LogisticsAllocationServic
         VendorStaff staff = vendorStaffRepository.findByUser_UserIdAndIsActiveTrueAndIsDeletedFalse(userId)
                 .orElseThrow(() -> new AppException(ErrorCode.UNAUTHORIZED_VENDOR_ACCESS));
         return staff.getVendor().getVendorId();
+    }
+
+    @Override
+    @Transactional
+    public void returnEquipment(UUID sessionEquipmentId, ReturnEquipmentRequest request, UUID userId) {
+        log.info("Submitting single equipment return report {} by user {}", sessionEquipmentId, userId);
+
+        SessionEquipment sessionEquipment = sessionEquipmentRepository.findById(sessionEquipmentId)
+                .orElseThrow(() -> new AppException(ErrorCode.SESSION_EQUIPMENT_NOT_FOUND));
+
+        if (Boolean.TRUE.equals(sessionEquipment.getIsDeleted())) {
+            throw new AppException(ErrorCode.SESSION_EQUIPMENT_NOT_FOUND);
+        }
+
+        TourSession session = sessionEquipment.getTourSession();
+        validateSessionAccess(session, userId);
+
+        if (session.getStatus() != TourSessionStatus.IN_PROGRESS && session.getStatus() != TourSessionStatus.COMPLETED) {
+            log.warn("Cannot return equipment for session {} with status {}", session.getTourSessionId(), session.getStatus());
+            throw new AppException(ErrorCode.SESSION_NOT_IN_PROGRESS);
+        }
+
+        int returnedQuantity = request.getReturnedQuantity() != null ? request.getReturnedQuantity() : 0;
+        int missingQuantity = request.getMissingQuantity() != null ? request.getMissingQuantity() : 0;
+
+        int totalInput = returnedQuantity + missingQuantity;
+        if (totalInput != sessionEquipment.getQuantity()) {
+            throw new AppException(ErrorCode.INVALID_RETURN_QUANTITY);
+        }
+
+        User submitter = userRepository.findById(userId).orElse(null);
+        sessionEquipment.setReturnedQuantity(returnedQuantity);
+        sessionEquipment.setMissingQuantity(missingQuantity);
+        sessionEquipment.setReturnStatus(EquipmentReturnStatus.PENDING_CONFIRMATION);
+        sessionEquipment.setSubmittedBy(submitter);
+        sessionEquipment.setSubmittedAt(LocalDateTime.now());
+
+        if (request.getNote() != null && !request.getNote().isBlank()) {
+            sessionEquipment.setNote(request.getNote());
+        }
+        sessionEquipmentRepository.save(sessionEquipment);
+
+        log.info("Single equipment return report submitted successfully (pending vendor confirmation)");
+    }
+
+    @Override
+    @Transactional
+    public void bulkReturnEquipment(UUID sessionId, BulkReturnEquipmentRequest request, UUID userId) {
+        log.info("Bulk submitting equipment return reports for session {} by user {}", sessionId, userId);
+
+        TourSession session = tourSessionRepository.findByIdWithVendor(sessionId)
+                .orElseThrow(() -> new AppException(ErrorCode.TOUR_SESSION_NOT_FOUND));
+
+        validateSessionAccess(session, userId);
+
+        if (session.getStatus() != TourSessionStatus.IN_PROGRESS && session.getStatus() != TourSessionStatus.COMPLETED) {
+            log.warn("Cannot bulk return equipment for session {} with status {}", sessionId, session.getStatus());
+            throw new AppException(ErrorCode.SESSION_NOT_IN_PROGRESS);
+        }
+
+        User submitter = userRepository.findById(userId).orElse(null);
+
+        if (request.getItems() != null && !request.getItems().isEmpty()) {
+            for (ReturnEquipmentItemRequest item : request.getItems()) {
+                SessionEquipment sessionEquipment = sessionEquipmentRepository.findById(item.getSessionEquipmentId())
+                        .orElseThrow(() -> new AppException(ErrorCode.SESSION_EQUIPMENT_NOT_FOUND));
+
+                if (Boolean.TRUE.equals(sessionEquipment.getIsDeleted())
+                        || !sessionEquipment.getTourSession().getTourSessionId().equals(sessionId)) {
+                    throw new AppException(ErrorCode.SESSION_EQUIPMENT_NOT_FOUND);
+                }
+
+                int returnedQuantity = item.getReturnedQuantity() != null ? item.getReturnedQuantity() : 0;
+                int missingQuantity = item.getMissingQuantity() != null ? item.getMissingQuantity() : 0;
+
+                int totalInput = returnedQuantity + missingQuantity;
+                if (totalInput != sessionEquipment.getQuantity()) {
+                    throw new AppException(ErrorCode.INVALID_RETURN_QUANTITY);
+                }
+
+                sessionEquipment.setReturnedQuantity(returnedQuantity);
+                sessionEquipment.setMissingQuantity(missingQuantity);
+                sessionEquipment.setReturnStatus(EquipmentReturnStatus.PENDING_CONFIRMATION);
+                sessionEquipment.setSubmittedBy(submitter);
+                sessionEquipment.setSubmittedAt(LocalDateTime.now());
+
+                if (item.getNote() != null && !item.getNote().isBlank()) {
+                    sessionEquipment.setNote(item.getNote());
+                }
+                sessionEquipmentRepository.save(sessionEquipment);
+            }
+        }
+
+        log.info("Bulk equipment return reports submitted successfully (pending vendor confirmation)");
+    }
+
+    @Override
+    @Transactional
+    public void confirmEquipmentReturn(UUID sessionEquipmentId, UUID vendorUserId) {
+        log.info("Confirming single equipment return {} by vendor user {}", sessionEquipmentId, vendorUserId);
+
+        SessionEquipment sessionEquipment = sessionEquipmentRepository.findById(sessionEquipmentId)
+                .orElseThrow(() -> new AppException(ErrorCode.SESSION_EQUIPMENT_NOT_FOUND));
+
+        if (Boolean.TRUE.equals(sessionEquipment.getIsDeleted())) {
+            throw new AppException(ErrorCode.SESSION_EQUIPMENT_NOT_FOUND);
+        }
+
+        TourSession session = sessionEquipment.getTourSession();
+        UUID vendorId = resolveVendorId(vendorUserId);
+        if (!session.getTourSchedule().getTour().getVendor().getVendorId().equals(vendorId)) {
+            throw new AppException(ErrorCode.TOUR_NOT_BELONG_TO_VENDOR);
+        }
+
+        if (sessionEquipment.getReturnStatus() != EquipmentReturnStatus.PENDING_CONFIRMATION) {
+            log.warn("Session equipment {} is not in PENDING_CONFIRMATION status", sessionEquipmentId);
+            throw new AppException(ErrorCode.EQUIPMENT_NOT_SUBMITTED_FOR_RETURN);
+        }
+
+        int returnedQty = sessionEquipment.getReturnedQuantity() != null ? sessionEquipment.getReturnedQuantity() : 0;
+        if (returnedQty > 0) {
+            VendorEquipment equipment = sessionEquipment.getEquipment();
+            equipment.setTotalQuantity(equipment.getTotalQuantity() + returnedQty);
+            vendorEquipmentRepository.save(equipment);
+        }
+
+        User confirmedUser = userRepository.findById(vendorUserId).orElse(null);
+        sessionEquipment.setIsChecked(true);
+        sessionEquipment.setReturnStatus(EquipmentReturnStatus.CONFIRMED);
+        sessionEquipment.setConfirmedBy(confirmedUser);
+        sessionEquipment.setConfirmedAt(LocalDateTime.now());
+        sessionEquipmentRepository.save(sessionEquipment);
+
+        log.info("Single equipment return confirmed successfully");
+    }
+
+    @Override
+    @Transactional
+    public void bulkConfirmEquipmentReturn(UUID sessionId, UUID vendorUserId) {
+        log.info("Bulk confirming equipment returns for session {} by vendor user {}", sessionId, vendorUserId);
+
+        TourSession session = tourSessionRepository.findByIdWithVendor(sessionId)
+                .orElseThrow(() -> new AppException(ErrorCode.TOUR_SESSION_NOT_FOUND));
+
+        UUID vendorId = resolveVendorId(vendorUserId);
+        if (!session.getTourSchedule().getTour().getVendor().getVendorId().equals(vendorId)) {
+            throw new AppException(ErrorCode.TOUR_NOT_BELONG_TO_VENDOR);
+        }
+
+        List<SessionEquipment> equipments = sessionEquipmentRepository.findByTourSession_TourSessionIdAndIsDeletedFalse(sessionId);
+        User confirmedUser = userRepository.findById(vendorUserId).orElse(null);
+
+        for (SessionEquipment sessionEquipment : equipments) {
+            if (sessionEquipment.getReturnStatus() == EquipmentReturnStatus.PENDING_CONFIRMATION) {
+                int returnedQty = sessionEquipment.getReturnedQuantity() != null ? sessionEquipment.getReturnedQuantity() : 0;
+                if (returnedQty > 0) {
+                    VendorEquipment equipment = sessionEquipment.getEquipment();
+                    equipment.setTotalQuantity(equipment.getTotalQuantity() + returnedQty);
+                    vendorEquipmentRepository.save(equipment);
+                }
+
+                sessionEquipment.setIsChecked(true);
+                sessionEquipment.setReturnStatus(EquipmentReturnStatus.CONFIRMED);
+                sessionEquipment.setConfirmedBy(confirmedUser);
+                sessionEquipment.setConfirmedAt(LocalDateTime.now());
+                sessionEquipmentRepository.save(sessionEquipment);
+            }
+        }
+
+        log.info("Bulk equipment return confirmed successfully");
+    }
+
+    private void validateSessionAccess(TourSession session, UUID userId) {
+        boolean isAssignedCoordinator = coordinatorScheduleRepository
+                .existsByTourSession_TourSessionIdAndCoordinator_UserIdAndIsDeletedFalse(session.getTourSessionId(), userId);
+        if (!isAssignedCoordinator) {
+            UUID vendorId = resolveVendorId(userId);
+            if (!session.getTourSchedule().getTour().getVendor().getVendorId().equals(vendorId)) {
+                throw new AppException(ErrorCode.TOUR_NOT_BELONG_TO_VENDOR);
+            }
+        }
     }
 }

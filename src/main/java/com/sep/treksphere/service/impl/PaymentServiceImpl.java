@@ -103,25 +103,26 @@ public class PaymentServiceImpl implements PaymentService {
             }
         }
 
-        PayOS client = payOsClientFactory.getClient(prepared.account());
-        String returnUrl = withBookingId(properties.getReturnUrl(), prepared.bookingId());
-        String cancelUrl = withBookingId(properties.getCancelUrl(), prepared.bookingId());
+        final PreparedCheckout activeCheckout = prepared;
+        PayOS client = payOsClientFactory.getClient(activeCheckout.account());
+        String returnUrl = withBookingId(properties.getReturnUrl(), activeCheckout.bookingId());
+        String cancelUrl = withBookingId(properties.getCancelUrl(), activeCheckout.bookingId());
         CreatePaymentLinkRequest request = CreatePaymentLinkRequest.builder()
-                .orderCode(prepared.orderCode())
-                .amount(prepared.amount())
-                .description(prepared.description())
+                .orderCode(activeCheckout.orderCode())
+                .amount(activeCheckout.amount())
+                .description(activeCheckout.description())
                 .returnUrl(returnUrl)
                 .cancelUrl(cancelUrl)
-                .expiredAt(prepared.expiresAt().atZone(BUSINESS_ZONE).toEpochSecond())
+                .expiredAt(activeCheckout.expiresAt().atZone(BUSINESS_ZONE).toEpochSecond())
                 .build();
 
         try {
             CreatePaymentLinkResponse gatewayResponse = client.paymentRequests().create(request);
-            return transactionTemplate.execute(status -> completeCheckout(prepared.transactionId(), gatewayResponse));
+            return transactionTemplate.execute(status -> completeCheckout(activeCheckout.transactionId(), gatewayResponse));
         } catch (Exception exception) {
-            log.error("payOS create checkout failed for transaction {}", prepared.transactionId(), exception);
+            log.error("payOS create checkout failed for transaction {}", activeCheckout.transactionId(), exception);
             transactionTemplate.executeWithoutResult(status -> markPaymentFailed(
-                    prepared.transactionId(), "PAYOS_CREATE_FAILED", safeMessage(exception)));
+                    activeCheckout.transactionId(), "PAYOS_CREATE_FAILED", safeMessage(exception)));
             throw new AppException(ErrorCode.PAYMENT_GATEWAY_ERROR);
         }
     }

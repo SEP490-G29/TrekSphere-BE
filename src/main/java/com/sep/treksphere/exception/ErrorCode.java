@@ -193,6 +193,8 @@ public enum ErrorCode {
     SESSION_EQUIPMENT_NOT_BELONG_TO_VENDOR(8016, HttpStatus.FORBIDDEN,
             MessageConstant.SESSION_EQUIPMENT_NOT_BELONG_TO_VENDOR),
     INVALID_RETURN_QUANTITY(8015, HttpStatus.BAD_REQUEST, MessageConstant.INVALID_RETURN_QUANTITY),
+    EQUIPMENT_ALREADY_CONFIRMED(8017, HttpStatus.BAD_REQUEST, "Trang bị này đã được xác nhận hoàn trả trước đó"),
+    EQUIPMENT_NOT_SUBMITTED_FOR_RETURN(8018, HttpStatus.BAD_REQUEST, "Trang bị chưa được gửi báo cáo hoàn trả"),
 
     // Matching Group
     MATCHING_GROUP_NOT_FOUND(8101, HttpStatus.NOT_FOUND, MessageConstant.MATCHING_GROUP_NOT_FOUND),
