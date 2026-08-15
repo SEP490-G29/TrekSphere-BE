@@ -8,10 +8,13 @@ import com.sep.treksphere.dto.request.BookingRequest;
 import com.sep.treksphere.entity.Booking;
 import com.sep.treksphere.entity.Notification;
 import com.sep.treksphere.entity.Tour;
+import com.sep.treksphere.entity.TourPaymentPolicy;
 import com.sep.treksphere.entity.TourSchedule;
 import com.sep.treksphere.entity.User;
 import com.sep.treksphere.entity.Vendor;
 import com.sep.treksphere.enums.booking.BookingStatus;
+import com.sep.treksphere.enums.booking.DepositType;
+import com.sep.treksphere.enums.booking.PaymentOption;
 import com.sep.treksphere.enums.booking.PaymentPlan;
 import com.sep.treksphere.enums.booking.PaymentStatus;
 import com.sep.treksphere.exception.AppException;
@@ -195,6 +198,41 @@ class BookingServiceImplTest {
         assertEquals("BK-IDEMPOTENT", event.getValue().emailData().bookingCode());
         assertEquals("trekker@example.com", event.getValue().emailData().recipientEmail());
         assertEquals("Fansipan 2N1Đ", event.getValue().emailData().tourName());
+    }
+
+    @Test
+    void depositOnlyPolicyForcesFullPaymentAfterScheduleDepositDeadline() {
+        TourPaymentPolicy policy = depositOnlyPolicy();
+        TourSchedule schedule = existing.getSchedule();
+        schedule.setDepartureDate(LocalDate.now().plusDays(2));
+
+        PaymentPlan resolved = service.resolvePaymentPlan(PaymentPlan.FULL_PAYMENT, policy, schedule);
+
+        assertEquals(PaymentPlan.FULL_PAYMENT, resolved);
+        AppException exception = assertThrows(AppException.class,
+                () -> service.resolvePaymentPlan(PaymentPlan.DEPOSIT, policy, schedule));
+        assertEquals(ErrorCode.PAYMENT_PLAN_NOT_ALLOWED, exception.getErrorCode());
+    }
+
+    @Test
+    void depositOnlyPolicyStillRequiresDepositBeforeScheduleDeadline() {
+        TourPaymentPolicy policy = depositOnlyPolicy();
+        TourSchedule schedule = existing.getSchedule();
+        schedule.setDepartureDate(LocalDate.now().plusDays(3));
+
+        assertEquals(PaymentPlan.DEPOSIT,
+                service.resolvePaymentPlan(PaymentPlan.DEPOSIT, policy, schedule));
+        assertThrows(AppException.class,
+                () -> service.resolvePaymentPlan(PaymentPlan.FULL_PAYMENT, policy, schedule));
+    }
+
+    private TourPaymentPolicy depositOnlyPolicy() {
+        TourPaymentPolicy policy = new TourPaymentPolicy();
+        policy.setPaymentOption(PaymentOption.DEPOSIT_ONLY);
+        policy.setDepositType(DepositType.PERCENTAGE);
+        policy.setDepositValue(new BigDecimal("50"));
+        policy.setRemainingDueDaysBeforeDeparture(2);
+        return policy;
     }
 
     private String hash(BookingRequest bookingRequest) throws Exception {

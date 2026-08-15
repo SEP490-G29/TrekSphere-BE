@@ -22,6 +22,7 @@ public class RefundTransactionResponse {
     private RefundStatus status;
     private RefundMethod refundMethod;
     private String destinationBin;
+    private String destinationBankName;
     private String destinationAccountNumber;
     private String maskedDestinationAccountNumber;
     private String destinationAccountName;

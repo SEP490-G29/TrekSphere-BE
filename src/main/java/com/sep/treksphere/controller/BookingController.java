@@ -114,6 +114,17 @@ public class BookingController {
                                 paymentService.createCheckout(userDetails.getUsername(), id)));
         }
 
+        @Operation(summary = "Hủy phiên checkout và đồng bộ trạng thái với payOS")
+        @PreAuthorize("hasRole('TREKKER')")
+        @PostMapping("/{id}/payments/checkout/cancel")
+        public ResponseEntity<ApiResponse<PaymentTransactionResponse>> cancelCheckout(
+                        @AuthenticationPrincipal CustomUserDetails userDetails,
+                        @PathVariable UUID id,
+                        @RequestParam Long orderCode) {
+                return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK,
+                                paymentService.cancelCheckout(userDetails.getUsername(), id, orderCode)));
+        }
+
         @Operation(summary = "Danh sách giao dịch thanh toán của booking")
         @PreAuthorize("hasAnyRole('TREKKER', 'VENDOR_STAFF', 'VENDOR_MANAGER')")
         @GetMapping("/{id}/payments")

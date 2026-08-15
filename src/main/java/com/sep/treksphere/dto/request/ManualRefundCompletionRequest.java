@@ -9,10 +9,6 @@ import lombok.Setter;
 @Setter
 public class ManualRefundCompletionRequest {
     @NotBlank
-    @Size(max = 100)
-    private String bankReference;
-
-    @NotBlank
     @Size(max = 500)
     private String receiptImageUrl;
 
