@@ -230,6 +230,7 @@ public class TrackingServiceImpl implements TrackingService {
         }
 
         validateEndAttendance(tourSession);
+        validateEquipmentReadiness(sessionId);
         if (sosAlertRepository
                 .findFirstByTourSession_TourSessionIdAndStatusAndIsDeletedFalseOrderByCreatedAtDesc(
                         sessionId, SosAlertStatus.PENDING)

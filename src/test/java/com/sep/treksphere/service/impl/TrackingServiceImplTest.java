@@ -13,6 +13,8 @@ import com.sep.treksphere.entity.User;
 import com.sep.treksphere.entity.Vendor;
 import com.sep.treksphere.enums.booking.BookingStatus;
 import com.sep.treksphere.enums.tour.AttendanceType;
+import com.sep.treksphere.entity.SessionEquipment;
+import com.sep.treksphere.enums.tour.SessionCheckpointLogStatus;
 import com.sep.treksphere.enums.tour.SosAlertStatus;
 import com.sep.treksphere.enums.tour.TourSessionStatus;
 import com.sep.treksphere.exception.AppException;
@@ -30,6 +32,7 @@ import com.sep.treksphere.repository.VendorRepository;
 import com.sep.treksphere.repository.VendorStaffRepository;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import static org.mockito.Mockito.lenient;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -70,6 +73,8 @@ class TrackingServiceImplTest {
     private BookingRepository bookingRepository;
     @Mock
     private SosAlertRepository sosAlertRepository;
+    @Mock
+    private com.sep.treksphere.service.TrackingRevisionService trackingRevisionService;
 
     @InjectMocks
     private TrackingServiceImpl trackingService;
@@ -259,7 +264,7 @@ class TrackingServiceImplTest {
         stubAuthorizedSession(coordinatorId, sessionId, scheduleId, TourSessionStatus.IN_PROGRESS);
         BookingParticipant participant = participant(participantId);
         when(bookingParticipantRepository.findActiveParticipantsByScheduleId(
-                scheduleId, BookingStatus.CONFIRMED
+                scheduleId, BookingStatus.IN_PROGRESS
         )).thenReturn(List.of(participant));
 
         TourSessionAttendanceRequest request = attendanceRequest(
@@ -280,7 +285,7 @@ class TrackingServiceImplTest {
         UUID sessionId = UUID.randomUUID();
         UUID scheduleId = UUID.randomUUID();
         UUID participantId = UUID.randomUUID();
-        stubAuthorizedSession(coordinatorId, sessionId, scheduleId, TourSessionStatus.IN_PROGRESS);
+        stubAuthorizedSession(coordinatorId, sessionId, scheduleId, TourSessionStatus.PENDING);
         TourSessionAttendanceRequest request = attendanceRequest(
                 AttendanceType.START,
                 List.of(
@@ -314,6 +319,84 @@ class TrackingServiceImplTest {
         verifyNoInteractions(bookingParticipantRepository);
     }
 
+    @Test
+    void endSession_RejectsWhenEndAttendanceIncomplete() {
+        UUID coordinatorId = UUID.randomUUID();
+        UUID sessionId = UUID.randomUUID();
+        UUID scheduleId = UUID.randomUUID();
+        stubAuthorizedSession(coordinatorId, sessionId, scheduleId, TourSessionStatus.IN_PROGRESS);
+
+        BookingParticipant p = participant(UUID.randomUUID());
+        p.setIsPresentStart(true);
+        p.setIsPresentEnd(false);
+        when(bookingParticipantRepository.findActiveParticipantsByScheduleId(scheduleId, BookingStatus.IN_PROGRESS))
+                .thenReturn(List.of(p));
+
+        assertThatThrownBy(() -> trackingService.endSession(coordinatorId, sessionId))
+                .isInstanceOf(AppException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.END_ATTENDANCE_INCOMPLETE);
+    }
+
+    @Test
+    void endSession_RejectsWhenEquipmentNotReady() {
+        UUID coordinatorId = UUID.randomUUID();
+        UUID sessionId = UUID.randomUUID();
+        UUID scheduleId = UUID.randomUUID();
+        stubAuthorizedSession(coordinatorId, sessionId, scheduleId, TourSessionStatus.IN_PROGRESS);
+
+        BookingParticipant p = participant(UUID.randomUUID());
+        p.setIsPresentStart(true);
+        p.setIsPresentEnd(true);
+        when(bookingParticipantRepository.findActiveParticipantsByScheduleId(scheduleId, BookingStatus.IN_PROGRESS))
+                .thenReturn(List.of(p));
+
+        SessionEquipment eq = new SessionEquipment();
+        eq.setIsChecked(false);
+        when(sessionEquipmentRepository.findByTourSession_TourSessionIdAndIsDeletedFalse(sessionId))
+                .thenReturn(List.of(eq));
+
+        assertThatThrownBy(() -> trackingService.endSession(coordinatorId, sessionId))
+                .isInstanceOf(AppException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.SESSION_EQUIPMENT_NOT_READY);
+    }
+
+    @Test
+    void endSession_SuccessWhenAttendanceAndEquipmentComplete() {
+        UUID coordinatorId = UUID.randomUUID();
+        UUID sessionId = UUID.randomUUID();
+        UUID scheduleId = UUID.randomUUID();
+        TourSession session = stubAuthorizedSession(coordinatorId, sessionId, scheduleId, TourSessionStatus.IN_PROGRESS);
+
+        BookingParticipant p = participant(UUID.randomUUID());
+        p.setIsPresentStart(true);
+        p.setIsPresentEnd(true);
+        when(bookingParticipantRepository.findActiveParticipantsByScheduleId(scheduleId, BookingStatus.IN_PROGRESS))
+                .thenReturn(List.of(p));
+
+        SessionEquipment eq = new SessionEquipment();
+        eq.setIsChecked(true);
+        when(sessionEquipmentRepository.findByTourSession_TourSessionIdAndIsDeletedFalse(sessionId))
+                .thenReturn(List.of(eq));
+
+        when(sosAlertRepository.findFirstByTourSession_TourSessionIdAndStatusAndIsDeletedFalseOrderByCreatedAtDesc(
+                sessionId, SosAlertStatus.PENDING))
+                .thenReturn(Optional.empty());
+
+        when(sessionCheckpointLogRepository.findByTourSession_TourSessionIdAndStatusAndIsDeletedFalseOrderByCheckpoint_CheckpointOrderAsc(
+                sessionId, SessionCheckpointLogStatus.PENDING))
+                .thenReturn(List.of());
+
+        when(bookingRepository.findBySchedule_ScheduleIdAndBookingStatusAndIsDeletedFalse(
+                scheduleId, BookingStatus.IN_PROGRESS))
+                .thenReturn(List.of());
+
+        var response = trackingService.endSession(coordinatorId, sessionId);
+
+        assertThat(response.getTourSessionId()).isEqualTo(sessionId);
+        assertThat(response.getStatus()).isEqualTo(TourSessionStatus.COMPLETED);
+        assertThat(session.getStatus()).isEqualTo(TourSessionStatus.COMPLETED);
+    }
+
     private TourSession stubAuthorizedSession(
             UUID coordinatorId,
             UUID sessionId,
@@ -333,10 +416,13 @@ class TrackingServiceImplTest {
 
         CoordinatorSchedule coordinatorSchedule = new CoordinatorSchedule();
         coordinatorSchedule.setIsCancelled(false);
+        coordinatorSchedule.setIsLead(true);
 
-        when(tourSessionRepository.findByTourSessionIdAndIsDeletedFalse(sessionId))
+        lenient().when(tourSessionRepository.findByTourSessionIdAndIsDeletedFalse(sessionId))
                 .thenReturn(Optional.of(tourSession));
-        when(coordinatorScheduleRepository
+        lenient().when(tourSessionRepository.findByIdForUpdate(sessionId))
+                .thenReturn(Optional.of(tourSession));
+        lenient().when(coordinatorScheduleRepository
                 .findByTourSession_TourSessionIdAndCoordinator_UserIdAndIsDeletedFalse(
                         sessionId, coordinatorId
                 )).thenReturn(Optional.of(coordinatorSchedule));

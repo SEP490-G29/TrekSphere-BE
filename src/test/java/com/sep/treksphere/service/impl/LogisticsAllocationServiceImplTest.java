@@ -9,6 +9,7 @@ import com.sep.treksphere.entity.TourSession;
 import com.sep.treksphere.entity.User;
 import com.sep.treksphere.entity.Vendor;
 import com.sep.treksphere.entity.VendorStaff;
+import com.sep.treksphere.enums.logistics.EquipmentReturnStatus;
 import com.sep.treksphere.enums.tour.TourSessionStatus;
 import com.sep.treksphere.exception.AppException;
 import com.sep.treksphere.exception.ErrorCode;
@@ -19,6 +20,7 @@ import com.sep.treksphere.repository.PorterProfileRepository;
 import com.sep.treksphere.repository.PorterScheduleRepository;
 import com.sep.treksphere.repository.SessionEquipmentRepository;
 import com.sep.treksphere.repository.TourSessionRepository;
+import com.sep.treksphere.repository.UserRepository;
 import com.sep.treksphere.repository.VendorEquipmentRepository;
 import com.sep.treksphere.repository.VendorRepository;
 import com.sep.treksphere.repository.VendorStaffRepository;
@@ -48,6 +50,7 @@ class LogisticsAllocationServiceImplTest {
     @Mock private VendorStaffRepository vendorStaffRepository;
     @Mock private VendorEquipmentRepository vendorEquipmentRepository;
     @Mock private SessionEquipmentRepository sessionEquipmentRepository;
+    @Mock private UserRepository userRepository;
     @Mock private TourSessionMapper tourSessionMapper;
     @Mock private SessionEquipmentMapper sessionEquipmentMapper;
 
@@ -151,5 +154,105 @@ class LogisticsAllocationServiceImplTest {
 
         verify(coordinatorScheduleRepository, never())
                 .existsByTourSession_TourSessionIdAndCoordinator_UserIdAndIsDeletedFalse(sessionId, coordinatorId);
+    }
+
+    @Test
+    void returnEquipment_submitsReportWithoutUpdatingInventory() {
+        UUID sessionEqId = UUID.randomUUID();
+        UUID userId = UUID.randomUUID();
+        UUID vendorId = UUID.randomUUID();
+
+        Vendor vendor = new Vendor();
+        vendor.setVendorId(vendorId);
+
+        Tour tour = new Tour();
+        tour.setVendor(vendor);
+
+        TourSchedule tourSchedule = new TourSchedule();
+        tourSchedule.setTour(tour);
+
+        TourSession session = new TourSession();
+        session.setTourSchedule(tourSchedule);
+        session.setStatus(TourSessionStatus.COMPLETED);
+
+        com.sep.treksphere.entity.VendorEquipment vendorEq = new com.sep.treksphere.entity.VendorEquipment();
+        vendorEq.setTotalQuantity(100);
+
+        com.sep.treksphere.entity.SessionEquipment sessionEq = new com.sep.treksphere.entity.SessionEquipment();
+        sessionEq.setSessionEquipmentId(sessionEqId);
+        sessionEq.setTourSession(session);
+        sessionEq.setEquipment(vendorEq);
+        sessionEq.setQuantity(10);
+        sessionEq.setReturnStatus(EquipmentReturnStatus.NOT_RETURNED);
+
+        com.sep.treksphere.dto.request.ReturnEquipmentRequest request = new com.sep.treksphere.dto.request.ReturnEquipmentRequest();
+        request.setReturnedQuantity(8);
+        request.setMissingQuantity(2);
+        request.setNote("2 items damaged");
+
+        User user = new User();
+        user.setUserId(userId);
+
+        when(sessionEquipmentRepository.findById(sessionEqId)).thenReturn(Optional.of(sessionEq));
+        when(vendorRepository.findByManager_UserId(userId)).thenReturn(Optional.of(vendor));
+        when(userRepository.findById(userId)).thenReturn(Optional.of(user));
+
+        service.returnEquipment(sessionEqId, request, userId);
+
+        assertThat(sessionEq.getReturnStatus()).isEqualTo(EquipmentReturnStatus.PENDING_CONFIRMATION);
+        assertThat(sessionEq.getReturnedQuantity()).isEqualTo(8);
+        assertThat(sessionEq.getMissingQuantity()).isEqualTo(2);
+        // Total quantity in warehouse should NOT be updated yet!
+        assertThat(vendorEq.getTotalQuantity()).isEqualTo(100);
+        verify(sessionEquipmentRepository).save(sessionEq);
+        verify(vendorEquipmentRepository, never()).save(vendorEq);
+    }
+
+    @Test
+    void confirmEquipmentReturn_updatesInventoryAndConfirms() {
+        UUID sessionEqId = UUID.randomUUID();
+        UUID userId = UUID.randomUUID();
+        UUID vendorId = UUID.randomUUID();
+
+        Vendor vendor = new Vendor();
+        vendor.setVendorId(vendorId);
+
+        Tour tour = new Tour();
+        tour.setVendor(vendor);
+
+        TourSchedule tourSchedule = new TourSchedule();
+        tourSchedule.setTour(tour);
+
+        TourSession session = new TourSession();
+        session.setTourSchedule(tourSchedule);
+        session.setStatus(TourSessionStatus.COMPLETED);
+
+        com.sep.treksphere.entity.VendorEquipment vendorEq = new com.sep.treksphere.entity.VendorEquipment();
+        vendorEq.setTotalQuantity(100);
+
+        com.sep.treksphere.entity.SessionEquipment sessionEq = new com.sep.treksphere.entity.SessionEquipment();
+        sessionEq.setSessionEquipmentId(sessionEqId);
+        sessionEq.setTourSession(session);
+        sessionEq.setEquipment(vendorEq);
+        sessionEq.setQuantity(10);
+        sessionEq.setReturnedQuantity(8);
+        sessionEq.setMissingQuantity(2);
+        sessionEq.setReturnStatus(EquipmentReturnStatus.PENDING_CONFIRMATION);
+
+        User user = new User();
+        user.setUserId(userId);
+
+        when(sessionEquipmentRepository.findById(sessionEqId)).thenReturn(Optional.of(sessionEq));
+        when(vendorRepository.findByManager_UserId(userId)).thenReturn(Optional.of(vendor));
+        when(userRepository.findById(userId)).thenReturn(Optional.of(user));
+
+        service.confirmEquipmentReturn(sessionEqId, userId);
+
+        assertThat(sessionEq.getReturnStatus()).isEqualTo(EquipmentReturnStatus.CONFIRMED);
+        assertThat(sessionEq.getConfirmedBy()).isEqualTo(user);
+        // Total quantity in warehouse MUST be increased by returnedQuantity (8) -> 108
+        assertThat(vendorEq.getTotalQuantity()).isEqualTo(108);
+        verify(vendorEquipmentRepository).save(vendorEq);
+        verify(sessionEquipmentRepository).save(sessionEq);
     }
 }

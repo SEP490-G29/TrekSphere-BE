@@ -10,7 +10,9 @@ import com.sep.treksphere.enums.tour.TourSessionStatus;
 
 import java.util.UUID;
 import com.sep.treksphere.dto.request.CancelScheduleRequest;
+import com.sep.treksphere.dto.request.ReturnEquipmentRequest;
 import com.sep.treksphere.dto.request.AssignPorterRequest;
+import com.sep.treksphere.dto.request.BulkReturnEquipmentRequest;
 import com.sep.treksphere.dto.request.AssignEquipmentRequest;
 
 public interface LogisticsAllocationService {
@@ -25,6 +27,12 @@ public interface LogisticsAllocationService {
     PaginationResponse<TourSessionSummaryResponse> getVendorSessions(UUID vendorUserId, UUID tourId, TourSessionStatus status, int page, int size);
     TourSessionSummaryResponse getSessionBySchedule(UUID scheduleId, UUID vendorUserId);
     TourSessionAllocationResponse getAllocations(UUID sessionId, UUID vendorUserId, boolean isCoordinator);
+
+    void returnEquipment(UUID sessionEquipmentId, ReturnEquipmentRequest request, UUID userId);
+    void bulkReturnEquipment(UUID sessionId, BulkReturnEquipmentRequest request, UUID userId);
+
+    void confirmEquipmentReturn(UUID sessionEquipmentId, UUID vendorUserId);
+    void bulkConfirmEquipmentReturn(UUID sessionId, UUID vendorUserId);
 
     PaginationResponse<StaffScheduleResponse> getCoordinatorSchedules(UUID coordinatorId, UUID vendorUserId, TourSessionStatus status, int page, int size);
 }
