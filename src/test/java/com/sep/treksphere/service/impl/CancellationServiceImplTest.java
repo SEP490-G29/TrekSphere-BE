@@ -7,6 +7,7 @@ import com.sep.treksphere.enums.booking.*;
 import com.sep.treksphere.exception.AppException;
 import com.sep.treksphere.exception.ErrorCode;
 import com.sep.treksphere.repository.NotificationRepository;
+import com.sep.treksphere.service.NotificationService;
 import org.springframework.context.ApplicationEventPublisher;
 import com.sep.treksphere.repository.*;
 import org.junit.jupiter.api.BeforeEach;
@@ -41,6 +42,7 @@ class CancellationServiceImplTest {
     @Mock private VendorRepository vendorRepository;
     @Mock private VendorStaffRepository vendorStaffRepository;
     @Mock private NotificationRepository notificationRepository;
+    @Mock private NotificationService notificationService;
     @Mock private ApplicationEventPublisher eventPublisher;
     @Mock private PaymentWorkflowProperties paymentProperties;
 

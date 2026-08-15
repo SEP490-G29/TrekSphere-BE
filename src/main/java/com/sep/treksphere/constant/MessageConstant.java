@@ -1,6 +1,7 @@
 package com.sep.treksphere.constant;
 
 public class MessageConstant {
+    public static final String NOTIFICATION_NOT_FOUND = "Thông báo không tồn tại";
     private MessageConstant() {
     }
 

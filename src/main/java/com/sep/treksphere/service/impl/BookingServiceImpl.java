@@ -9,6 +9,8 @@ import com.sep.treksphere.dto.response.*;
 import com.sep.treksphere.entity.*;
 import com.sep.treksphere.enums.booking.*;
 import com.sep.treksphere.enums.tour.ScheduleStatus;
+import com.sep.treksphere.enums.system.NotificationEventType;
+import com.sep.treksphere.enums.system.ReferenceType;
 import com.sep.treksphere.enums.voucher.DiscountType;
 import com.sep.treksphere.enums.voucher.VoucherStatus;
 import com.sep.treksphere.exception.AppException;
@@ -18,6 +20,7 @@ import com.sep.treksphere.mapper.BookingMapper;
 import com.sep.treksphere.repository.*;
 import com.sep.treksphere.service.BookingService;
 import com.sep.treksphere.service.CancellationService;
+import com.sep.treksphere.service.NotificationService;
 import com.sep.treksphere.utils.PaginationUtils;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -65,7 +68,7 @@ public class BookingServiceImpl implements BookingService {
     private final PaymentWorkflowProperties paymentProperties;
     private final ObjectMapper objectMapper;
     private final CancellationPolicyRepository cancellationPolicyRepository;
-    private final NotificationRepository notificationRepository;
+    private final NotificationService notificationService;
     private final ApplicationEventPublisher eventPublisher;
 
     @Override
@@ -172,6 +175,11 @@ public class BookingServiceImpl implements BookingService {
         schedule.setHeldSlots(schedule.getHeldSlots() + participantCount);
         tourScheduleRepository.save(schedule);
         Booking saved = bookingRepository.save(booking);
+        notificationService.create(user,
+                "Booking đã được tạo",
+                "Booking " + saved.getBookingCode() + " đã được tạo. Vui lòng thanh toán để hoàn tất giữ chỗ.",
+                NotificationEventType.BOOKING_CREATED, ReferenceType.BOOKING,
+                saved.getBookingId(), "/trekker/bookings/" + saved.getBookingId());
         return toDetail(saved);
     }
 
@@ -336,15 +344,13 @@ public class BookingServiceImpl implements BookingService {
     }
 
     private void createBookingConfirmedNotification(Booking booking) {
-        Notification notification = new Notification();
-        notification.setRecipient(booking.getUser());
-        notification.setTitle("Booking đã được xác nhận");
-        notification.setEventType(com.sep.treksphere.enums.system.NotificationEventType.BOOKING_CONFIRMED);
-        notification.setContent("Booking " + booking.getBookingCode() + " cho tour \""
-                + booking.getSchedule().getTour().getTourName() + "\" đã được nhà tổ chức xác nhận.");
-        notification.setReferenceType(com.sep.treksphere.enums.system.ReferenceType.BOOKING);
-        notification.setReferenceId(booking.getBookingId());
-        notificationRepository.save(notification);
+        notificationService.create(booking.getUser(),
+                "Booking đã được xác nhận",
+                "Booking " + booking.getBookingCode() + " cho tour \""
+                        + booking.getSchedule().getTour().getTourName()
+                        + "\" đã được nhà tổ chức xác nhận.",
+                NotificationEventType.BOOKING_CONFIRMED, ReferenceType.BOOKING,
+                booking.getBookingId(), "/trekker/bookings/" + booking.getBookingId());
     }
 
     private BookingConfirmationEmailData toBookingConfirmationEmailData(Booking booking) {

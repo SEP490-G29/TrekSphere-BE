@@ -3,9 +3,12 @@ package com.sep.treksphere.service.impl;
 import com.sep.treksphere.config.PaymentWorkflowProperties;
 import com.sep.treksphere.entity.*;
 import com.sep.treksphere.enums.booking.*;
+import com.sep.treksphere.enums.system.NotificationEventType;
+import com.sep.treksphere.enums.system.ReferenceType;
 import com.sep.treksphere.exception.AppException;
 import com.sep.treksphere.exception.ErrorCode;
 import com.sep.treksphere.repository.*;
+import com.sep.treksphere.service.NotificationService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -30,6 +33,7 @@ public class BookingExpiryScheduler {
     private final RefundTransactionRepository refundRepository;
     private final TransactionTemplate transactionTemplate;
     private final PaymentWorkflowProperties paymentProperties;
+    private final NotificationService notificationService;
 
     @Scheduled(fixedDelayString = "${application.payment.booking-expiry-delay-ms:60000}")
     public void expireStaleBookings() {
@@ -76,6 +80,9 @@ public class BookingExpiryScheduler {
         booking.setCancellationReason("Hết thời gian giữ chỗ trước khi thanh toán");
         booking.setCancelledAt(LocalDateTime.now());
         bookingRepository.save(booking);
+        notifyBooking(booking, NotificationEventType.BOOKING_EXPIRED,
+                "Booking đã hết hạn",
+                "Booking " + booking.getBookingCode() + " đã hết hạn do chưa thanh toán đúng thời gian.");
     }
 
     private void rejectConfirmationTimeout(UUID bookingId) {
@@ -95,6 +102,10 @@ public class BookingExpiryScheduler {
         booking.setCancellationReason("Vendor confirmation timeout");
         booking.setCancelledAt(LocalDateTime.now());
         bookingRepository.save(booking);
+        notifyBooking(booking, NotificationEventType.BOOKING_REJECTED,
+                "Booking không được xác nhận",
+                "Booking " + booking.getBookingCode()
+                        + " đã bị từ chối do nhà tổ chức không phản hồi đúng hạn.");
     }
 
     private void cancelOverdueBalance(UUID bookingId) {
@@ -112,6 +123,10 @@ public class BookingExpiryScheduler {
         booking.setCancelledAt(LocalDateTime.now());
         booking.setRemainingDueAt(null);
         bookingRepository.save(booking);
+        notifyBooking(booking, NotificationEventType.BOOKING_CANCELLED,
+                "Booking đã bị hủy",
+                "Booking " + booking.getBookingCode()
+                        + " đã bị hủy do quá hạn thanh toán phần còn lại.");
     }
 
     private void releaseBookedCapacity(Booking booking) {
@@ -181,5 +196,12 @@ public class BookingExpiryScheduler {
             duration = java.time.Duration.ofHours(48);
         }
         return LocalDateTime.now().plus(duration);
+    }
+
+    private void notifyBooking(Booking booking, NotificationEventType eventType,
+                               String title, String content) {
+        notificationService.create(booking.getUser(), title, content, eventType,
+                ReferenceType.BOOKING, booking.getBookingId(),
+                "/trekker/bookings/" + booking.getBookingId());
     }
 }

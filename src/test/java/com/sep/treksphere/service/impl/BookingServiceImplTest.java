@@ -6,7 +6,6 @@ import com.sep.treksphere.event.BookingConfirmedEvent;
 import com.sep.treksphere.dto.request.BookingParticipantRequest;
 import com.sep.treksphere.dto.request.BookingRequest;
 import com.sep.treksphere.entity.Booking;
-import com.sep.treksphere.entity.Notification;
 import com.sep.treksphere.entity.Tour;
 import com.sep.treksphere.entity.TourPaymentPolicy;
 import com.sep.treksphere.entity.TourSchedule;
@@ -34,6 +33,9 @@ import com.sep.treksphere.repository.VendorRepository;
 import com.sep.treksphere.repository.VendorStaffRepository;
 import com.sep.treksphere.repository.VoucherRepository;
 import com.sep.treksphere.service.CancellationService;
+import com.sep.treksphere.service.NotificationService;
+import com.sep.treksphere.enums.system.NotificationEventType;
+import com.sep.treksphere.enums.system.ReferenceType;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -78,6 +80,7 @@ class BookingServiceImplTest {
     @Mock private RefundTransactionRepository refundTransactionRepository;
     @Mock private CancellationPolicyRepository cancellationPolicyRepository;
     @Mock private NotificationRepository notificationRepository;
+    @Mock private NotificationService notificationService;
     @Mock private ApplicationEventPublisher eventPublisher;
     @Mock private CancellationService cancellationService;
     @Mock private PaymentWorkflowProperties paymentProperties;
@@ -189,9 +192,9 @@ class BookingServiceImplTest {
         var response = service.confirmVendorBooking(vendorEmail, existing.getBookingId());
 
         assertEquals(BookingStatus.CONFIRMED, response.getBookingStatus());
-        ArgumentCaptor<Notification> notification = ArgumentCaptor.forClass(Notification.class);
-        verify(notificationRepository).save(notification.capture());
-        assertEquals(existing.getBookingId(), notification.getValue().getReferenceId());
+        verify(notificationService).create(eq(user), any(String.class), any(String.class),
+                eq(NotificationEventType.BOOKING_CONFIRMED), eq(ReferenceType.BOOKING),
+                eq(existing.getBookingId()), eq("/trekker/bookings/" + existing.getBookingId()));
 
         ArgumentCaptor<BookingConfirmedEvent> event = ArgumentCaptor.forClass(BookingConfirmedEvent.class);
         verify(eventPublisher).publishEvent(event.capture());

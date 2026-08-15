@@ -26,6 +26,7 @@ import com.sep.treksphere.repository.BookingRepository;
 import com.sep.treksphere.repository.PaymentTransactionRepository;
 import com.sep.treksphere.repository.PaymentWebhookEventRepository;
 import com.sep.treksphere.repository.NotificationRepository;
+import com.sep.treksphere.service.NotificationService;
 import com.sep.treksphere.repository.RefundTransactionRepository;
 import com.sep.treksphere.repository.TourScheduleRepository;
 import com.sep.treksphere.repository.UserRepository;
@@ -79,6 +80,7 @@ class PaymentServiceImplTest {
     @Mock private VendorRepository vendorRepository;
     @Mock private VendorStaffRepository vendorStaffRepository;
     @Mock private NotificationRepository notificationRepository;
+    @Mock private NotificationService notificationService;
     @Mock private PayOsClientFactory payOsClientFactory;
     @Mock private PayOS payOsClient;
     @Mock private PaymentRequestsService paymentRequestsService;

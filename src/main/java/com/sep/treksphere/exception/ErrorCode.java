@@ -244,7 +244,10 @@ public enum ErrorCode {
     // Report
     REPORT_NOT_FOUND(9200, HttpStatus.NOT_FOUND, MessageConstant.REPORT_NOT_FOUND),
     REPORT_TARGET_NOT_FOUND(9201, HttpStatus.NOT_FOUND, MessageConstant.REPORT_TARGET_NOT_FOUND),
-    REPORT_ALREADY_RESOLVED(9202, HttpStatus.BAD_REQUEST, MessageConstant.REPORT_ALREADY_RESOLVED);
+    REPORT_ALREADY_RESOLVED(9202, HttpStatus.BAD_REQUEST, MessageConstant.REPORT_ALREADY_RESOLVED),
+
+    // Notification
+    NOTIFICATION_NOT_FOUND(9301, HttpStatus.NOT_FOUND, MessageConstant.NOTIFICATION_NOT_FOUND);
 
     private final int code;
     private final HttpStatus httpStatus;

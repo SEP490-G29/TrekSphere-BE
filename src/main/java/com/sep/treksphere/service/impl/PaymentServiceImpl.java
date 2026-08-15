@@ -17,6 +17,7 @@ import com.sep.treksphere.exception.AppException;
 import com.sep.treksphere.exception.ErrorCode;
 import com.sep.treksphere.repository.*;
 import com.sep.treksphere.service.PaymentService;
+import com.sep.treksphere.service.NotificationService;
 import com.sep.treksphere.service.payment.PayOsClientFactory;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -75,6 +76,7 @@ public class PaymentServiceImpl implements PaymentService {
     private final VendorRepository vendorRepository;
     private final VendorStaffRepository vendorStaffRepository;
     private final NotificationRepository notificationRepository;
+    private final NotificationService notificationService;
     private final PayOsClientFactory payOsClientFactory;
     private final PaymentWorkflowProperties properties;
     private final ObjectMapper objectMapper;
@@ -103,25 +105,26 @@ public class PaymentServiceImpl implements PaymentService {
             }
         }
 
-        PayOS client = payOsClientFactory.getClient(prepared.account());
-        String returnUrl = withBookingId(properties.getReturnUrl(), prepared.bookingId());
-        String cancelUrl = withBookingId(properties.getCancelUrl(), prepared.bookingId());
+        PreparedCheckout checkout = prepared;
+        PayOS client = payOsClientFactory.getClient(checkout.account());
+        String returnUrl = withBookingId(properties.getReturnUrl(), checkout.bookingId());
+        String cancelUrl = withBookingId(properties.getCancelUrl(), checkout.bookingId());
         CreatePaymentLinkRequest request = CreatePaymentLinkRequest.builder()
-                .orderCode(prepared.orderCode())
-                .amount(prepared.amount())
-                .description(prepared.description())
+                .orderCode(checkout.orderCode())
+                .amount(checkout.amount())
+                .description(checkout.description())
                 .returnUrl(returnUrl)
                 .cancelUrl(cancelUrl)
-                .expiredAt(prepared.expiresAt().atZone(BUSINESS_ZONE).toEpochSecond())
+                .expiredAt(checkout.expiresAt().atZone(BUSINESS_ZONE).toEpochSecond())
                 .build();
 
         try {
             CreatePaymentLinkResponse gatewayResponse = client.paymentRequests().create(request);
-            return transactionTemplate.execute(status -> completeCheckout(prepared.transactionId(), gatewayResponse));
+            return transactionTemplate.execute(status -> completeCheckout(checkout.transactionId(), gatewayResponse));
         } catch (Exception exception) {
-            log.error("payOS create checkout failed for transaction {}", prepared.transactionId(), exception);
+            log.error("payOS create checkout failed for transaction {}", checkout.transactionId(), exception);
             transactionTemplate.executeWithoutResult(status -> markPaymentFailed(
-                    prepared.transactionId(), "PAYOS_CREATE_FAILED", safeMessage(exception)));
+                    checkout.transactionId(), "PAYOS_CREATE_FAILED", safeMessage(exception)));
             throw new AppException(ErrorCode.PAYMENT_GATEWAY_ERROR);
         }
     }
@@ -492,6 +495,7 @@ public class PaymentServiceImpl implements PaymentService {
 
     private void applySuccessfulPayment(PaymentTransaction payment, Booking booking) {
         BigDecimal totalPaid = calculateNetPaid(booking.getBookingId());
+        boolean initialPayment = payment.getPaymentStage() != PaymentStage.REMAINING;
 
         if (payment.getPaymentStage() == PaymentStage.REMAINING) {
             if (!isRemainingPaymentStillValid(booking)) {
@@ -518,6 +522,22 @@ public class PaymentServiceImpl implements PaymentService {
         booking.setPaymentStatus(totalPaid.compareTo(booking.getTotalPrice()) >= 0
                 ? PaymentStatus.PAID : PaymentStatus.PARTIALLY_PAID);
         bookingRepository.save(booking);
+        notificationService.create(booking.getUser(),
+                "Thanh toán thành công",
+                "Đã ghi nhận thanh toán cho booking " + booking.getBookingCode() + ".",
+                NotificationEventType.PAYMENT_SUCCESS, ReferenceType.BOOKING,
+                booking.getBookingId(), "/trekker/bookings/" + booking.getBookingId());
+
+        if (initialPayment) {
+            User manager = booking.getSchedule().getTour().getVendor().getManager();
+            if (manager != null) {
+                notificationService.create(manager,
+                        "Booking mới chờ xác nhận",
+                        "Booking " + booking.getBookingCode() + " đã thanh toán và đang chờ xác nhận.",
+                        NotificationEventType.BOOKING_PENDING_CONFIRMATION, ReferenceType.BOOKING,
+                        booking.getBookingId(), "/vendor-manager/bookings");
+            }
+        }
     }
 
     private boolean isInitialPaymentStillValid(Booking booking) {

@@ -13,6 +13,7 @@ import com.sep.treksphere.exception.AppException;
 import com.sep.treksphere.exception.ErrorCode;
 import com.sep.treksphere.repository.*;
 import com.sep.treksphere.service.CancellationService;
+import com.sep.treksphere.service.NotificationService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.context.ApplicationEventPublisher;
@@ -44,6 +45,7 @@ public class CancellationServiceImpl implements CancellationService {
     private final VendorRepository vendorRepository;
     private final VendorStaffRepository vendorStaffRepository;
     private final NotificationRepository notificationRepository;
+    private final NotificationService notificationService;
     private final ApplicationEventPublisher eventPublisher;
     private final PaymentWorkflowProperties paymentProperties;
 
@@ -115,7 +117,9 @@ public class CancellationServiceImpl implements CancellationService {
         }
         validateCancellable(booking);
 
-        boolean wasHeld = booking.getBookingStatus() == BookingStatus.PAYMENT_PENDING;
+        boolean isPreConfirmation = EnumSet.of(
+                BookingStatus.PAYMENT_PENDING, BookingStatus.PENDING_CONFIRMATION)
+                .contains(booking.getBookingStatus());
         releaseCapacity(booking);
         releaseVoucherForVendorCancellation(booking);
         cancelOpenPaymentAttempts(booking);
@@ -126,7 +130,7 @@ public class CancellationServiceImpl implements CancellationService {
             createVendorRefundTransactions(booking, refundAmount, request);
             booking.setPaymentStatus(PaymentStatus.REFUND_PENDING);
         }
-        booking.setBookingStatus(wasHeld ? BookingStatus.REJECTED : BookingStatus.CANCELLED);
+        booking.setBookingStatus(isPreConfirmation ? BookingStatus.REJECTED : BookingStatus.CANCELLED);
         booking.setCancellationReason(request.getReasonDetail());
         booking.setCancelledAt(LocalDateTime.now());
         booking.setHoldExpiresAt(null);
@@ -378,14 +382,16 @@ public class CancellationServiceImpl implements CancellationService {
     }
 
     private void saveCancellationNotification(User recipient, String title, String content, UUID bookingId) {
-        Notification notification = new Notification();
-        notification.setRecipient(recipient);
-        notification.setTitle(title);
-        notification.setEventType(NotificationEventType.BOOKING_CANCELLED);
-        notification.setContent(content);
-        notification.setReferenceType(ReferenceType.BOOKING);
-        notification.setReferenceId(bookingId);
-        notificationRepository.save(notification);
+        Booking relatedBooking = bookingRepository.findById(bookingId).orElse(null);
+        NotificationEventType eventType = relatedBooking != null
+                && relatedBooking.getBookingStatus() == BookingStatus.REJECTED
+                ? NotificationEventType.BOOKING_REJECTED
+                : NotificationEventType.BOOKING_CANCELLED;
+        boolean vendorRecipient = relatedBooking != null
+                && !recipient.getUserId().equals(relatedBooking.getUser().getUserId());
+        notificationService.create(recipient, title, content,
+                eventType, ReferenceType.BOOKING, bookingId,
+                vendorRecipient ? "/vendor-manager/bookings" : "/trekker/bookings/" + bookingId);
     }
 
     private CancellationQuoteResponse toResponse(QuoteData quote) {
