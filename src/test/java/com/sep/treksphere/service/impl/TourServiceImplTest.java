@@ -3,9 +3,11 @@ package com.sep.treksphere.service.impl;
 import com.sep.treksphere.dto.request.BaseFilterRequest;
 import com.sep.treksphere.entity.Notification;
 import com.sep.treksphere.entity.Tour;
+import com.sep.treksphere.entity.TourSchedule;
 import com.sep.treksphere.entity.User;
 import com.sep.treksphere.entity.Vendor;
 import com.sep.treksphere.enums.system.NotificationEventType;
+import com.sep.treksphere.enums.tour.ScheduleStatus;
 import com.sep.treksphere.enums.tour.TourStatus;
 import com.sep.treksphere.exception.AppException;
 import com.sep.treksphere.exception.ErrorCode;
@@ -158,6 +160,39 @@ class TourServiceImplTest {
         assertThat(response.getContent().getFirst().getOnlineBookingEnabled()).isFalse();
         assertThat(response.getContent().getFirst().getOnlineBookingDisabledReason())
                 .isEqualTo("Tour chưa đủ điều kiện đặt online.");
+    }
+
+    @Test
+    void getTourById_ReturnsOnlyOpenSchedulesFromToday() {
+        tour.setStatus(TourStatus.APPROVED);
+        TourSchedule upcomingSchedule = new TourSchedule();
+        upcomingSchedule.setScheduleId(UUID.randomUUID());
+        upcomingSchedule.setTour(tour);
+        upcomingSchedule.setDepartureDate(LocalDate.now().plusDays(1));
+        upcomingSchedule.setStatus(ScheduleStatus.OPEN);
+        upcomingSchedule.setIsDeleted(false);
+
+        when(tourRepository.findDetailById(tourId)).thenReturn(Optional.of(tour));
+        when(tourImageRepository.findByTourOrderBySortOrderAsc(tour)).thenReturn(List.of());
+        when(tourCheckpointRepository.findByTourAndIsDeletedFalseOrderByCheckpointOrderAsc(tour))
+                .thenReturn(List.of());
+        when(tourScheduleRepository
+                .findByTourAndStatusAndDepartureDateGreaterThanEqualAndIsDeletedFalseOrderByDepartureDateAsc(
+                        tour, ScheduleStatus.OPEN, LocalDate.now()))
+                .thenReturn(List.of(upcomingSchedule));
+        when(cancellationPolicyRepository
+                .findByVendorAndIsActiveTrueAndIsDeletedFalseOrderByCancelBeforeDaysDesc(vendor))
+                .thenReturn(List.of());
+
+        var response = service.getTourById(tourId);
+
+        assertThat(response.getSchedules()).hasSize(1);
+        assertThat(response.getSchedules().getFirst().getScheduleId())
+                .isEqualTo(upcomingSchedule.getScheduleId().toString());
+        assertThat(response.getSchedules().getFirst().getStatus()).isEqualTo(ScheduleStatus.OPEN);
+        verify(tourScheduleRepository)
+                .findByTourAndStatusAndDepartureDateGreaterThanEqualAndIsDeletedFalseOrderByDepartureDateAsc(
+                        tour, ScheduleStatus.OPEN, LocalDate.now());
     }
 
     @Test

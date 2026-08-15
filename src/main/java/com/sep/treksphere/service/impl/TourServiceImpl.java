@@ -124,7 +124,9 @@ public class TourServiceImpl implements TourService {
                 .orElseThrow(() -> new AppException(ErrorCode.TOUR_NOT_FOUND));
         List<TourImage> images = tourImageRepository.findByTourOrderBySortOrderAsc(tour);
         List<TourCheckpoint> checkpoints = tourCheckpointRepository.findByTourAndIsDeletedFalseOrderByCheckpointOrderAsc(tour);
-        List<TourSchedule> schedules = tourScheduleRepository.findByTourAndIsDeletedFalseOrderByDepartureDateAsc(tour);
+        List<TourSchedule> schedules = tourScheduleRepository
+                .findByTourAndStatusAndDepartureDateGreaterThanEqualAndIsDeletedFalseOrderByDepartureDateAsc(
+                        tour, ScheduleStatus.OPEN, LocalDate.now());
         Double avgRating = reviewRepository.findAverageRatingByTourAndStatus(tour, ReviewStatus.APPROVED);
         int totalReviews = reviewRepository.countByTourAndStatusAndIsDeletedFalse(tour, ReviewStatus.APPROVED);
         return toDetailResponse(tour, images, checkpoints, schedules, avgRating, totalReviews, false);
