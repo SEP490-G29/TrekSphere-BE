@@ -46,13 +46,16 @@ public interface CoordinatorScheduleRepository extends JpaRepository<Coordinator
             "JOIN ts.tourSchedule sch " +
             "WHERE c.coordinator.userId = :coordinatorId " +
             "AND c.isDeleted = false " +
+            "AND c.isCancelled = false " +
             "AND ts.isDeleted = false " +
             "AND sch.isDeleted = false " +
+            "AND ts.status IN :blockingStatuses " +
             "AND sch.departureDate <= :newReturnDate " +
             "AND sch.returnDate >= :newDepartureDate")
     long countOverlappingSchedules(@Param("coordinatorId") UUID coordinatorId,
                                    @Param("newDepartureDate") LocalDate newDepartureDate,
-                                   @Param("newReturnDate") LocalDate newReturnDate);
+                                   @Param("newReturnDate") LocalDate newReturnDate,
+                                   @Param("blockingStatuses") Collection<TourSessionStatus> blockingStatuses);
 
     @Query("SELECT COUNT(c) FROM CoordinatorSchedule c " +
             "JOIN c.tourSession ts " +

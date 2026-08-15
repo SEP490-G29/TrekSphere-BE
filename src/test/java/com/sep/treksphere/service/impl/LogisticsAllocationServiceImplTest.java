@@ -2,6 +2,7 @@ package com.sep.treksphere.service.impl;
 
 import com.sep.treksphere.dto.request.AssignCoordinatorRequest;
 import com.sep.treksphere.dto.response.TourSessionSummaryResponse;
+import com.sep.treksphere.entity.CoordinatorSchedule;
 import com.sep.treksphere.entity.Role;
 import com.sep.treksphere.entity.Tour;
 import com.sep.treksphere.entity.TourSchedule;
@@ -30,11 +31,14 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.time.LocalDate;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -154,6 +158,55 @@ class LogisticsAllocationServiceImplTest {
 
         verify(coordinatorScheduleRepository, never())
                 .existsByTourSession_TourSessionIdAndCoordinator_UserIdAndIsDeletedFalse(sessionId, coordinatorId);
+    }
+
+    @Test
+    void assignCoordinator_checksOverlapOnlyAgainstActiveSessions() {
+        UUID sessionId = UUID.randomUUID();
+        UUID managerId = UUID.randomUUID();
+        UUID coordinatorId = UUID.randomUUID();
+        UUID vendorId = UUID.randomUUID();
+        LocalDate departureDate = LocalDate.of(2026, 8, 20);
+        LocalDate returnDate = LocalDate.of(2026, 8, 22);
+
+        Vendor vendor = new Vendor();
+        vendor.setVendorId(vendorId);
+        Tour tour = new Tour();
+        tour.setVendor(vendor);
+        TourSchedule tourSchedule = new TourSchedule();
+        tourSchedule.setTour(tour);
+        tourSchedule.setDepartureDate(departureDate);
+        tourSchedule.setReturnDate(returnDate);
+        TourSession session = new TourSession();
+        session.setTourSchedule(tourSchedule);
+        session.setStatus(TourSessionStatus.PENDING);
+
+        User coordinator = new User();
+        coordinator.setUserId(coordinatorId);
+        Role coordinatorRole = new Role();
+        coordinatorRole.setRoleName("COORDINATOR");
+        coordinator.getRoles().add(coordinatorRole);
+        VendorStaff coordinatorStaff = new VendorStaff();
+        coordinatorStaff.setVendor(vendor);
+        coordinatorStaff.setUser(coordinator);
+
+        AssignCoordinatorRequest request = new AssignCoordinatorRequest();
+        request.setCoordinatorId(coordinatorId);
+        request.setIsLead(false);
+
+        when(tourSessionRepository.findByIdWithVendor(sessionId)).thenReturn(Optional.of(session));
+        when(vendorRepository.findByManager_UserId(managerId)).thenReturn(Optional.of(vendor));
+        when(vendorStaffRepository.findByUser_UserIdAndIsActiveTrueAndIsDeletedFalse(coordinatorId))
+                .thenReturn(Optional.of(coordinatorStaff));
+
+        service.assignCoordinator(sessionId, request, managerId);
+
+        verify(coordinatorScheduleRepository).countOverlappingSchedules(
+                coordinatorId,
+                departureDate,
+                returnDate,
+                List.of(TourSessionStatus.PENDING, TourSessionStatus.IN_PROGRESS));
+        verify(coordinatorScheduleRepository).save(any(CoordinatorSchedule.class));
     }
 
     @Test
