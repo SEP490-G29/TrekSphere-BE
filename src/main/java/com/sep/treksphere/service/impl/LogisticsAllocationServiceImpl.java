@@ -285,7 +285,8 @@ public class LogisticsAllocationServiceImpl implements LogisticsAllocationServic
         long overlappingCount = coordinatorScheduleRepository.countOverlappingSchedules(
                 request.getCoordinatorId(),
                 session.getTourSchedule().getDepartureDate(),
-                session.getTourSchedule().getReturnDate()
+                session.getTourSchedule().getReturnDate(),
+                List.of(TourSessionStatus.PENDING, TourSessionStatus.IN_PROGRESS)
         );
         if (overlappingCount > 0) {
             throw new AppException(ErrorCode.COORDINATOR_SCHEDULE_CONFLICT);
