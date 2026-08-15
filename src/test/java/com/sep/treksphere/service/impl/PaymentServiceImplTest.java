@@ -43,6 +43,10 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.transaction.support.TransactionCallback;
+import vn.payos.PayOS;
+import vn.payos.model.v2.paymentRequests.PaymentLink;
+import vn.payos.model.v2.paymentRequests.PaymentLinkStatus;
+import vn.payos.service.blocking.v2.paymentRequests.PaymentRequestsService;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -56,6 +60,7 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -75,6 +80,8 @@ class PaymentServiceImplTest {
     @Mock private VendorStaffRepository vendorStaffRepository;
     @Mock private NotificationRepository notificationRepository;
     @Mock private PayOsClientFactory payOsClientFactory;
+    @Mock private PayOS payOsClient;
+    @Mock private PaymentRequestsService paymentRequestsService;
     @Mock private PaymentWorkflowProperties properties;
     @Mock private ObjectMapper objectMapper;
     @Mock private TransactionTemplate transactionTemplate;
@@ -124,7 +131,9 @@ class PaymentServiceImplTest {
         payment.setAmount(new BigDecimal("2000000.00"));
         payment.setPaidAmount(new BigDecimal("2000000.00"));
 
-        when(refundTransactionRepository.sumByBookingAndStatuses(any(), any())).thenReturn(BigDecimal.ZERO);
+        org.mockito.Mockito.lenient()
+                .when(refundTransactionRepository.sumByBookingAndStatuses(any(), any()))
+                .thenReturn(BigDecimal.ZERO);
     }
 
     @Test
@@ -331,13 +340,73 @@ class PaymentServiceImplTest {
     }
 
     @Test
+    void automaticRefundWaitsUntilCustomerProvidesCompleteDestination() {
+        RefundTransaction refund = pendingRefund();
+        refund.setDestinationBin(null);
+        refund.setDestinationBankName(null);
+        refund.setDestinationAccountNumber(null);
+        refund.setDestinationAccountName(null);
+        stubTransactionExecution();
+        when(refundTransactionRepository.findByIdForUpdate(refund.getRefundTransactionId()))
+                .thenReturn(Optional.of(refund));
+
+        var response = service.processRefundAutomatically(refund.getRefundTransactionId());
+
+        assertEquals(RefundStatus.PENDING, response.getStatus());
+        assertNull(response.getDestinationBin());
+        assertNull(response.getDestinationAccountNumber());
+        verify(payOsClientFactory, never()).getPayoutClient(any());
+    }
+
+    @Test
+    void cancellingPendingCheckoutClosesPayOsLinkAndLocalAttempt() {
+        stubTransactionExecution();
+        when(bookingRepository.findByIdForUpdate(booking.getBookingId())).thenReturn(Optional.of(booking));
+        VendorPaymentAccount account = new VendorPaymentAccount();
+        account.setVendorPaymentAccountId(UUID.randomUUID());
+        account.setVendor(schedule.getTour().getVendor());
+        payment.setVendorPaymentAccount(account);
+        payment.setStatus(PaymentTransactionStatus.PENDING);
+        payment.setGatewayOrderCode(123456L);
+        payment.setAttemptNumber((short) 1);
+
+        PaymentLink pendingLink = mock(PaymentLink.class);
+        PaymentLink cancelledLink = mock(PaymentLink.class);
+        when(pendingLink.getStatus()).thenReturn(PaymentLinkStatus.PENDING);
+        when(cancelledLink.getStatus()).thenReturn(PaymentLinkStatus.CANCELLED);
+
+        when(userRepository.findByEmail(trekker.getEmail())).thenReturn(Optional.of(trekker));
+        when(paymentTransactionRepository.findByGatewayOrderCodeAndIsDeletedFalse(
+                payment.getGatewayOrderCode())).thenReturn(Optional.of(payment));
+        when(vendorPaymentAccountRepository.findById(account.getVendorPaymentAccountId()))
+                .thenReturn(Optional.of(account));
+        when(payOsClientFactory.getClient(account)).thenReturn(payOsClient);
+        when(payOsClient.paymentRequests()).thenReturn(paymentRequestsService);
+        when(paymentRequestsService.get(payment.getGatewayOrderCode())).thenReturn(pendingLink);
+        when(paymentRequestsService.cancel(payment.getGatewayOrderCode(),
+                "Khach hang huy phien thanh toan")).thenReturn(cancelledLink);
+        when(paymentTransactionRepository.findByIdForUpdate(payment.getPaymentTransactionId()))
+                .thenReturn(Optional.of(payment));
+        when(paymentTransactionRepository.save(any(PaymentTransaction.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        var response = service.cancelCheckout(
+                trekker.getEmail(), booking.getBookingId(), payment.getGatewayOrderCode());
+
+        assertEquals(PaymentTransactionStatus.CANCELLED, response.getStatus());
+        assertEquals(PaymentTransactionStatus.CANCELLED, payment.getStatus());
+        assertNotNull(payment.getCancelledAt());
+        verify(paymentRequestsService).cancel(payment.getGatewayOrderCode(),
+                "Khach hang huy phien thanh toan");
+    }
+
+    @Test
     void manualRefundSubmissionWaitsForAdminReview() {
         RefundTransaction refund = pendingRefund();
         User vendorManager = new User();
         vendorManager.setUserId(UUID.randomUUID());
         vendorManager.setEmail("vendor@example.com");
         ManualRefundCompletionRequest request = new ManualRefundCompletionRequest();
-        request.setBankReference("FT260813001");
         request.setReceiptImageUrl("https://cdn.example.com/refund-receipt.jpg");
         request.setNote("Đã chuyển đủ tiền");
         stubTransactionExecution();
@@ -359,7 +428,7 @@ class PaymentServiceImplTest {
                 vendorManager.getEmail(), refund.getRefundTransactionId(), request);
 
         assertEquals(RefundStatus.MANUAL_REVIEW, response.getStatus());
-        assertEquals("FT260813001", response.getManualBankReference());
+        assertNull(response.getManualBankReference());
         assertEquals(request.getReceiptImageUrl(), response.getManualReceiptUrl());
         assertNull(response.getCompletedAt());
         assertEquals(PaymentStatus.REFUND_PENDING, booking.getPaymentStatus());
@@ -447,6 +516,7 @@ class PaymentServiceImplTest {
         refund.setReason(RefundReason.TREKKER_CANCEL);
         refund.setIdempotencyKey("refund-test-" + refund.getRefundTransactionId());
         refund.setDestinationBin("970422");
+        refund.setDestinationBankName("MB Bank");
         refund.setDestinationAccountNumber("0123456789");
         refund.setDestinationAccountName("NGUYEN VAN A");
         refund.setRequestedAt(LocalDateTime.now());

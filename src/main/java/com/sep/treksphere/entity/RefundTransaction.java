@@ -63,6 +63,9 @@ public class RefundTransaction {
     @Column(length = 20)
     private String destinationBin;
 
+    @Column(length = 100)
+    private String destinationBankName;
+
     @Column(length = 50)
     private String destinationAccountNumber;
     private String destinationAccountName;

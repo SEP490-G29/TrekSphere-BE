@@ -10,6 +10,8 @@ public class RefundDestinationRequest {
     @NotBlank
     private String bankBin;
     @NotBlank
+    private String bankName;
+    @NotBlank
     private String accountNumber;
     @NotBlank
     private String accountName;

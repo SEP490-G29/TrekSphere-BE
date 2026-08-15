@@ -51,6 +51,9 @@ public class CancellationServiceImpl implements CancellationService {
                              BigDecimal nonRefundableCost, int percentage, BigDecimal refund,
                              long daysBeforeDeparture, String description) {}
 
+    private record RefundDestination(String bankBin, String bankName, String accountNumber,
+                                     String accountName) {}
+
     @Override
     @Transactional(readOnly = true)
     public CancellationQuoteResponse quoteForTrekker(String email, UUID bookingId) {
@@ -66,15 +69,19 @@ public class CancellationServiceImpl implements CancellationService {
         if (booking.getBookingStatus() == BookingStatus.CANCELLED) return booking;
         validateCancellable(booking);
         QuoteData quote = calculateQuote(booking);
-        if (quote.refund().signum() > 0) requireDestination(request);
+        RefundDestination destination = quote.refund().signum() > 0
+                ? resolveRefundDestination(request) : null;
 
         releaseCapacity(booking);
         releaseVoucherWhenEligible(booking, quote);
         cancelOpenPaymentAttempts(booking);
 
         if (quote.refund().signum() > 0) {
-            createRefundTransactions(booking, quote.refund(), request);
+            createRefundTransactions(booking, quote.refund(), request.getCancellationReason(), destination);
             booking.setPaymentStatus(PaymentStatus.REFUND_PENDING);
+            booking.setRefundBankName(destination.bankName());
+            booking.setRefundAccountNumber(destination.accountNumber());
+            booking.setRefundAccountHolder(destination.accountName());
         }
         booking.setBookingStatus(BookingStatus.CANCELLED);
         booking.setCancellationReason(request.getCancellationReason());
@@ -244,7 +251,8 @@ public class CancellationServiceImpl implements CancellationService {
         }
     }
 
-    private void createRefundTransactions(Booking booking, BigDecimal requestedAmount, BookingCancelRequest request) {
+    private void createRefundTransactions(Booking booking, BigDecimal requestedAmount, String reasonDetail,
+                                          RefundDestination destination) {
         BigDecimal remaining = requestedAmount;
         List<PaymentTransaction> paidTransactions = paymentTransactionRepository
                 .findByBooking_BookingIdAndIsDeletedFalseOrderByCreatedAtAsc(booking.getBookingId())
@@ -263,11 +271,12 @@ public class CancellationServiceImpl implements CancellationService {
             refund.setIdempotencyKey("trekker-cancel:" + booking.getBookingId() + ":" + payment.getPaymentTransactionId());
             refund.setAmount(allocation);
             refund.setReason(RefundReason.TREKKER_CANCEL);
-            refund.setReasonDetail(request.getCancellationReason());
+            refund.setReasonDetail(reasonDetail);
             refund.setRefundMethod(RefundMethod.MANUAL);
-            refund.setDestinationBin(request.getRefundBankBin().trim());
-            refund.setDestinationAccountNumber(request.getRefundAccountNumber().trim());
-            refund.setDestinationAccountName(request.getRefundAccountName().trim());
+            refund.setDestinationBin(destination.bankBin());
+            refund.setDestinationBankName(destination.bankName());
+            refund.setDestinationAccountNumber(destination.accountNumber());
+            refund.setDestinationAccountName(destination.accountName());
             prepareAndPublishRefund(refund);
             remaining = remaining.subtract(allocation);
         }
@@ -295,9 +304,6 @@ public class CancellationServiceImpl implements CancellationService {
             refund.setReason(request.getReason());
             refund.setReasonDetail(request.getReasonDetail());
             refund.setRefundMethod(RefundMethod.MANUAL);
-            refund.setDestinationBin(string(payment.getGatewayMetadata().get("counterAccountBankId")));
-            refund.setDestinationAccountNumber(string(payment.getGatewayMetadata().get("counterAccountNumber")));
-            refund.setDestinationAccountName(string(payment.getGatewayMetadata().get("counterAccountName")));
             prepareAndPublishRefund(refund);
             remaining = remaining.subtract(amount);
         }
@@ -397,11 +403,16 @@ public class CancellationServiceImpl implements CancellationService {
                 .build();
     }
 
-    private void requireDestination(BookingCancelRequest request) {
-        if (isBlank(request.getRefundBankBin()) || isBlank(request.getRefundAccountNumber())
-                || isBlank(request.getRefundAccountName())) {
+    private RefundDestination resolveRefundDestination(BookingCancelRequest request) {
+        if (isBlank(request.getRefundBankBin()) || isBlank(request.getRefundBankName())
+                || isBlank(request.getRefundAccountNumber()) || isBlank(request.getRefundAccountName())) {
             throw new AppException(ErrorCode.REFUND_DESTINATION_REQUIRED);
         }
+        return new RefundDestination(
+                request.getRefundBankBin().trim(),
+                request.getRefundBankName().trim(),
+                request.getRefundAccountNumber().trim(),
+                request.getRefundAccountName().trim());
     }
 
     private int integer(Object value) {
@@ -413,8 +424,4 @@ public class CancellationServiceImpl implements CancellationService {
         return value == null || value.isBlank();
     }
 
-    private String string(Object value) {
-        String result = value == null ? null : value.toString();
-        return result == null || result.isBlank() ? null : result;
-    }
 }

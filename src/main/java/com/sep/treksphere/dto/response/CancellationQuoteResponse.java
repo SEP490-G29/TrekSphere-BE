@@ -18,4 +18,8 @@ public class CancellationQuoteResponse {
     private Long daysBeforeDeparture;
     private String appliedPolicyDescription;
     private Boolean refundDestinationRequired;
+    private String refundBankBin;
+    private String refundBankName;
+    private String refundAccountNumber;
+    private String refundAccountName;
 }

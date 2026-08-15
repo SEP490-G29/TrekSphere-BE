@@ -16,7 +16,6 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.EnumSet;
 import java.util.List;
-import java.util.Map;
 import java.util.UUID;
 
 @Service
@@ -172,17 +171,8 @@ public class BookingExpiryScheduler {
             refund.setReasonDetail(detail);
             refund.setRefundMethod(RefundMethod.MANUAL);
             refund.setDueAt(refundDueAt());
-            Map<String, Object> metadata = payment.getGatewayMetadata();
-            refund.setDestinationBin(string(metadata.get("counterAccountBankId")));
-            refund.setDestinationAccountNumber(string(metadata.get("counterAccountNumber")));
-            refund.setDestinationAccountName(string(metadata.get("counterAccountName")));
             refundRepository.save(refund);
         }
-    }
-
-    private String string(Object value) {
-        String result = value == null ? null : value.toString();
-        return result == null || result.isBlank() ? null : result;
     }
 
     private LocalDateTime refundDueAt() {

@@ -14,6 +14,7 @@ import java.util.UUID;
 
 public interface PaymentService {
     PaymentCheckoutResponse createCheckout(String email, UUID bookingId);
+    PaymentTransactionResponse cancelCheckout(String email, UUID bookingId, Long orderCode);
     List<PaymentTransactionResponse> getBookingPayments(String email, UUID bookingId);
     List<RefundTransactionResponse> getBookingRefunds(String email, UUID bookingId);
     void handlePayOsWebhook(String channelId, Webhook webhook);
