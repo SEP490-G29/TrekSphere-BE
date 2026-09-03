@@ -1,3 +1,5 @@
+
+
 CREATE TABLE role (
     role_id UUID PRIMARY KEY,
     role_name VARCHAR(50) UNIQUE NOT NULL,
@@ -32,13 +34,30 @@ CREATE TABLE users (
     email_verified BOOLEAN NOT NULL DEFAULT FALSE,
     provider VARCHAR(20) NOT NULL DEFAULT 'LOCAL',
     provider_id VARCHAR(255),
+    bio TEXT,
+    experience_level VARCHAR(30),
+    preferred_difficulty VARCHAR(20),
+    preferred_areas JSONB NOT NULL DEFAULT '[]'::JSONB,
+    skills JSONB NOT NULL DEFAULT '[]'::JSONB,
+    trust_score SMALLINT,
+    trust_review_count INTEGER NOT NULL DEFAULT 0,
+    trust_calculated_at TIMESTAMP,
     is_deleted BOOLEAN NOT NULL DEFAULT FALSE,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP,
     deleted_at TIMESTAMP,
     created_by VARCHAR(255),
     updated_by VARCHAR(255),
-    deleted_by VARCHAR(255)
+    deleted_by VARCHAR(255),
+
+    CONSTRAINT chk_users_status CHECK (status IN ('ACTIVE','LOCKED','DEACTIVATED')),
+    CONSTRAINT chk_users_gender CHECK (gender IS NULL OR gender IN ('MALE','FEMALE','OTHER')),
+    CONSTRAINT chk_users_provider CHECK (provider IN ('LOCAL','GOOGLE')),
+    CONSTRAINT chk_users_experience_level CHECK (experience_level IS NULL OR experience_level IN ('BEGINNER','INTERMEDIATE','ADVANCED','EXPERT')),
+    CONSTRAINT chk_users_preferred_difficulty CHECK (preferred_difficulty IS NULL OR preferred_difficulty IN ('EASY','MODERATE','HARD','EXPERT')),
+    CONSTRAINT chk_users_preferred_areas_array CHECK (jsonb_typeof(preferred_areas) = 'array'),
+    CONSTRAINT chk_users_skills_array CHECK (jsonb_typeof(skills) = 'array'),
+    CONSTRAINT chk_users_trust_score CHECK (trust_score IS NULL OR trust_score BETWEEN 0 AND 100)
 );
 
 CREATE TABLE user_role (
@@ -49,6 +68,9 @@ CREATE TABLE user_role (
     CONSTRAINT fk_ur_role FOREIGN KEY (role_id) REFERENCES role(role_id)
 );
 
+-- ----------------------------------------------------------------------------
+-- Mục 3.6–3.7: Vendor
+-- ----------------------------------------------------------------------------
 
 CREATE TABLE vendor (
     vendor_id UUID PRIMARY KEY,
@@ -60,9 +82,6 @@ CREATE TABLE vendor (
     contact_phone VARCHAR(20) NOT NULL,
     tax_code VARCHAR(50) UNIQUE NOT NULL,
     business_license_url VARCHAR(500) NOT NULL,
-    bank_account VARCHAR(50),
-    bank_name VARCHAR(100),
-    payment_qr_url VARCHAR(500),
     status VARCHAR(10) NOT NULL,
     is_deleted BOOLEAN NOT NULL DEFAULT FALSE,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -71,8 +90,9 @@ CREATE TABLE vendor (
     created_by VARCHAR(255),
     updated_by VARCHAR(255),
     deleted_by VARCHAR(255),
-    
-    CONSTRAINT fk_vendor_manager FOREIGN KEY (manager_id) REFERENCES users(user_id)
+
+    CONSTRAINT fk_vendor_manager FOREIGN KEY (manager_id) REFERENCES users(user_id),
+    CONSTRAINT chk_vendor_status CHECK (status IN ('PENDING','ACTIVE','SUSPENDED'))
 );
 
 CREATE TABLE vendor_application (
@@ -93,89 +113,14 @@ CREATE TABLE vendor_application (
     created_by VARCHAR(255),
     updated_by VARCHAR(255),
     deleted_by VARCHAR(255),
-    
-    CONSTRAINT fk_va_applicant FOREIGN KEY (applicant_id) REFERENCES users(user_id)
+
+    CONSTRAINT fk_va_applicant FOREIGN KEY (applicant_id) REFERENCES users(user_id),
+    CONSTRAINT chk_va_status CHECK (application_status IN ('PENDING','APPROVED','REJECTED'))
 );
 
-CREATE TABLE vendor_staff (
-    vendor_staff_id UUID PRIMARY KEY,
-    vendor_id UUID NOT NULL,
-    user_id UUID NOT NULL,
-    is_active BOOLEAN NOT NULL DEFAULT TRUE,
-    is_deleted BOOLEAN NOT NULL DEFAULT FALSE,
-    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP,
-    deleted_at TIMESTAMP,
-    created_by VARCHAR(255),
-    updated_by VARCHAR(255),
-    deleted_by VARCHAR(255),
-    
-    CONSTRAINT fk_vs_vendor FOREIGN KEY (vendor_id) REFERENCES vendor(vendor_id),
-    CONSTRAINT fk_vs_user FOREIGN KEY (user_id) REFERENCES users(user_id)
-);
-
-CREATE TABLE vendor_equipment (
-    equipment_id UUID PRIMARY KEY,
-    vendor_id UUID,
-    equipment_name VARCHAR(255) NOT NULL,
-    description TEXT,
-    total_quantity INTEGER NOT NULL DEFAULT 0,
-    is_deleted BOOLEAN NOT NULL DEFAULT FALSE,
-    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP,
-    deleted_at TIMESTAMP,
-    created_by VARCHAR(255),
-    updated_by VARCHAR(255),
-    deleted_by VARCHAR(255),
-    
-    CONSTRAINT fk_ve_vendor FOREIGN KEY (vendor_id) REFERENCES vendor(vendor_id)
-);
-
-CREATE TABLE porter_profile (
-    porter_id UUID PRIMARY KEY,
-    vendor_id UUID,
-    full_name VARCHAR(255) NOT NULL,
-    phone VARCHAR(20) NOT NULL,
-    gender VARCHAR(10),
-    date_of_birth DATE,
-    address VARCHAR(255),
-    avatar_url VARCHAR(500),
-    joined_date DATE NOT NULL,
-    status VARCHAR(20) NOT NULL,
-    
-    is_deleted BOOLEAN NOT NULL DEFAULT FALSE,
-    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP,
-    deleted_at TIMESTAMP,
-    created_by VARCHAR(255),
-    updated_by VARCHAR(255),
-    deleted_by VARCHAR(255),
-    
-    CONSTRAINT fk_pp_vendor FOREIGN KEY (vendor_id) REFERENCES vendor(vendor_id)
-);
-
-CREATE TABLE voucher (
-    voucher_id UUID PRIMARY KEY,
-    vendor_id UUID,
-    code VARCHAR(50) UNIQUE NOT NULL,
-    discount_type VARCHAR(20) NOT NULL,
-    discount_value DECIMAL(12,2) NOT NULL,
-    min_order_value DECIMAL(12,2) NOT NULL DEFAULT 0,
-    max_usage INTEGER NOT NULL,
-    used_count INTEGER NOT NULL DEFAULT 0,
-    valid_from TIMESTAMP NOT NULL,
-    valid_until TIMESTAMP NOT NULL,
-    status VARCHAR(10) NOT NULL,
-    is_deleted BOOLEAN NOT NULL DEFAULT FALSE,
-    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP,
-    deleted_at TIMESTAMP,
-    created_by VARCHAR(255),
-    updated_by VARCHAR(255),
-    deleted_by VARCHAR(255),
-    
-    CONSTRAINT fk_voucher_vendor FOREIGN KEY (vendor_id) REFERENCES vendor(vendor_id)
-);
+-- ----------------------------------------------------------------------------
+-- Mục 3.8–3.11: Tour (chỉ để khám phá/tham khảo — không Booking, không Payment)
+-- ----------------------------------------------------------------------------
 
 CREATE TABLE tour (
     tour_id UUID PRIMARY KEY,
@@ -183,7 +128,6 @@ CREATE TABLE tour (
     tour_name VARCHAR(255) NOT NULL,
     description TEXT NOT NULL,
     duration_days INTEGER NOT NULL,
-    base_price DECIMAL(12,2) NOT NULL,
     min_capacity INTEGER NOT NULL DEFAULT 1,
     max_capacity INTEGER NOT NULL,
     total_distance_km DECIMAL(5,2),
@@ -194,6 +138,7 @@ CREATE TABLE tour (
     highlights TEXT,
     includes TEXT,
     excludes TEXT,
+    rejection_reason TEXT,
     creator_id UUID NOT NULL,
     is_deleted BOOLEAN NOT NULL DEFAULT FALSE,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -202,13 +147,16 @@ CREATE TABLE tour (
     created_by VARCHAR(255),
     updated_by VARCHAR(255),
     deleted_by VARCHAR(255),
-    
+
     CONSTRAINT fk_tour_vendor FOREIGN KEY (vendor_id) REFERENCES vendor(vendor_id),
-    CONSTRAINT fk_tour_creator FOREIGN KEY (creator_id) REFERENCES users(user_id)
+    CONSTRAINT fk_tour_creator FOREIGN KEY (creator_id) REFERENCES users(user_id),
+    CONSTRAINT chk_tour_capacity CHECK (max_capacity >= min_capacity),
+    CONSTRAINT chk_tour_difficulty CHECK (difficulty IN ('EASY','MODERATE','HARD','EXPERT')),
+    CONSTRAINT chk_tour_status CHECK (status IN ('DRAFT','PENDING_APPROVAL','APPROVED','REJECTED','HIDDEN'))
 );
 
 CREATE TABLE tour_image (
-    image_id UUID PRIMARY KEY,
+    tour_image_id UUID PRIMARY KEY,
     tour_id UUID NOT NULL,
     image_url VARCHAR(500) NOT NULL,
     caption VARCHAR(255),
@@ -220,19 +168,18 @@ CREATE TABLE tour_image (
     created_by VARCHAR(255),
     updated_by VARCHAR(255),
     deleted_by VARCHAR(255),
-    
+
     CONSTRAINT fk_ti_tour FOREIGN KEY (tour_id) REFERENCES tour(tour_id)
 );
 
+-- tour_schedule: đợt khởi hành + giá của đợt đó (nguồn giá duy nhất, thay tour.base_price đã bỏ)
 CREATE TABLE tour_schedule (
-    schedule_id UUID PRIMARY KEY,
+    tour_schedule_id UUID PRIMARY KEY,
     tour_id UUID NOT NULL,
     departure_date DATE NOT NULL,
     return_date DATE NOT NULL,
     price DECIMAL(12,2) NOT NULL,
-    booked_slots INTEGER NOT NULL DEFAULT 0,
-    available_slots INTEGER NOT NULL,
-    status VARCHAR(10) NOT NULL,
+    status VARCHAR(20) NOT NULL,
     is_deleted BOOLEAN NOT NULL DEFAULT FALSE,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP,
@@ -240,13 +187,16 @@ CREATE TABLE tour_schedule (
     created_by VARCHAR(255),
     updated_by VARCHAR(255),
     deleted_by VARCHAR(255),
-    
-    CONSTRAINT fk_ts_tour FOREIGN KEY (tour_id) REFERENCES tour(tour_id)
+
+    CONSTRAINT fk_ts_tour FOREIGN KEY (tour_id) REFERENCES tour(tour_id),
+    CONSTRAINT chk_ts_dates CHECK (return_date >= departure_date),
+    CONSTRAINT chk_ts_price CHECK (price >= 0),
+    CONSTRAINT chk_ts_status CHECK (status IN ('OPEN','CLOSED','CANCELLED'))
 );
 
 CREATE TABLE tour_checkpoint (
-    checkpoint_id UUID PRIMARY KEY,
-    tour_id UUID,
+    tour_checkpoint_id UUID PRIMARY KEY,
+    tour_id UUID NOT NULL,
     checkpoint_name VARCHAR(255) NOT NULL,
     description TEXT,
     latitude DECIMAL(10,7),
@@ -261,316 +211,14 @@ CREATE TABLE tour_checkpoint (
     created_by VARCHAR(255),
     updated_by VARCHAR(255),
     deleted_by VARCHAR(255),
-    
-    CONSTRAINT fk_tc_tour FOREIGN KEY (tour_id) REFERENCES tour(tour_id)
+
+    CONSTRAINT fk_tc_tour FOREIGN KEY (tour_id) REFERENCES tour(tour_id),
+    CONSTRAINT chk_tc_order CHECK (checkpoint_order > 0)
 );
 
-CREATE TABLE tour_session (
-    tour_session_id UUID PRIMARY KEY,
-    tour_schedule_id UUID UNIQUE,
-    status VARCHAR(20) NOT NULL,
-    started_at TIMESTAMP,
-    ended_at TIMESTAMP,
-    is_deleted BOOLEAN NOT NULL DEFAULT FALSE,
-    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP,
-    deleted_at TIMESTAMP,
-    created_by VARCHAR(255),
-    updated_by VARCHAR(255),
-    deleted_by VARCHAR(255),
-    
-    CONSTRAINT fk_tse_schedule FOREIGN KEY (tour_schedule_id) REFERENCES tour_schedule(schedule_id)
-);
-
-CREATE TABLE session_checkpoint_log (
-    session_checkpoint_log_id UUID PRIMARY KEY,
-    tour_session_id UUID,
-    checkpoint_id UUID,
-    status VARCHAR(20) NOT NULL,
-    reached_at TIMESTAMP,
-    actual_latitude DECIMAL(10,7),
-    actual_longitude DECIMAL(10,7),
-    note TEXT,
-    is_deleted BOOLEAN NOT NULL DEFAULT FALSE,
-    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP,
-    deleted_at TIMESTAMP,
-    created_by VARCHAR(255),
-    updated_by VARCHAR(255),
-    deleted_by VARCHAR(255),
-    
-    CONSTRAINT fk_scl_session FOREIGN KEY (tour_session_id) REFERENCES tour_session(tour_session_id),
-    CONSTRAINT fk_scl_checkpoint FOREIGN KEY (checkpoint_id) REFERENCES tour_checkpoint(checkpoint_id)
-);
-
-CREATE TABLE sos_alert (
-    sos_alert_id UUID PRIMARY KEY,
-    tour_session_id UUID,
-    sender_id UUID,
-    latitude DECIMAL(10,7) NOT NULL,
-    longitude DECIMAL(10,7) NOT NULL,
-    message TEXT,
-    status VARCHAR(20) NOT NULL,
-    resolved_by UUID,
-    is_deleted BOOLEAN NOT NULL DEFAULT FALSE,
-    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP,
-    deleted_at TIMESTAMP,
-    created_by VARCHAR(255),
-    updated_by VARCHAR(255),
-    deleted_by VARCHAR(255),
-    
-    CONSTRAINT fk_sos_session FOREIGN KEY (tour_session_id) REFERENCES tour_session(tour_session_id),
-    CONSTRAINT fk_sos_sender FOREIGN KEY (sender_id) REFERENCES users(user_id),
-    CONSTRAINT fk_sos_resolved FOREIGN KEY (resolved_by) REFERENCES users(user_id)
-);
-
-CREATE TABLE session_equipment (
-    session_equipment_id UUID PRIMARY KEY,
-    tour_session_id UUID,
-    equipment_id UUID NOT NULL,
-    quantity INTEGER NOT NULL DEFAULT 1,
-    is_checked BOOLEAN NOT NULL DEFAULT FALSE,
-    checked_by UUID,
-    note TEXT,
-    is_deleted BOOLEAN NOT NULL DEFAULT FALSE,
-    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP,
-    deleted_at TIMESTAMP,
-    created_by VARCHAR(255),
-    updated_by VARCHAR(255),
-    deleted_by VARCHAR(255),
-    
-    CONSTRAINT fk_se_session FOREIGN KEY (tour_session_id) REFERENCES tour_session(tour_session_id),
-    CONSTRAINT fk_se_equipment FOREIGN KEY (equipment_id) REFERENCES vendor_equipment(equipment_id),
-    CONSTRAINT fk_se_checked FOREIGN KEY (checked_by) REFERENCES users(user_id)
-);
-
-CREATE TABLE porter_schedule (
-    porter_schedule_id UUID PRIMARY KEY,
-    tour_session_id UUID,
-    porter_id UUID,
-    note TEXT,
-    is_deleted BOOLEAN NOT NULL DEFAULT FALSE,
-    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP,
-    deleted_at TIMESTAMP,
-    created_by VARCHAR(255),
-    updated_by VARCHAR(255),
-    deleted_by VARCHAR(255),
-    
-    CONSTRAINT fk_ps_session FOREIGN KEY (tour_session_id) REFERENCES tour_session(tour_session_id),
-    CONSTRAINT fk_ps_porter FOREIGN KEY (porter_id) REFERENCES porter_profile(porter_id)
-);
-
-CREATE TABLE coordinator_schedule (
-    coordinator_schedule_id UUID PRIMARY KEY,
-    tour_session_id UUID,
-    coordinator_id UUID,
-    is_lead BOOLEAN NOT NULL DEFAULT FALSE,
-    is_deleted BOOLEAN NOT NULL DEFAULT FALSE,
-    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP,
-    deleted_at TIMESTAMP,
-    created_by VARCHAR(255),
-    updated_by VARCHAR(255),
-    deleted_by VARCHAR(255),
-    
-    CONSTRAINT fk_cs_session FOREIGN KEY (tour_session_id) REFERENCES tour_session(tour_session_id),
-    CONSTRAINT fk_cs_coordinator FOREIGN KEY (coordinator_id) REFERENCES users(user_id)
-);
-
-CREATE TABLE booking (
-    booking_id UUID PRIMARY KEY,
-    booking_code VARCHAR(50) UNIQUE NOT NULL,
-    user_id UUID NOT NULL,
-    tour_schedule_id UUID NOT NULL,
-    voucher_id UUID,
-    number_of_participants INTEGER NOT NULL,
-    original_price DECIMAL(12,2) NOT NULL,
-    total_price DECIMAL(12,2) NOT NULL,
-    discount_amount DECIMAL(12,2) NOT NULL,
-    payment_status VARCHAR(20) NOT NULL,
-    booking_status VARCHAR(10) NOT NULL,
-    proof_image_url VARCHAR(500),
-    cancellation_reason TEXT,
-    refund_amount DECIMAL(12,2),
-    cancelled_at TIMESTAMP,
-    is_deleted BOOLEAN NOT NULL DEFAULT FALSE,
-    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP,
-    deleted_at TIMESTAMP,
-    created_by VARCHAR(255),
-    updated_by VARCHAR(255),
-    deleted_by VARCHAR(255),
-    
-    CONSTRAINT fk_booking_user FOREIGN KEY (user_id) REFERENCES users(user_id),
-    CONSTRAINT fk_booking_schedule FOREIGN KEY (tour_schedule_id) REFERENCES tour_schedule(schedule_id),
-    CONSTRAINT fk_booking_voucher FOREIGN KEY (voucher_id) REFERENCES voucher(voucher_id)
-);
-
-CREATE TABLE booking_participant (
-    participant_id UUID PRIMARY KEY,
-    booking_id UUID NOT NULL,
-    full_name VARCHAR(255) NOT NULL,
-    date_of_birth DATE NOT NULL,
-    gender VARCHAR(10) NOT NULL,
-    id_number VARCHAR(20) NOT NULL,
-    address VARCHAR(255),
-    phone VARCHAR(20) NOT NULL,
-    email VARCHAR(255),
-    special_requirements TEXT,
-    is_deleted BOOLEAN NOT NULL DEFAULT FALSE,
-    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP,
-    deleted_at TIMESTAMP,
-    created_by VARCHAR(255),
-    updated_by VARCHAR(255),
-    deleted_by VARCHAR(255),
-    
-    CONSTRAINT fk_bp_booking FOREIGN KEY (booking_id) REFERENCES booking(booking_id)
-);
-
-CREATE TABLE cancellation_policy (
-    cancellation_policy_id UUID PRIMARY KEY,
-    vendor_id UUID NOT NULL,
-    cancel_before_days INTEGER NOT NULL,
-    refund_percentage INTEGER NOT NULL,
-    description VARCHAR(255),
-    is_active BOOLEAN NOT NULL DEFAULT TRUE,
-    is_deleted BOOLEAN NOT NULL DEFAULT FALSE,
-    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP,
-    deleted_at TIMESTAMP,
-    created_by VARCHAR(255),
-    updated_by VARCHAR(255),
-    deleted_by VARCHAR(255),
-    
-    CONSTRAINT fk_cp_vendor FOREIGN KEY (vendor_id) REFERENCES vendor(vendor_id)
-);
-
-CREATE TABLE blog (
-    blog_id UUID PRIMARY KEY,
-    user_id UUID NOT NULL,
-    title VARCHAR(500) NOT NULL,
-    content TEXT NOT NULL,
-    cover_image_url VARCHAR(500),
-    view_count INTEGER NOT NULL DEFAULT 0,
-    status VARCHAR(20) NOT NULL,
-    is_deleted BOOLEAN NOT NULL DEFAULT FALSE,
-    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP,
-    deleted_at TIMESTAMP,
-    created_by VARCHAR(255),
-    updated_by VARCHAR(255),
-    deleted_by VARCHAR(255),
-    
-    CONSTRAINT fk_blog_user FOREIGN KEY (user_id) REFERENCES users(user_id)
-);
-
-CREATE TABLE blog_comment (
-    blog_comment_id UUID PRIMARY KEY,
-    blog_id UUID NOT NULL,
-    user_id UUID NOT NULL,
-    parent_comment_id UUID,
-    content TEXT NOT NULL,
-    status VARCHAR(10) NOT NULL,
-    is_deleted BOOLEAN NOT NULL DEFAULT FALSE,
-    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP,
-    deleted_at TIMESTAMP,
-    created_by VARCHAR(255),
-    updated_by VARCHAR(255),
-    deleted_by VARCHAR(255),
-    
-    CONSTRAINT fk_bc_blog FOREIGN KEY (blog_id) REFERENCES blog(blog_id),
-    CONSTRAINT fk_bc_user FOREIGN KEY (user_id) REFERENCES users(user_id),
-    CONSTRAINT fk_bc_parent FOREIGN KEY (parent_comment_id) REFERENCES blog_comment(blog_comment_id)
-);
-
-CREATE TABLE review (
-    review_id UUID PRIMARY KEY,
-    tour_id UUID,
-    user_id UUID,
-    booking_id UUID UNIQUE,
-    rating INTEGER NOT NULL,
-    content TEXT,
-    status VARCHAR(10) NOT NULL,
-    is_deleted BOOLEAN NOT NULL DEFAULT FALSE,
-    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP,
-    deleted_at TIMESTAMP,
-    created_by VARCHAR(255),
-    updated_by VARCHAR(255),
-    deleted_by VARCHAR(255),
-    
-    CONSTRAINT fk_review_tour FOREIGN KEY (tour_id) REFERENCES tour(tour_id),
-    CONSTRAINT fk_review_user FOREIGN KEY (user_id) REFERENCES users(user_id),
-    CONSTRAINT fk_review_booking FOREIGN KEY (booking_id) REFERENCES booking(booking_id)
-);
-
-CREATE TABLE report_content (
-    report_content_id UUID PRIMARY KEY,
-    reporter_id UUID NOT NULL,
-    blog_id UUID,
-    blog_comment_id UUID,
-    review_id UUID,
-    reason VARCHAR(255) NOT NULL,
-    status VARCHAR(10) NOT NULL,
-    is_deleted BOOLEAN NOT NULL DEFAULT FALSE,
-    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP,
-    deleted_at TIMESTAMP,
-    created_by VARCHAR(255),
-    updated_by VARCHAR(255),
-    deleted_by VARCHAR(255),
-    
-    CONSTRAINT fk_rc_reporter FOREIGN KEY (reporter_id) REFERENCES users(user_id),
-    CONSTRAINT fk_rc_blog FOREIGN KEY (blog_id) REFERENCES blog(blog_id),
-    CONSTRAINT fk_rc_comment FOREIGN KEY (blog_comment_id) REFERENCES blog_comment(blog_comment_id),
-    CONSTRAINT fk_rc_review FOREIGN KEY (review_id) REFERENCES review(review_id)
-);
-
-CREATE TABLE matching_group (
-    matching_group_id UUID PRIMARY KEY,
-    tour_id UUID NOT NULL,
-    owner_id UUID NOT NULL,
-    group_name VARCHAR(255) NOT NULL,
-    description TEXT,
-    max_size INTEGER NOT NULL,
-    current_size INTEGER NOT NULL DEFAULT 1,
-    target_date DATE NOT NULL,
-    matching_deadline TIMESTAMP NOT NULL,
-    status VARCHAR(10) NOT NULL,
-    is_deleted BOOLEAN NOT NULL DEFAULT FALSE,
-    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP,
-    deleted_at TIMESTAMP,
-    created_by VARCHAR(255),
-    updated_by VARCHAR(255),
-    deleted_by VARCHAR(255),
-    
-    CONSTRAINT fk_mg_tour FOREIGN KEY (tour_id) REFERENCES tour(tour_id),
-    CONSTRAINT fk_mg_owner FOREIGN KEY (owner_id) REFERENCES users(user_id)
-);
-
-CREATE TABLE matching_member (
-    matching_member_id UUID PRIMARY KEY,
-    group_id UUID NOT NULL,
-    user_id UUID NOT NULL,
-    role VARCHAR(10) NOT NULL,
-    status VARCHAR(10) NOT NULL,
-    is_deleted BOOLEAN NOT NULL DEFAULT FALSE,
-    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP,
-    deleted_at TIMESTAMP,
-    created_by VARCHAR(255),
-    updated_by VARCHAR(255),
-    deleted_by VARCHAR(255),
-    
-    CONSTRAINT fk_mm_group FOREIGN KEY (group_id) REFERENCES matching_group(matching_group_id),
-    CONSTRAINT fk_mm_user FOREIGN KEY (user_id) REFERENCES users(user_id)
-);
+-- ----------------------------------------------------------------------------
+-- Mục 3.14–3.16: Chat (tạo trước matching_group vì matching_group.conversation_id FK tới đây)
+-- ----------------------------------------------------------------------------
 
 CREATE TABLE conversation (
     conversation_id UUID PRIMARY KEY,
@@ -583,7 +231,9 @@ CREATE TABLE conversation (
     deleted_at TIMESTAMP,
     created_by VARCHAR(255),
     updated_by VARCHAR(255),
-    deleted_by VARCHAR(255)
+    deleted_by VARCHAR(255),
+
+    CONSTRAINT chk_conversation_type CHECK (conversation_type IN ('DIRECT','GROUP'))
 );
 
 CREATE TABLE conversation_participant (
@@ -607,10 +257,539 @@ CREATE TABLE message (
     created_by VARCHAR(255),
     updated_by VARCHAR(255),
     deleted_by VARCHAR(255),
-    
+
     CONSTRAINT fk_message_conversation FOREIGN KEY (conversation_id) REFERENCES conversation(conversation_id),
     CONSTRAINT fk_message_sender FOREIGN KEY (sender_id) REFERENCES users(user_id)
 );
+
+CREATE INDEX ix_message_conversation_created ON message (conversation_id, created_at);
+
+-- ----------------------------------------------------------------------------
+-- Mục 3.12–3.13: Nhóm ghép — bảng trung tâm của hệ thống
+-- ----------------------------------------------------------------------------
+
+CREATE TABLE matching_group (
+    matching_group_id UUID PRIMARY KEY,
+    tour_id UUID,
+    owner_id UUID NOT NULL,
+    group_name VARCHAR(255) NOT NULL,
+    description TEXT,
+    max_size INTEGER NOT NULL,
+    current_size INTEGER NOT NULL DEFAULT 1,
+    target_date DATE NOT NULL,
+    matching_deadline TIMESTAMP NOT NULL,
+    status VARCHAR(30) NOT NULL,
+    conversation_id UUID,
+    is_deleted BOOLEAN NOT NULL DEFAULT FALSE,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP,
+    deleted_at TIMESTAMP,
+    created_by VARCHAR(255),
+    updated_by VARCHAR(255),
+    deleted_by VARCHAR(255),
+
+    CONSTRAINT fk_mg_tour FOREIGN KEY (tour_id) REFERENCES tour(tour_id),
+    CONSTRAINT fk_mg_owner FOREIGN KEY (owner_id) REFERENCES users(user_id),
+    CONSTRAINT fk_mg_conversation FOREIGN KEY (conversation_id) REFERENCES conversation(conversation_id),
+    CONSTRAINT chk_matching_group_current_size CHECK (current_size >= 1 AND current_size <= max_size),
+    CONSTRAINT chk_matching_group_status CHECK (status IN ('OPEN','FULL','CLOSED','HIDDEN','IN_PROGRESS','COMPLETED','CANCELLED'))
+);
+
+-- matching_member: vừa là đơn xin vào nhóm (status=PENDING), vừa là thành viên chính thức
+CREATE TABLE matching_member (
+    matching_member_id UUID PRIMARY KEY,
+    matching_group_id UUID NOT NULL,
+    user_id UUID NOT NULL,
+    role VARCHAR(20) NOT NULL,
+    status VARCHAR(20) NOT NULL,
+    withdrawn_at TIMESTAMP,
+    is_deleted BOOLEAN NOT NULL DEFAULT FALSE,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP,
+    deleted_at TIMESTAMP,
+    created_by VARCHAR(255),
+    updated_by VARCHAR(255),
+    deleted_by VARCHAR(255),
+
+    CONSTRAINT fk_mm_group FOREIGN KEY (matching_group_id) REFERENCES matching_group(matching_group_id),
+    CONSTRAINT fk_mm_user FOREIGN KEY (user_id) REFERENCES users(user_id),
+    CONSTRAINT uq_mm_group_user UNIQUE (matching_group_id, user_id),
+    CONSTRAINT chk_mm_role CHECK (role IN ('LEADER','MEMBER')),
+    CONSTRAINT chk_mm_status CHECK (status IN ('PENDING','ACCEPTED','REJECTED','WITHDRAWN','LEFT','REMOVED')),
+    CONSTRAINT chk_mm_withdrawn_at CHECK (
+        (status = 'WITHDRAWN' AND withdrawn_at IS NOT NULL)
+        OR (status <> 'WITHDRAWN' AND withdrawn_at IS NULL)
+    )
+);
+
+-- Mỗi nhóm đúng một LEADER đang active (kể cả khi chuyển giao quyền — chỉ UPDATE role, không bảng riêng)
+CREATE UNIQUE INDEX uq_group_active_leader
+    ON matching_member (matching_group_id)
+    WHERE role = 'LEADER' AND status = 'ACCEPTED' AND is_deleted = FALSE;
+
+-- ----------------------------------------------------------------------------
+-- Mục 4.1: Chuyến đi thực tế của nhóm
+-- ----------------------------------------------------------------------------
+
+CREATE TABLE group_trip (
+    group_trip_id UUID PRIMARY KEY,
+    matching_group_id UUID NOT NULL UNIQUE,
+    status VARCHAR(20) NOT NULL,
+    started_at TIMESTAMP,
+    ended_at TIMESTAMP,
+    start_by UUID,
+    ended_by UUID,
+    is_deleted BOOLEAN NOT NULL DEFAULT FALSE,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP,
+    deleted_at TIMESTAMP,
+    created_by VARCHAR(255),
+    updated_by VARCHAR(255),
+    deleted_by VARCHAR(255),
+
+    CONSTRAINT fk_gt_group FOREIGN KEY (matching_group_id) REFERENCES matching_group(matching_group_id),
+    CONSTRAINT fk_gt_start_by FOREIGN KEY (start_by) REFERENCES matching_member(matching_member_id),
+    CONSTRAINT fk_gt_ended_by FOREIGN KEY (ended_by) REFERENCES matching_member(matching_member_id),
+    CONSTRAINT chk_gt_status CHECK (status IN ('PLANNED','IN_PROGRESS','ENDED','CANCELLED'))
+);
+
+-- ----------------------------------------------------------------------------
+-- Mục 4.2–4.4: Custom Journey (hành trình tự lên của nhóm)
+-- ----------------------------------------------------------------------------
+
+CREATE TABLE custom_journey (
+    custom_journey_id UUID PRIMARY KEY,
+    matching_group_id UUID NOT NULL UNIQUE,
+    title VARCHAR(200) NOT NULL,
+    description TEXT,
+    start_date DATE NOT NULL,
+    end_date DATE NOT NULL,
+    is_locked BOOLEAN NOT NULL DEFAULT FALSE,
+    locked_at TIMESTAMP,
+    is_deleted BOOLEAN NOT NULL DEFAULT FALSE,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP,
+    deleted_at TIMESTAMP,
+    created_by VARCHAR(255),
+    updated_by VARCHAR(255),
+    deleted_by VARCHAR(255),
+
+    CONSTRAINT fk_cj_group FOREIGN KEY (matching_group_id) REFERENCES matching_group(matching_group_id),
+    CONSTRAINT chk_cj_dates CHECK (end_date >= start_date)
+);
+
+CREATE TABLE custom_journey_checkpoint (
+    custom_journey_checkpoint_id UUID PRIMARY KEY,
+    custom_journey_id UUID NOT NULL,
+    day_no INTEGER,
+    checkpoint_order INTEGER NOT NULL,
+    title VARCHAR(200) NOT NULL,
+    description TEXT,
+    location_name VARCHAR(200),
+    latitude DECIMAL(10,7),
+    longitude DECIMAL(10,7),
+    planned_start_at TIMESTAMP,
+    planned_end_at TIMESTAMP,
+    image_url VARCHAR(500),
+    is_deleted BOOLEAN NOT NULL DEFAULT FALSE,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP,
+    deleted_at TIMESTAMP,
+    created_by VARCHAR(255),
+    updated_by VARCHAR(255),
+    deleted_by VARCHAR(255),
+
+    CONSTRAINT fk_cjc_journey FOREIGN KEY (custom_journey_id) REFERENCES custom_journey(custom_journey_id),
+    CONSTRAINT uq_cjc_order UNIQUE (custom_journey_id, checkpoint_order),
+    CONSTRAINT chk_cjc_day_no CHECK (day_no IS NULL OR day_no > 0),
+    CONSTRAINT chk_cjc_order CHECK (checkpoint_order > 0),
+    CONSTRAINT chk_cjc_planned_times CHECK (planned_end_at IS NULL OR planned_start_at IS NULL OR planned_end_at >= planned_start_at)
+);
+
+CREATE INDEX ix_cjc_journey_day_order ON custom_journey_checkpoint (custom_journey_id, day_no, checkpoint_order);
+
+CREATE TABLE custom_journey_cost_item (
+    custom_journey_cost_item_id UUID PRIMARY KEY,
+    custom_journey_id UUID NOT NULL,
+    item_name VARCHAR(200) NOT NULL,
+    category VARCHAR(50),
+    estimated_amount DECIMAL(12,2) NOT NULL,
+    note TEXT,
+    is_deleted BOOLEAN NOT NULL DEFAULT FALSE,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP,
+    deleted_at TIMESTAMP,
+    created_by VARCHAR(255),
+    updated_by VARCHAR(255),
+    deleted_by VARCHAR(255),
+
+    CONSTRAINT fk_cjci_journey FOREIGN KEY (custom_journey_id) REFERENCES custom_journey(custom_journey_id),
+    CONSTRAINT chk_cjci_category CHECK (category IS NULL OR category IN ('PERMIT','GUIDE','FOOD','TRANSPORT','GEAR','OTHER')),
+    CONSTRAINT chk_cjci_amount CHECK (estimated_amount >= 0)
+);
+
+-- ----------------------------------------------------------------------------
+-- Mục 3.21: SOS — phát cho toàn bộ thành viên nhóm (thay tour_session bằng group_trip)
+-- ----------------------------------------------------------------------------
+
+CREATE TABLE sos_alert (
+    sos_alert_id UUID PRIMARY KEY,
+    group_trip_id UUID NOT NULL,
+    sender_id UUID NOT NULL,
+    incident_type_code VARCHAR(50) NOT NULL,
+    latitude DECIMAL(10,7),
+    longitude DECIMAL(10,7),
+    message TEXT,
+    status VARCHAR(20) NOT NULL,
+    resolved_by UUID,
+    idempotency_key VARCHAR(255) NOT NULL,
+    is_deleted BOOLEAN NOT NULL DEFAULT FALSE,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP,
+    deleted_at TIMESTAMP,
+    created_by VARCHAR(255),
+    updated_by VARCHAR(255),
+    deleted_by VARCHAR(255),
+
+    CONSTRAINT fk_sos_trip FOREIGN KEY (group_trip_id) REFERENCES group_trip(group_trip_id),
+    CONSTRAINT fk_sos_sender FOREIGN KEY (sender_id) REFERENCES users(user_id),
+    CONSTRAINT fk_sos_resolved FOREIGN KEY (resolved_by) REFERENCES users(user_id),
+    CONSTRAINT uq_sos_idempotency UNIQUE (group_trip_id, sender_id, idempotency_key),
+    CONSTRAINT chk_sos_incident_type CHECK (incident_type_code IN ('INJURY','LOST','WEATHER','SUPPLIES','OTHER')),
+    CONSTRAINT chk_sos_status CHECK (status IN ('OPEN','ACKNOWLEDGED','RESOLVED','CANCELLED'))
+);
+
+-- ----------------------------------------------------------------------------
+-- Mục 4.5–4.7: Shared Expense
+-- ----------------------------------------------------------------------------
+
+CREATE TABLE group_expense (
+    group_expense_id UUID PRIMARY KEY,
+    group_trip_id UUID NOT NULL,
+    paid_by UUID NOT NULL,
+    title VARCHAR(200) NOT NULL,
+    amount DECIMAL(12,2) NOT NULL,
+    beneficiary_scope VARCHAR(20) NOT NULL,
+    beneficiary_count INTEGER NOT NULL,
+    split_method VARCHAR(20) NOT NULL,
+    spent_at TIMESTAMP NOT NULL,
+    receipt_url VARCHAR(500),
+    note TEXT,
+    is_deleted BOOLEAN NOT NULL DEFAULT FALSE,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP,
+    deleted_at TIMESTAMP,
+    created_by VARCHAR(255),
+    updated_by VARCHAR(255),
+    deleted_by VARCHAR(255),
+
+    CONSTRAINT fk_ge_trip FOREIGN KEY (group_trip_id) REFERENCES group_trip(group_trip_id),
+    CONSTRAINT fk_ge_paid_by FOREIGN KEY (paid_by) REFERENCES matching_member(matching_member_id),
+    CONSTRAINT chk_ge_amount CHECK (amount > 0),
+    CONSTRAINT chk_ge_beneficiary_count CHECK (beneficiary_count > 0),
+    CONSTRAINT chk_ge_beneficiary_scope CHECK (beneficiary_scope IN ('ALL_MEMBERS','SELECTED_MEMBERS')),
+    CONSTRAINT chk_ge_split_method CHECK (split_method IN ('EQUAL','CUSTOM'))
+);
+
+CREATE INDEX ix_ge_trip_spent ON group_expense (group_trip_id, spent_at DESC);
+
+CREATE TABLE group_expense_share (
+    group_expense_share_id UUID PRIMARY KEY,
+    group_expense_id UUID NOT NULL,
+    matching_member_id UUID NOT NULL,
+    share_amount DECIMAL(12,2) NOT NULL,
+    reason VARCHAR(500),
+    settlement_status VARCHAR(20) NOT NULL DEFAULT 'UNSETTLED',
+    settled_at TIMESTAMP,
+    is_deleted BOOLEAN NOT NULL DEFAULT FALSE,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP,
+    deleted_at TIMESTAMP,
+    created_by VARCHAR(255),
+    updated_by VARCHAR(255),
+    deleted_by VARCHAR(255),
+
+    CONSTRAINT fk_ges_expense FOREIGN KEY (group_expense_id) REFERENCES group_expense(group_expense_id),
+    CONSTRAINT fk_ges_member FOREIGN KEY (matching_member_id) REFERENCES matching_member(matching_member_id),
+    CONSTRAINT uq_ges_expense_member UNIQUE (group_expense_id, matching_member_id),
+    CONSTRAINT chk_ges_share_amount CHECK (share_amount >= 0),
+    CONSTRAINT chk_ges_settlement_status CHECK (settlement_status IN ('UNSETTLED','SETTLED'))
+);
+
+CREATE TABLE group_settlement (
+    group_settlement_id UUID PRIMARY KEY,
+    group_trip_id UUID NOT NULL,
+    from_matching_member_id UUID NOT NULL,
+    to_matching_member_id UUID NOT NULL,
+    amount DECIMAL(12,2) NOT NULL,
+    status VARCHAR(30) NOT NULL,
+    proof_url VARCHAR(500),
+    submitted_at TIMESTAMP,
+    confirmed_at TIMESTAMP,
+    confirmed_by UUID,
+    reject_reason TEXT,
+    is_deleted BOOLEAN NOT NULL DEFAULT FALSE,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP,
+    deleted_at TIMESTAMP,
+    created_by VARCHAR(255),
+    updated_by VARCHAR(255),
+    deleted_by VARCHAR(255),
+
+    CONSTRAINT fk_gset_trip FOREIGN KEY (group_trip_id) REFERENCES group_trip(group_trip_id),
+    CONSTRAINT fk_gset_from FOREIGN KEY (from_matching_member_id) REFERENCES matching_member(matching_member_id),
+    CONSTRAINT fk_gset_to FOREIGN KEY (to_matching_member_id) REFERENCES matching_member(matching_member_id),
+    CONSTRAINT fk_gset_confirmed_by FOREIGN KEY (confirmed_by) REFERENCES matching_member(matching_member_id),
+    CONSTRAINT chk_gset_parties CHECK (from_matching_member_id <> to_matching_member_id),
+    CONSTRAINT chk_gset_amount CHECK (amount > 0),
+    CONSTRAINT chk_gset_status CHECK (status IN ('PENDING','PROOF_SUBMITTED','CONFIRMED','REJECTED')),
+    CONSTRAINT chk_gset_proof CHECK (status <> 'PROOF_SUBMITTED' OR proof_url IS NOT NULL)
+);
+
+-- ----------------------------------------------------------------------------
+-- Mục 4.8: Checklist
+-- ----------------------------------------------------------------------------
+
+CREATE TABLE group_checklist_item (
+    group_checklist_item_id UUID PRIMARY KEY,
+    matching_group_id UUID NOT NULL,
+    title VARCHAR(200) NOT NULL,
+    item_scope VARCHAR(20) NOT NULL,
+    item_type_code VARCHAR(50),
+    is_required BOOLEAN NOT NULL DEFAULT FALSE,
+    note TEXT,
+    assignee_matching_member_id UUID,
+    status VARCHAR(20) NOT NULL,
+    completed_at TIMESTAMP,
+    completed_by UUID,
+    is_deleted BOOLEAN NOT NULL DEFAULT FALSE,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP,
+    deleted_at TIMESTAMP,
+    created_by VARCHAR(255),
+    updated_by VARCHAR(255),
+    deleted_by VARCHAR(255),
+
+    CONSTRAINT fk_gci_group FOREIGN KEY (matching_group_id) REFERENCES matching_group(matching_group_id),
+    CONSTRAINT fk_gci_assignee FOREIGN KEY (assignee_matching_member_id) REFERENCES matching_member(matching_member_id),
+    CONSTRAINT fk_gci_completed_by FOREIGN KEY (completed_by) REFERENCES matching_member(matching_member_id),
+    CONSTRAINT chk_gci_scope CHECK (item_scope IN ('SHARED','PERSONAL')),
+    CONSTRAINT chk_gci_type CHECK (item_type_code IS NULL OR item_type_code IN ('CLOTHING','TENT','MEDICAL','ELECTRONICS','OTHER')),
+    CONSTRAINT chk_gci_status CHECK (status IN ('TODO','IN_PROGRESS','DONE')),
+    CONSTRAINT chk_gci_completion CHECK (
+        (status = 'DONE' AND completed_at IS NOT NULL AND completed_by IS NOT NULL)
+        OR (status <> 'DONE' AND completed_at IS NULL AND completed_by IS NULL)
+    )
+);
+
+CREATE INDEX ix_gci_group_scope_status ON group_checklist_item (matching_group_id, item_scope, status);
+
+-- ----------------------------------------------------------------------------
+-- Mục 4.9–4.10: Bài đăng / bình luận trong nhóm
+-- ----------------------------------------------------------------------------
+
+CREATE TABLE group_post (
+    group_post_id UUID PRIMARY KEY,
+    matching_group_id UUID NOT NULL,
+    posted_by UUID NOT NULL,
+    title VARCHAR(200),
+    content TEXT NOT NULL,
+    status VARCHAR(20) NOT NULL DEFAULT 'SHOW',
+    is_deleted BOOLEAN NOT NULL DEFAULT FALSE,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP,
+    deleted_at TIMESTAMP,
+    created_by VARCHAR(255),
+    updated_by VARCHAR(255),
+    deleted_by VARCHAR(255),
+
+    CONSTRAINT fk_gp_group FOREIGN KEY (matching_group_id) REFERENCES matching_group(matching_group_id),
+    CONSTRAINT fk_gp_posted_by FOREIGN KEY (posted_by) REFERENCES matching_member(matching_member_id),
+    CONSTRAINT chk_gp_status CHECK (status IN ('SHOW','HIDDEN'))
+);
+
+CREATE INDEX ix_gp_group_created ON group_post (matching_group_id, created_at DESC);
+
+CREATE TABLE group_post_comment (
+    group_post_comment_id UUID PRIMARY KEY,
+    group_post_id UUID NOT NULL,
+    answered_by UUID NOT NULL,
+    content TEXT NOT NULL,
+    status VARCHAR(20) NOT NULL DEFAULT 'SHOW',
+    is_deleted BOOLEAN NOT NULL DEFAULT FALSE,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP,
+    deleted_at TIMESTAMP,
+    created_by VARCHAR(255),
+    updated_by VARCHAR(255),
+    deleted_by VARCHAR(255),
+
+    CONSTRAINT fk_gpc_post FOREIGN KEY (group_post_id) REFERENCES group_post(group_post_id),
+    CONSTRAINT fk_gpc_answered_by FOREIGN KEY (answered_by) REFERENCES matching_member(matching_member_id),
+    CONSTRAINT chk_gpc_status CHECK (status IN ('SHOW','HIDDEN'))
+);
+
+CREATE INDEX ix_gpc_post_created ON group_post_comment (group_post_id, created_at);
+
+-- ----------------------------------------------------------------------------
+-- Mục 4.11–4.13: Biểu quyết chung (bầu Leader / giải tán nhóm / mục đích khác)
+-- group_vote.winning_option_id tham chiếu group_vote_option nên cột này được
+-- thêm bằng ALTER sau khi group_vote_option đã tồn tại (tránh vòng lặp FK).
+-- ----------------------------------------------------------------------------
+
+CREATE TABLE group_vote (
+    group_vote_id UUID PRIMARY KEY,
+    matching_group_id UUID NOT NULL,
+    vote_type VARCHAR(30) NOT NULL,
+    title VARCHAR(200) NOT NULL,
+    reason TEXT NOT NULL,
+    created_by_member UUID NOT NULL,
+    status VARCHAR(20) NOT NULL,
+    opens_at TIMESTAMP NOT NULL,
+    closes_at TIMESTAMP NOT NULL,
+    eligible_voter_count INTEGER NOT NULL,
+    closed_at TIMESTAMP,
+    is_deleted BOOLEAN NOT NULL DEFAULT FALSE,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP,
+    deleted_at TIMESTAMP,
+    created_by VARCHAR(255),
+    updated_by VARCHAR(255),
+    deleted_by VARCHAR(255),
+
+    CONSTRAINT fk_gv_group FOREIGN KEY (matching_group_id) REFERENCES matching_group(matching_group_id),
+    CONSTRAINT fk_gv_created_by FOREIGN KEY (created_by_member) REFERENCES matching_member(matching_member_id),
+    CONSTRAINT chk_gv_type CHECK (vote_type IN ('LEADER_ELECTION','GROUP_DISSOLUTION','OTHER')),
+    CONSTRAINT chk_gv_status CHECK (status IN ('OPEN','CLOSED')),
+    CONSTRAINT chk_gv_eligible_voter_count CHECK (eligible_voter_count > 0)
+);
+
+-- Mỗi nhóm chỉ một cuộc vote OPEN cùng vote_type tại một thời điểm
+CREATE UNIQUE INDEX uq_gv_group_type_open
+    ON group_vote (matching_group_id, vote_type)
+    WHERE status = 'OPEN' AND is_deleted = FALSE;
+
+CREATE TABLE group_vote_option (
+    group_vote_option_id UUID PRIMARY KEY,
+    group_vote_id UUID NOT NULL,
+    option_order INTEGER NOT NULL,
+    option_label VARCHAR(200) NOT NULL,
+    candidate_matching_member_id UUID,
+    is_deleted BOOLEAN NOT NULL DEFAULT FALSE,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP,
+    deleted_at TIMESTAMP,
+    created_by VARCHAR(255),
+    updated_by VARCHAR(255),
+    deleted_by VARCHAR(255),
+
+    CONSTRAINT fk_gvo_vote FOREIGN KEY (group_vote_id) REFERENCES group_vote(group_vote_id),
+    CONSTRAINT fk_gvo_candidate FOREIGN KEY (candidate_matching_member_id) REFERENCES matching_member(matching_member_id),
+    CONSTRAINT uq_gvo_vote_order UNIQUE (group_vote_id, option_order),
+    CONSTRAINT chk_gvo_order CHECK (option_order > 0)
+);
+
+-- Thêm cột kết quả sau khi group_vote_option đã tồn tại (phá vòng lặp FK)
+ALTER TABLE group_vote ADD COLUMN winning_option_id UUID;
+ALTER TABLE group_vote ADD CONSTRAINT fk_gv_winning_option
+    FOREIGN KEY (winning_option_id) REFERENCES group_vote_option(group_vote_option_id);
+
+CREATE TABLE group_vote_ballot (
+    group_vote_ballot_id UUID PRIMARY KEY,
+    group_vote_id UUID NOT NULL,
+    group_vote_option_id UUID NOT NULL,
+    voter_matching_member_id UUID NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT fk_gvb_vote FOREIGN KEY (group_vote_id) REFERENCES group_vote(group_vote_id),
+    CONSTRAINT fk_gvb_option FOREIGN KEY (group_vote_option_id) REFERENCES group_vote_option(group_vote_option_id),
+    CONSTRAINT fk_gvb_voter FOREIGN KEY (voter_matching_member_id) REFERENCES matching_member(matching_member_id),
+    CONSTRAINT uq_gvb_vote_voter UNIQUE (group_vote_id, voter_matching_member_id)
+);
+
+CREATE INDEX ix_gvb_vote_option ON group_vote_ballot (group_vote_id, group_vote_option_id);
+
+-- ----------------------------------------------------------------------------
+-- Mục 4.14–4.15: Khoảnh khắc chuyến đi
+-- ----------------------------------------------------------------------------
+
+CREATE TABLE group_moment (
+    group_moment_id UUID PRIMARY KEY,
+    matching_group_id UUID NOT NULL,
+    author_matching_member_id UUID NOT NULL,
+    caption TEXT,
+    captured_at TIMESTAMP,
+    place_name VARCHAR(200),
+    latitude DECIMAL(10,7),
+    longitude DECIMAL(10,7),
+    visibility VARCHAR(20) NOT NULL DEFAULT 'GROUP_ONLY',
+    status VARCHAR(20) NOT NULL,
+    hidden_by_user_id UUID,
+    hidden_reason TEXT,
+    is_deleted BOOLEAN NOT NULL DEFAULT FALSE,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP,
+    deleted_at TIMESTAMP,
+    created_by VARCHAR(255),
+    updated_by VARCHAR(255),
+    deleted_by VARCHAR(255),
+
+    CONSTRAINT fk_gm_group FOREIGN KEY (matching_group_id) REFERENCES matching_group(matching_group_id),
+    CONSTRAINT fk_gm_author FOREIGN KEY (author_matching_member_id) REFERENCES matching_member(matching_member_id),
+    CONSTRAINT fk_gm_hidden_by FOREIGN KEY (hidden_by_user_id) REFERENCES users(user_id),
+    CONSTRAINT chk_gm_visibility CHECK (visibility = 'GROUP_ONLY'),
+    CONSTRAINT chk_gm_status CHECK (status IN ('VISIBLE','HIDDEN'))
+);
+
+CREATE INDEX ix_gm_group_created ON group_moment (matching_group_id, created_at DESC);
+
+CREATE TABLE group_moment_media (
+    group_moment_media_id UUID PRIMARY KEY,
+    group_moment_id UUID NOT NULL,
+    image_url VARCHAR(500) NOT NULL,
+    sort_order INTEGER NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT fk_gmm_moment FOREIGN KEY (group_moment_id) REFERENCES group_moment(group_moment_id),
+    CONSTRAINT uq_gmm_moment_order UNIQUE (group_moment_id, sort_order)
+);
+
+-- ----------------------------------------------------------------------------
+-- Mục 4.16: Peer Review / Trust
+-- ----------------------------------------------------------------------------
+
+CREATE TABLE group_peer_review (
+    group_peer_review_id UUID PRIMARY KEY,
+    group_trip_id UUID NOT NULL,
+    reviewer_matching_member_id UUID NOT NULL,
+    reviewee_matching_member_id UUID NOT NULL,
+    actual_endurance_rating SMALLINT NOT NULL,
+    punctuality_responsibility_rating SMALLINT NOT NULL,
+    financial_fairness_rating SMALLINT NOT NULL,
+    comment TEXT,
+    moderation_status VARCHAR(20) NOT NULL,
+    is_deleted BOOLEAN NOT NULL DEFAULT FALSE,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP,
+    deleted_at TIMESTAMP,
+    created_by VARCHAR(255),
+    updated_by VARCHAR(255),
+    deleted_by VARCHAR(255),
+
+    CONSTRAINT fk_gpr_trip FOREIGN KEY (group_trip_id) REFERENCES group_trip(group_trip_id),
+    CONSTRAINT fk_gpr_reviewer FOREIGN KEY (reviewer_matching_member_id) REFERENCES matching_member(matching_member_id),
+    CONSTRAINT fk_gpr_reviewee FOREIGN KEY (reviewee_matching_member_id) REFERENCES matching_member(matching_member_id),
+    CONSTRAINT uq_gpr_trip_reviewer_reviewee UNIQUE (group_trip_id, reviewer_matching_member_id, reviewee_matching_member_id),
+    CONSTRAINT chk_gpr_parties CHECK (reviewer_matching_member_id <> reviewee_matching_member_id),
+    CONSTRAINT chk_gpr_endurance CHECK (actual_endurance_rating BETWEEN 1 AND 5),
+    CONSTRAINT chk_gpr_punctuality CHECK (punctuality_responsibility_rating BETWEEN 1 AND 5),
+    CONSTRAINT chk_gpr_fairness CHECK (financial_fairness_rating BETWEEN 1 AND 5),
+    CONSTRAINT chk_gpr_moderation_status CHECK (moderation_status IN ('VISIBLE','HIDDEN','REPORTED'))
+);
+
+-- ----------------------------------------------------------------------------
+-- Mục 3.17–3.20: Thông báo, Blog, Report
+-- ----------------------------------------------------------------------------
 
 CREATE TABLE notification (
     notification_id UUID PRIMARY KEY,
@@ -621,118 +800,7 @@ CREATE TABLE notification (
     event_type VARCHAR(50) NOT NULL,
     reference_type VARCHAR(50),
     reference_id UUID,
-    
-    is_deleted BOOLEAN NOT NULL DEFAULT FALSE,
-    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP,
-    deleted_at TIMESTAMP,
-    created_by VARCHAR(255),
-    updated_by VARCHAR(255),
-    deleted_by VARCHAR(255),
-    
-    CONSTRAINT fk_notification_recipient FOREIGN KEY (recipient_id) REFERENCES users(user_id)
-);
-
-
--- V12__add_is_cancelled_to_coordinator_schedule.sql
--- Thêm cột is_cancelled vào bảng coordinator_schedule
-
-ALTER TABLE coordinator_schedule
-ADD COLUMN is_cancelled BOOLEAN NOT NULL DEFAULT FALSE;
-
-
-ALTER TABLE coordinator_schedule ADD COLUMN cancel_reason VARCHAR(500);
-
-
-ALTER TABLE booking_participant
-ADD COLUMN is_present_start BOOLEAN,
-ADD COLUMN start_attended_at TIMESTAMP,
-ADD COLUMN is_present_end BOOLEAN,
-ADD COLUMN end_attended_at TIMESTAMP;
-
-
-ALTER TABLE notification
-ADD COLUMN action_url VARCHAR(500);
-
-
-ALTER TABLE tour
-ADD COLUMN rejection_reason TEXT;
-
-
-ALTER TABLE matching_group
-    ADD CONSTRAINT chk_matching_group_current_size
-    CHECK (current_size >= 1 AND current_size <= max_size);
-
-
--- V18__alter_report_content.sql
--- Thêm cột resolution_notes và resolved_by cho bảng report_content
-
-ALTER TABLE report_content
-ADD COLUMN resolution_notes VARCHAR(500),
-ADD COLUMN resolved_by UUID;
-
-ALTER TABLE report_content
-ADD CONSTRAINT fk_rc_resolved_by FOREIGN KEY (resolved_by) REFERENCES users(user_id);
-
-
--- Add refund bank info and refund proof image columns to booking table
-ALTER TABLE booking ADD COLUMN refund_bank_name VARCHAR(100);
-ALTER TABLE booking ADD COLUMN refund_account_number VARCHAR(50);
-ALTER TABLE booking ADD COLUMN refund_account_holder VARCHAR(255);
-ALTER TABLE booking ADD COLUMN refund_proof_image_url VARCHAR(500);
-
-
-ALTER TABLE matching_group ADD COLUMN conversation_id UUID;
-ALTER TABLE matching_group ADD CONSTRAINT fk_matching_group_conversation FOREIGN KEY (conversation_id) REFERENCES conversation(conversation_id);
-
-
--- V20__booking_payment_and_policies.sql
---
--- Expand phase for the booking/payment migration:
---   * booking hold and group capacity metadata
---   * vendor-configurable full-payment/deposit policy
---   * Vendor-direct PSP checkout, webhook inbox and refunds
---   * immutable booking status audit and booking-time policy snapshots
---   * one-to-one participation policy for every tour
---
--- Real funds never enter an account controlled by TrekSphere. Each Vendor owns
--- the PSP payment channel and its linked bank account; TrekSphere only creates
--- checkout requests and consumes signed webhooks. Consequently this schema has
--- no split, commission, wallet, withdrawal, settlement, or Vendor payout.
---
--- The legacy P2P columns on booking are intentionally kept in V20. The current
--- application still maps them while Hibernate ddl-auto is set to validate. They
--- can be removed in a later contract migration after all reads/writes have moved
--- to the new transaction tables.
-
--- ---------------------------------------------------------------------------
--- 1. Tour policies
--- ---------------------------------------------------------------------------
-
-ALTER TABLE tour
-    ADD COLUMN non_refundable_cost DECIMAL(12,2) NOT NULL DEFAULT 0;
-
-ALTER TABLE tour
-    ADD CONSTRAINT chk_tour_non_refundable_cost
-        CHECK (non_refundable_cost >= 0);
-
-CREATE TABLE tour_participation_policy (
-    tour_id UUID PRIMARY KEY,
-    policy_version INTEGER NOT NULL DEFAULT 1,
-    min_age SMALLINT,
-    max_age SMALLINT,
-    fitness_level VARCHAR(20) NOT NULL DEFAULT 'ANY',
-    health_requirements TEXT,
-    restricted_medical_conditions TEXT,
-    required_experience TEXT,
-    required_skills TEXT,
-    required_equipment TEXT,
-    required_documents TEXT,
-    requires_health_declaration BOOLEAN NOT NULL DEFAULT TRUE,
-    requires_medical_certificate BOOLEAN NOT NULL DEFAULT FALSE,
-    guardian_required_under_age SMALLINT,
-    additional_rules JSONB NOT NULL DEFAULT '{}'::JSONB,
-    is_active BOOLEAN NOT NULL DEFAULT TRUE,
+    action_url VARCHAR(500),
     is_deleted BOOLEAN NOT NULL DEFAULT FALSE,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP,
@@ -741,960 +809,84 @@ CREATE TABLE tour_participation_policy (
     updated_by VARCHAR(255),
     deleted_by VARCHAR(255),
 
-    CONSTRAINT fk_tpp_tour
-        FOREIGN KEY (tour_id) REFERENCES tour(tour_id),
-    CONSTRAINT chk_tpp_policy_version
-        CHECK (policy_version > 0),
-    CONSTRAINT chk_tpp_age_range
-        CHECK (
-            (min_age IS NULL OR min_age BETWEEN 0 AND 120)
-            AND (max_age IS NULL OR max_age BETWEEN 0 AND 120)
-            AND (min_age IS NULL OR max_age IS NULL OR min_age <= max_age)
-        ),
-    CONSTRAINT chk_tpp_fitness_level
-        CHECK (fitness_level IN ('ANY', 'BASIC', 'MODERATE', 'HIGH', 'EXTREME')),
-    CONSTRAINT chk_tpp_guardian_age
-        CHECK (guardian_required_under_age IS NULL OR guardian_required_under_age BETWEEN 1 AND 18),
-    CONSTRAINT chk_tpp_additional_rules_object
-        CHECK (jsonb_typeof(additional_rules) = 'object')
-);
-
-COMMENT ON TABLE tour_participation_policy IS
-    'Current 1:1 tour participation rules. A copy is frozen in booking_policy_snapshot when a booking is created.';
-COMMENT ON COLUMN tour_participation_policy.restricted_medical_conditions IS
-    'Participation restrictions only; actual participant health data must not be stored here.';
-
--- The Vendor configures this policy per tour. FULL_OR_DEPOSIT lets the Trekker
--- choose; DEPOSIT_ONLY requires two payment stages; FULL_PAYMENT_ONLY has one.
-CREATE TABLE tour_payment_policy (
-    tour_id UUID PRIMARY KEY,
-    payment_option VARCHAR(30) NOT NULL DEFAULT 'FULL_PAYMENT_ONLY',
-    deposit_type VARCHAR(20),
-    deposit_value DECIMAL(12,2),
-    remaining_due_days_before_departure INTEGER,
-    policy_version INTEGER NOT NULL DEFAULT 1,
-    is_active BOOLEAN NOT NULL DEFAULT TRUE,
-    is_deleted BOOLEAN NOT NULL DEFAULT FALSE,
-    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP,
-    deleted_at TIMESTAMP,
-    created_by VARCHAR(255),
-    updated_by VARCHAR(255),
-    deleted_by VARCHAR(255),
-
-    CONSTRAINT fk_tpayp_tour
-        FOREIGN KEY (tour_id) REFERENCES tour(tour_id),
-    CONSTRAINT chk_tpayp_payment_option
-        CHECK (payment_option IN ('FULL_PAYMENT_ONLY', 'DEPOSIT_ONLY', 'FULL_OR_DEPOSIT')),
-    CONSTRAINT chk_tpayp_deposit_type
-        CHECK (deposit_type IS NULL OR deposit_type IN ('PERCENTAGE', 'FIXED_AMOUNT')),
-    CONSTRAINT chk_tpayp_policy_version
-        CHECK (policy_version > 0),
-    CONSTRAINT chk_tpayp_remaining_due_days
-        CHECK (remaining_due_days_before_departure IS NULL OR remaining_due_days_before_departure >= 0),
-    CONSTRAINT chk_tpayp_deposit_configuration
-        CHECK (
-            (
-                payment_option = 'FULL_PAYMENT_ONLY'
-                AND deposit_type IS NULL
-                AND deposit_value IS NULL
-                AND remaining_due_days_before_departure IS NULL
-            )
-            OR
-            (
-                payment_option IN ('DEPOSIT_ONLY', 'FULL_OR_DEPOSIT')
-                AND deposit_type IS NOT NULL
-                AND deposit_value IS NOT NULL
-                AND remaining_due_days_before_departure IS NOT NULL
-                AND (
-                    (deposit_type = 'PERCENTAGE' AND deposit_value > 0 AND deposit_value < 100)
-                    OR (deposit_type = 'FIXED_AMOUNT' AND deposit_value > 0)
-                )
-            )
-        )
-);
-
-COMMENT ON TABLE tour_payment_policy IS
-    'Vendor-configured 1:1 tour policy deciding full payment, deposit, or Trekker choice. Snapshotted when booking is created.';
-
--- ---------------------------------------------------------------------------
--- 2. Hold capacity, deadlines, and booking payment plan
--- ---------------------------------------------------------------------------
-
-ALTER TABLE tour_schedule
-    ADD COLUMN min_pax_required INTEGER NOT NULL DEFAULT 1,
-    ADD COLUMN confirmation_deadline TIMESTAMP,
-    ADD COLUMN payment_deadline TIMESTAMP,
-    ADD COLUMN held_slots INTEGER NOT NULL DEFAULT 0;
-
-ALTER TABLE tour_schedule
-    ADD CONSTRAINT chk_ts_min_pax_required
-        CHECK (min_pax_required > 0),
-    ADD CONSTRAINT chk_ts_held_slots
-        CHECK (held_slots >= 0),
-    ADD CONSTRAINT chk_ts_slot_counts
-        CHECK (booked_slots >= 0 AND available_slots >= 0),
-    ADD CONSTRAINT chk_ts_deadline_order
-        CHECK (
-            confirmation_deadline IS NULL
-            OR payment_deadline IS NULL
-            OR confirmation_deadline <= payment_deadline
-        );
-
-ALTER TABLE booking
-    ADD COLUMN payment_plan VARCHAR(20) NOT NULL DEFAULT 'FULL_PAYMENT',
-    ADD COLUMN hold_expires_at TIMESTAMP,
-    ALTER COLUMN booking_status TYPE VARCHAR(40);
-
-ALTER TABLE booking
-    ALTER COLUMN hold_expires_at SET DEFAULT (CURRENT_TIMESTAMP + INTERVAL '15 minutes'),
-    ADD CONSTRAINT chk_booking_payment_plan
-        CHECK (payment_plan IN ('FULL_PAYMENT', 'DEPOSIT'));
-
-CREATE INDEX idx_booking_expiring_hold
-    ON booking (hold_expires_at)
-    WHERE hold_expires_at IS NOT NULL
-      AND is_deleted = FALSE;
-
-COMMENT ON COLUMN booking.payment_status IS
-    'Legacy read model only. New payment state is sourced from payment_transaction.';
-COMMENT ON COLUMN booking.refund_amount IS
-    'Deprecated in V20. New refunds are sourced from refund_transaction; remove this column in the contract migration.';
-COMMENT ON COLUMN booking.proof_image_url IS
-    'Legacy P2P bank-transfer proof; not used by gateway payments.';
-
--- ---------------------------------------------------------------------------
--- 3. Vendor-direct PSP payment attempts, webhook inbox, and refunds
--- ---------------------------------------------------------------------------
-
--- payOS requires a numeric orderCode. Generate it in PostgreSQL instead of
--- using epoch seconds, which can collide under concurrent requests.
-CREATE SEQUENCE gateway_order_code_seq
-    AS BIGINT
-    START WITH 1000000000
-    INCREMENT BY 1
-    NO CYCLE;
-
--- Each Vendor owns a provider channel whose destination is the Vendor's bank
--- account. API/checksum keys are encrypted by the application before they are
--- persisted; plaintext credentials must never be stored or returned by an API.
-CREATE TABLE vendor_payment_account (
-    vendor_payment_account_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    vendor_id UUID NOT NULL,
-    provider VARCHAR(30) NOT NULL,
-    provider_channel_id VARCHAR(255) NOT NULL,
-    api_key_encrypted TEXT NOT NULL,
-    checksum_key_encrypted TEXT NOT NULL,
-    onboarding_status VARCHAR(20) NOT NULL DEFAULT 'PENDING',
-    is_default BOOLEAN NOT NULL DEFAULT TRUE,
-    is_deleted BOOLEAN NOT NULL DEFAULT FALSE,
-    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP,
-
-    CONSTRAINT fk_vpa_vendor
-        FOREIGN KEY (vendor_id) REFERENCES vendor(vendor_id),
-    CONSTRAINT uq_vpa_provider_channel
-        UNIQUE (provider, provider_channel_id),
-    CONSTRAINT chk_vpa_onboarding_status
-        CHECK (onboarding_status IN ('PENDING', 'ACTIVE', 'SUSPENDED', 'REJECTED'))
-);
-
-CREATE UNIQUE INDEX ux_vpa_default_provider
-    ON vendor_payment_account (vendor_id, provider)
-    WHERE is_default = TRUE AND is_deleted = FALSE;
-
-CREATE INDEX idx_vpa_vendor_active
-    ON vendor_payment_account (vendor_id, onboarding_status)
-    WHERE is_deleted = FALSE;
-
-CREATE TABLE payment_transaction (
-    payment_transaction_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    booking_id UUID NOT NULL,
-    vendor_payment_account_id UUID NOT NULL,
-    payment_stage VARCHAR(20) NOT NULL,
-    attempt_number SMALLINT NOT NULL DEFAULT 1,
-    provider VARCHAR(30) NOT NULL,
-    gateway_order_code BIGINT DEFAULT nextval('gateway_order_code_seq'),
-    gateway_payment_link_id VARCHAR(255),
-    gateway_reference VARCHAR(255),
-    checkout_url VARCHAR(1000),
-    qr_code TEXT,
-    idempotency_key VARCHAR(255) UNIQUE NOT NULL,
-    amount DECIMAL(12,2) NOT NULL,
-    paid_amount DECIMAL(12,2) NOT NULL DEFAULT 0,
-    gateway_fee_amount DECIMAL(12,2) NOT NULL DEFAULT 0,
-    currency VARCHAR(3) NOT NULL DEFAULT 'VND',
-    status VARCHAR(20) NOT NULL DEFAULT 'CREATED',
-    expired_at TIMESTAMP,
-    paid_at TIMESTAMP,
-    cancelled_at TIMESTAMP,
-    failure_code VARCHAR(100),
-    failure_message VARCHAR(500),
-    gateway_metadata JSONB NOT NULL DEFAULT '{}'::JSONB,
-    is_deleted BOOLEAN NOT NULL DEFAULT FALSE,
-    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP,
-
-    CONSTRAINT fk_pt_booking
-        FOREIGN KEY (booking_id) REFERENCES booking(booking_id),
-    CONSTRAINT fk_pt_vendor_payment_account
-        FOREIGN KEY (vendor_payment_account_id)
-        REFERENCES vendor_payment_account(vendor_payment_account_id),
-    CONSTRAINT uq_pt_id_booking
-        UNIQUE (payment_transaction_id, booking_id),
-    CONSTRAINT uq_pt_stage_attempt
-        UNIQUE (booking_id, payment_stage, attempt_number),
-    CONSTRAINT chk_pt_stage
-        CHECK (payment_stage IN ('FULL', 'DEPOSIT', 'REMAINING')),
-    CONSTRAINT chk_pt_attempt_number
-        CHECK (attempt_number > 0),
-    CONSTRAINT chk_pt_amount
-        CHECK (amount > 0),
-    CONSTRAINT chk_pt_gateway_fee
-        CHECK (gateway_fee_amount >= 0),
-    CONSTRAINT chk_pt_gateway_order
-        CHECK (
-            provider <> 'PAYOS'
-            OR (
-                gateway_order_code IS NOT NULL
-                AND currency = 'VND'
-                AND amount = TRUNC(amount)
-            )
-        ),
-    CONSTRAINT chk_pt_paid_amount
-        CHECK (
-            paid_amount >= 0
-            AND paid_amount <= amount
-            AND (status <> 'PAID' OR paid_amount = amount)
-        ),
-    CONSTRAINT chk_pt_status
-        CHECK (status IN ('CREATED', 'PENDING', 'PROCESSING', 'PAID', 'FAILED', 'CANCELLED', 'EXPIRED')),
-    CONSTRAINT chk_pt_currency
-        CHECK (currency = UPPER(currency)),
-    CONSTRAINT chk_pt_gateway_metadata_object
-        CHECK (jsonb_typeof(gateway_metadata) = 'object')
-);
-
-CREATE UNIQUE INDEX ux_pt_provider_order_code
-    ON payment_transaction (provider, gateway_order_code)
-    WHERE gateway_order_code IS NOT NULL
-      AND is_deleted = FALSE;
-
-CREATE UNIQUE INDEX ux_pt_provider_payment_link
-    ON payment_transaction (provider, gateway_payment_link_id)
-    WHERE gateway_payment_link_id IS NOT NULL
-      AND is_deleted = FALSE;
-
--- Prevent concurrent duplicate links for the same stage while allowing retry
--- after the old link becomes FAILED, CANCELLED, or EXPIRED.
-CREATE UNIQUE INDEX ux_pt_one_live_stage
-    ON payment_transaction (booking_id, payment_stage)
-    WHERE status IN ('CREATED', 'PENDING', 'PROCESSING', 'PAID')
-      AND is_deleted = FALSE;
-
-CREATE INDEX idx_pt_booking_created
-    ON payment_transaction (booking_id, created_at DESC)
-    WHERE is_deleted = FALSE;
-
-CREATE INDEX idx_pt_payment_link_expiry
-    ON payment_transaction (expired_at)
-    WHERE status IN ('CREATED', 'PENDING', 'PROCESSING')
-      AND is_deleted = FALSE;
-
--- PSPs retry webhooks until receiving a 2xx response. gateway_event_key is the
--- provider event id, or a deterministic composition of payment id + reference
--- when the provider has no standalone event id.
-CREATE TABLE payment_webhook_event (
-    payment_webhook_event_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    payment_transaction_id UUID,
-    provider VARCHAR(30) NOT NULL,
-    gateway_event_key VARCHAR(600) NOT NULL,
-    gateway_order_code BIGINT,
-    gateway_payment_link_id VARCHAR(255),
-    gateway_reference VARCHAR(255),
-    signature VARCHAR(255) NOT NULL,
-    payload JSONB NOT NULL,
-    processing_status VARCHAR(20) NOT NULL DEFAULT 'RECEIVED',
-    error_message VARCHAR(500),
-    received_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    processed_at TIMESTAMP,
-
-    CONSTRAINT fk_pwe_payment
-        FOREIGN KEY (payment_transaction_id) REFERENCES payment_transaction(payment_transaction_id),
-    CONSTRAINT uq_pwe_provider_event
-        UNIQUE (provider, gateway_event_key),
-    CONSTRAINT chk_pwe_processing_status
-        CHECK (processing_status IN ('RECEIVED', 'PROCESSED', 'IGNORED', 'FAILED')),
-    CONSTRAINT chk_pwe_payload_object
-        CHECK (jsonb_typeof(payload) = 'object')
-);
-
-CREATE INDEX idx_pwe_payment_received
-    ON payment_webhook_event (payment_transaction_id, received_at DESC)
-    WHERE payment_transaction_id IS NOT NULL;
-
-CREATE INDEX idx_pwe_unprocessed
-    ON payment_webhook_event (received_at)
-    WHERE processing_status IN ('RECEIVED', 'FAILED');
-
-CREATE TABLE refund_transaction (
-    refund_transaction_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    payment_transaction_id UUID NOT NULL,
-    booking_id UUID NOT NULL,
-    idempotency_key VARCHAR(255) UNIQUE NOT NULL,
-    amount DECIMAL(12,2) NOT NULL,
-    reason VARCHAR(50) NOT NULL,
-    reason_detail VARCHAR(500),
-    status VARCHAR(20) NOT NULL DEFAULT 'PENDING',
-    approved_by UUID,
-    refund_method VARCHAR(20) NOT NULL DEFAULT 'MANUAL',
-    destination_bin VARCHAR(20),
-    destination_account_number VARCHAR(50),
-    destination_account_name VARCHAR(255),
-    gateway_refund_id VARCHAR(255),
-    gateway_metadata JSONB NOT NULL DEFAULT '{}'::JSONB,
-    requested_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    processing_at TIMESTAMP,
-    completed_at TIMESTAMP,
-    failure_code VARCHAR(100),
-    failure_message VARCHAR(500),
-    is_deleted BOOLEAN NOT NULL DEFAULT FALSE,
-    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP,
-
-    CONSTRAINT fk_rt_payment_booking
-        FOREIGN KEY (payment_transaction_id, booking_id)
-        REFERENCES payment_transaction(payment_transaction_id, booking_id),
-    CONSTRAINT fk_rt_booking
-        FOREIGN KEY (booking_id) REFERENCES booking(booking_id),
-    CONSTRAINT fk_rt_approver
-        FOREIGN KEY (approved_by) REFERENCES users(user_id),
-    CONSTRAINT chk_rt_amount
-        CHECK (amount > 0),
-    CONSTRAINT chk_rt_reason
-        CHECK (reason IN (
-            'TREKKER_CANCEL',
-            'VENDOR_CANCEL',
-            'INSUFFICIENT_PAX',
-            'NO_SHOW',
-            'PAYMENT_ADJUSTMENT',
-            'OTHER'
-        )),
-    CONSTRAINT chk_rt_status
-        CHECK (status IN ('PENDING', 'PROCESSING', 'REFUNDED', 'FAILED', 'CANCELLED')),
-    CONSTRAINT chk_rt_refund_method
-        CHECK (refund_method IN ('GATEWAY_REFUND', 'MANUAL')),
-    CONSTRAINT chk_rt_manual_destination
-        CHECK (
-            refund_method <> 'MANUAL'
-            OR (
-                destination_bin IS NOT NULL
-                AND destination_account_number IS NOT NULL
-                AND destination_account_name IS NOT NULL
-            )
-        ),
-    CONSTRAINT chk_rt_gateway_metadata_object
-        CHECK (jsonb_typeof(gateway_metadata) = 'object')
-);
-
-CREATE UNIQUE INDEX ux_rt_gateway_refund
-    ON refund_transaction (gateway_refund_id)
-    WHERE gateway_refund_id IS NOT NULL
-      AND is_deleted = FALSE;
-
-CREATE INDEX idx_rt_payment_status
-    ON refund_transaction (payment_transaction_id, status)
-    WHERE is_deleted = FALSE;
-
-CREATE INDEX idx_rt_booking_created
-    ON refund_transaction (booking_id, created_at DESC)
-    WHERE is_deleted = FALSE;
-
--- ---------------------------------------------------------------------------
--- 4. Booking status audit and immutable policy snapshot
--- ---------------------------------------------------------------------------
-
-CREATE TABLE booking_status_log (
-    booking_status_log_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    booking_id UUID NOT NULL,
-    old_status VARCHAR(40),
-    new_status VARCHAR(40) NOT NULL,
-    changed_by UUID,
-    change_source VARCHAR(20) NOT NULL DEFAULT 'SYSTEM',
-    reason VARCHAR(255),
-    correlation_id VARCHAR(255),
-    metadata JSONB NOT NULL DEFAULT '{}'::JSONB,
-    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-
-    CONSTRAINT fk_bsl_booking
-        FOREIGN KEY (booking_id) REFERENCES booking(booking_id),
-    CONSTRAINT fk_bsl_user
-        FOREIGN KEY (changed_by) REFERENCES users(user_id),
-    CONSTRAINT chk_bsl_source
-        CHECK (change_source IN ('TREKKER', 'VENDOR', 'STAFF', 'SCHEDULER', 'WEBHOOK', 'SYSTEM', 'MIGRATION')),
-    CONSTRAINT chk_bsl_metadata_object
-        CHECK (jsonb_typeof(metadata) = 'object')
-);
-
-CREATE INDEX idx_bsl_booking_created
-    ON booking_status_log (booking_id, created_at DESC);
-
--- The service can enrich trigger-created audit rows inside the same transaction:
---   SET LOCAL treksphere.changed_by = '<user UUID>';
---   SET LOCAL treksphere.change_source = 'VENDOR';
---   SET LOCAL treksphere.change_reason = 'Vendor accepted booking';
---   SET LOCAL treksphere.correlation_id = '<request/event id>';
-CREATE FUNCTION audit_booking_status_change()
-RETURNS TRIGGER
-LANGUAGE plpgsql
-AS $$
-DECLARE
-    v_changed_by UUID;
-    v_change_source VARCHAR(20);
-BEGIN
-    IF OLD.booking_status IS NOT DISTINCT FROM NEW.booking_status THEN
-        RETURN NEW;
-    END IF;
-
-    v_changed_by := NULLIF(current_setting('treksphere.changed_by', TRUE), '')::UUID;
-    v_change_source := COALESCE(
-        NULLIF(current_setting('treksphere.change_source', TRUE), ''),
-        'SYSTEM'
-    );
-
-    INSERT INTO booking_status_log (
-        booking_id,
-        old_status,
-        new_status,
-        changed_by,
-        change_source,
-        reason,
-        correlation_id
+    CONSTRAINT fk_notification_recipient FOREIGN KEY (recipient_id) REFERENCES users(user_id),
+    CONSTRAINT chk_notification_reference_type CHECK (
+        reference_type IS NULL OR reference_type IN
+        ('TOUR','BLOG','MATCHING_GROUP','CONVERSATION','GROUP_TRIP','GROUP_EXPENSE','GROUP_VOTE','SOS')
     )
-    VALUES (
-        NEW.booking_id,
-        OLD.booking_status,
-        NEW.booking_status,
-        v_changed_by,
-        v_change_source,
-        LEFT(NULLIF(current_setting('treksphere.change_reason', TRUE), ''), 255),
-        LEFT(NULLIF(current_setting('treksphere.correlation_id', TRUE), ''), 255)
-    );
-
-    RETURN NEW;
-END;
-$$;
-
-CREATE TRIGGER trg_audit_booking_status_change
-AFTER UPDATE OF booking_status
-ON booking
-FOR EACH ROW
-EXECUTE FUNCTION audit_booking_status_change();
-
--- Audit rows are append-only. A correction must be represented by a new row.
-CREATE FUNCTION reject_booking_status_log_mutation()
-RETURNS TRIGGER
-LANGUAGE plpgsql
-AS $$
-BEGIN
-    RAISE EXCEPTION 'Booking status logs are append-only';
-END;
-$$;
-
-CREATE TRIGGER trg_booking_status_log_immutable
-BEFORE UPDATE OR DELETE
-ON booking_status_log
-FOR EACH ROW
-EXECUTE FUNCTION reject_booking_status_log_mutation();
-
-CREATE TABLE booking_policy_snapshot (
-    booking_id UUID PRIMARY KEY,
-    policy_json JSONB NOT NULL,
-    participation_policy_json JSONB NOT NULL DEFAULT '{}'::JSONB,
-    payment_policy_json JSONB NOT NULL DEFAULT '{}'::JSONB,
-    non_refundable_cost DECIMAL(12,2) NOT NULL DEFAULT 0,
-    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-
-    CONSTRAINT fk_bps_booking
-        FOREIGN KEY (booking_id) REFERENCES booking(booking_id),
-    CONSTRAINT chk_bps_cancellation_policy_array
-        CHECK (jsonb_typeof(policy_json) = 'array'),
-    CONSTRAINT chk_bps_participation_policy_object
-        CHECK (jsonb_typeof(participation_policy_json) = 'object'),
-    CONSTRAINT chk_bps_payment_policy_object
-        CHECK (jsonb_typeof(payment_policy_json) = 'object'),
-    CONSTRAINT chk_bps_non_refundable_cost
-        CHECK (non_refundable_cost >= 0)
 );
 
-COMMENT ON COLUMN booking_policy_snapshot.policy_json IS
-    'Immutable snapshot of all active vendor cancellation-policy tiers at booking time.';
-COMMENT ON COLUMN booking_policy_snapshot.participation_policy_json IS
-    'Immutable snapshot of the tour participation policy at booking time.';
-COMMENT ON COLUMN booking_policy_snapshot.payment_policy_json IS
-    'Immutable snapshot of the Vendor-configured full-payment/deposit policy at booking time.';
+CREATE INDEX ix_notification_recipient_unread ON notification (recipient_id, is_read, created_at);
 
-CREATE FUNCTION snapshot_booking_policies()
-RETURNS TRIGGER
-LANGUAGE plpgsql
-AS $$
-BEGIN
-    INSERT INTO booking_policy_snapshot (
-        booking_id,
-        policy_json,
-        participation_policy_json,
-        payment_policy_json,
-        non_refundable_cost,
-        created_at
-    )
-    SELECT
-        NEW.booking_id,
-        COALESCE(
-            (
-                SELECT jsonb_agg(
-                    jsonb_build_object(
-                        'cancellationPolicyId', cp.cancellation_policy_id,
-                        'cancelBeforeDays', cp.cancel_before_days,
-                        'refundPercentage', cp.refund_percentage,
-                        'description', cp.description
-                    )
-                    ORDER BY cp.cancel_before_days DESC
-                )
-                FROM cancellation_policy cp
-                WHERE cp.vendor_id = t.vendor_id
-                  AND cp.is_active = TRUE
-                  AND cp.is_deleted = FALSE
-            ),
-            '[]'::JSONB
-        ),
-        COALESCE(
-            (
-                SELECT jsonb_build_object(
-                    'policyVersion', tpp.policy_version,
-                    'minAge', tpp.min_age,
-                    'maxAge', tpp.max_age,
-                    'fitnessLevel', tpp.fitness_level,
-                    'healthRequirements', tpp.health_requirements,
-                    'restrictedMedicalConditions', tpp.restricted_medical_conditions,
-                    'requiredExperience', tpp.required_experience,
-                    'requiredSkills', tpp.required_skills,
-                    'requiredEquipment', tpp.required_equipment,
-                    'requiredDocuments', tpp.required_documents,
-                    'requiresHealthDeclaration', tpp.requires_health_declaration,
-                    'requiresMedicalCertificate', tpp.requires_medical_certificate,
-                    'guardianRequiredUnderAge', tpp.guardian_required_under_age,
-                    'additionalRules', tpp.additional_rules
-                )
-                FROM tour_participation_policy tpp
-                WHERE tpp.tour_id = t.tour_id
-                  AND tpp.is_active = TRUE
-                  AND tpp.is_deleted = FALSE
-            ),
-            '{}'::JSONB
-        ),
-        COALESCE(
-            (
-                SELECT jsonb_build_object(
-                    'policyVersion', tpayp.policy_version,
-                    'paymentOption', tpayp.payment_option,
-                    'depositType', tpayp.deposit_type,
-                    'depositValue', tpayp.deposit_value,
-                    'remainingDueDaysBeforeDeparture', tpayp.remaining_due_days_before_departure
-                )
-                FROM tour_payment_policy tpayp
-                WHERE tpayp.tour_id = t.tour_id
-                  AND tpayp.is_active = TRUE
-                  AND tpayp.is_deleted = FALSE
-            ),
-            '{}'::JSONB
-        ),
-        t.non_refundable_cost,
-        COALESCE(NEW.created_at, CURRENT_TIMESTAMP)
-    FROM tour_schedule ts
-    JOIN tour t ON t.tour_id = ts.tour_id
-    WHERE ts.schedule_id = NEW.tour_schedule_id
-    ON CONFLICT (booking_id) DO NOTHING;
-
-    RETURN NEW;
-END;
-$$;
-
-CREATE TRIGGER trg_snapshot_booking_policies
-AFTER INSERT
-ON booking
-FOR EACH ROW
-EXECUTE FUNCTION snapshot_booking_policies();
-
--- ---------------------------------------------------------------------------
--- 5. Activate the booking/payment workflow
--- ---------------------------------------------------------------------------
-
-ALTER TABLE booking
-    ALTER COLUMN payment_status TYPE VARCHAR(30),
-    ADD COLUMN confirmation_expires_at TIMESTAMP,
-    ADD COLUMN remaining_due_at TIMESTAMP,
-    ADD COLUMN booking_request_key VARCHAR(255),
-    ADD COLUMN booking_request_hash VARCHAR(64),
-    ADD COLUMN voucher_state VARCHAR(20) NOT NULL DEFAULT 'NONE';
-
-ALTER TABLE booking
-    ADD CONSTRAINT chk_booking_status_workflow
-        CHECK (booking_status IN (
-            'PAYMENT_PENDING', 'PENDING_CONFIRMATION', 'CONFIRMED', 'IN_PROGRESS',
-            'COMPLETED', 'EXPIRED', 'REJECTED', 'CANCELLED'
-        )),
-    ADD CONSTRAINT chk_booking_payment_status_read_model
-        CHECK (payment_status IN (
-            'UNPAID', 'PARTIALLY_PAID', 'PAID', 'REFUND_PENDING',
-            'PARTIALLY_REFUNDED', 'REFUNDED'
-        )),
-    ADD CONSTRAINT chk_booking_voucher_state
-        CHECK (voucher_state IN ('NONE', 'RESERVED', 'CONSUMED', 'RELEASED'));
-
-ALTER TABLE voucher
-    ADD COLUMN reserved_count INTEGER NOT NULL DEFAULT 0,
-    ADD CONSTRAINT chk_voucher_reserved_count CHECK (reserved_count >= 0),
-    ADD CONSTRAINT chk_voucher_usage_capacity CHECK (used_count + reserved_count <= max_usage);
-
-CREATE INDEX idx_booking_confirmation_expiry
-    ON booking (confirmation_expires_at)
-    WHERE booking_status = 'PENDING_CONFIRMATION'
-      AND confirmation_expires_at IS NOT NULL
-      AND is_deleted = FALSE;
-
-CREATE INDEX idx_booking_remaining_due
-    ON booking (remaining_due_at)
-    WHERE payment_plan = 'DEPOSIT'
-      AND payment_status = 'PARTIALLY_PAID'
-      AND remaining_due_at IS NOT NULL
-      AND is_deleted = FALSE;
-
-CREATE UNIQUE INDEX ux_booking_user_request_key
-    ON booking (user_id, booking_request_key)
-    WHERE booking_request_key IS NOT NULL
-      AND is_deleted = FALSE;
-
-COMMENT ON COLUMN booking.voucher_state IS
-    'Reservation lifecycle for voucher capacity: NONE, RESERVED, CONSUMED, or RELEASED.';
-COMMENT ON COLUMN booking.confirmation_expires_at IS
-    'Vendor response SLA after a successful initial payment.';
-COMMENT ON COLUMN booking.remaining_due_at IS
-    'Deadline for the remaining balance when payment_plan is DEPOSIT.';
-COMMENT ON COLUMN booking.booking_request_key IS
-    'Client-supplied idempotency key scoped to the Trekker.';
-COMMENT ON COLUMN booking.booking_request_hash IS
-    'SHA-256 of the original booking request; prevents reusing an idempotency key with a different payload.';
-
-CREATE FUNCTION ensure_default_tour_payment_policy()
-RETURNS TRIGGER
-LANGUAGE plpgsql
-AS $$
-BEGIN
-    INSERT INTO tour_payment_policy (tour_id, payment_option)
-    VALUES (NEW.tour_id, 'FULL_PAYMENT_ONLY')
-    ON CONFLICT (tour_id) DO NOTHING;
-    RETURN NEW;
-END;
-$$;
-
-CREATE TRIGGER trg_default_tour_payment_policy
-AFTER INSERT ON tour
-FOR EACH ROW
-EXECUTE FUNCTION ensure_default_tour_payment_policy();
-
--- ---------------------------------------------------------------------------
--- 6. Structured participation limits and legacy cleanup
--- ---------------------------------------------------------------------------
-
-ALTER TABLE tour_participation_policy
-    ADD COLUMN min_height_cm DECIMAL(5,2),
-    ADD COLUMN max_height_cm DECIMAL(5,2),
-    ADD COLUMN min_weight_kg DECIMAL(5,2),
-    ADD COLUMN max_weight_kg DECIMAL(5,2),
-    ADD CONSTRAINT chk_tpp_height_range CHECK (
-        (min_height_cm IS NULL OR min_height_cm > 0)
-        AND (max_height_cm IS NULL OR max_height_cm > 0)
-        AND (min_height_cm IS NULL OR max_height_cm IS NULL OR min_height_cm <= max_height_cm)
-    ),
-    ADD CONSTRAINT chk_tpp_weight_range CHECK (
-        (min_weight_kg IS NULL OR min_weight_kg > 0)
-        AND (max_weight_kg IS NULL OR max_weight_kg > 0)
-        AND (min_weight_kg IS NULL OR max_weight_kg IS NULL OR min_weight_kg <= max_weight_kg)
-    );
-
-ALTER TABLE booking
-    ADD COLUMN participation_policy_accepted_at TIMESTAMP;
-
-COMMENT ON COLUMN booking.participation_policy_accepted_at IS
-    'Timestamp when the Trekker accepted the tour participation-policy snapshot.';
-
-CREATE FUNCTION enrich_booking_participation_snapshot()
-RETURNS TRIGGER
-LANGUAGE plpgsql
-AS $$
-BEGIN
-    UPDATE booking_policy_snapshot bps
-    SET participation_policy_json = bps.participation_policy_json || jsonb_strip_nulls(
-        jsonb_build_object(
-            'minHeightCm', tpp.min_height_cm,
-            'maxHeightCm', tpp.max_height_cm,
-            'minWeightKg', tpp.min_weight_kg,
-            'maxWeightKg', tpp.max_weight_kg
-        )
-    )
-    FROM tour_schedule ts
-    JOIN tour_participation_policy tpp ON tpp.tour_id = ts.tour_id
-    WHERE bps.booking_id = NEW.booking_id
-      AND ts.schedule_id = NEW.tour_schedule_id
-      AND tpp.is_active = TRUE
-      AND tpp.is_deleted = FALSE;
-    RETURN NEW;
-END;
-$$;
-
-CREATE TRIGGER trg_z_enrich_booking_participation_snapshot
-AFTER INSERT ON booking
-FOR EACH ROW
-EXECUTE FUNCTION enrich_booking_participation_snapshot();
-
-ALTER TABLE vendor
-    DROP COLUMN IF EXISTS bank_account,
-    DROP COLUMN IF EXISTS bank_name,
-    DROP COLUMN IF EXISTS payment_qr_url;
-
-ALTER TABLE tour
-    ADD CONSTRAINT chk_tour_status
-        CHECK (status IN ('DRAFT', 'PENDING_APPROVAL', 'APPROVED', 'REJECTED', 'HIDDEN'));
-
-
-CREATE TABLE tracking_device_session (
-    tracking_device_session_id UUID PRIMARY KEY,
-    tour_session_id UUID NOT NULL,
-    actor_id UUID NOT NULL,
-    device_id UUID NOT NULL,
+CREATE TABLE blog (
+    blog_id UUID PRIMARY KEY,
+    user_id UUID NOT NULL,
+    title VARCHAR(500) NOT NULL,
+    content TEXT NOT NULL,
+    cover_image_url VARCHAR(500),
+    view_count INTEGER NOT NULL DEFAULT 0,
     status VARCHAR(20) NOT NULL,
-    issued_at TIMESTAMPTZ NOT NULL,
-    expires_at TIMESTAMPTZ NOT NULL,
-    last_seen_at TIMESTAMPTZ,
-    revoked_at TIMESTAMPTZ,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT fk_tracking_device_session_tour_session
-        FOREIGN KEY (tour_session_id) REFERENCES tour_session(tour_session_id) ON DELETE CASCADE,
-    CONSTRAINT fk_tracking_device_session_actor
-        FOREIGN KEY (actor_id) REFERENCES users(user_id) ON DELETE CASCADE,
-    CONSTRAINT uq_tracking_device_session UNIQUE (tour_session_id, actor_id, device_id),
-    CONSTRAINT ck_tracking_device_session_status
-        CHECK (status IN ('ACTIVE', 'REVOKED', 'EXPIRED'))
+    is_deleted BOOLEAN NOT NULL DEFAULT FALSE,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP,
+    deleted_at TIMESTAMP,
+    created_by VARCHAR(255),
+    updated_by VARCHAR(255),
+    deleted_by VARCHAR(255),
+
+    CONSTRAINT fk_blog_user FOREIGN KEY (user_id) REFERENCES users(user_id),
+    CONSTRAINT chk_blog_status CHECK (status IN ('DRAFT','PUBLISHED','HIDDEN'))
 );
 
-CREATE INDEX idx_tracking_device_session_actor_status
-    ON tracking_device_session(actor_id, status);
-CREATE INDEX idx_tracking_device_session_expires_at
-    ON tracking_device_session(expires_at);
+CREATE TABLE blog_comment (
+    blog_comment_id UUID PRIMARY KEY,
+    blog_id UUID NOT NULL,
+    user_id UUID NOT NULL,
+    parent_comment_id UUID,
+    content TEXT NOT NULL,
+    status VARCHAR(20) NOT NULL,
+    is_deleted BOOLEAN NOT NULL DEFAULT FALSE,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP,
+    deleted_at TIMESTAMP,
+    created_by VARCHAR(255),
+    updated_by VARCHAR(255),
+    deleted_by VARCHAR(255),
 
-CREATE TABLE tracking_session_revision (
-    tour_session_id UUID PRIMARY KEY,
-    revision BIGINT NOT NULL DEFAULT 0,
-    last_event_id UUID,
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT fk_tracking_revision_tour_session
-        FOREIGN KEY (tour_session_id) REFERENCES tour_session(tour_session_id) ON DELETE CASCADE,
-    CONSTRAINT ck_tracking_revision_non_negative CHECK (revision >= 0)
+    CONSTRAINT fk_bc_blog FOREIGN KEY (blog_id) REFERENCES blog(blog_id),
+    CONSTRAINT fk_bc_user FOREIGN KEY (user_id) REFERENCES users(user_id),
+    CONSTRAINT fk_bc_parent FOREIGN KEY (parent_comment_id) REFERENCES blog_comment(blog_comment_id),
+    CONSTRAINT chk_bc_status CHECK (status IN ('VISIBLE','HIDDEN'))
 );
 
-CREATE TABLE tracking_ingested_event (
-    tracking_ingested_event_id UUID PRIMARY KEY,
-    client_event_id UUID NOT NULL,
-    tour_session_id UUID NOT NULL,
-    actor_id UUID NOT NULL,
-    device_id UUID NOT NULL,
-    sequence_number BIGINT NOT NULL,
-    event_type VARCHAR(50) NOT NULL,
-    occurred_at TIMESTAMPTZ NOT NULL,
-    received_at TIMESTAMPTZ NOT NULL,
-    processed_at TIMESTAMPTZ,
-    payload JSONB NOT NULL,
-    payload_hash VARCHAR(64) NOT NULL,
-    base_revision BIGINT,
-    result_revision BIGINT,
-    processing_status VARCHAR(20) NOT NULL,
-    error_code VARCHAR(100),
-    result_message VARCHAR(500),
-    resource_type VARCHAR(50),
-    resource_id UUID,
-    CONSTRAINT fk_tracking_event_tour_session
-        FOREIGN KEY (tour_session_id) REFERENCES tour_session(tour_session_id) ON DELETE CASCADE,
-    CONSTRAINT fk_tracking_event_actor
-        FOREIGN KEY (actor_id) REFERENCES users(user_id) ON DELETE CASCADE,
-    CONSTRAINT uq_tracking_event_client
-        UNIQUE (actor_id, device_id, client_event_id),
-    CONSTRAINT uq_tracking_event_sequence
-        UNIQUE (tour_session_id, actor_id, device_id, sequence_number),
-    CONSTRAINT ck_tracking_event_sequence CHECK (sequence_number >= 0),
-    CONSTRAINT ck_tracking_event_status
-        CHECK (processing_status IN ('RECEIVED', 'ACCEPTED', 'REJECTED', 'CONFLICT'))
+-- report_content: đa hình theo loại đối tượng bị báo cáo — đúng một target khác NULL
+CREATE TABLE report_content (
+    report_content_id UUID PRIMARY KEY,
+    reporter_id UUID NOT NULL,
+    blog_id UUID,
+    blog_comment_id UUID,
+    tour_id UUID,
+    reason VARCHAR(255) NOT NULL,
+    status VARCHAR(20) NOT NULL,
+    resolution_notes VARCHAR(500),
+    resolved_by UUID,
+    is_deleted BOOLEAN NOT NULL DEFAULT FALSE,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP,
+    deleted_at TIMESTAMP,
+    created_by VARCHAR(255),
+    updated_by VARCHAR(255),
+    deleted_by VARCHAR(255),
+
+    CONSTRAINT fk_rc_reporter FOREIGN KEY (reporter_id) REFERENCES users(user_id),
+    CONSTRAINT fk_rc_blog FOREIGN KEY (blog_id) REFERENCES blog(blog_id),
+    CONSTRAINT fk_rc_comment FOREIGN KEY (blog_comment_id) REFERENCES blog_comment(blog_comment_id),
+    CONSTRAINT fk_rc_tour FOREIGN KEY (tour_id) REFERENCES tour(tour_id),
+    CONSTRAINT fk_rc_resolved_by FOREIGN KEY (resolved_by) REFERENCES users(user_id),
+    CONSTRAINT chk_rc_status CHECK (status IN ('PENDING','RESOLVED','REJECTED')),
+    CONSTRAINT chk_rc_single_target CHECK (
+        (CASE WHEN blog_id IS NOT NULL THEN 1 ELSE 0 END
+       + CASE WHEN blog_comment_id IS NOT NULL THEN 1 ELSE 0 END
+       + CASE WHEN tour_id IS NOT NULL THEN 1 ELSE 0 END) = 1
+    )
 );
-
-CREATE INDEX idx_tracking_event_session_received
-    ON tracking_ingested_event(tour_session_id, received_at DESC);
-CREATE INDEX idx_tracking_event_session_type_occurred
-    ON tracking_ingested_event(tour_session_id, event_type, occurred_at);
-CREATE INDEX idx_tracking_event_status_received
-    ON tracking_ingested_event(processing_status, received_at);
-CREATE INDEX idx_tracking_event_result_revision
-    ON tracking_ingested_event(tour_session_id, result_revision)
-    WHERE result_revision IS NOT NULL;
-
-CREATE TABLE tracking_location_sample (
-    sample_id UUID PRIMARY KEY,
-    tour_session_id UUID NOT NULL,
-    actor_id UUID NOT NULL,
-    device_id UUID NOT NULL,
-    recorded_at TIMESTAMPTZ NOT NULL,
-    received_at TIMESTAMPTZ NOT NULL,
-    latitude DECIMAL(10,7) NOT NULL,
-    longitude DECIMAL(10,7) NOT NULL,
-    accuracy_meters DECIMAL(8,2),
-    speed_mps DECIMAL(8,2),
-    heading_degrees DECIMAL(6,2),
-    validation_status VARCHAR(20) NOT NULL,
-    is_late BOOLEAN NOT NULL DEFAULT FALSE,
-    CONSTRAINT fk_tracking_location_tour_session
-        FOREIGN KEY (tour_session_id) REFERENCES tour_session(tour_session_id) ON DELETE CASCADE,
-    CONSTRAINT fk_tracking_location_actor
-        FOREIGN KEY (actor_id) REFERENCES users(user_id) ON DELETE CASCADE,
-    CONSTRAINT ck_tracking_location_latitude CHECK (latitude BETWEEN -90 AND 90),
-    CONSTRAINT ck_tracking_location_longitude CHECK (longitude BETWEEN -180 AND 180),
-    CONSTRAINT ck_tracking_location_accuracy CHECK (accuracy_meters IS NULL OR accuracy_meters >= 0),
-    CONSTRAINT ck_tracking_location_heading
-        CHECK (heading_degrees IS NULL OR (heading_degrees >= 0 AND heading_degrees < 360)),
-    CONSTRAINT ck_tracking_location_status
-        CHECK (validation_status IN ('VALID', 'LOW_ACCURACY', 'OUTLIER'))
-);
-
-CREATE INDEX idx_tracking_location_session_actor_recorded
-    ON tracking_location_sample(tour_session_id, actor_id, recorded_at DESC);
-CREATE INDEX idx_tracking_location_session_recorded
-    ON tracking_location_sample(tour_session_id, recorded_at);
-CREATE INDEX idx_tracking_location_received
-    ON tracking_location_sample(received_at);
-
-
--- Manual-first refund workflow with optional payOS payout automation.
--- Kênh Thu and Kênh Chi use separate credentials and must never be mixed.
-
-ALTER TABLE refund_transaction
-    DROP CONSTRAINT chk_rt_status,
-    DROP CONSTRAINT chk_rt_refund_method,
-    DROP CONSTRAINT chk_rt_manual_destination,
-    ALTER COLUMN status TYPE VARCHAR(30),
-    ADD COLUMN attempt_count INTEGER NOT NULL DEFAULT 0,
-    ADD COLUMN next_retry_at TIMESTAMP,
-    ADD COLUMN due_at TIMESTAMP,
-    ADD COLUMN manual_bank_reference VARCHAR(100),
-    ADD COLUMN manual_receipt_url VARCHAR(500),
-    ADD COLUMN manual_submitted_at TIMESTAMP,
-    ADD COLUMN admin_reviewed_at TIMESTAMP,
-    ADD COLUMN admin_review_note VARCHAR(500);
-
-ALTER TABLE refund_transaction
-    ALTER COLUMN due_at SET NOT NULL,
-    ALTER COLUMN due_at SET DEFAULT (CURRENT_TIMESTAMP + INTERVAL '48 hours'),
-    ADD CONSTRAINT chk_rt_attempt_count CHECK (attempt_count >= 0),
-    ADD CONSTRAINT chk_rt_status CHECK (status IN (
-        'PENDING', 'AWAITING_VENDOR_ACTION', 'PROCESSING', 'MANUAL_REVIEW',
-        'OVERDUE', 'REFUNDED', 'FAILED', 'CANCELLED'
-    )),
-    ADD CONSTRAINT chk_rt_refund_method CHECK (refund_method IN (
-        'PAYOUT', 'MANUAL', 'GATEWAY_REFUND'
-    ));
-
-ALTER TABLE vendor_payment_account
-    ADD COLUMN refund_hold BOOLEAN NOT NULL DEFAULT FALSE,
-    ADD COLUMN payout_provider_channel_id VARCHAR(255),
-    ADD COLUMN payout_api_key_encrypted TEXT,
-    ADD COLUMN payout_checksum_key_encrypted TEXT,
-    ADD COLUMN payout_status VARCHAR(20),
-    ADD COLUMN payout_account_number VARCHAR(50),
-    ADD COLUMN payout_account_name VARCHAR(255),
-    ADD CONSTRAINT chk_vpa_payout_status
-        CHECK (payout_status IS NULL OR payout_status IN (
-            'PENDING', 'ACTIVE', 'SUSPENDED', 'REJECTED'
-        )),
-    ADD CONSTRAINT chk_vpa_payout_credentials_complete
-        CHECK (
-            (payout_provider_channel_id IS NULL
-                AND payout_api_key_encrypted IS NULL
-                AND payout_checksum_key_encrypted IS NULL
-                AND payout_status IS NULL)
-            OR
-            (payout_provider_channel_id IS NOT NULL
-                AND payout_api_key_encrypted IS NOT NULL
-                AND payout_checksum_key_encrypted IS NOT NULL
-                AND payout_status IS NOT NULL)
-        );
-
-CREATE INDEX idx_rt_automatic_processing
-    ON refund_transaction (status, next_retry_at, requested_at)
-    WHERE is_deleted = FALSE
-      AND status IN ('PENDING', 'FAILED');
-
-CREATE INDEX idx_rt_refund_due
-    ON refund_transaction (due_at)
-    WHERE is_deleted = FALSE
-      AND status IN ('PENDING', 'FAILED', 'AWAITING_VENDOR_ACTION');
-
-CREATE OR REPLACE FUNCTION validate_refund_against_paid_amount()
-RETURNS TRIGGER
-LANGUAGE plpgsql
-AS $$
-DECLARE
-    v_paid_amount DECIMAL(12,2);
-    v_payment_status VARCHAR(20);
-    v_existing_refunds DECIMAL(12,2);
-BEGIN
-    IF NEW.is_deleted = TRUE
-       OR NEW.status NOT IN (
-            'PENDING', 'AWAITING_VENDOR_ACTION', 'PROCESSING', 'MANUAL_REVIEW',
-            'OVERDUE', 'REFUNDED'
-       ) THEN
-        RETURN NEW;
-    END IF;
-
-    SELECT paid_amount, status
-    INTO v_paid_amount, v_payment_status
-    FROM payment_transaction
-    WHERE payment_transaction_id = NEW.payment_transaction_id
-    FOR UPDATE;
-
-    IF NOT FOUND OR v_payment_status <> 'PAID' THEN
-        RAISE EXCEPTION 'Payment transaction % is missing or not paid',
-            NEW.payment_transaction_id;
-    END IF;
-
-    SELECT COALESCE(SUM(amount), 0)
-    INTO v_existing_refunds
-    FROM refund_transaction
-    WHERE payment_transaction_id = NEW.payment_transaction_id
-      AND refund_transaction_id <> NEW.refund_transaction_id
-      AND status IN (
-          'PENDING', 'AWAITING_VENDOR_ACTION', 'PROCESSING', 'MANUAL_REVIEW',
-          'OVERDUE', 'REFUNDED'
-      )
-      AND is_deleted = FALSE;
-
-    IF v_existing_refunds + NEW.amount > v_paid_amount THEN
-        RAISE EXCEPTION 'Refund total exceeds paid amount for payment transaction %',
-            NEW.payment_transaction_id;
-    END IF;
-
-    RETURN NEW;
-END;
-$$;
-
-CREATE TRIGGER trg_validate_refund_against_paid_amount
-BEFORE INSERT OR UPDATE OF payment_transaction_id, amount, status, is_deleted
-ON refund_transaction
-FOR EACH ROW
-EXECUTE FUNCTION validate_refund_against_paid_amount();
