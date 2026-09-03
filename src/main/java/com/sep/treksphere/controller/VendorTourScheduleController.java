@@ -30,7 +30,7 @@ public class VendorTourScheduleController {
 
     @Operation(summary = "Tạo lịch khởi hành mới", description = "VendorStaff/Manager tạo lịch khởi hành mới cho Tour.")
     @SecurityRequirement(name = "bearerAuth")
-    @PreAuthorize("hasAnyRole('VENDOR_MANAGER', 'VENDOR_STAFF')")
+    @PreAuthorize("hasRole('VENDOR')")
     @PostMapping("/{tourId}/schedules")
     public ResponseEntity<ApiResponse<TourScheduleResponse>> createSchedule(
             @AuthenticationPrincipal CustomUserDetails userDetails,
@@ -44,7 +44,7 @@ public class VendorTourScheduleController {
 
     @Operation(summary = "Điều chỉnh thông tin lịch khởi hành", description = "VendorManager điều chỉnh thông tin lịch khởi hành. Nếu có khách đặt, phải cung cấp lý do.")
     @SecurityRequirement(name = "bearerAuth")
-    @PreAuthorize("hasRole('VENDOR_MANAGER')")
+    @PreAuthorize("hasRole('VENDOR')")
     @PutMapping("/schedules/{scheduleId}")
     public ResponseEntity<ApiResponse<TourScheduleResponse>> updateSchedule(
             @AuthenticationPrincipal CustomUserDetails userDetails,
@@ -57,7 +57,7 @@ public class VendorTourScheduleController {
 
     @Operation(summary = "Huỷ/Xóa lịch khởi hành", description = "Chỉ VendorManager được phép xóa lịch khởi hành khi chưa có khách đặt.")
     @SecurityRequirement(name = "bearerAuth")
-    @PreAuthorize("hasRole('VENDOR_MANAGER')")
+    @PreAuthorize("hasRole('VENDOR')")
     @DeleteMapping("/schedules/{scheduleId}")
     public ResponseEntity<ApiResponse<Void>> deleteSchedule(
             @AuthenticationPrincipal CustomUserDetails userDetails,

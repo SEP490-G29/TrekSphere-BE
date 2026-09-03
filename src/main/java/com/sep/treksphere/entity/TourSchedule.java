@@ -8,7 +8,6 @@ import lombok.Setter;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
-import java.time.LocalDateTime;
 import java.util.UUID;
 
 @Entity
@@ -22,7 +21,7 @@ public class TourSchedule extends BaseEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
-    private UUID scheduleId;
+    private UUID tourScheduleId;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "tour_id", nullable = false)
@@ -34,26 +33,10 @@ public class TourSchedule extends BaseEntity {
     @Column(nullable = false)
     private LocalDate returnDate;
 
-    @Column(nullable = false)
-    private Integer availableSlots;
-
-    @Column(nullable = false)
-    private Integer bookedSlots = 0;
-
-    @Column(nullable = false)
-    private Integer heldSlots = 0;
-
-    @Column(nullable = false)
-    private Integer minPaxRequired = 1;
-
-    private LocalDateTime confirmationDeadline;
-
-    private LocalDateTime paymentDeadline;
-
     @Column(nullable = false, precision = 12, scale = 2)
     private BigDecimal price;
 
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false, length = 10)
+    @Column(nullable = false, length = 20)
     private ScheduleStatus status = ScheduleStatus.OPEN;
 }

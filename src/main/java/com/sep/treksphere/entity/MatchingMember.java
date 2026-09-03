@@ -7,11 +7,12 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
+import java.time.LocalDateTime;
 import java.util.UUID;
 
 @Entity
 @Table(name = "matching_member", uniqueConstraints = {
-    @UniqueConstraint(columnNames = {"group_id", "user_id"})
+    @UniqueConstraint(columnNames = {"matching_group_id", "user_id"})
 })
 @Getter
 @Setter
@@ -25,7 +26,7 @@ public class MatchingMember extends BaseEntity {
     private UUID matchingMemberId;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "group_id", nullable = false)
+    @JoinColumn(name = "matching_group_id", nullable = false)
     private MatchingGroup matchingGroup;
 
     @ManyToOne(fetch = FetchType.LAZY)
@@ -33,10 +34,12 @@ public class MatchingMember extends BaseEntity {
     private User user;
 
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false, length = 10)
+    @Column(nullable = false, length = 20)
     private MatchingRole role;
 
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false, length = 10)
+    @Column(nullable = false, length = 20)
     private JoinStatus status = JoinStatus.PENDING;
+
+    private LocalDateTime withdrawnAt;
 }

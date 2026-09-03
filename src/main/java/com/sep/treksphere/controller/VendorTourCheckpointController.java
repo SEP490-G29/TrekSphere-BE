@@ -32,7 +32,7 @@ public class VendorTourCheckpointController {
 
     @Operation(summary = "Thêm trạm dừng", description = "Thiết lập/Thêm các trạm dừng chặn (vị trí Lat, Lng, thứ tự trạm, kèm danh sách ảnh)")
     @SecurityRequirement(name = "bearerAuth")
-    @PreAuthorize("hasAnyRole('VENDOR_MANAGER', 'VENDOR_STAFF')")
+    @PreAuthorize("hasRole('VENDOR')")
     @PostMapping(value = "/{tourId}/checkpoints", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<ApiResponse<TourCheckpointResponse>> createCheckpoint(
             @PathVariable UUID tourId,
@@ -48,7 +48,7 @@ public class VendorTourCheckpointController {
 
     @Operation(summary = "Sửa trạm dừng", description = "Sửa thông tin trạm dừng (toạ độ, mô tả, thứ tự, kèm danh sách ảnh mới)")
     @SecurityRequirement(name = "bearerAuth")
-    @PreAuthorize("hasAnyRole('VENDOR_MANAGER', 'VENDOR_STAFF')")
+    @PreAuthorize("hasRole('VENDOR')")
     @PutMapping(value = "/checkpoints/{checkpointId}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<ApiResponse<TourCheckpointResponse>> updateCheckpoint(
             @PathVariable UUID checkpointId,
@@ -63,7 +63,7 @@ public class VendorTourCheckpointController {
 
     @Operation(summary = "Xoá trạm dừng", description = "Xoá trạm dừng khỏi lộ trình")
     @SecurityRequirement(name = "bearerAuth")
-    @PreAuthorize("hasAnyRole('VENDOR_MANAGER', 'VENDOR_STAFF')")
+    @PreAuthorize("hasRole('VENDOR')")
     @DeleteMapping("/checkpoints/{checkpointId}")
     public ResponseEntity<ApiResponse<Void>> deleteCheckpoint(
             @PathVariable UUID checkpointId,

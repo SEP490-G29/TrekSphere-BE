@@ -55,7 +55,7 @@ public class AdminReportController {
 
     @PutMapping("/{reportId}/resolve")
     @PreAuthorize("hasRole('ADMIN')")
-    @Operation(summary = "Xử lý báo cáo vi phạm", description = "Admin cập nhật trạng thái báo cáo (HIDE_CONTENT, WARNING hoặc DISMISSED).")
+    @Operation(summary = "Xử lý báo cáo vi phạm", description = "Admin cập nhật trạng thái báo cáo (HIDE_CONTENT, WARNING hoặc REJECTED).")
     public ResponseEntity<ApiResponse<Void>> resolveReport(
             @PathVariable UUID reportId,
             @Valid @RequestBody ResolveReportRequest request,

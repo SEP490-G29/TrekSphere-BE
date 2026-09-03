@@ -5,13 +5,11 @@ import com.sep.treksphere.dto.response.TourCheckpointResponse;
 import com.sep.treksphere.entity.Tour;
 import com.sep.treksphere.entity.TourCheckpoint;
 import com.sep.treksphere.entity.Vendor;
-import com.sep.treksphere.entity.VendorStaff;
 import com.sep.treksphere.exception.AppException;
 import com.sep.treksphere.exception.ErrorCode;
 import com.sep.treksphere.repository.TourCheckpointRepository;
 import com.sep.treksphere.repository.TourRepository;
 import com.sep.treksphere.repository.VendorRepository;
-import com.sep.treksphere.repository.VendorStaffRepository;
 import com.sep.treksphere.service.FileService;
 import com.sep.treksphere.service.TourCheckpointService;
 import lombok.RequiredArgsConstructor;
@@ -21,7 +19,6 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.time.LocalDateTime;
 import java.util.List;
-import java.util.Optional;
 import java.util.UUID;
 
 @Service
@@ -31,7 +28,6 @@ public class TourCheckpointServiceImpl implements TourCheckpointService {
     private final TourCheckpointRepository tourCheckpointRepository;
     private final TourRepository tourRepository;
     private final VendorRepository vendorRepository;
-    private final VendorStaffRepository vendorStaffRepository;
     private final FileService fileService;
 
     @Override
@@ -105,18 +101,18 @@ public class TourCheckpointServiceImpl implements TourCheckpointService {
         Tour tour = checkpoint.getTour();
 
         // Validations
-        if (tourCheckpointRepository.existsByTourAndCheckpointOrderAndCheckpointIdNotAndIsDeletedFalse(
+        if (tourCheckpointRepository.existsByTourAndCheckpointOrderAndTourCheckpointIdNotAndIsDeletedFalse(
                 tour, request.getCheckpointOrder(), checkpointId)) {
             throw new AppException(ErrorCode.CHECKPOINT_DUPLICATE_ORDER);
         }
 
-        if (tourCheckpointRepository.existsByTourAndCheckpointNameIgnoreCaseAndCheckpointIdNotAndIsDeletedFalse(
+        if (tourCheckpointRepository.existsByTourAndCheckpointNameIgnoreCaseAndTourCheckpointIdNotAndIsDeletedFalse(
                 tour, request.getCheckpointName().trim(), checkpointId)) {
             throw new AppException(ErrorCode.CHECKPOINT_DUPLICATE_NAME);
         }
 
         if (request.getLatitude() != null && request.getLongitude() != null) {
-            if (tourCheckpointRepository.existsByTourAndLatitudeAndLongitudeAndCheckpointIdNotAndIsDeletedFalse(
+            if (tourCheckpointRepository.existsByTourAndLatitudeAndLongitudeAndTourCheckpointIdNotAndIsDeletedFalse(
                     tour, request.getLatitude(), request.getLongitude(), checkpointId)) {
                 throw new AppException(ErrorCode.CHECKPOINT_DUPLICATE_COORDINATES);
             }
@@ -159,17 +155,10 @@ public class TourCheckpointServiceImpl implements TourCheckpointService {
     // ======================== Helper Methods ========================
 
     /**
-     * Resolve vendor from user email.
-     * Supports both VendorManager (direct owner) and VendorStaff.
+     * Chỉ còn Vendor Owner quản lý Tour — không còn VendorStaff.
      */
     private Vendor resolveVendorByUser(String email) {
-        Optional<Vendor> vendorOpt = vendorRepository.findByManager_Email(email);
-        if (vendorOpt.isPresent()) {
-            return vendorOpt.get();
-        }
-
-        return vendorStaffRepository.findByUser_Email(email)
-                .map(VendorStaff::getVendor)
+        return vendorRepository.findByManager_Email(email)
                 .orElseThrow(() -> new AppException(ErrorCode.VENDOR_NOT_FOUND));
     }
 
@@ -186,7 +175,7 @@ public class TourCheckpointServiceImpl implements TourCheckpointService {
                 : List.of();
 
         return TourCheckpointResponse.builder()
-                .checkpointId(checkpoint.getCheckpointId().toString())
+                .checkpointId(checkpoint.getTourCheckpointId().toString())
                 .tourId(checkpoint.getTour().getTourId().toString())
                 .checkpointName(checkpoint.getCheckpointName())
                 .description(checkpoint.getDescription())

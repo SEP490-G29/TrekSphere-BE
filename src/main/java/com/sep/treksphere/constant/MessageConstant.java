@@ -94,7 +94,7 @@ public class MessageConstant {
     public static final String TOUR_HIDDEN_SUCCESSFULLY = "Tour đã được ẩn thành công do vi phạm";
     public static final String TOUR_NOT_APPROVED = "Chỉ có thể ẩn Tour đang ở trạng thái đã duyệt (APPROVED)";
     public static final String HIDE_REASON_REQUIRED = "Lý do ẩn tour không được để trống";
-    public static final String TOUR_HAS_ACTIVE_BOOKINGS = "Tour đang có đặt chỗ chưa huỷ, không thể xóa hoặc ẩn";
+    public static final String TOUR_HAS_ACTIVE_GROUPS = "Tour đang có nhóm ghép hoạt động, không thể xóa hoặc ẩn";
     public static final String TOUR_NOT_IN_REJECTED_STATUS = "Tour phải ở trạng thái REJECTED để chuyển về bản nháp";
     public static final String TOUR_UPDATE_NOT_ALLOWED = "Bạn không có quyền chỉnh sửa Tour ở trạng thái này";
     public static final String TOUR_REVERTED_TO_DRAFT = "Tour đã được chuyển về trạng thái Bản nháp thành công";

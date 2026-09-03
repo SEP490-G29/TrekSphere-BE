@@ -1,15 +1,22 @@
 package com.sep.treksphere.entity;
 
+import com.sep.treksphere.enums.tour.DifficultyLevel;
 import com.sep.treksphere.enums.user.AuthProvider;
+import com.sep.treksphere.enums.user.ExperienceLevel;
 import com.sep.treksphere.enums.user.Gender;
 import com.sep.treksphere.enums.user.UserStatus;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 
@@ -60,6 +67,32 @@ public class User extends BaseEntity {
 
     @Column(length = 255)
     private String providerId;
+
+    @Column(columnDefinition = "TEXT")
+    private String bio;
+
+    @Enumerated(EnumType.STRING)
+    @Column(length = 30)
+    private ExperienceLevel experienceLevel;
+
+    @Enumerated(EnumType.STRING)
+    @Column(length = 20)
+    private DifficultyLevel preferredDifficulty;
+
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(nullable = false, columnDefinition = "jsonb")
+    private List<String> preferredAreas = new ArrayList<>();
+
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(nullable = false, columnDefinition = "jsonb")
+    private List<String> skills = new ArrayList<>();
+
+    private Short trustScore;
+
+    @Column(nullable = false)
+    private Integer trustReviewCount = 0;
+
+    private LocalDateTime trustCalculatedAt;
 
     @ManyToMany(fetch = FetchType.LAZY)
     @JoinTable(

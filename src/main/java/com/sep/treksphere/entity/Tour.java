@@ -43,12 +43,6 @@ public class Tour extends BaseEntity {
     @Column(nullable = false)
     private Integer durationDays;
 
-    @Column(nullable = false, precision = 12, scale = 2)
-    private BigDecimal basePrice;
-
-    @Column(nullable = false, precision = 12, scale = 2)
-    private BigDecimal nonRefundableCost = BigDecimal.ZERO;
-
     @Column(nullable = false)
     private Integer minCapacity = 1;
 

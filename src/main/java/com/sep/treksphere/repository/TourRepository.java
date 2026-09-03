@@ -75,8 +75,8 @@ public interface TourRepository extends JpaRepository<Tour, UUID> {
      Optional<Tour> findByTourIdAndIsDeletedTrue(UUID tourId);
 
      /**
-      * Dành cho VENDOR_MANAGER: thấy PENDING_APPROVAL, APPROVED, HIDDEN, REJECTED
-      * Không thấy DRAFT của staff
+      * Dành cho Vendor Owner: thấy toàn bộ Tour của Vendor mình, mọi status
+      * (không còn phân biệt Manager/Staff — chỉ còn một actor Vendor Owner).
       */
      @Query("""
                SELECT t FROM Tour t
@@ -87,34 +87,9 @@ public interface TourRepository extends JpaRepository<Tour, UUID> {
                       OR LOWER(t.tourName) LIKE LOWER(CONCAT('%', CAST(:keyword AS string), '%'))
                       OR LOWER(t.location) LIKE LOWER(CONCAT('%', CAST(:keyword AS string), '%')))
                """)
-     Page<Tour> findByVendorIdForManager(
+     Page<Tour> findByVendorIdForOwner(
                @Param("vendorId") UUID vendorId,
                @Param("statuses") java.util.List<TourStatus> statuses,
-               @Param("keyword") String keyword,
-               Pageable pageable);
-
-     /**
-      * Dành cho VENDOR_STAFF:
-      * - Thấy DRAFT và REJECTED của chính mình
-      * - Thấy APPROVED và HIDDEN của Vendor (để xem và tạo Schedule)
-      */
-     @Query("""
-               SELECT t FROM Tour t
-               WHERE t.isDeleted = false
-                 AND t.vendor.vendorId = :vendorId
-                 AND (
-                     (t.creator.userId = :creatorId AND t.status IN (com.sep.treksphere.enums.tour.TourStatus.DRAFT,
-                                                                      com.sep.treksphere.enums.tour.TourStatus.REJECTED))
-                     OR t.status IN (com.sep.treksphere.enums.tour.TourStatus.APPROVED,
-                                     com.sep.treksphere.enums.tour.TourStatus.HIDDEN)
-                 )
-                 AND (CAST(:keyword AS string) IS NULL
-                      OR LOWER(t.tourName) LIKE LOWER(CONCAT('%', CAST(:keyword AS string), '%'))
-                      OR LOWER(t.location) LIKE LOWER(CONCAT('%', CAST(:keyword AS string), '%')))
-               """)
-     Page<Tour> findByVendorIdForStaff(
-               @Param("vendorId") UUID vendorId,
-               @Param("creatorId") UUID creatorId,
                @Param("keyword") String keyword,
                Pageable pageable);
 }

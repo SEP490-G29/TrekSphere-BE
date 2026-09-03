@@ -51,7 +51,7 @@ public class VendorController {
 
     @Operation(summary = "Xem hồ sơ Vendor hiện tại", description = "Trả về thông tin hồ sơ chi tiết của Vendor (Dành cho Vendor Manager hoặc Nhân viên thuộc Vendor)")
     @SecurityRequirement(name = "bearerAuth")
-    @PreAuthorize("hasAnyRole('VENDOR_MANAGER', 'VENDOR_STAFF')")
+    @PreAuthorize("hasRole('VENDOR')")
     @GetMapping("/profile")
     public ResponseEntity<ApiResponse<VendorProfileResponse>> getVendorProfile(
             @AuthenticationPrincipal CustomUserDetails userDetails) {
@@ -68,7 +68,7 @@ public class VendorController {
 
     @Operation(summary = "Cập nhật hồ sơ Vendor hiện tại", description = "Cho phép Vendor Manager cập nhật thông tin chi tiết của doanh nghiệp.")
     @SecurityRequirement(name = "bearerAuth")
-    @PreAuthorize("hasRole('VENDOR_MANAGER')")
+    @PreAuthorize("hasRole('VENDOR')")
     @PutMapping(value = "/profile", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<ApiResponse<VendorProfileResponse>> updateVendorProfile(
             @AuthenticationPrincipal CustomUserDetails userDetails,

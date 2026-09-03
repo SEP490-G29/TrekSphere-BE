@@ -19,7 +19,6 @@ public class TourMapper {
         tour.setDifficulty(request.getDifficulty());
         tour.setLocation(request.getLocation());
         tour.setDurationDays(request.getDurationDays());
-        tour.setBasePrice(request.getBasePrice());
         tour.setMinCapacity(request.getMinCapacity() != null ? request.getMinCapacity() : 1);
         tour.setMaxCapacity(request.getMaxCapacity());
         tour.setTotalDistanceKm(request.getTotalDistanceKm());
@@ -49,9 +48,6 @@ public class TourMapper {
         }
         if (request.getDurationDays() != null) {
             tour.setDurationDays(request.getDurationDays());
-        }
-        if (request.getBasePrice() != null) {
-            tour.setBasePrice(request.getBasePrice());
         }
         if (request.getMinCapacity() != null) {
             tour.setMinCapacity(request.getMinCapacity());

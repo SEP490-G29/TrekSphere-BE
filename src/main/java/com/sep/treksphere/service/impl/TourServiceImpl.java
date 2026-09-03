@@ -3,43 +3,31 @@ package com.sep.treksphere.service.impl;
 import com.sep.treksphere.dto.request.BaseFilterRequest;
 import com.sep.treksphere.dto.request.CreateTourRequest;
 import com.sep.treksphere.dto.request.UpdateTourRequest;
-import com.sep.treksphere.dto.request.TourParticipationPolicyRequest;
 import com.sep.treksphere.dto.response.*;
-import com.sep.treksphere.entity.CancellationPolicy;
 import com.sep.treksphere.entity.Notification;
 import com.sep.treksphere.entity.Tour;
 import com.sep.treksphere.entity.TourCheckpoint;
 import com.sep.treksphere.entity.TourImage;
 import com.sep.treksphere.entity.TourSchedule;
-import com.sep.treksphere.entity.TourParticipationPolicy;
 import com.sep.treksphere.entity.User;
 import com.sep.treksphere.entity.Vendor;
-import com.sep.treksphere.entity.VendorPaymentAccount;
-import com.sep.treksphere.enums.blog.ReviewStatus;
+import com.sep.treksphere.enums.matching.MatchingGroupStatus;
 import com.sep.treksphere.enums.system.NotificationEventType;
 import com.sep.treksphere.enums.system.ReferenceType;
 import com.sep.treksphere.enums.tour.DifficultyLevel;
 import com.sep.treksphere.enums.tour.ScheduleStatus;
 import com.sep.treksphere.enums.tour.TourStatus;
-import com.sep.treksphere.enums.booking.PaymentAccountStatus;
-import com.sep.treksphere.enums.booking.PaymentProvider;
 import com.sep.treksphere.exception.AppException;
 import com.sep.treksphere.exception.ErrorCode;
 import com.sep.treksphere.mapper.TourMapper;
-import com.sep.treksphere.repository.CancellationPolicyRepository;
+import com.sep.treksphere.repository.MatchingGroupRepository;
 import com.sep.treksphere.repository.NotificationRepository;
-import com.sep.treksphere.repository.BookingRepository;
-import com.sep.treksphere.repository.ReviewRepository;
 import com.sep.treksphere.repository.TourCheckpointRepository;
 import com.sep.treksphere.repository.TourImageRepository;
 import com.sep.treksphere.repository.TourRepository;
 import com.sep.treksphere.repository.TourScheduleRepository;
-import com.sep.treksphere.repository.TourPaymentPolicyRepository;
-import com.sep.treksphere.repository.TourParticipationPolicyRepository;
-import com.sep.treksphere.repository.VendorPaymentAccountRepository;
 import com.sep.treksphere.repository.UserRepository;
 import com.sep.treksphere.repository.VendorRepository;
-import com.sep.treksphere.repository.VendorStaffRepository;
 import com.sep.treksphere.service.FileService;
 import com.sep.treksphere.service.TourService;
 import com.sep.treksphere.utils.PaginationUtils;
@@ -53,33 +41,40 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.EnumSet;
 import java.util.List;
-import java.util.HashMap;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
 public class TourServiceImpl implements TourService {
 
-    private static final String PUBLIC_BOOKING_DISABLED_REASON = "Tour chưa đủ điều kiện đặt online.";
+    private static final Set<MatchingGroupStatus> ACTIVE_GROUP_STATUSES = EnumSet.of(
+            MatchingGroupStatus.OPEN,
+            MatchingGroupStatus.FULL,
+            MatchingGroupStatus.IN_PROGRESS);
+
+    private static final List<TourStatus> VENDOR_VISIBLE_STATUSES = List.of(
+            TourStatus.DRAFT,
+            TourStatus.PENDING_APPROVAL,
+            TourStatus.APPROVED,
+            TourStatus.HIDDEN,
+            TourStatus.REJECTED);
 
     private final TourRepository tourRepository;
     private final TourImageRepository tourImageRepository;
     private final TourCheckpointRepository tourCheckpointRepository;
     private final TourScheduleRepository tourScheduleRepository;
-    private final TourPaymentPolicyRepository tourPaymentPolicyRepository;
-    private final TourParticipationPolicyRepository tourParticipationPolicyRepository;
-    private final VendorPaymentAccountRepository vendorPaymentAccountRepository;
-    private final CancellationPolicyRepository cancellationPolicyRepository;
-    private final ReviewRepository reviewRepository;
     private final NotificationRepository notificationRepository;
-    private final BookingRepository bookingRepository;
+    private final MatchingGroupRepository matchingGroupRepository;
     private final VendorRepository vendorRepository;
-    private final VendorStaffRepository vendorStaffRepository;
     private final UserRepository userRepository;
     private final TourMapper tourMapper;
     private final FileService fileService;
@@ -114,7 +109,9 @@ public class TourServiceImpl implements TourService {
                 returnDate,
                 pageable);
 
-        return PaginationUtils.toPaginationResponse(tourPage.map(this::toSummaryResponse));
+        Map<UUID, BigDecimal> fromPriceByTourId = loadFromPrices(tourPage.getContent());
+        return PaginationUtils.toPaginationResponse(
+                tourPage.map(tour -> toSummaryResponse(tour, fromPriceByTourId.get(tour.getTourId()))));
     }
 
     @Override
@@ -127,28 +124,34 @@ public class TourServiceImpl implements TourService {
         List<TourSchedule> schedules = tourScheduleRepository
                 .findByTourAndStatusAndDepartureDateGreaterThanEqualAndIsDeletedFalseOrderByDepartureDateAsc(
                         tour, ScheduleStatus.OPEN, LocalDate.now());
-        Double avgRating = reviewRepository.findAverageRatingByTourAndStatus(tour, ReviewStatus.APPROVED);
-        int totalReviews = reviewRepository.countByTourAndStatusAndIsDeletedFalse(tour, ReviewStatus.APPROVED);
-        return toDetailResponse(tour, images, checkpoints, schedules, avgRating, totalReviews, false);
+        return toDetailResponse(tour, images, checkpoints, schedules, minPriceOf(schedules));
     }
 
-    private TourSummaryResponse toSummaryResponse(Tour tour) {
-        return toSummaryResponse(tour, false);
+    private Map<UUID, BigDecimal> loadFromPrices(List<Tour> tours) {
+        if (tours.isEmpty()) {
+            return Map.of();
+        }
+        List<UUID> tourIds = tours.stream().map(Tour::getTourId).toList();
+        List<Object[]> rows = tourScheduleRepository.findMinOpenPriceByTourIds(tourIds, LocalDate.now());
+        return rows.stream().collect(Collectors.toMap(
+                row -> (UUID) row[0],
+                row -> (BigDecimal) row[1]));
     }
 
-    private TourSummaryResponse toSummaryResponse(Tour tour, boolean includeDetailedBookingDisabledReason) {
-        Double avgRating = reviewRepository.findAverageRatingByTourAndStatus(tour, ReviewStatus.APPROVED);
-        int totalReviews = reviewRepository.countByTourAndStatusAndIsDeletedFalse(tour, ReviewStatus.APPROVED);
-        BookingReadiness readiness = includeDetailedBookingDisabledReason
-                ? getBookingReadiness(tour)
-                : getPublicBookingReadiness(tour);
+    private BigDecimal minPriceOf(List<TourSchedule> schedules) {
+        return schedules.stream()
+                .map(TourSchedule::getPrice)
+                .min(BigDecimal::compareTo)
+                .orElse(null);
+    }
 
+    private TourSummaryResponse toSummaryResponse(Tour tour, BigDecimal fromPrice) {
         return TourSummaryResponse.builder()
                 .tourId(tour.getTourId().toString())
                 .tourName(tour.getTourName())
                 .location(tour.getLocation())
                 .durationDays(tour.getDurationDays())
-                .basePrice(tour.getBasePrice())
+                .fromPrice(fromPrice)
                 .minCapacity(tour.getMinCapacity())
                 .maxCapacity(tour.getMaxCapacity())
                 .totalDistanceKm(tour.getTotalDistanceKm())
@@ -160,10 +163,6 @@ public class TourServiceImpl implements TourService {
                 .excludes(tour.getExcludes())
                 .vendorId(tour.getVendor().getVendorId().toString())
                 .vendorName(tour.getVendor().getCompanyName())
-                .onlineBookingEnabled(readiness.enabled())
-                .onlineBookingDisabledReason(readiness.disabledReason())
-                .averageRating(avgRating)
-                .totalReviews(totalReviews)
                 .createdAt(tour.getCreatedAt())
                 .build();
     }
@@ -173,44 +172,7 @@ public class TourServiceImpl implements TourService {
             List<TourImage> images,
             List<TourCheckpoint> checkpoints,
             List<TourSchedule> schedules,
-            Double avgRating,
-            int totalReviews) {
-        return toDetailResponse(tour, images, checkpoints, schedules, avgRating, totalReviews, true);
-    }
-
-    private TourDetailResponse toDetailResponse(
-            Tour tour,
-            List<TourImage> images,
-            List<TourCheckpoint> checkpoints,
-            List<TourSchedule> schedules,
-            Double avgRating,
-            int totalReviews,
-            boolean includeDetailedBookingDisabledReason) {
-        List<CancellationPolicy> policies = (tour.getVendor() != null)
-                ? cancellationPolicyRepository.findByVendorAndIsActiveTrueAndIsDeletedFalseOrderByCancelBeforeDaysDesc(tour.getVendor())
-                : List.of();
-        List<CancellationPolicyResponse> policyResponses = policies.stream()
-                .map(this::toPolicyResponse)
-                .toList();
-        TourPaymentPolicyResponse paymentPolicy = tourPaymentPolicyRepository
-                .findByTourIdAndIsActiveTrueAndIsDeletedFalse(tour.getTourId())
-                .map(policy -> TourPaymentPolicyResponse.builder()
-                        .tourId(policy.getTourId())
-                        .paymentOption(policy.getPaymentOption())
-                        .depositType(policy.getDepositType())
-                        .depositValue(policy.getDepositValue())
-                        .remainingDueDaysBeforeDeparture(policy.getRemainingDueDaysBeforeDeparture())
-                        .policyVersion(policy.getPolicyVersion())
-                        .build())
-                .orElse(null);
-        TourParticipationPolicyResponse participationPolicy = tourParticipationPolicyRepository
-                .findByTourIdAndIsActiveTrueAndIsDeletedFalse(tour.getTourId())
-                .map(this::toParticipationPolicyResponse)
-                .orElse(null);
-        BookingReadiness readiness = includeDetailedBookingDisabledReason
-                ? getBookingReadiness(tour)
-                : getPublicBookingReadiness(tour);
-
+            BigDecimal fromPrice) {
         return TourDetailResponse.builder()
                 // Tour info
                 .tourId(tour.getTourId().toString())
@@ -219,7 +181,7 @@ public class TourServiceImpl implements TourService {
                 .difficulty(tour.getDifficulty())
                 .location(tour.getLocation())
                 .durationDays(tour.getDurationDays())
-                .basePrice(tour.getBasePrice())
+                .fromPrice(fromPrice)
                 .minCapacity(tour.getMinCapacity())
                 .maxCapacity(tour.getMaxCapacity())
                 .totalDistanceKm(tour.getTotalDistanceKm())
@@ -248,148 +210,7 @@ public class TourServiceImpl implements TourService {
                 .checkpoints(checkpoints.stream().map(this::toCheckpointResponse).toList())
                 // Schedules
                 .schedules(schedules.stream().map(this::toScheduleResponse).toList())
-                // Cancellation policies
-                .cancellationPolicies(policyResponses)
-                // Payment/refund policy displayed before creating a booking
-                .paymentPolicy(paymentPolicy)
-                .participationPolicy(participationPolicy)
-                .onlineBookingEnabled(readiness.enabled())
-                .onlineBookingDisabledReason(readiness.disabledReason())
-                .nonRefundableCost(tour.getNonRefundableCost())
-                // Review stats
-                .averageRating(avgRating)
-                .totalReviews(totalReviews)
                 .build();
-    }
-
-    private CancellationPolicyResponse toPolicyResponse(CancellationPolicy policy) {
-        return CancellationPolicyResponse.builder()
-                .cancellationPolicyId(policy.getCancellationPolicyId() != null ? policy.getCancellationPolicyId().toString() : null)
-                .cancelBeforeDays(policy.getCancelBeforeDays())
-                .refundPercentage(policy.getRefundPercentage())
-                .description(policy.getDescription())
-                .isActive(policy.getIsActive())
-                .build();
-    }
-
-    private BookingReadiness getBookingReadiness(Tour tour) {
-        if (tour.getStatus() != TourStatus.APPROVED) {
-            return new BookingReadiness(false, PUBLIC_BOOKING_DISABLED_REASON);
-        }
-        boolean hasPayOsAccount = vendorPaymentAccountRepository
-                .existsByVendor_VendorIdAndProviderAndOnboardingStatusAndIsDefaultTrueAndIsDeletedFalse(
-                        tour.getVendor().getVendorId(), PaymentProvider.PAYOS, PaymentAccountStatus.ACTIVE);
-        if (!hasPayOsAccount) {
-            boolean refundHold = vendorPaymentAccountRepository
-                    .findByVendor_VendorIdAndProviderAndIsDefaultTrueAndIsDeletedFalse(
-                            tour.getVendor().getVendorId(), PaymentProvider.PAYOS)
-                    .map(VendorPaymentAccount::getRefundHold)
-                    .orElse(false);
-            if (refundHold) {
-                return new BookingReadiness(false,
-                        "Nhà tổ chức đang có khoản hoàn tiền quá hạn nên tạm dừng nhận booking online.");
-            }
-            return new BookingReadiness(false, "Nhà tổ chức chưa hoàn tất kết nối payOS.");
-        }
-        if (!tourPaymentPolicyRepository.existsByTourIdAndIsActiveTrueAndIsDeletedFalse(tour.getTourId())) {
-            return new BookingReadiness(false, "Tour chưa có chính sách thanh toán.");
-        }
-        if (!cancellationPolicyRepository.existsByVendorAndIsActiveTrueAndIsDeletedFalse(tour.getVendor())) {
-            return new BookingReadiness(false, "Nhà tổ chức chưa có chính sách hủy tour.");
-        }
-        if (!tourParticipationPolicyRepository.existsByTourIdAndIsActiveTrueAndIsDeletedFalse(tour.getTourId())) {
-            return new BookingReadiness(false, "Tour chưa có điều kiện tham gia.");
-        }
-        return new BookingReadiness(true, null);
-    }
-
-    private BookingReadiness getPublicBookingReadiness(Tour tour) {
-        BookingReadiness readiness = getBookingReadiness(tour);
-        return readiness.enabled()
-                ? readiness
-                : new BookingReadiness(false, PUBLIC_BOOKING_DISABLED_REASON);
-    }
-
-    private record BookingReadiness(boolean enabled, String disabledReason) {}
-
-    private TourParticipationPolicyResponse toParticipationPolicyResponse(TourParticipationPolicy policy) {
-        return TourParticipationPolicyResponse.builder()
-                .tourId(policy.getTourId())
-                .policyVersion(policy.getPolicyVersion())
-                .minAge(policy.getMinAge() == null ? null : policy.getMinAge().intValue())
-                .maxAge(policy.getMaxAge() == null ? null : policy.getMaxAge().intValue())
-                .minHeightCm(policy.getMinHeightCm())
-                .maxHeightCm(policy.getMaxHeightCm())
-                .minWeightKg(policy.getMinWeightKg())
-                .maxWeightKg(policy.getMaxWeightKg())
-                .fitnessLevel(policy.getFitnessLevel())
-                .healthRequirements(policy.getHealthRequirements())
-                .restrictedMedicalConditions(policy.getRestrictedMedicalConditions())
-                .requiredExperience(policy.getRequiredExperience())
-                .requiredSkills(policy.getRequiredSkills())
-                .requiredEquipment(policy.getRequiredEquipment())
-                .requiredDocuments(policy.getRequiredDocuments())
-                .requiresHealthDeclaration(policy.getRequiresHealthDeclaration())
-                .requiresMedicalCertificate(policy.getRequiresMedicalCertificate())
-                .guardianRequiredUnderAge(policy.getGuardianRequiredUnderAge() == null
-                        ? null : policy.getGuardianRequiredUnderAge().intValue())
-                .additionalRequirements((String) policy.getAdditionalRules().get("notes"))
-                .build();
-    }
-
-    private void saveParticipationPolicy(Tour tour, TourParticipationPolicyRequest request) {
-        if (request == null) return;
-        validateParticipationPolicy(request);
-
-        TourParticipationPolicy policy = tourParticipationPolicyRepository.findById(tour.getTourId())
-                .orElseGet(TourParticipationPolicy::new);
-        boolean existing = policy.getTourId() != null;
-        policy.setTour(tour);
-        policy.setPolicyVersion(existing ? policy.getPolicyVersion() + 1 : 1);
-        policy.setMinAge(request.getMinAge() == null ? null : request.getMinAge().shortValue());
-        policy.setMaxAge(request.getMaxAge() == null ? null : request.getMaxAge().shortValue());
-        policy.setMinHeightCm(request.getMinHeightCm());
-        policy.setMaxHeightCm(request.getMaxHeightCm());
-        policy.setMinWeightKg(request.getMinWeightKg());
-        policy.setMaxWeightKg(request.getMaxWeightKg());
-        policy.setFitnessLevel(request.getFitnessLevel());
-        policy.setHealthRequirements(trimToNull(request.getHealthRequirements()));
-        policy.setRestrictedMedicalConditions(trimToNull(request.getRestrictedMedicalConditions()));
-        policy.setRequiredExperience(trimToNull(request.getRequiredExperience()));
-        policy.setRequiredSkills(trimToNull(request.getRequiredSkills()));
-        policy.setRequiredEquipment(trimToNull(request.getRequiredEquipment()));
-        policy.setRequiredDocuments(trimToNull(request.getRequiredDocuments()));
-        policy.setRequiresHealthDeclaration(!Boolean.FALSE.equals(request.getRequiresHealthDeclaration()));
-        policy.setRequiresMedicalCertificate(Boolean.TRUE.equals(request.getRequiresMedicalCertificate()));
-        policy.setGuardianRequiredUnderAge(request.getGuardianRequiredUnderAge() == null
-                ? null : request.getGuardianRequiredUnderAge().shortValue());
-        Map<String, Object> rules = new HashMap<>();
-        if (StringUtils.hasText(request.getAdditionalRequirements())) {
-            rules.put("notes", request.getAdditionalRequirements().trim());
-        }
-        policy.setAdditionalRules(rules);
-        policy.setIsActive(true);
-        policy.setIsDeleted(false);
-        tourParticipationPolicyRepository.save(policy);
-    }
-
-    private void validateParticipationPolicy(TourParticipationPolicyRequest request) {
-        if (request.getMinAge() != null && request.getMaxAge() != null
-                && request.getMinAge() > request.getMaxAge()) {
-            throw new AppException(ErrorCode.VALIDATION_ERROR, "Tuổi tối thiểu không được lớn hơn tuổi tối đa.");
-        }
-        if (request.getMinHeightCm() != null && request.getMaxHeightCm() != null
-                && request.getMinHeightCm().compareTo(request.getMaxHeightCm()) > 0) {
-            throw new AppException(ErrorCode.VALIDATION_ERROR, "Chiều cao tối thiểu không được lớn hơn chiều cao tối đa.");
-        }
-        if (request.getMinWeightKg() != null && request.getMaxWeightKg() != null
-                && request.getMinWeightKg().compareTo(request.getMaxWeightKg()) > 0) {
-            throw new AppException(ErrorCode.VALIDATION_ERROR, "Cân nặng tối thiểu không được lớn hơn cân nặng tối đa.");
-        }
-    }
-
-    private String trimToNull(String value) {
-        return StringUtils.hasText(value) ? value.trim() : null;
     }
 
     private TourCheckpointResponse toCheckpointResponse(TourCheckpoint checkpoint) {
@@ -399,7 +220,7 @@ public class TourServiceImpl implements TourService {
                 : List.of();
 
         return TourCheckpointResponse.builder()
-                .checkpointId(checkpoint.getCheckpointId().toString())
+                .checkpointId(checkpoint.getTourCheckpointId().toString())
                 .tourId(checkpoint.getTour() != null ? checkpoint.getTour().getTourId().toString() : null)
                 .checkpointName(checkpoint.getCheckpointName())
                 .description(checkpoint.getDescription())
@@ -414,7 +235,7 @@ public class TourServiceImpl implements TourService {
 
     private TourImageResponse toImageResponse(TourImage image) {
         return TourImageResponse.builder()
-                .imageId(image.getImageId().toString())
+                .imageId(image.getTourImageId().toString())
                 .imageUrl(image.getImageUrl())
                 .sortOrder(image.getSortOrder())
                 .caption(image.getCaption())
@@ -423,12 +244,10 @@ public class TourServiceImpl implements TourService {
 
     private TourScheduleResponse toScheduleResponse(TourSchedule schedule) {
         return TourScheduleResponse.builder()
-                .scheduleId(schedule.getScheduleId().toString())
+                .scheduleId(schedule.getTourScheduleId().toString())
                 .tourId(schedule.getTour() != null ? schedule.getTour().getTourId().toString() : null)
                 .departureDate(schedule.getDepartureDate())
                 .returnDate(schedule.getReturnDate())
-                .availableSlots(schedule.getAvailableSlots())
-                .bookedSlots(schedule.getBookedSlots())
                 .price(schedule.getPrice())
                 .status(schedule.getStatus())
                 .isDeleted(schedule.getIsDeleted())
@@ -441,9 +260,7 @@ public class TourServiceImpl implements TourService {
 
     private Vendor resolveVendorByEmail(String email) {
         return vendorRepository.findByManager_Email(email)
-                .orElseGet(() -> vendorStaffRepository.findByUser_Email(email)
-                        .orElseThrow(() -> new AppException(ErrorCode.VENDOR_STAFF_NOT_FOUND))
-                        .getVendor());
+                .orElseThrow(() -> new AppException(ErrorCode.VENDOR_NOT_FOUND));
     }
 
     @Override
@@ -451,40 +268,16 @@ public class TourServiceImpl implements TourService {
     public PaginationResponse<TourSummaryResponse> getVendorTours(String userEmail, BaseFilterRequest request) {
         Vendor vendor = resolveVendorByEmail(userEmail);
 
-        Page<Tour> tourPage;
-        boolean isManager = vendorRepository.findByManager_Email(userEmail).isPresent();
+        Page<Tour> tourPage = tourRepository.findByVendorIdForOwner(
+                vendor.getVendorId(),
+                VENDOR_VISIBLE_STATUSES,
+                request.getKeyword(),
+                request.getPageable()
+        );
 
-        if (isManager) {
-            // Manager thấy: PENDING_APPROVAL, APPROVED, HIDDEN, REJECTED — không thấy DRAFT của staff
-            java.util.List<TourStatus> managerStatuses = java.util.List.of(
-                    TourStatus.PENDING_APPROVAL,
-                    TourStatus.APPROVED,
-                    TourStatus.HIDDEN,
-                    TourStatus.REJECTED
-            );
-            tourPage = tourRepository.findByVendorIdForManager(
-                    vendor.getVendorId(),
-                    managerStatuses,
-                    request.getKeyword(),
-                    request.getPageable()
-            );
-        } else {
-            // Staff: thấy DRAFT, REJECTED của chính mình và APPROVED, HIDDEN của Vendor (để tạo Schedule)
-            User staffUser = userRepository.findByEmail(userEmail)
-                    .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
-            tourPage = tourRepository.findByVendorIdForStaff(
-                    vendor.getVendorId(),
-                    staffUser.getUserId(),
-                    request.getKeyword(),
-                    request.getPageable()
-            );
-        }
-
-        return PaginationUtils.toPaginationResponse(tourPage.map(this::toVendorSummaryResponse));
-    }
-
-    private TourSummaryResponse toVendorSummaryResponse(Tour tour) {
-        return toSummaryResponse(tour, true);
+        Map<UUID, BigDecimal> fromPriceByTourId = loadFromPrices(tourPage.getContent());
+        return PaginationUtils.toPaginationResponse(
+                tourPage.map(tour -> toSummaryResponse(tour, fromPriceByTourId.get(tour.getTourId()))));
     }
 
     @Override
@@ -502,10 +295,8 @@ public class TourServiceImpl implements TourService {
         List<TourImage> images = tourImageRepository.findByTourOrderBySortOrderAsc(tour);
         List<TourCheckpoint> checkpoints = tourCheckpointRepository.findByTourAndIsDeletedFalseOrderByCheckpointOrderAsc(tour);
         List<TourSchedule> schedules = tourScheduleRepository.findByTourAndIsDeletedFalseOrderByDepartureDateAsc(tour);
-        Double avgRating = reviewRepository.findAverageRatingByTourAndStatus(tour, ReviewStatus.APPROVED);
-        int totalReviews = reviewRepository.countByTourAndStatusAndIsDeletedFalse(tour, ReviewStatus.APPROVED);
 
-        return toDetailResponse(tour, images, checkpoints, schedules, avgRating, totalReviews);
+        return toDetailResponse(tour, images, checkpoints, schedules, minPriceOf(schedules));
     }
 
     @Override
@@ -517,12 +308,7 @@ public class TourServiceImpl implements TourService {
                 .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
 
         Tour tour = tourMapper.toTour(request);
-
-        // Manager tạo → APPROVED
-        // Staff tạo → DRAFT
-        boolean isManager = vendorRepository.findByManager_Email(userEmail).isPresent();
-        tour.setStatus(isManager ? TourStatus.APPROVED : TourStatus.DRAFT);
-
+        tour.setStatus(TourStatus.APPROVED);
         tour.setVendor(vendor);
         tour.setCreator(creator);
 
@@ -533,7 +319,6 @@ public class TourServiceImpl implements TourService {
         }
 
         tour = tourRepository.save(tour);
-        saveParticipationPolicy(tour, request.getParticipationPolicy());
 
         // Upload tour gallery images (batch)
         List<TourImage> savedImages = new ArrayList<>();
@@ -549,7 +334,7 @@ public class TourServiceImpl implements TourService {
             tourImageRepository.saveAll(savedImages);
         }
 
-        return toDetailResponse(tour, savedImages, List.of(), List.of(), 0.0, 0);
+        return toDetailResponse(tour, savedImages, List.of(), List.of(), null);
     }
 
     @Override
@@ -565,20 +350,12 @@ public class TourServiceImpl implements TourService {
             throw new AppException(ErrorCode.TOUR_NOT_BELONG_TO_VENDOR);
         }
 
-        // Phân quyền sửa theo role:
-        // Manager: được cập nhật cả tour đang bán; booking cũ vẫn giữ policy snapshot.
-        // Staff   : sửa được DRAFT, REJECTED hoặc HIDDEN
-        boolean isManager = vendorRepository.findByManager_Email(userEmail).isPresent();
-        if (isManager) {
-            if (tour.getStatus() != TourStatus.PENDING_APPROVAL
-                    && tour.getStatus() != TourStatus.APPROVED
-                    && tour.getStatus() != TourStatus.HIDDEN) {
-                throw new AppException(ErrorCode.TOUR_UPDATE_NOT_ALLOWED);
-            }
-        } else {
-            if (tour.getStatus() != TourStatus.DRAFT && tour.getStatus() != TourStatus.REJECTED && tour.getStatus() != TourStatus.HIDDEN) {
-                throw new AppException(ErrorCode.TOUR_STATUS_NOT_EDITABLE);
-            }
+        if (tour.getStatus() != TourStatus.PENDING_APPROVAL
+                && tour.getStatus() != TourStatus.APPROVED
+                && tour.getStatus() != TourStatus.HIDDEN
+                && tour.getStatus() != TourStatus.DRAFT
+                && tour.getStatus() != TourStatus.REJECTED) {
+            throw new AppException(ErrorCode.TOUR_UPDATE_NOT_ALLOWED);
         }
 
         tourMapper.updateTourFromRequest(request, tour);
@@ -590,7 +367,6 @@ public class TourServiceImpl implements TourService {
         }
 
         tour = tourRepository.save(tour);
-        saveParticipationPolicy(tour, request.getParticipationPolicy());
 
         // Smart replace tour gallery images:
         // - tourImages == null  → không gửi field → giữ nguyên ảnh cũ
@@ -621,17 +397,14 @@ public class TourServiceImpl implements TourService {
         List<TourImage> images = tourImageRepository.findByTourOrderBySortOrderAsc(tour);
         List<TourCheckpoint> checkpoints = tourCheckpointRepository.findByTourAndIsDeletedFalseOrderByCheckpointOrderAsc(tour);
         List<TourSchedule> schedules = tourScheduleRepository.findByTourAndIsDeletedFalseOrderByDepartureDateAsc(tour);
-        Double avgRating = reviewRepository.findAverageRatingByTourAndStatus(tour, ReviewStatus.APPROVED);
-        int totalReviews = reviewRepository.countByTourAndStatusAndIsDeletedFalse(tour, ReviewStatus.APPROVED);
 
-        return toDetailResponse(tour, images, checkpoints, schedules, avgRating, totalReviews);
+        return toDetailResponse(tour, images, checkpoints, schedules, minPriceOf(schedules));
     }
 
     @Override
     @Transactional
     public void deleteTour(String userEmail, UUID tourId) {
-        Vendor vendor = vendorRepository.findByManager_Email(userEmail)
-                .orElseThrow(() -> new AppException(ErrorCode.VENDOR_NOT_FOUND));
+        Vendor vendor = resolveVendorByEmail(userEmail);
 
         Tour tour = tourRepository.findByTourIdAndIsDeletedFalse(tourId)
                 .orElseThrow(() -> new AppException(ErrorCode.TOUR_NOT_FOUND));
@@ -640,11 +413,11 @@ public class TourServiceImpl implements TourService {
             throw new AppException(ErrorCode.TOUR_NOT_BELONG_TO_VENDOR);
         }
 
-        // Tour ở APPROVED hoặc HIDDEN mới cần kiểm tra booking
+        // Tour ở APPROVED hoặc HIDDEN mới cần kiểm tra nhóm ghép đang hoạt động
         // DRAFT / REJECTED: xóa tự do
         if (tour.getStatus() == TourStatus.APPROVED || tour.getStatus() == TourStatus.HIDDEN) {
-            if (bookingRepository.existsActiveBookingByTourId(tourId)) {
-                throw new AppException(ErrorCode.TOUR_HAS_ACTIVE_BOOKINGS);
+            if (matchingGroupRepository.existsByTour_TourIdAndStatusInAndIsDeletedFalse(tourId, ACTIVE_GROUP_STATUSES)) {
+                throw new AppException(ErrorCode.TOUR_HAS_ACTIVE_GROUPS);
             }
         }
 
@@ -682,31 +455,17 @@ public class TourServiceImpl implements TourService {
         tour.setRejectionReason(null);
         tour = tourRepository.save(tour);
 
-        // Send notification to Vendor Manager
-        User manager = vendor.getManager();
-        Notification notification = new Notification();
-        notification.setRecipient(manager);
-        notification.setTitle("Yêu cầu duyệt Tour mới");
-        notification.setEventType(NotificationEventType.TOUR_PENDING_APPROVAL);
-        notification.setContent("Tour \"" + tour.getTourName() + "\" đã được gửi yêu cầu kiểm duyệt.");
-        notification.setReferenceType(ReferenceType.TOUR);
-        notification.setReferenceId(tour.getTourId());
-        notificationRepository.save(notification);
-
         List<TourImage> images = tourImageRepository.findByTourOrderBySortOrderAsc(tour);
         List<TourCheckpoint> checkpoints = tourCheckpointRepository.findByTourAndIsDeletedFalseOrderByCheckpointOrderAsc(tour);
         List<TourSchedule> schedules = tourScheduleRepository.findByTourAndIsDeletedFalseOrderByDepartureDateAsc(tour);
-        Double avgRating = reviewRepository.findAverageRatingByTourAndStatus(tour, ReviewStatus.APPROVED);
-        int totalReviews = reviewRepository.countByTourAndStatusAndIsDeletedFalse(tour, ReviewStatus.APPROVED);
 
-        return toDetailResponse(tour, images, checkpoints, schedules, avgRating, totalReviews);
+        return toDetailResponse(tour, images, checkpoints, schedules, minPriceOf(schedules));
     }
 
     @Override
     @Transactional
     public TourDetailResponse approveTour(String userEmail, UUID tourId) {
-        Vendor vendor = vendorRepository.findByManager_Email(userEmail)
-                .orElseThrow(() -> new AppException(ErrorCode.VENDOR_NOT_FOUND));
+        Vendor vendor = resolveVendorByEmail(userEmail);
 
         Tour tour = tourRepository.findByTourIdAndIsDeletedFalse(tourId)
                 .orElseThrow(() -> new AppException(ErrorCode.TOUR_NOT_FOUND));
@@ -733,26 +492,13 @@ public class TourServiceImpl implements TourService {
             }
         }
 
-        // Gửi thông báo cho người tạo tour (Staff hoặc Manager)
-        User recipient = tour.getCreator() != null ? tour.getCreator() : vendor.getManager();
-        Notification notification = new Notification();
-        notification.setRecipient(recipient);
-        notification.setTitle("Tour đã được phê duyệt");
-        notification.setEventType(NotificationEventType.TOUR_APPROVED);
-        notification.setContent("Tour \"" + tour.getTourName() + "\" đã được phê duyệt và sẵn sàng mở bán.");
-        notification.setReferenceType(ReferenceType.TOUR);
-        notification.setReferenceId(tour.getTourId());
-        notificationRepository.save(notification);
-
         List<TourImage> images = tourImageRepository.findByTourOrderBySortOrderAsc(tour);
         List<TourCheckpoint> checkpoints = tourCheckpointRepository
                 .findByTourAndIsDeletedFalseOrderByCheckpointOrderAsc(tour);
         List<TourSchedule> schedules = tourScheduleRepository
                 .findByTourAndIsDeletedFalseOrderByDepartureDateAsc(tour);
-        Double avgRating = reviewRepository.findAverageRatingByTourAndStatus(tour, ReviewStatus.APPROVED);
-        int totalReviews = reviewRepository.countByTourAndStatusAndIsDeletedFalse(tour, ReviewStatus.APPROVED);
 
-        return toDetailResponse(tour, images, checkpoints, schedules, avgRating, totalReviews);
+        return toDetailResponse(tour, images, checkpoints, schedules, minPriceOf(schedules));
     }
 
     @Override
@@ -763,8 +509,7 @@ public class TourServiceImpl implements TourService {
         }
         String normalizedReason = reason.trim();
 
-        Vendor vendor = vendorRepository.findByManager_Email(userEmail)
-                .orElseThrow(() -> new AppException(ErrorCode.VENDOR_NOT_FOUND));
+        Vendor vendor = resolveVendorByEmail(userEmail);
 
         Tour tour = tourRepository.findByTourIdAndIsDeletedFalse(tourId)
                 .orElseThrow(() -> new AppException(ErrorCode.TOUR_NOT_FOUND));
@@ -781,26 +526,13 @@ public class TourServiceImpl implements TourService {
         tour.setRejectionReason(normalizedReason);
         tour = tourRepository.save(tour);
 
-        // Gửi thông báo từ chối cho người tạo tour
-        User recipient = tour.getCreator() != null ? tour.getCreator() : tour.getVendor().getManager();
-        Notification notification = new Notification();
-        notification.setRecipient(recipient);
-        notification.setTitle("Tour bị từ chối phê duyệt");
-        notification.setEventType(NotificationEventType.TOUR_REJECTED);
-        notification.setContent("Tour \"" + tour.getTourName() + "\" đã bị từ chối. Lý do: " + normalizedReason);
-        notification.setReferenceType(ReferenceType.TOUR);
-        notification.setReferenceId(tour.getTourId());
-        notificationRepository.save(notification);
-
         List<TourImage> images = tourImageRepository.findByTourOrderBySortOrderAsc(tour);
         List<TourCheckpoint> checkpoints = tourCheckpointRepository
                 .findByTourAndIsDeletedFalseOrderByCheckpointOrderAsc(tour);
         List<TourSchedule> schedules = tourScheduleRepository
                 .findByTourAndIsDeletedFalseOrderByDepartureDateAsc(tour);
-        Double avgRating = reviewRepository.findAverageRatingByTourAndStatus(tour, ReviewStatus.APPROVED);
-        int totalReviews = reviewRepository.countByTourAndStatusAndIsDeletedFalse(tour, ReviewStatus.APPROVED);
 
-        return toDetailResponse(tour, images, checkpoints, schedules, avgRating, totalReviews);
+        return toDetailResponse(tour, images, checkpoints, schedules, minPriceOf(schedules));
     }
 
     @Override
@@ -825,9 +557,9 @@ public class TourServiceImpl implements TourService {
             throw new AppException(ErrorCode.TOUR_NOT_APPROVED);
         }
 
-        // Không cho phép ẩn nếu tour đang có booking chưa huỷ
-        if (bookingRepository.existsActiveBookingByTourId(tourId)) {
-            throw new AppException(ErrorCode.TOUR_HAS_ACTIVE_BOOKINGS);
+        // Không cho phép ẩn nếu tour đang có nhóm ghép hoạt động
+        if (matchingGroupRepository.existsByTour_TourIdAndStatusInAndIsDeletedFalse(tourId, ACTIVE_GROUP_STATUSES)) {
+            throw new AppException(ErrorCode.TOUR_HAS_ACTIVE_GROUPS);
         }
 
         tour.setStatus(TourStatus.HIDDEN);
@@ -846,10 +578,8 @@ public class TourServiceImpl implements TourService {
         List<TourImage> images = tourImageRepository.findByTourOrderBySortOrderAsc(tour);
         List<TourCheckpoint> checkpoints = tourCheckpointRepository.findByTourAndIsDeletedFalseOrderByCheckpointOrderAsc(tour);
         List<TourSchedule> schedules = tourScheduleRepository.findByTourAndIsDeletedFalseOrderByDepartureDateAsc(tour);
-        Double avgRating = reviewRepository.findAverageRatingByTourAndStatus(tour, ReviewStatus.APPROVED);
-        int totalReviews = reviewRepository.countByTourAndStatusAndIsDeletedFalse(tour, ReviewStatus.APPROVED);
 
-        return toDetailResponse(tour, images, checkpoints, schedules, avgRating, totalReviews);
+        return toDetailResponse(tour, images, checkpoints, schedules, minPriceOf(schedules));
     }
 
     @Override
@@ -868,26 +598,20 @@ public class TourServiceImpl implements TourService {
             throw new AppException(ErrorCode.TOUR_NOT_IN_REJECTED_STATUS);
         }
 
-        // Manager revert → PENDING_APPROVAL (để Manager xem lại và duyệt)
-        // Staff revert → DRAFT (tiếp tục chỉnh sửa nháp)
-        boolean isManager = vendorRepository.findByManager_Email(userEmail).isPresent();
-        tour.setStatus(isManager ? TourStatus.PENDING_APPROVAL : TourStatus.DRAFT);
+        tour.setStatus(TourStatus.PENDING_APPROVAL);
         tour = tourRepository.save(tour);
 
         List<TourImage> images = tourImageRepository.findByTourOrderBySortOrderAsc(tour);
         List<TourCheckpoint> checkpoints = tourCheckpointRepository.findByTourAndIsDeletedFalseOrderByCheckpointOrderAsc(tour);
         List<TourSchedule> schedules = tourScheduleRepository.findByTourAndIsDeletedFalseOrderByDepartureDateAsc(tour);
-        Double avgRating = reviewRepository.findAverageRatingByTourAndStatus(tour, ReviewStatus.APPROVED);
-        int totalReviews = reviewRepository.countByTourAndStatusAndIsDeletedFalse(tour, ReviewStatus.APPROVED);
 
-        return toDetailResponse(tour, images, checkpoints, schedules, avgRating, totalReviews);
+        return toDetailResponse(tour, images, checkpoints, schedules, minPriceOf(schedules));
     }
 
     @Override
     @Transactional
     public TourDetailResponse restoreTour(String userEmail, UUID tourId) {
-        Vendor vendor = vendorRepository.findByManager_Email(userEmail)
-                .orElseThrow(() -> new AppException(ErrorCode.VENDOR_NOT_FOUND));
+        Vendor vendor = resolveVendorByEmail(userEmail);
 
         Tour tour = tourRepository.findByTourIdAndIsDeletedTrue(tourId)
                 .orElseThrow(() -> new AppException(ErrorCode.TOUR_NOT_DELETED));
@@ -903,7 +627,7 @@ public class TourServiceImpl implements TourService {
         tour.setIsDeleted(false);
         tour.setDeletedAt(null);
         tour.setDeletedBy(null);
-        tour.setStatus(TourStatus.PENDING_APPROVAL); // Về PENDING_APPROVAL để Manager xem, sửa và duyệt lại
+        tour.setStatus(TourStatus.PENDING_APPROVAL); // Về PENDING_APPROVAL để xem, sửa và duyệt lại
         tour = tourRepository.save(tour);
 
         // Restore các bảng con bị xóa cùng đợt (match exact deletedAt)
@@ -914,10 +638,8 @@ public class TourServiceImpl implements TourService {
         List<TourImage> images = tourImageRepository.findByTourOrderBySortOrderAsc(tour);
         List<TourCheckpoint> checkpoints = tourCheckpointRepository.findByTourAndIsDeletedFalseOrderByCheckpointOrderAsc(tour);
         List<TourSchedule> schedules = tourScheduleRepository.findByTourAndIsDeletedFalseOrderByDepartureDateAsc(tour);
-        Double avgRating = reviewRepository.findAverageRatingByTourAndStatus(tour, ReviewStatus.APPROVED);
-        int totalReviews = reviewRepository.countByTourAndStatusAndIsDeletedFalse(tour, ReviewStatus.APPROVED);
 
-        return toDetailResponse(tour, images, checkpoints, schedules, avgRating, totalReviews);
+        return toDetailResponse(tour, images, checkpoints, schedules, minPriceOf(schedules));
     }
 
     @Override
@@ -942,9 +664,7 @@ public class TourServiceImpl implements TourService {
         List<TourImage> images = tourImageRepository.findByTourOrderBySortOrderAsc(tour);
         List<TourCheckpoint> checkpoints = tourCheckpointRepository.findByTourAndIsDeletedFalseOrderByCheckpointOrderAsc(tour);
         List<TourSchedule> schedules = tourScheduleRepository.findByTourAndIsDeletedFalseOrderByDepartureDateAsc(tour);
-        Double avgRating = reviewRepository.findAverageRatingByTourAndStatus(tour, ReviewStatus.APPROVED);
-        int totalReviews = reviewRepository.countByTourAndStatusAndIsDeletedFalse(tour, ReviewStatus.APPROVED);
 
-        return toDetailResponse(tour, images, checkpoints, schedules, avgRating, totalReviews);
+        return toDetailResponse(tour, images, checkpoints, schedules, minPriceOf(schedules));
     }
 }

@@ -34,14 +34,14 @@ public class ReportContent extends BaseEntity {
     private BlogComment blogComment;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "review_id")
-    private Review review;
+    @JoinColumn(name = "tour_id")
+    private Tour tour;
 
     @Column(nullable = false, length = 255)
     private String reason;
 
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false, length = 10)
+    @Column(nullable = false, length = 20)
     private ReportStatus status = ReportStatus.PENDING;
 
     @Column(name = "resolution_notes", length = 500)

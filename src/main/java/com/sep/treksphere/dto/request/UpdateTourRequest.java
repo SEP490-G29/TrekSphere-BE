@@ -3,9 +3,7 @@ package com.sep.treksphere.dto.request;
 import com.sep.treksphere.constant.MessageConstant;
 import com.sep.treksphere.enums.tour.DifficultyLevel;
 import io.swagger.v3.oas.annotations.media.Schema;
-import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.Min;
-import jakarta.validation.Valid;
 import lombok.Getter;
 import lombok.Setter;
 
@@ -31,10 +29,6 @@ public class UpdateTourRequest {
     @Schema(description = "Số ngày diễn ra tour")
     private Integer durationDays;
 
-    @DecimalMin(value = "0.0", inclusive = false, message = MessageConstant.TOUR_BASE_PRICE_MIN)
-    @Schema(description = "Giá cơ bản của tour", example = "1500000")
-    private BigDecimal basePrice;
-
     @Min(value = 1, message = MessageConstant.TOUR_MIN_CAPACITY_MIN)
     @Schema(description = "Số lượng người tối thiểu để tổ chức tour", example = "5")
     private Integer minCapacity;
@@ -54,9 +48,5 @@ public class UpdateTourRequest {
 
     @Schema(description = "Các dịch vụ không bao gồm", example = "- Chi phí cá nhân\n- Vé cáp treo")
     private String excludes;
-
-    @Valid
-    @Schema(description = "Điều kiện tham gia và yêu cầu an toàn của tour")
-    private TourParticipationPolicyRequest participationPolicy;
 
 }

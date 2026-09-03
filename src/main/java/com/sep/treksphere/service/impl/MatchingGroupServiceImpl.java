@@ -240,7 +240,7 @@ public class MatchingGroupServiceImpl implements MatchingGroupService {
         MatchingMember ownerMember = new MatchingMember();
         ownerMember.setMatchingGroup(matchingGroup);
         ownerMember.setUser(currentUser);
-        ownerMember.setRole(MatchingRole.OWNER);
+        ownerMember.setRole(MatchingRole.LEADER);
         ownerMember.setStatus(JoinStatus.ACCEPTED);
 
         matchingGroup.getMembers().add(ownerMember);
@@ -520,7 +520,8 @@ public class MatchingGroupServiceImpl implements MatchingGroupService {
             throw new AppException(ErrorCode.NO_PENDING_JOIN_REQUEST);
         }
 
-        member.setStatus(JoinStatus.CANCELLED);
+        member.setStatus(JoinStatus.WITHDRAWN);
+        member.setWithdrawnAt(java.time.LocalDateTime.now());
         MatchingMember savedMember = matchingMemberRepository.save(member);
         return matchingGroupMapper.toMemberResponse(savedMember);
     }

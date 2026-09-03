@@ -17,10 +17,10 @@ public class TourCheckpoint extends BaseEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
-    private UUID checkpointId;
+    private UUID tourCheckpointId;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "tour_id")
+    @JoinColumn(name = "tour_id", nullable = false)
     private Tour tour;
 
     @Column(nullable = false, length = 255)
@@ -41,6 +41,6 @@ public class TourCheckpoint extends BaseEntity {
     @Column(nullable = false)
     private Integer checkpointOrder;
 
-    @Column(columnDefinition = "TEXT")
+    @Column(length = 500)
     private String checkpointImageUrl;
 }

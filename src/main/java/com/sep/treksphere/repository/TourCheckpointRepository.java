@@ -21,19 +21,19 @@ public interface TourCheckpointRepository extends JpaRepository<TourCheckpoint, 
 
     boolean existsByTourAndCheckpointOrderAndIsDeletedFalse(Tour tour, Integer checkpointOrder);
 
-    boolean existsByTourAndCheckpointOrderAndCheckpointIdNotAndIsDeletedFalse(
-            Tour tour, Integer checkpointOrder, UUID checkpointId);
+    boolean existsByTourAndCheckpointOrderAndTourCheckpointIdNotAndIsDeletedFalse(
+            Tour tour, Integer checkpointOrder, UUID tourCheckpointId);
 
     boolean existsByTourAndCheckpointNameIgnoreCaseAndIsDeletedFalse(Tour tour, String checkpointName);
 
-    boolean existsByTourAndCheckpointNameIgnoreCaseAndCheckpointIdNotAndIsDeletedFalse(
-            Tour tour, String checkpointName, UUID checkpointId);
+    boolean existsByTourAndCheckpointNameIgnoreCaseAndTourCheckpointIdNotAndIsDeletedFalse(
+            Tour tour, String checkpointName, UUID tourCheckpointId);
 
     boolean existsByTourAndLatitudeAndLongitudeAndIsDeletedFalse(
             Tour tour, BigDecimal latitude, BigDecimal longitude);
 
-    boolean existsByTourAndLatitudeAndLongitudeAndCheckpointIdNotAndIsDeletedFalse(
-            Tour tour, BigDecimal latitude, BigDecimal longitude, UUID checkpointId);
+    boolean existsByTourAndLatitudeAndLongitudeAndTourCheckpointIdNotAndIsDeletedFalse(
+            Tour tour, BigDecimal latitude, BigDecimal longitude, UUID tourCheckpointId);
 
     /**
      * Cascade soft delete: đánh dấu xóa mềm tất cả checkpoint chưa bị xóa của tour,

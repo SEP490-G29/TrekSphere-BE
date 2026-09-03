@@ -2,7 +2,6 @@ package com.sep.treksphere.dto.request;
 
 import com.sep.treksphere.constant.MessageConstant;
 import jakarta.validation.constraints.DecimalMin;
-import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
 import lombok.Data;
 
@@ -21,8 +20,4 @@ public class CreateScheduleRequest {
     @NotNull(message = MessageConstant.SCHEDULE_PRICE_REQUIRED)
     @DecimalMin(value = "0.0", inclusive = false, message = MessageConstant.SCHEDULE_PRICE_MIN)
     private BigDecimal price;
-
-    @NotNull(message = MessageConstant.SCHEDULE_SLOTS_REQUIRED)
-    @Min(value = 1, message = MessageConstant.SCHEDULE_SLOTS_MIN)
-    private Integer availableSlots;
 }

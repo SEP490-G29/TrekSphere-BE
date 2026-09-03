@@ -1,5 +1,6 @@
 package com.sep.treksphere.entity;
 
+import com.sep.treksphere.enums.tour.IncidentType;
 import com.sep.treksphere.enums.tour.SosAlertStatus;
 import jakarta.persistence.*;
 import lombok.Getter;
@@ -10,7 +11,9 @@ import java.math.BigDecimal;
 import java.util.UUID;
 
 @Entity
-@Table(name = "sos_alert")
+@Table(name = "sos_alert", uniqueConstraints = {
+    @UniqueConstraint(columnNames = {"group_trip_id", "sender_id", "idempotency_key"})
+})
 @Getter
 @Setter
 @NoArgsConstructor
@@ -21,17 +24,21 @@ public class SosAlert extends BaseEntity {
     private UUID sosAlertId;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "tour_session_id")
-    private TourSession tourSession;
+    @JoinColumn(name = "group_trip_id", nullable = false)
+    private GroupTrip groupTrip;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "sender_id")
+    @JoinColumn(name = "sender_id", nullable = false)
     private User sender;
 
-    @Column(precision = 10, scale = 7, nullable = false)
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 50)
+    private IncidentType incidentTypeCode;
+
+    @Column(precision = 10, scale = 7)
     private BigDecimal latitude;
 
-    @Column(precision = 10, scale = 7, nullable = false)
+    @Column(precision = 10, scale = 7)
     private BigDecimal longitude;
 
     @Column(columnDefinition = "TEXT")
@@ -39,9 +46,12 @@ public class SosAlert extends BaseEntity {
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
-    private SosAlertStatus status = SosAlertStatus.PENDING;
+    private SosAlertStatus status = SosAlertStatus.OPEN;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "resolved_by")
     private User resolvedBy;
+
+    @Column(nullable = false, length = 255)
+    private String idempotencyKey;
 }

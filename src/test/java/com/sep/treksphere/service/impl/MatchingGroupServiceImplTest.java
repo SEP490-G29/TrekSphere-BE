@@ -229,7 +229,7 @@ class MatchingGroupServiceImplTest {
         MatchingMember ownerMember = new MatchingMember();
         ownerMember.setMatchingGroup(group);
         ownerMember.setUser(owner);
-        ownerMember.setRole(MatchingRole.OWNER);
+        ownerMember.setRole(MatchingRole.LEADER);
         ownerMember.setStatus(JoinStatus.ACCEPTED);
         group.getMembers().add(ownerMember);
 
@@ -305,7 +305,7 @@ class MatchingGroupServiceImplTest {
         assertThat(savedGroup.getStatus()).isEqualTo(com.sep.treksphere.enums.matching.MatchingGroupStatus.OPEN);
         assertThat(savedGroup.getMembers()).singleElement().satisfies(member -> {
             assertThat(member.getUser()).isSameAs(owner);
-            assertThat(member.getRole()).isEqualTo(MatchingRole.OWNER);
+            assertThat(member.getRole()).isEqualTo(MatchingRole.LEADER);
             assertThat(member.getStatus()).isEqualTo(JoinStatus.ACCEPTED);
         });
     }
@@ -681,7 +681,7 @@ class MatchingGroupServiceImplTest {
         MatchingMember ownerMember = new MatchingMember();
         ownerMember.setMatchingGroup(group);
         ownerMember.setUser(owner);
-        ownerMember.setRole(MatchingRole.OWNER);
+        ownerMember.setRole(MatchingRole.LEADER);
         ownerMember.setStatus(JoinStatus.ACCEPTED);
         group.getMembers().add(ownerMember);
         return group;

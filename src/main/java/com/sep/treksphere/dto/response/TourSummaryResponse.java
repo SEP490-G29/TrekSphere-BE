@@ -20,7 +20,7 @@ public class TourSummaryResponse {
     private String tourName;
     private String location;
     private Integer durationDays;
-    private BigDecimal basePrice;
+    private BigDecimal fromPrice;
     private Integer minCapacity;
     private Integer maxCapacity;
     private BigDecimal totalDistanceKm;
@@ -34,12 +34,6 @@ public class TourSummaryResponse {
 
     private String vendorId;
     private String vendorName;
-
-    private Boolean onlineBookingEnabled;
-    private String onlineBookingDisabledReason;
-
-    private Double averageRating;
-    private int totalReviews;
 
     private LocalDateTime createdAt;
 }

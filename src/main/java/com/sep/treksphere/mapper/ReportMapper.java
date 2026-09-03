@@ -25,28 +25,28 @@ public abstract class ReportMapper {
     protected ReportTargetType determineTargetType(ReportContent report) {
         if (report.getBlog() != null) return ReportTargetType.BLOG;
         if (report.getBlogComment() != null) return ReportTargetType.COMMENT;
-        if (report.getReview() != null) return ReportTargetType.REVIEW;
+        if (report.getTour() != null) return ReportTargetType.TOUR;
         return null;
     }
 
     protected UUID determineTargetId(ReportContent report) {
         if (report.getBlog() != null) return report.getBlog().getBlogId();
         if (report.getBlogComment() != null) return report.getBlogComment().getBlogCommentId();
-        if (report.getReview() != null) return report.getReview().getReviewId();
+        if (report.getTour() != null) return report.getTour().getTourId();
         return null;
     }
 
     protected String determineTargetTitle(ReportContent report) {
         if (report.getBlog() != null) return report.getBlog().getTitle();
         if (report.getBlogComment() != null) return "Bình luận Blog";
-        if (report.getReview() != null) return "Đánh giá dịch vụ";
+        if (report.getTour() != null) return report.getTour().getTourName();
         return null;
     }
 
     protected String determineTargetContent(ReportContent report) {
         if (report.getBlog() != null) return report.getBlog().getContent();
         if (report.getBlogComment() != null) return report.getBlogComment().getContent();
-        if (report.getReview() != null) return report.getReview().getContent();
+        if (report.getTour() != null) return report.getTour().getDescription();
         return null;
     }
 }

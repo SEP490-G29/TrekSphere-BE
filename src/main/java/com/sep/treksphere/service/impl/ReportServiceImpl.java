@@ -4,7 +4,7 @@ import com.sep.treksphere.dto.request.report.CreateReportRequest;
 import com.sep.treksphere.entity.Blog;
 import com.sep.treksphere.entity.BlogComment;
 import com.sep.treksphere.entity.ReportContent;
-import com.sep.treksphere.entity.Review;
+import com.sep.treksphere.entity.Tour;
 import com.sep.treksphere.entity.User;
 import com.sep.treksphere.enums.report.ReportStatus;
 import com.sep.treksphere.exception.AppException;
@@ -13,7 +13,7 @@ import com.sep.treksphere.mapper.ReportMapper;
 import com.sep.treksphere.repository.BlogCommentRepository;
 import com.sep.treksphere.repository.BlogRepository;
 import com.sep.treksphere.repository.ReportContentRepository;
-import com.sep.treksphere.repository.ReviewRepository;
+import com.sep.treksphere.repository.TourRepository;
 import com.sep.treksphere.repository.UserRepository;
 import com.sep.treksphere.service.ReportService;
 import lombok.RequiredArgsConstructor;
@@ -30,13 +30,9 @@ import com.sep.treksphere.dto.response.report.ReportResponse;
 import com.sep.treksphere.enums.report.ReportAction;
 import com.sep.treksphere.enums.blog.BlogStatus;
 import com.sep.treksphere.enums.blog.CommentStatus;
-import com.sep.treksphere.enums.blog.ReviewStatus;
-import com.sep.treksphere.enums.report.ReportTargetType;
+import com.sep.treksphere.enums.tour.TourStatus;
 import com.sep.treksphere.utils.PaginationUtils;
 import org.springframework.data.domain.Page;
-import org.springframework.data.domain.Pageable;
-
-import java.util.List;
 
 @Service
 @RequiredArgsConstructor
@@ -47,7 +43,7 @@ public class ReportServiceImpl implements ReportService {
     private final UserRepository userRepository;
     private final BlogRepository blogRepository;
     private final BlogCommentRepository blogCommentRepository;
-    private final ReviewRepository reviewRepository;
+    private final TourRepository tourRepository;
     private final ReportMapper reportMapper;
 
     @Override
@@ -72,10 +68,10 @@ public class ReportServiceImpl implements ReportService {
                         .orElseThrow(() -> new AppException(ErrorCode.REPORT_TARGET_NOT_FOUND));
                 report.setBlogComment(comment);
                 break;
-            case REVIEW:
-                Review review = reviewRepository.findById(request.getTargetId())
+            case TOUR:
+                Tour tour = tourRepository.findById(request.getTargetId())
                         .orElseThrow(() -> new AppException(ErrorCode.REPORT_TARGET_NOT_FOUND));
-                report.setReview(review);
+                report.setTour(tour);
                 break;
             default:
                 throw new AppException(ErrorCode.VALIDATION_ERROR);
@@ -105,16 +101,16 @@ public class ReportServiceImpl implements ReportService {
     public void resolveReport(UUID reportId, ResolveReportRequest request, UUID adminId) {
         User admin = userRepository.findById(adminId)
                 .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
-                
+
         ReportContent report = reportContentRepository.findById(reportId)
                 .orElseThrow(() -> new AppException(ErrorCode.REPORT_NOT_FOUND));
-                
+
         if (report.getStatus() != ReportStatus.PENDING) {
             throw new AppException(ErrorCode.REPORT_ALREADY_RESOLVED);
         }
-        
+
         ReportAction action = request.getAction();
-        
+
         if (action == ReportAction.HIDE_CONTENT) {
             if (report.getBlog() != null) {
                 Blog blog = report.getBlog();
@@ -124,15 +120,15 @@ public class ReportServiceImpl implements ReportService {
                 BlogComment comment = report.getBlogComment();
                 comment.setStatus(CommentStatus.HIDDEN);
                 blogCommentRepository.save(comment);
-            } else if (report.getReview() != null) {
-                Review review = report.getReview();
-                review.setStatus(ReviewStatus.HIDDEN);
-                reviewRepository.save(review);
+            } else if (report.getTour() != null) {
+                Tour tour = report.getTour();
+                tour.setStatus(TourStatus.HIDDEN);
+                tourRepository.save(tour);
             }
         }
-        
+
         if (action == ReportAction.DISMISS) {
-            report.setStatus(ReportStatus.DISMISSED);
+            report.setStatus(ReportStatus.REJECTED);
         } else {
             report.setStatus(ReportStatus.RESOLVED);
         }

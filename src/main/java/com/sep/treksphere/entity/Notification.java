@@ -42,6 +42,9 @@ public class Notification extends BaseEntity {
 
     private UUID referenceId;
 
+    @Column(length = 500)
+    private String actionUrl;
+
     @Column(nullable = false)
     private Boolean isRead = false;
 }

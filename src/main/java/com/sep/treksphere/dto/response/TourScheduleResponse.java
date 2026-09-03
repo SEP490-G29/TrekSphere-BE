@@ -20,8 +20,6 @@ public class TourScheduleResponse {
     private String tourId;
     private LocalDate departureDate;
     private LocalDate returnDate;
-    private Integer availableSlots;
-    private Integer bookedSlots;
     private BigDecimal price;
     private ScheduleStatus status;
 

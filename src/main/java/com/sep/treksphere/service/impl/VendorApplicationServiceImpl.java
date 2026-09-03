@@ -219,18 +219,18 @@ public class VendorApplicationServiceImpl implements VendorApplicationService {
             vendorApplicationRepository.save(application);
 
             User applicant = application.getApplicant();
-            Role managerRole = roleRepository.findByRoleName("VENDOR_MANAGER")
+            Role managerRole = roleRepository.findByRoleName("VENDOR")
                     .orElseThrow(() -> {
-                        log.error("Role VENDOR_MANAGER not found in database");
+                        log.error("Role VENDOR not found in database");
                         return new AppException(ErrorCode.ROLE_NOT_FOUND);
                     });
 
             boolean hasManagerRole = applicant.getRoles().stream()
-                    .anyMatch(r -> r.getRoleName().equals("VENDOR_MANAGER"));
+                    .anyMatch(r -> r.getRoleName().equals("VENDOR"));
             if (!hasManagerRole) {
                 applicant.getRoles().add(managerRole);
                 userRepository.save(applicant);
-                log.info("Role VENDOR_MANAGER successfully assigned to user: {}", applicant.getEmail());
+                log.info("Role VENDOR successfully assigned to user: {}", applicant.getEmail());
             }
 
             Vendor vendor = new Vendor();

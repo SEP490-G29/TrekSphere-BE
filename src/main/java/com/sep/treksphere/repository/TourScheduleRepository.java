@@ -26,7 +26,7 @@ public interface TourScheduleRepository extends JpaRepository<TourSchedule, UUID
        List<TourSchedule> findByTourAndStatusAndDepartureDateGreaterThanEqualAndIsDeletedFalseOrderByDepartureDateAsc(
                      Tour tour, ScheduleStatus status, LocalDate date);
 
-       Optional<TourSchedule> findByScheduleIdAndIsDeletedFalse(UUID scheduleId);
+       Optional<TourSchedule> findByTourScheduleIdAndIsDeletedFalse(UUID tourScheduleId);
 
        @Query("SELECT ts FROM TourSchedule ts WHERE ts.tour.vendor.vendorId = :vendorId " +
                      "AND ts.isDeleted = false AND ts.departureDate >= :today ORDER BY ts.departureDate ASC")
@@ -56,6 +56,16 @@ public interface TourScheduleRepository extends JpaRepository<TourSchedule, UUID
 
        @Lock(LockModeType.PESSIMISTIC_WRITE)
        @Query("select s from TourSchedule s join fetch s.tour t join fetch t.vendor " +
-                     "where s.scheduleId = :scheduleId and s.isDeleted = false")
-       Optional<TourSchedule> findByIdForUpdate(@Param("scheduleId") UUID scheduleId);
+                     "where s.tourScheduleId = :tourScheduleId and s.isDeleted = false")
+       Optional<TourSchedule> findByIdForUpdate(@Param("tourScheduleId") UUID tourScheduleId);
+
+       @Query("""
+              SELECT ts.tour.tourId, MIN(ts.price) FROM TourSchedule ts
+              WHERE ts.tour.tourId IN :tourIds
+                AND ts.status = com.sep.treksphere.enums.tour.ScheduleStatus.OPEN
+                AND ts.departureDate >= :today
+                AND ts.isDeleted = false
+              GROUP BY ts.tour.tourId
+              """)
+       List<Object[]> findMinOpenPriceByTourIds(@Param("tourIds") List<UUID> tourIds, @Param("today") LocalDate today);
 }

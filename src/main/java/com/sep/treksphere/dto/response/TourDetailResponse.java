@@ -23,7 +23,7 @@ public class TourDetailResponse {
     private DifficultyLevel difficulty;
     private String location;
     private Integer durationDays;
-    private BigDecimal basePrice;
+    private BigDecimal fromPrice;
     private Integer minCapacity;
     private Integer maxCapacity;
     private BigDecimal totalDistanceKm;
@@ -52,24 +52,4 @@ public class TourDetailResponse {
     private List<TourCheckpointResponse> checkpoints;
 
     private List<TourScheduleResponse> schedules;
-
-    private List<CancellationPolicyResponse> cancellationPolicies;
-
-    /** Chính sách trả đủ/đặt cọc hiện hành để Trekker chọn đúng khi đặt tour. */
-    private TourPaymentPolicyResponse paymentPolicy;
-
-    /** Điều kiện tuổi, thể lực, sức khỏe, trang bị và giấy tờ của tour. */
-    private TourParticipationPolicyResponse participationPolicy;
-
-    /** Tour vẫn public khi false, nhưng không được tạo booking online. */
-    private Boolean onlineBookingEnabled;
-
-    /** Lý do cụ thể để cả Trekker và Vendor biết bước cấu hình còn thiếu. */
-    private String onlineBookingDisabledReason;
-
-    /** Chi phí không hoàn lại của tour, dùng để giải thích chính sách trước khi đặt. */
-    private BigDecimal nonRefundableCost;
-
-    private Double averageRating;
-    private int totalReviews;
 }

@@ -12,6 +12,6 @@ public class UserFilterRequest extends BaseFilterRequest {
     @Schema(description = "Lọc theo trạng thái (ví dụ: ACTIVE, LOCKED)")
     private UserStatus status;
 
-    @Schema(description = "Lọc theo Role (ví dụ: TREKKER, VENDOR_MANAGER)")
+    @Schema(description = "Lọc theo Role (ví dụ: TREKKER, VENDOR)")
     private String roleName;
 }

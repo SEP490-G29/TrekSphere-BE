@@ -26,7 +26,7 @@ public class MatchingGroup extends BaseEntity {
     private UUID matchingGroupId;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "tour_id", nullable = false)
+    @JoinColumn(name = "tour_id")
     private Tour tour;
 
     @ManyToOne(fetch = FetchType.LAZY)
@@ -52,7 +52,7 @@ public class MatchingGroup extends BaseEntity {
     private LocalDateTime matchingDeadline;
 
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false, length = 10)
+    @Column(nullable = false, length = 30)
     private MatchingGroupStatus status = MatchingGroupStatus.OPEN;
 
     @OneToMany(mappedBy = "matchingGroup", cascade = CascadeType.ALL, orphanRemoval = true)
