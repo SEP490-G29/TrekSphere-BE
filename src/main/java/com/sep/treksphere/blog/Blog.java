@@ -1,0 +1,49 @@
+package com.sep.treksphere.blog;
+
+import com.sep.treksphere.blog.comment.BlogComment;
+import com.sep.treksphere.common.entity.BaseEntity;
+import com.sep.treksphere.user.User;
+import com.sep.treksphere.blog.BlogStatus;
+import jakarta.persistence.*;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
+
+import java.util.HashSet;
+import java.util.Set;
+import java.util.UUID;
+
+@Entity
+@Table(name = "blog")
+@Getter
+@Setter
+@NoArgsConstructor
+public class Blog extends BaseEntity {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.UUID)
+    private UUID blogId;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "user_id", nullable = false)
+    private User user;
+
+    @Column(nullable = false, length = 500)
+    private String title;
+
+    @Column(nullable = false, columnDefinition = "TEXT")
+    private String content;
+
+    @Column(length = 500)
+    private String coverImageUrl;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 20)
+    private BlogStatus status = BlogStatus.DRAFT;
+
+    @Column(nullable = false)
+    private Integer viewCount = 0;
+
+    @OneToMany(mappedBy = "blog", cascade = CascadeType.ALL, orphanRemoval = true)
+    private Set<BlogComment> comments = new HashSet<>();
+}

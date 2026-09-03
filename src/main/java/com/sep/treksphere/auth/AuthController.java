@@ -1,0 +1,129 @@
+package com.sep.treksphere.auth;
+
+import com.sep.treksphere.auth.dto.request.ChangePasswordRequest;
+import com.sep.treksphere.auth.dto.request.ForgotPasswordRequest;
+import com.sep.treksphere.auth.dto.request.LoginRequest;
+import com.sep.treksphere.auth.dto.request.RegisterRequest;
+import com.sep.treksphere.auth.dto.request.ResendVerificationRequest;
+import com.sep.treksphere.auth.dto.request.ResetPasswordRequest;
+import com.sep.treksphere.auth.dto.request.*;
+import com.sep.treksphere.auth.dto.response.LoginResponse;
+import com.sep.treksphere.auth.dto.response.RegisterResponse;
+import com.sep.treksphere.common.constant.MessageConstant;
+import com.sep.treksphere.common.dto.ApiResponse;
+import com.sep.treksphere.common.security.CustomUserDetails;
+import com.sep.treksphere.common.util.CookieUtil;
+import com.sep.treksphere.user.UserResponse;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.*;
+
+@RestController
+@RequestMapping("/api/v1/auth")
+@RequiredArgsConstructor
+@Slf4j
+@Tag(name = "Authentication", description = "Các API liên quan đến xác thực và phân quyền người dùng")
+public class AuthController {
+
+    private final AuthService authService;
+    private final CookieUtil cookieUtil;
+
+    @Operation(summary = "Đăng nhập", description = "Đăng nhập với email và passoword")
+    @PostMapping("/login")
+    public ResponseEntity<ApiResponse<UserResponse>> login(@Valid @RequestBody LoginRequest request) {
+        log.info("Attempting to log in user with email: {}", request.getEmail());
+        LoginResponse loginResponse = authService.login(request);
+        return ResponseEntity.ok()
+                .headers(cookieUtil.createCookieHeaders(loginResponse.getAccessToken(), loginResponse.getRefreshToken()))
+                .body(ApiResponse.success(HttpStatus.OK, loginResponse.getUser(), MessageConstant.LOGIN_SUCCESSFULLY));
+    }
+
+    @Operation(summary = "Đăng nhập bằng Google", description = "Đăng nhập thông qua Google ID Token")
+    @PostMapping("/google")
+    public ResponseEntity<ApiResponse<UserResponse>> googleLogin(@RequestParam("idToken") String idToken) {
+        log.info("Attempting to log in user with Google ID Token");
+        LoginResponse loginResponse = authService.googleLogin(idToken);
+        return ResponseEntity.ok()
+                .headers(cookieUtil.createCookieHeaders(loginResponse.getAccessToken(), loginResponse.getRefreshToken()))
+                .body(ApiResponse.success(HttpStatus.OK, loginResponse.getUser(), MessageConstant.GOOGLE_LOGIN_SUCCESSFULLY));
+    }
+
+    @Operation(summary = "Đăng ký tài khoản", description = "Đăng ký một tài khoản mới với quyền TREKKER")
+    @PostMapping("/register")
+    public ResponseEntity<ApiResponse<RegisterResponse>> register(@Valid @RequestBody RegisterRequest request) {
+        log.info("Attempting to register user with email: {}", request.getEmail());
+        HttpStatus status = HttpStatus.CREATED;
+        return ResponseEntity.status(status).body(ApiResponse.success(status, authService.register(request), MessageConstant.REGISTER_SUCCESSFULLY));
+    }
+
+    @GetMapping("/verify")
+    public ResponseEntity<ApiResponse<String>> verifyEmail(@RequestParam("token") String token) {
+        log.info("Attempting to verify email");
+        return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, authService.verifyEmail(token)));
+    }
+
+    @Operation(summary = "Gửi lại email xác minh", description = "Gửi link xác minh mới nếu tài khoản tồn tại và chưa được xác minh")
+    @PostMapping("/resend-verification")
+    public ResponseEntity<ApiResponse<Void>> resendVerification(
+            @Valid @RequestBody ResendVerificationRequest request) {
+        authService.resendVerificationEmail(request.getEmail());
+        return ResponseEntity.ok(ApiResponse.success(
+                HttpStatus.OK,
+                null,
+                MessageConstant.VERIFICATION_EMAIL_RESENT
+        ));
+    }
+
+    @PostMapping("/refresh-token")
+    public ResponseEntity<ApiResponse<UserResponse>> refreshToken(
+            @Parameter(hidden = true) @CookieValue(value = "refresh_token") String refreshToken
+    ) {
+
+        LoginResponse loginResponse = authService.refreshToken(refreshToken);
+        return ResponseEntity.ok()
+                .headers(cookieUtil.createCookieHeaders(loginResponse.getAccessToken(), loginResponse.getRefreshToken()))
+                .body(ApiResponse.success(HttpStatus.OK, loginResponse.getUser()));
+    }
+
+    @PostMapping("/forgot-password")
+    public ResponseEntity<ApiResponse<String>> forgotPassword(@Valid @RequestBody ForgotPasswordRequest request) {
+        authService.forgotPassword(request.getEmail());
+        return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, null, MessageConstant.RESET_LINK_SENT_SUCCESSFULLY));
+    }
+
+    @Operation(summary = "Reset mật khẩu", description = "Cho phép người dùng reset mật khẩu bằng token")
+    @PostMapping("/reset-password")
+    public ResponseEntity<ApiResponse<String>> resetPassword(@Valid @RequestBody ResetPasswordRequest request) {
+        authService.resetPassword(request.getToken(), request.getNewPassword());
+        return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, null, MessageConstant.PASSWORD_RESET_SUCCESSFULLY));
+    }
+
+    @Operation(summary = "Thay đổi mật khẩu", description = "Cho phép người dùng đã đăng nhập thay đổi mật khẩu")
+    @SecurityRequirement(name = "bearerAuth")
+    @PostMapping("/change-password")
+    public ResponseEntity<ApiResponse<String>> changePassword(
+            @AuthenticationPrincipal CustomUserDetails userDetails,
+            @Valid @RequestBody ChangePasswordRequest request) {
+        authService.changePassword(userDetails.getUsername(), request);
+        return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, null, MessageConstant.PASSWORD_CHANGED_SUCCESSFULLY));
+    }
+
+    @Operation(summary = "Đăng xuất", description = "Thu hồi refresh token của phiên bản đăng nhập hiện tại")
+    @PostMapping("/logout")
+    public ResponseEntity<ApiResponse<String>> logout(HttpServletRequest request, @Parameter(hidden = true) @CookieValue(value = "refresh_token", required = false) String refreshToken) {
+        String accessToken = CookieUtil.extractAccessToken(request);
+        authService.logout(accessToken, refreshToken);
+        return ResponseEntity.ok()
+                .headers(cookieUtil.createExpiredCookieHeaders())
+                .body(ApiResponse.success(HttpStatus.OK, MessageConstant.LOGOUT_SUCCESSFULLY));
+    }
+}
