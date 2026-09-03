@@ -32,7 +32,7 @@ public interface ConversationRepository extends JpaRepository<Conversation, UUID
             FROM Conversation c
             JOIN c.participants firstParticipant
             JOIN c.participants secondParticipant
-            WHERE c.conversationType = com.sep.treksphere.enums.chat.ConversationType.DIRECT
+            WHERE c.conversationType = com.sep.treksphere.chat.ConversationType.DIRECT
               AND c.isDeleted = false
               AND firstParticipant.userId = :firstUserId
               AND secondParticipant.userId = :secondUserId

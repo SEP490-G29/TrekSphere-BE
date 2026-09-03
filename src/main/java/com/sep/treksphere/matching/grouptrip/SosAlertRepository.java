@@ -18,12 +18,12 @@ import jakarta.persistence.LockModeType;
 @Repository
 public interface SosAlertRepository extends JpaRepository<SosAlert, UUID> {
 
-    Optional<SosAlert> findFirstByTourSession_TourSessionIdAndStatusAndIsDeletedFalseOrderByCreatedAtDesc(
-            UUID tourSessionId,
+    Optional<SosAlert> findFirstByGroupTrip_GroupTripIdAndStatusAndIsDeletedFalseOrderByCreatedAtDesc(
+            UUID groupTripId,
             SosAlertStatus status
     );
 
-    Optional<SosAlert> findFirstByTourSession_TourSessionIdAndIsDeletedFalseOrderByCreatedAtDesc(UUID tourSessionId);
+    Optional<SosAlert> findFirstByGroupTrip_GroupTripIdAndIsDeletedFalseOrderByCreatedAtDesc(UUID groupTripId);
 
     @Query("""
     SELECT s
@@ -31,7 +31,7 @@ public interface SosAlertRepository extends JpaRepository<SosAlert, UUID> {
     WHERE s.status = :status
       AND s.isDeleted = false
       AND (CAST(:vendorId AS uuid) IS NULL
-          OR s.tourSession.tourSchedule.tour.vendor.vendorId = :vendorId
+          OR s.groupTrip.matchingGroup.tour.vendor.vendorId = :vendorId
       )
     ORDER BY s.createdAt DESC
     """)

@@ -33,7 +33,7 @@ public interface TourRepository extends JpaRepository<Tour, UUID> {
                  AND (CAST(:difficulty AS string) IS NULL OR t.difficulty = :difficulty)
                  AND ((CAST(:departureDate AS date) IS NULL AND CAST(:returnDate AS date) IS NULL)
                       OR EXISTS (
-                          SELECT ts.scheduleId FROM TourSchedule ts
+                          SELECT ts.tourScheduleId FROM TourSchedule ts
                           WHERE ts.tour = t
                             AND ts.isDeleted = false
                             AND (CAST(:departureDate AS date) IS NULL OR ts.departureDate = :departureDate)

@@ -62,7 +62,7 @@ public interface TourScheduleRepository extends JpaRepository<TourSchedule, UUID
        @Query("""
               SELECT ts.tour.tourId, MIN(ts.price) FROM TourSchedule ts
               WHERE ts.tour.tourId IN :tourIds
-                AND ts.status = com.sep.treksphere.enums.tour.ScheduleStatus.OPEN
+                AND ts.status = com.sep.treksphere.tour.schedule.ScheduleStatus.OPEN
                 AND ts.departureDate >= :today
                 AND ts.isDeleted = false
               GROUP BY ts.tour.tourId

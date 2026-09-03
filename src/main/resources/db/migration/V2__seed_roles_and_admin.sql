@@ -23,7 +23,7 @@ INSERT INTO users (
     'b70fbe4a-6199-416a-aae1-536b8c497b3e',
     'admin@treksphere.com',
     'System Admin',
-    '$2a$12$sonrfvUcqMSzbmj5hiexsObseflEPbuKFR8waE33GySrb8aXEbYTu',
+    '$2a$12$4J3OyTUEsWYCKFGpZrW0oe1UJe6mC1RmBNrTduveEVj5/85pq7O2W',
     '0901000000',
     'ACTIVE',
     TRUE,
