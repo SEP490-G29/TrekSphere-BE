@@ -1,0 +1,409 @@
+package com.sep.treksphere.auth;
+
+import com.google.api.client.googleapis.auth.oauth2.GoogleIdToken;
+import com.google.api.client.googleapis.auth.oauth2.GoogleIdTokenVerifier;
+import com.google.api.client.http.javanet.NetHttpTransport;
+import com.google.api.client.json.gson.GsonFactory;
+import com.sep.treksphere.auth.dto.request.ChangePasswordRequest;
+import com.sep.treksphere.auth.dto.request.LoginRequest;
+import com.sep.treksphere.auth.dto.request.RegisterRequest;
+import com.sep.treksphere.auth.dto.response.LoginResponse;
+import com.sep.treksphere.auth.dto.response.RegisterResponse;
+import com.sep.treksphere.common.constant.MessageConstant;
+import com.sep.treksphere.common.exception.AppException;
+import com.sep.treksphere.common.exception.ErrorCode;
+import com.sep.treksphere.common.security.CustomUserDetails;
+import com.sep.treksphere.common.security.JwtService;
+import com.sep.treksphere.common.security.JwtTokenProvider;
+import com.sep.treksphere.notification.EmailService;
+import com.sep.treksphere.user.AuthProvider;
+import com.sep.treksphere.user.Role;
+import com.sep.treksphere.user.RoleRepository;
+import com.sep.treksphere.user.User;
+import com.sep.treksphere.user.UserRepository;
+import com.sep.treksphere.user.UserStatus;
+import org.springframework.data.redis.core.StringRedisTemplate;
+import java.time.Duration;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.DisabledException;
+import org.springframework.security.authentication.LockedException;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import io.jsonwebtoken.ExpiredJwtException;
+import io.jsonwebtoken.JwtException;
+
+import java.util.Collections;
+import java.util.Date;
+
+@Service
+@RequiredArgsConstructor
+@Slf4j
+public class AuthService {
+
+    private final UserRepository userRepository;
+    private final RoleRepository roleRepository;
+    private final RefreshTokenService refreshTokenService;
+    private final TokenBlacklistService tokenBlacklistService;
+    private final EmailService emailService;
+    private final EmailVerificationRateLimiter emailVerificationRateLimiter;
+    private final PasswordEncoder passwordEncoder;
+    private final JwtService jwtService;
+    private final JwtTokenProvider tokenProvider;
+    private final AuthenticationManager authenticationManager;
+    private final AuthMapper authMapper;
+    private final ForgotPasswordRateLimiter forgotPasswordRateLimiter;
+    private final StringRedisTemplate redisTemplate;
+
+    @Value("${application.security.jwt.refresh-token.expiration}")
+    private long refreshExpiration;
+
+    @Value("${application.frontend.url}")
+    private String frontendUrl;
+
+    @Value("${application.security.oauth2.google.client-id}")
+    private String googleClientId;
+
+    @Transactional
+    public LoginResponse login(LoginRequest request) {
+        User user = userRepository.findByEmail(request.getEmail()).orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
+
+        try {
+            authenticationManager.authenticate(new UsernamePasswordAuthenticationToken(request.getEmail(), request.getPassword()));
+        } catch (LockedException ex) {
+            throw new AppException(ErrorCode.ACCOUNT_LOCKED);
+        } catch (DisabledException ex) {
+            throw new AppException(ErrorCode.ACCOUNT_DEACTIVATED);
+        }
+
+        if (!user.isEmailVerified()) {
+            throw new AppException(ErrorCode.EMAIL_NOT_VERIFIED);
+        }
+
+        CustomUserDetails userDetails = new CustomUserDetails(user);
+        return issueTokens(userDetails, user);
+    }
+
+    @Transactional
+    public RegisterResponse register(RegisterRequest request) {
+        log.info("Starting registration process for email: {}", request.getEmail());
+
+        if (!request.getPassword().equals(request.getConfirmPassword())) {
+            log.warn("Registration failed: Passwords do not match for email {}", request.getEmail());
+            throw new AppException(ErrorCode.VALIDATION_ERROR, MessageConstant.CONFIRM_PASSWORD_NOT_MATCH);
+        }
+        if (userRepository.existsByEmail(request.getEmail())) {
+            log.warn("Registration failed: Email {} already exists", request.getEmail());
+            throw new AppException(ErrorCode.EMAIL_EXISTED);
+        }
+
+        log.info("Fetching default role from database...");
+        Role userRole = roleRepository.findByRoleName("TREKKER").orElseThrow(() -> {
+            log.error("Default role 'TREKKER' not found in the database.");
+            return new AppException(ErrorCode.ROLE_NOT_FOUND);
+        });
+
+        log.info("Encoding password for user: {}", request.getEmail());
+        String encodedPassword = passwordEncoder.encode(request.getPassword());
+
+        log.info("Creating new User entity...");
+        User user = new User();
+        user.setEmail(request.getEmail());
+        user.setFullName(request.getFullName());
+        user.setPasswordHash(encodedPassword);
+        user.setStatus(UserStatus.ACTIVE);
+        user.setEmailVerified(false);
+        user.getRoles().add(userRole);
+
+        log.info("Saving User {} to database...", request.getEmail());
+        user = userRepository.save(user);
+        log.info("User {} saved successfully with ID: {}", user.getEmail(), user.getUserId());
+
+        log.info("Generating verification token...");
+        String verificationToken = tokenProvider.generateVerificationToken(user.getEmail());
+
+        String verificationUrl = frontendUrl + "/verify?token=" + verificationToken;
+
+        try {
+            emailService.sendVerificationEmail(user.getEmail(), user.getFullName(), verificationUrl);
+            log.info("Verification email sent to: {}", user.getEmail());
+        } catch (Exception e) {
+            log.error("Failed to send verification email to {}, user is still created. Will need resend.", user.getEmail(), e);
+        }
+
+        log.info("Registration process completed successfully for: {}", request.getEmail());
+        return RegisterResponse.builder().userId(user.getUserId()).email(user.getEmail()).fullName(user.getFullName()).build();
+    }
+
+    @Transactional
+    public String verifyEmail(String token) {
+        log.info("Starting email verification process with token...");
+        String email;
+        try {
+            email = tokenProvider.getEmailFromToken(token);
+        } catch (ExpiredJwtException ex) {
+            log.info("Email verification token has expired.");
+            throw new AppException(ErrorCode.VERIFICATION_TOKEN_EXPIRED);
+        } catch (JwtException | IllegalArgumentException ex) {
+            log.warn("Invalid email verification token: {}", ex.getMessage());
+            throw new AppException(ErrorCode.INVALID_TOKEN);
+        }
+
+        log.info("Token validated for email: {}", email);
+
+        User user = userRepository.findByEmail(email).orElseThrow(() -> {
+            log.error("User with email {} not found.", email);
+            return new AppException(ErrorCode.USER_NOT_FOUND);
+        });
+
+        if (user.isEmailVerified()) {
+            log.info("Email {} is already verified.", email);
+            return MessageConstant.EMAIL_ALREADY_VERIFIED;
+        }
+        user.setEmailVerified(true);
+        userRepository.save(user);
+        log.info("Email {} has been successfully verified.", email);
+
+        return MessageConstant.EMAIL_VERIFIED_SUCCESSFULLY;
+    }
+
+    @Transactional(readOnly = true)
+    public void resendVerificationEmail(String email) {
+        String normalizedEmail = email.trim().toLowerCase();
+        emailVerificationRateLimiter.checkAllowed(normalizedEmail);
+
+        User user = userRepository.findByEmail(normalizedEmail).orElse(null);
+        if (user == null || user.isEmailVerified() || user.getStatus() != UserStatus.ACTIVE) {
+            return;
+        }
+
+        String verificationToken = tokenProvider.generateVerificationToken(user.getEmail());
+        String verificationUrl = frontendUrl + "/verify?token=" + verificationToken;
+        emailService.sendVerificationEmail(user.getEmail(), user.getFullName(), verificationUrl);
+        log.info("Verification email resent to: {}", user.getEmail());
+    }
+
+    @Transactional
+    public LoginResponse refreshToken(String refreshTokenStr) {
+        if (refreshTokenStr == null || refreshTokenStr.trim().isEmpty()) {
+            throw new AppException(ErrorCode.INVALID_TOKEN, "Không tìm thấy refresh token trong cookie");
+        }
+
+        if (!jwtService.isSignatureValid(refreshTokenStr)) {
+            throw new AppException(ErrorCode.INVALID_TOKEN, "Token không hợp lệ");
+        }
+
+        String type = jwtService.extractType(refreshTokenStr);
+        if (!"refresh".equals(type)) {
+            throw new AppException(ErrorCode.INVALID_TOKEN, "Token type không đúng");
+        }
+
+        String jti = jwtService.extractJti(refreshTokenStr);
+        if (tokenBlacklistService.isBlacklisted(jti)) {
+            throw new AppException(ErrorCode.INVALID_TOKEN, "Token đã bị thu hồi");
+        }
+
+        String userEmail;
+        try {
+            userEmail = jwtService.extractUsername(refreshTokenStr);
+        } catch (Exception e) {
+            throw new AppException(ErrorCode.INVALID_TOKEN, "Token không chứa thông tin user");
+        }
+
+        refreshTokenService.validateAndConsume(userEmail, jti);
+
+        User user = userRepository.findByEmail(userEmail).orElseThrow(() -> new AppException(ErrorCode.INVALID_TOKEN, "User không tồn tại"));
+        validateAccountStatus(user);
+        CustomUserDetails userDetails = new CustomUserDetails(user);
+
+        if (!jwtService.isTokenValid(refreshTokenStr, userDetails)) {
+            throw new AppException(ErrorCode.INVALID_TOKEN, "Token đã hết hạn hoặc không hợp lệ");
+        }
+
+        Date expiration = jwtService.extractExpiration(refreshTokenStr);
+        long ttl = expiration.getTime() - System.currentTimeMillis();
+        tokenBlacklistService.blacklist(jti, ttl);
+
+        return issueTokens(userDetails, user);
+    }
+
+    @Transactional
+    public void forgotPassword(String email) {
+        String normalizedEmail = email.trim().toLowerCase();
+        forgotPasswordRateLimiter.checkAllowed(normalizedEmail);
+
+        User user = userRepository.findByEmail(normalizedEmail).orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
+
+        String tokenStr = jwtService.generatePasswordResetToken(user);
+
+        long ttl = jwtService.extractExpiration(tokenStr).getTime() - System.currentTimeMillis();
+        String jti = jwtService.extractJti(tokenStr);
+        String redisKey = "password-reset:latest-token:" + user.getUserId();
+        if (ttl > 0) {
+            redisTemplate.opsForValue().set(redisKey, jti, Duration.ofMillis(ttl));
+        }
+
+        String resetLink = frontendUrl + "/reset-password?token=" + tokenStr;
+        emailService.sendPasswordResetEmail(user.getEmail(), resetLink);
+    }
+
+    @Transactional
+    public void resetPassword(String token, String newPassword) {
+        String email;
+        String jti;
+        try {
+            email = jwtService.extractUsername(token);
+            jti = jwtService.extractJti(token);
+        } catch (Exception e) {
+            throw new AppException(ErrorCode.INVALID_TOKEN);
+        }
+
+        User user = userRepository.findByEmail(email).orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
+
+        if (!jwtService.validatePasswordResetToken(token, user)) {
+            throw new AppException(ErrorCode.INVALID_TOKEN);
+        }
+
+        String redisKey = "password-reset:latest-token:" + user.getUserId();
+        String latestJti = redisTemplate.opsForValue().get(redisKey);
+
+        if (latestJti == null || !latestJti.equals(jti)) {
+            throw new AppException(ErrorCode.INVALID_TOKEN);
+        }
+
+        user.setPasswordHash(passwordEncoder.encode(newPassword));
+        userRepository.save(user);
+
+        redisTemplate.delete(redisKey);
+    }
+
+    @Transactional
+    public void changePassword(String email, ChangePasswordRequest request) {
+
+        if (email == null) {
+            throw new AppException(ErrorCode.UNAUTHORIZED, MessageConstant.USER_NOT_LOGGED_IN);
+        }
+
+        User user = userRepository.findByEmail(email).orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
+
+        if (!passwordEncoder.matches(request.getCurrentPassword(), user.getPasswordHash())) {
+            throw new AppException(ErrorCode.VALIDATION_ERROR, MessageConstant.CURRENT_PASSWORD_INCORRECT);
+        }
+
+        if (passwordEncoder.matches(request.getNewPassword(), user.getPasswordHash())) {
+            throw new AppException(ErrorCode.VALIDATION_ERROR, MessageConstant.NEW_PASSWORD_SAME_AS_OLD);
+        }
+
+        user.setPasswordHash(passwordEncoder.encode(request.getNewPassword()));
+        userRepository.save(user);
+    }
+
+    @Transactional
+    public LoginResponse googleLogin(String idTokenParam) {
+        try {
+            GoogleIdTokenVerifier verifier = new GoogleIdTokenVerifier.Builder(new NetHttpTransport(), GsonFactory.getDefaultInstance()).setAudience(Collections.singletonList(googleClientId)).build();
+
+            GoogleIdToken idToken = verifier.verify(idTokenParam);
+            if (idToken != null) {
+                GoogleIdToken.Payload payload = idToken.getPayload();
+                String email = payload.getEmail();
+                String name = (String) payload.get("name");
+                String pictureUrl = (String) payload.get("picture");
+                String subject = payload.getSubject();
+
+                User user = userRepository.findByEmail(email).orElse(null);
+
+                if (user == null) {
+                    Role userRole = roleRepository.findByRoleName("TREKKER").orElseThrow(() -> new AppException(ErrorCode.ROLE_NOT_FOUND));
+
+                    user = new User();
+                    user.setEmail(email);
+                    user.setFullName(name);
+                    user.setAvatarUrl(pictureUrl);
+                    user.setProvider(AuthProvider.GOOGLE);
+                    user.setProviderId(subject);
+                    user.setStatus(UserStatus.ACTIVE);
+                    user.setEmailVerified(true);
+                    user.getRoles().add(userRole);
+                    user = userRepository.save(user);
+                } else {
+                    if (user.getProviderId() == null) {
+                        user.setProviderId(subject);
+                        userRepository.save(user);
+                    }
+                }
+
+                validateAccountStatus(user);
+
+                CustomUserDetails userDetails = new CustomUserDetails(user);
+                return issueTokens(userDetails, user);
+            } else {
+                throw new AppException(ErrorCode.INVALID_TOKEN, MessageConstant.INVALID_GOOGLE_ID_TOKEN);
+            }
+        } catch (AppException e) {
+            throw e;
+        } catch (Exception e) {
+            log.error("Google login failed", e);
+            throw new AppException(ErrorCode.INVALID_TOKEN, "Google login failed: " + e.getMessage());
+        }
+    }
+
+    public void logout(String accessToken, String refreshTokenStr) {
+        blacklistIfValid(accessToken, "access");
+
+        if (refreshTokenStr != null && jwtService.isSignatureValid(refreshTokenStr)) {
+            blacklistIfValid(refreshTokenStr, "refresh");
+            try {
+                String userEmail = jwtService.extractUsername(refreshTokenStr);
+                refreshTokenService.revokeAll(userEmail);
+                log.info("Refresh token revoked successfully during logout.");
+            } catch (Exception e) {
+                log.error("Unable to revoke refresh token session after logging out.", e);
+            }
+        }
+    }
+
+    private LoginResponse issueTokens(CustomUserDetails userDetails, User user) {
+        String accessToken = jwtService.generateToken(userDetails);
+        String refreshToken = jwtService.generateRefreshToken(userDetails);
+
+        String refreshJti = jwtService.extractJti(refreshToken);
+        refreshTokenService.store(user.getEmail(), refreshJti, refreshExpiration);
+
+        return authMapper.toLoginResponse(user, accessToken, refreshToken);
+    }
+
+    private void validateAccountStatus(User user) {
+        if (user.getStatus() == UserStatus.LOCKED) {
+            throw new AppException(ErrorCode.ACCOUNT_LOCKED);
+        }
+        if (user.getStatus() == UserStatus.DEACTIVATED) {
+            throw new AppException(ErrorCode.ACCOUNT_DEACTIVATED);
+        }
+    }
+
+    private void blacklistIfValid(String token, String expectedType) {
+        if (token == null || !jwtService.isSignatureValid(token)) return;
+
+        try {
+
+            String actualType = jwtService.extractType(token);
+            if (!expectedType.equals(actualType)) {
+                log.warn("Ignore blacklist: token type does not match, expected={}, actual={}", expectedType, actualType);
+                return;
+            }
+
+            String jti = jwtService.extractJti(token);
+            long ttl = jwtService.extractExpiration(token).getTime() - System.currentTimeMillis();
+            tokenBlacklistService.blacklist(jti, ttl);
+            log.info("{} token blacklisted for logout.", expectedType);
+        } catch (Exception e) {
+            log.error("Errors when blacklisting {} token upon logout", expectedType, e);
+        }
+    }
+
+}
