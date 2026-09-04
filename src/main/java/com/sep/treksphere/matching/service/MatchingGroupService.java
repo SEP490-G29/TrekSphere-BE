@@ -264,30 +264,14 @@ public class MatchingGroupService {
 
         log.info("Request to join matching group: groupId={}, userId={}", groupId, currentUser.getUserId());
 
-        MatchingGroup matchingGroup = matchingGroupRepository.findDetailById(groupId)
+        MatchingGroup matchingGroup = matchingGroupRepository.findByIdForUpdate(groupId)
                 .orElseThrow(() -> new AppException(ErrorCode.MATCHING_GROUP_NOT_FOUND));
-
-        Tour tour = matchingGroup.getTour();
-        if (Boolean.TRUE.equals(tour.getIsDeleted()) || tour.getStatus() != TourStatus.APPROVED) {
-            throw new AppException(ErrorCode.MATCHING_TOUR_NOT_AVAILABLE);
-        }
 
         if (matchingGroup.getOwner().getUserId().equals(currentUser.getUserId())) {
             throw new AppException(ErrorCode.MATCHING_OWNER_CANNOT_JOIN);
         }
 
-        if (matchingGroup.getStatus() != MatchingGroupStatus.OPEN) {
-            throw new AppException(ErrorCode.MATCHING_GROUP_NOT_OPEN);
-        }
-
-        LocalDateTime now = LocalDateTime.now();
-        if (!matchingGroup.getMatchingDeadline().isAfter(now)) {
-            throw new AppException(ErrorCode.MATCHING_DEADLINE_PASSED);
-        }
-
-        if (!matchingGroup.getTargetDate().isAfter(LocalDate.now())) {
-            throw new AppException(ErrorCode.MATCHING_TARGET_DATE_PASSED);
-        }
+        validateGroupOpenAndActive(matchingGroup);
 
         long acceptedCount = matchingGroup.getMembers().stream()
                 .filter(m -> m.getStatus() == JoinStatus.ACCEPTED && !Boolean.TRUE.equals(m.getIsDeleted()))
@@ -344,9 +328,7 @@ public class MatchingGroupService {
         MatchingGroup matchingGroup = matchingGroupRepository.findWithOwnerById(groupId)
                 .orElseThrow(() -> new AppException(ErrorCode.MATCHING_GROUP_NOT_FOUND));
 
-        if (!matchingGroup.getOwner().getUserId().equals(currentUser.getUserId())) {
-            throw new AppException(ErrorCode.UNAUTHORIZED_VIEW_JOIN_REQUESTS);
-        }
+        validateGroupOwner(matchingGroup, currentUser, ErrorCode.UNAUTHORIZED_VIEW_JOIN_REQUESTS);
 
         Page<MatchingMemberResponse> joinRequests = matchingMemberRepository
                 .findJoinRequests(groupId, status, MatchingRole.MEMBER, filter.getPageable())
@@ -394,34 +376,15 @@ public class MatchingGroupService {
         MatchingGroup matchingGroup = matchingGroupRepository.findByIdForUpdate(groupId)
                 .orElseThrow(() -> new AppException(ErrorCode.MATCHING_GROUP_NOT_FOUND));
 
-        if (!matchingGroup.getOwner().getUserId().equals(currentUser.getUserId())) {
-            throw new AppException(ErrorCode.UNAUTHORIZED_APPROVE_MEMBER);
-        }
+        validateGroupOwner(matchingGroup, currentUser, ErrorCode.UNAUTHORIZED_APPROVE_MEMBER);
+        validateGroupOpenAndActive(matchingGroup);
 
-        if (matchingGroup.getStatus() != MatchingGroupStatus.OPEN) {
-            throw new AppException(ErrorCode.MATCHING_GROUP_NOT_OPEN);
-        }
-
-        LocalDateTime now = LocalDateTime.now();
-        if (!matchingGroup.getMatchingDeadline().isAfter(now)) {
-            throw new AppException(ErrorCode.MATCHING_DEADLINE_PASSED);
-        }
-
-        if (!matchingGroup.getTargetDate().isAfter(LocalDate.now())) {
-            throw new AppException(ErrorCode.MATCHING_TARGET_DATE_PASSED);
-        }
-
-        Tour tour = matchingGroup.getTour();
-        if (Boolean.TRUE.equals(tour.getIsDeleted()) || tour.getStatus() != TourStatus.APPROVED) {
-            throw new AppException(ErrorCode.MATCHING_TOUR_NOT_AVAILABLE);
-        }
-
-        MatchingMember member = matchingMemberRepository.findJoinRequestByIdAndGroupId(
-                        memberId,
-                        groupId,
-                        MatchingRole.MEMBER
-                )
+        MatchingMember member = matchingMemberRepository.findDetailByMemberId(memberId)
                 .orElseThrow(() -> new AppException(ErrorCode.MATCHING_MEMBER_NOT_FOUND));
+
+        if (!member.getMatchingGroup().getMatchingGroupId().equals(groupId)) {
+            throw new AppException(ErrorCode.CROSS_GROUP_ACTION_NOT_ALLOWED);
+        }
 
         if (member.getStatus() == JoinStatus.ACCEPTED) {
             throw new AppException(ErrorCode.MEMBER_ALREADY_APPROVED);
@@ -464,19 +427,17 @@ public class MatchingGroupService {
         log.info("Rejecting matching group join request: groupId={}, memberId={}, requesterId={}",
                 groupId, memberId, currentUser.getUserId());
 
-        MatchingGroup matchingGroup = matchingGroupRepository.findWithOwnerById(groupId)
+        MatchingGroup matchingGroup = matchingGroupRepository.findByIdForUpdate(groupId)
                 .orElseThrow(() -> new AppException(ErrorCode.MATCHING_GROUP_NOT_FOUND));
 
-        if (!matchingGroup.getOwner().getUserId().equals(currentUser.getUserId())) {
-            throw new AppException(ErrorCode.UNAUTHORIZED_REJECT_MEMBER);
-        }
+        validateGroupOwner(matchingGroup, currentUser, ErrorCode.UNAUTHORIZED_REJECT_MEMBER);
 
-        MatchingMember member = matchingMemberRepository.findJoinRequestByIdAndGroupId(
-                        memberId,
-                        groupId,
-                        MatchingRole.MEMBER
-                )
+        MatchingMember member = matchingMemberRepository.findDetailByMemberId(memberId)
                 .orElseThrow(() -> new AppException(ErrorCode.MATCHING_MEMBER_NOT_FOUND));
+
+        if (!member.getMatchingGroup().getMatchingGroupId().equals(groupId)) {
+            throw new AppException(ErrorCode.CROSS_GROUP_ACTION_NOT_ALLOWED);
+        }
 
         if (member.getStatus() == JoinStatus.REJECTED) {
             throw new AppException(ErrorCode.MEMBER_ALREADY_REJECTED);
@@ -574,9 +535,7 @@ public class MatchingGroupService {
         MatchingGroup matchingGroup = matchingGroupRepository.findByIdForUpdate(groupId)
                 .orElseThrow(() -> new AppException(ErrorCode.MATCHING_GROUP_NOT_FOUND));
 
-        if (!matchingGroup.getOwner().getUserId().equals(currentUser.getUserId())) {
-            throw new AppException(ErrorCode.UNAUTHORIZED_DISBAND_GROUP);
-        }
+        validateGroupOwner(matchingGroup, currentUser, ErrorCode.UNAUTHORIZED_DISBAND_GROUP);
 
         if (matchingGroup.getStatus() != MatchingGroupStatus.OPEN
                 && matchingGroup.getStatus() != MatchingGroupStatus.FULL) {
@@ -600,5 +559,31 @@ public class MatchingGroupService {
 
         matchingGroupRepository.save(matchingGroup);
         log.info("Matching group disbanded successfully: groupId={}", groupId);
+    }
+
+    private void validateGroupOpenAndActive(MatchingGroup matchingGroup) {
+        Tour tour = matchingGroup.getTour();
+        if (tour != null && (Boolean.TRUE.equals(tour.getIsDeleted()) || tour.getStatus() != TourStatus.APPROVED)) {
+            throw new AppException(ErrorCode.MATCHING_TOUR_NOT_AVAILABLE);
+        }
+
+        if (matchingGroup.getStatus() != MatchingGroupStatus.OPEN) {
+            throw new AppException(ErrorCode.MATCHING_GROUP_NOT_OPEN);
+        }
+
+        LocalDateTime now = LocalDateTime.now();
+        if (!matchingGroup.getMatchingDeadline().isAfter(now)) {
+            throw new AppException(ErrorCode.MATCHING_DEADLINE_PASSED);
+        }
+
+        if (!matchingGroup.getTargetDate().isAfter(LocalDate.now())) {
+            throw new AppException(ErrorCode.MATCHING_TARGET_DATE_PASSED);
+        }
+    }
+
+    private void validateGroupOwner(MatchingGroup matchingGroup, User currentUser, ErrorCode errorCode) {
+        if (!matchingGroup.getOwner().getUserId().equals(currentUser.getUserId())) {
+            throw new AppException(errorCode);
+        }
     }
 }

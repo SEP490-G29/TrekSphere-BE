@@ -319,6 +319,9 @@ public class MessageConstant {
     public static final String MATCHING_JOIN_REQUEST_SIZE_RANGE = "Số phần tử mỗi trang phải từ 1 đến 50";
     public static final String INVALID_JOIN_REQUEST_FILTER_STATUS = "Danh sách yêu cầu tham gia chỉ hỗ trợ trạng thái PENDING hoặc REJECTED";
     public static final String INVALID_JOIN_REQUEST_PAGINATION = "Phân trang yêu cầu tham gia không hợp lệ";
+    public static final String CROSS_GROUP_ACTION_NOT_ALLOWED = "Hành động không hợp lệ do các thực thể không thuộc cùng nhóm ghép";
+    public static final String SELF_REVIEW_NOT_ALLOWED = "Bạn không thể tự đánh giá chính mình trong chuyến đi";
+    public static final String SINGLE_LEADER_VIOLATION = "Nhóm ghép phải duy trì đúng một Trưởng nhóm (Leader) hoạt động";
 
     // Schedule Messages
     public static final String SCHEDULE_NOT_FOUND = "Lịch khởi hành không tồn tại";

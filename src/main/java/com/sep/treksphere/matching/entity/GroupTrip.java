@@ -29,6 +29,9 @@ public class GroupTrip extends BaseEntity {
     @Column(nullable = false, length = 20)
     private GroupTripStatus status = GroupTripStatus.PLANNED;
 
+    @Column(name = "scheduled_start_at", nullable = false)
+    private LocalDateTime scheduledStartAt;
+
     private LocalDateTime startedAt;
 
     private LocalDateTime endedAt;

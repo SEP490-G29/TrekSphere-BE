@@ -37,6 +37,8 @@ public interface MatchingGroupRepository extends JpaRepository<MatchingGroup, UU
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("""
         SELECT mg FROM MatchingGroup mg
+        LEFT JOIN FETCH mg.tour t
+        JOIN FETCH mg.owner o
         WHERE mg.matchingGroupId = :groupId
           AND mg.isDeleted = false
     """)
