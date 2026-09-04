@@ -40,6 +40,7 @@ public class MessageConstant {
     public static final String INVALID_DOB = "Ngày sinh không hợp lệ (không được lớn hơn ngày hiện tại)";
     public static final String PROFILE_UPDATED_SUCCESSFULLY = "Cập nhật hồ sơ thành công";
     public static final String STATUS_UPDATED_SUCCESSFULLY = "Cập nhật trạng thái người dùng thành công";
+    public static final String ROLE_PERMISSIONS_UPDATED_SUCCESSFULLY = "Cập nhật danh sách permission cho role thành công";
 
     // System Error Messages
     public static final String SYSTEM_ERROR_UNKNOWN = "Lỗi hệ thống không xác định";
@@ -62,6 +63,7 @@ public class MessageConstant {
     public static final String INVALID_TOKEN = "Token không hợp lệ hoặc đã hết hạn";
     public static final String ROLE_NOT_FOUND = "Không tìm thấy vai trò mặc định trong hệ thống";
     public static final String FORGOT_PASSWORD_RATE_LIMITED = "Bạn đã yêu cầu gửi email khôi phục mật khẩu quá nhiều lần. Vui lòng thử lại sau 5 phút.";
+    public static final String PERMISSION_NOT_FOUND = "Không tìm thấy permission trong hệ thống";
 
     // Upload Error Messages
     public static final String UPLOAD_FAILED = "Lỗi tải file lên hệ thống";
