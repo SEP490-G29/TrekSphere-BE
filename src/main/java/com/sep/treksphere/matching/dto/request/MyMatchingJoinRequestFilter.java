@@ -1,7 +1,7 @@
 package com.sep.treksphere.matching.dto.request;
 
 import com.sep.treksphere.common.constant.MessageConstant;
-import com.sep.treksphere.matching.JoinStatus;
+import com.sep.treksphere.matching.enums.JoinStatus;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;

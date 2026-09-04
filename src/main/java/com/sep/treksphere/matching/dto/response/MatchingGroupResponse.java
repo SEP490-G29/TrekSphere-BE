@@ -1,6 +1,6 @@
 package com.sep.treksphere.matching.dto.response;
 
-import com.sep.treksphere.matching.MatchingGroupStatus;
+import com.sep.treksphere.matching.enums.MatchingGroupStatus;
 import lombok.Getter;
 import lombok.Setter;
 

@@ -1,7 +1,7 @@
 package com.sep.treksphere.matching.dto.response;
 
-import com.sep.treksphere.matching.MatchingGroupStatus;
-import com.sep.treksphere.matching.JoinStatus;
+import com.sep.treksphere.matching.enums.MatchingGroupStatus;
+import com.sep.treksphere.matching.enums.JoinStatus;
 import lombok.Getter;
 import lombok.Setter;
 
