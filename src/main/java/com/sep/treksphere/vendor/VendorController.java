@@ -40,7 +40,7 @@ public class VendorController {
 
     @Operation(summary = "Lấy danh sách Vendor", description = "Trả về danh sách các Vendor (Công ty đối tác) trong hệ thống (Dành cho Admin)")
     @SecurityRequirement(name = "bearerAuth")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAuthority('VENDOR_VIEW_ALL')")
     @GetMapping
     public ResponseEntity<ApiResponse<PaginationResponse<VendorResponse>>> getVendors(
             @Valid @ModelAttribute VendorFilterRequest request) {
@@ -51,7 +51,7 @@ public class VendorController {
 
     @Operation(summary = "Xem hồ sơ Vendor hiện tại", description = "Trả về thông tin hồ sơ chi tiết của Vendor (Dành cho Vendor Manager hoặc Nhân viên thuộc Vendor)")
     @SecurityRequirement(name = "bearerAuth")
-    @PreAuthorize("hasRole('VENDOR')")
+    @PreAuthorize("hasAuthority('VENDOR_PROFILE_MANAGE')")
     @GetMapping("/profile")
     public ResponseEntity<ApiResponse<VendorProfileResponse>> getVendorProfile(
             @AuthenticationPrincipal CustomUserDetails userDetails) {
@@ -68,7 +68,7 @@ public class VendorController {
 
     @Operation(summary = "Cập nhật hồ sơ Vendor hiện tại", description = "Cho phép Vendor Manager cập nhật thông tin chi tiết của doanh nghiệp.")
     @SecurityRequirement(name = "bearerAuth")
-    @PreAuthorize("hasRole('VENDOR')")
+    @PreAuthorize("hasAuthority('VENDOR_PROFILE_MANAGE')")
     @PutMapping(value = "/profile", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<ApiResponse<VendorProfileResponse>> updateVendorProfile(
             @AuthenticationPrincipal CustomUserDetails userDetails,
@@ -86,7 +86,7 @@ public class VendorController {
 
     @Operation(summary = "Admin thay đổi trạng thái Vendor", description = "Cho phép Admin thay đổi trạng thái hoạt động của đối tác thành ACTIVE, INACTIVE hoặc REVOKED.")
     @SecurityRequirement(name = "bearerAuth")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAuthority('VENDOR_MANAGE_STATUS')")
     @PutMapping("/{vendorId}/status")
     public ResponseEntity<ApiResponse<VendorResponse>> updateVendorStatus(
             @PathVariable("vendorId") UUID vendorId,

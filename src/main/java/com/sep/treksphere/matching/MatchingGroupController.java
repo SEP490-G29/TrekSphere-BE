@@ -56,7 +56,7 @@ public class MatchingGroupController {
                 "Có thể lọc theo trạng thái và tìm theo tên nhóm hoặc tên Tour."
     )
     @GetMapping("/owned")
-    @PreAuthorize("hasRole('TREKKER')")
+    @PreAuthorize("hasAuthority('MATCHING_GROUP_MANAGE_OWN')")
     public ResponseEntity<ApiResponse<PaginationResponse<MatchingGroupResponse>>> getOwnedMatchingGroups(
             @Valid @ParameterObject @ModelAttribute OwnedMatchingGroupFilterRequest filter,
             @AuthenticationPrincipal CustomUserDetails userDetails) {
@@ -88,7 +88,7 @@ public class MatchingGroupController {
                 "Ngày đi dự kiến phải ở tương lai và không bắt buộc trùng với lịch khởi hành của Tour."
     )
     @PostMapping
-    @PreAuthorize("hasRole('TREKKER')")
+    @PreAuthorize("hasAuthority('MATCHING_GROUP_CREATE')")
     public ResponseEntity<ApiResponse<MatchingGroupDetailResponse>> createMatchingGroup(
             @Valid @RequestBody MatchingGroupCreateRequest request,
             @AuthenticationPrincipal CustomUserDetails userDetails) {
@@ -102,7 +102,7 @@ public class MatchingGroupController {
         description = "Cho phép Trekker gửi yêu cầu xin tham gia vào nhóm ghép bạn đồng hành đang mở."
     )
     @PostMapping("/{groupId}/join")
-    @PreAuthorize("hasRole('TREKKER')")
+    @PreAuthorize("hasAuthority('MATCHING_GROUP_PARTICIPATE')")
     public ResponseEntity<ApiResponse<MatchingMemberResponse>> joinMatchingGroup(
             @Parameter(description = "UUID của nhóm ghép") @PathVariable UUID groupId,
             @AuthenticationPrincipal CustomUserDetails userDetails) {
@@ -119,7 +119,7 @@ public class MatchingGroupController {
         description = "Cho phép Trưởng nhóm (Owner) xem danh sách yêu cầu tham gia của một nhóm cụ thể để duyệt hoặc từ chối."
     )
     @GetMapping("/{groupId}/join-requests")
-    @PreAuthorize("hasRole('TREKKER')")
+    @PreAuthorize("hasAuthority('MATCHING_GROUP_MANAGE_OWN')")
     public ResponseEntity<ApiResponse<PaginationResponse<MatchingMemberResponse>>> getJoinRequests(
             @Parameter(description = "UUID của nhóm ghép") @PathVariable UUID groupId,
             @Valid @ParameterObject @ModelAttribute MatchingJoinRequestFilter filter,
@@ -139,7 +139,7 @@ public class MatchingGroupController {
                 "Mặc định trả về yêu cầu ở tất cả trạng thái; Trekker có thể tùy chọn lọc theo JoinStatus."
     )
     @GetMapping("/join-requests/me")
-    @PreAuthorize("hasRole('TREKKER')")
+    @PreAuthorize("hasAuthority('MATCHING_GROUP_PARTICIPATE')")
     public ResponseEntity<ApiResponse<PaginationResponse<MyMatchingJoinRequestResponse>>> getMyJoinRequests(
             @Valid @ParameterObject @ModelAttribute MyMatchingJoinRequestFilter filter,
             @AuthenticationPrincipal CustomUserDetails userDetails) {
@@ -157,7 +157,7 @@ public class MatchingGroupController {
         description = "Cho phép Trưởng nhóm (Leader/Owner) phê duyệt yêu cầu tham gia nhóm ghép của thành viên đang ở trạng thái PENDING."
     )
     @PutMapping("/{groupId}/join-requests/{memberId}/approve")
-    @PreAuthorize("hasRole('TREKKER')")
+    @PreAuthorize("hasAuthority('MATCHING_GROUP_MANAGE_OWN')")
     public ResponseEntity<ApiResponse<MatchingMemberResponse>> approveMember(
             @Parameter(description = "UUID của nhóm ghép") @PathVariable UUID groupId,
             @Parameter(description = "UUID của bản ghi thành viên cần duyệt") @PathVariable UUID memberId,
@@ -171,7 +171,7 @@ public class MatchingGroupController {
         description = "Cho phép Trưởng nhóm (Leader/Owner) từ chối yêu cầu tham gia nhóm ghép của thành viên đang ở trạng thái PENDING."
     )
     @PutMapping("/{groupId}/join-requests/{memberId}/reject")
-    @PreAuthorize("hasRole('TREKKER')")
+    @PreAuthorize("hasAuthority('MATCHING_GROUP_MANAGE_OWN')")
     public ResponseEntity<ApiResponse<MatchingMemberResponse>> rejectMember(
             @Parameter(description = "UUID của nhóm ghép") @PathVariable UUID groupId,
             @Parameter(description = "UUID của bản ghi thành viên cần từ chối") @PathVariable UUID memberId,
@@ -186,7 +186,7 @@ public class MatchingGroupController {
                 "Thao tác này không thay đổi số thành viên hiện tại của nhóm."
     )
     @DeleteMapping("/{groupId}/join-request")
-    @PreAuthorize("hasRole('TREKKER')")
+    @PreAuthorize("hasAuthority('MATCHING_GROUP_PARTICIPATE')")
     public ResponseEntity<ApiResponse<MatchingMemberResponse>> cancelJoinRequest(
             @Parameter(description = "UUID của nhóm ghép") @PathVariable UUID groupId,
             @AuthenticationPrincipal CustomUserDetails userDetails) {
@@ -204,7 +204,7 @@ public class MatchingGroupController {
                 "ngày dự kiến đi chưa đến và Tour còn public."
     )
     @DeleteMapping("/{groupId}/members/me")
-    @PreAuthorize("hasRole('TREKKER')")
+    @PreAuthorize("hasAuthority('MATCHING_GROUP_PARTICIPATE')")
     public ResponseEntity<ApiResponse<MatchingMemberResponse>> leaveMatchingGroup(
             @Parameter(description = "UUID của nhóm ghép") @PathVariable UUID groupId,
             @AuthenticationPrincipal CustomUserDetails userDetails) {
@@ -217,7 +217,7 @@ public class MatchingGroupController {
         description = "Cho phép Trưởng nhóm (Owner) giải tán nhóm ghép bạn đồng hành. Hệ thống sẽ ẩn nhóm và các thành viên bằng cơ chế soft-delete."
     )
     @DeleteMapping("/{groupId}")
-    @PreAuthorize("hasRole('TREKKER')")
+    @PreAuthorize("hasAuthority('MATCHING_GROUP_MANAGE_OWN')")
     public ResponseEntity<ApiResponse<Void>> disbandMatchingGroup(
             @Parameter(description = "UUID của nhóm ghép") @PathVariable UUID groupId,
             @AuthenticationPrincipal CustomUserDetails userDetails) {

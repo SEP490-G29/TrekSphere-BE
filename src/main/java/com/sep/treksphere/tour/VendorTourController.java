@@ -42,7 +42,7 @@ public class VendorTourController {
 
     private final TourService tourService;
 
-    @PreAuthorize("hasRole('VENDOR')")
+    @PreAuthorize("hasAuthority('TOUR_MANAGE_OWN')")
     @GetMapping
     public ResponseEntity<ApiResponse<PaginationResponse<TourSummaryResponse>>> getVendorTours(
             @AuthenticationPrincipal CustomUserDetails userDetails,
@@ -53,7 +53,7 @@ public class VendorTourController {
     }
 
     @SecurityRequirement(name = "bearerAuth")
-    @PreAuthorize("hasRole('VENDOR')")
+    @PreAuthorize("hasAuthority('TOUR_MANAGE_OWN')")
     @GetMapping("/{id}")
     public ResponseEntity<ApiResponse<TourDetailResponse>> getVendorTourById(
             @AuthenticationPrincipal CustomUserDetails userDetails,
@@ -63,7 +63,7 @@ public class VendorTourController {
         return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, response));
     }
 
-    @PreAuthorize("hasRole('VENDOR')")
+    @PreAuthorize("hasAuthority('TOUR_MANAGE_OWN')")
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<ApiResponse<TourDetailResponse>> createTour(
             @AuthenticationPrincipal CustomUserDetails userDetails,
@@ -77,7 +77,7 @@ public class VendorTourController {
     }
 
     @SecurityRequirement(name = "bearerAuth")
-    @PreAuthorize("hasRole('VENDOR')")
+    @PreAuthorize("hasAuthority('TOUR_MANAGE_OWN')")
     @PutMapping(value = "/{id}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<ApiResponse<TourDetailResponse>> updateTour(
             @AuthenticationPrincipal CustomUserDetails userDetails,
@@ -91,7 +91,7 @@ public class VendorTourController {
     }
 
     @SecurityRequirement(name = "bearerAuth")
-    @PreAuthorize("hasRole('VENDOR')")
+    @PreAuthorize("hasAuthority('TOUR_MANAGE_OWN')")
     @DeleteMapping("/{id}")
     public ResponseEntity<ApiResponse<Void>> deleteTour(
             @AuthenticationPrincipal CustomUserDetails userDetails, @PathVariable UUID id) {
@@ -102,7 +102,7 @@ public class VendorTourController {
 
     @Operation(summary = "Gửi yêu cầu kiểm duyệt Tour", description = "VendorStaff/Manager gửi Tour lên hệ thống cho Manager duyệt. Tour phải ở trạng thái DRAFT hoặc REJECTED.")
     @SecurityRequirement(name = "bearerAuth")
-    @PreAuthorize("hasRole('VENDOR')")
+    @PreAuthorize("hasAuthority('TOUR_MANAGE_OWN')")
     @PostMapping("/{id}/submit-approval")
     public ResponseEntity<ApiResponse<TourDetailResponse>> submitTourForApproval(
             @AuthenticationPrincipal CustomUserDetails userDetails,
@@ -117,7 +117,7 @@ public class VendorTourController {
             description = "Vendor Manager phê duyệt Tour thuộc Vendor mình quản lý, đang ở trạng thái PENDING_APPROVAL, để chuyển sang APPROVED."
     )
     @SecurityRequirement(name = "bearerAuth")
-    @PreAuthorize("hasRole('VENDOR')")
+    @PreAuthorize("hasAuthority('TOUR_MANAGE_OWN')")
     @PutMapping("/{id}/approve")
     public ResponseEntity<ApiResponse<TourDetailResponse>> approveTour(
             @AuthenticationPrincipal CustomUserDetails userDetails,
@@ -136,7 +136,7 @@ public class VendorTourController {
             description = "Vendor Manager từ chối Tour thuộc Vendor mình quản lý, đang ở trạng thái PENDING_APPROVAL, và bắt buộc nêu rõ lý do chỉnh sửa."
     )
     @SecurityRequirement(name = "bearerAuth")
-    @PreAuthorize("hasRole('VENDOR')")
+    @PreAuthorize("hasAuthority('TOUR_MANAGE_OWN')")
     @PutMapping("/{id}/reject")
     public ResponseEntity<ApiResponse<TourDetailResponse>> rejectTour(
             @AuthenticationPrincipal CustomUserDetails userDetails,
@@ -153,7 +153,7 @@ public class VendorTourController {
 
     @Operation(summary = "Revert Tour bị từ chối", description = "Staff chuyển Tour REJECTED → DRAFT. Manager chuyển Tour REJECTED → PENDING_APPROVAL.")
     @SecurityRequirement(name = "bearerAuth")
-    @PreAuthorize("hasRole('VENDOR')")
+    @PreAuthorize("hasAuthority('TOUR_MANAGE_OWN')")
     @PostMapping("/{id}/revert-to-draft")
     public ResponseEntity<ApiResponse<TourDetailResponse>> revertTour(
             @AuthenticationPrincipal CustomUserDetails userDetails,
@@ -165,7 +165,7 @@ public class VendorTourController {
 
     @Operation(summary = "Khôi phục Tour đã xóa", description = "VendorManager khôi phục Tour đã bị xóa mềm. Tour sẽ được chuyển về trạng thái DRAFT cùng toàn bộ dữ liệu con (checkpoint, schedule, image).")
     @SecurityRequirement(name = "bearerAuth")
-    @PreAuthorize("hasRole('VENDOR')")
+    @PreAuthorize("hasAuthority('TOUR_MANAGE_OWN')")
     @PostMapping("/{id}/restore")
     public ResponseEntity<ApiResponse<TourDetailResponse>> restoreTour(
             @AuthenticationPrincipal CustomUserDetails userDetails,
@@ -176,7 +176,7 @@ public class VendorTourController {
     }
 
     @Operation(summary = "Ẩn Tour vi phạm", description = "Admin/VendorManager ẩn Tour đang bán nếu phát hiện vi phạm. Hệ thống sẽ gửi thông báo cho chủ tour.")
-    @PreAuthorize("hasAnyRole('ADMIN', 'VENDOR')")
+    @PreAuthorize("hasAuthority('TOUR_HIDE_UNHIDE')")
     @PutMapping("/{id}/hide")
     public ResponseEntity<ApiResponse<TourDetailResponse>> hideTour(
             @AuthenticationPrincipal CustomUserDetails userDetails,
@@ -191,7 +191,7 @@ public class VendorTourController {
     }
 
     @Operation(summary = "Mở lại (Bỏ ẩn) Tour", description = "Admin/VendorManager bỏ ẩn Tour đang ở trạng thái HIDDEN để đưa về APPROVED mở bán lại.")
-    @PreAuthorize("hasAnyRole('ADMIN', 'VENDOR')")
+    @PreAuthorize("hasAuthority('TOUR_HIDE_UNHIDE')")
     @PutMapping("/{id}/unhide")
     public ResponseEntity<ApiResponse<TourDetailResponse>> unhideTour(
             @AuthenticationPrincipal CustomUserDetails userDetails,
