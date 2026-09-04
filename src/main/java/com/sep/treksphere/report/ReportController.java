@@ -31,7 +31,7 @@ public class ReportController {
     private final ReportService reportService;
 
     @PostMapping
-    @PreAuthorize("isAuthenticated()")
+    @PreAuthorize("hasAuthority('REPORT_SUBMIT')")
     @Operation(summary = "Tạo báo cáo vi phạm mới", description = "Gửi một báo cáo vi phạm đối với một mục tiêu cụ thể (BLOG, COMMENT, hoặc REVIEW). Yêu cầu người dùng phải đăng nhập.")
     public ResponseEntity<ApiResponse<Void>> createReport(
             @Valid @RequestBody CreateReportRequest request,

@@ -37,7 +37,7 @@ public class VendorApplicationController {
 
     @Operation(summary = "Tạo đơn đăng ký bản nháp", description = "Cho phép khách du lịch khởi tạo đơn đăng ký Vendor dưới dạng bản nháp.")
     @SecurityRequirement(name = "bearerAuth")
-    @PreAuthorize("hasRole('TREKKER')")
+    @PreAuthorize("hasAuthority('VENDOR_APPLICATION_SUBMIT')")
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<ApiResponse<VendorApplicationResponse>> saveDraftApplication(
             @AuthenticationPrincipal CustomUserDetails userDetails,
@@ -56,7 +56,7 @@ public class VendorApplicationController {
 
     @Operation(summary = "Lấy danh sách đơn đăng ký (Admin)", description = "Admin lọc và phân trang các đơn đăng ký đối tác ở trạng thái PENDING, APPROVED hoặc REJECTED. Không hỗ trợ trạng thái DRAFT.")
     @SecurityRequirement(name = "bearerAuth")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAuthority('VENDOR_APPLICATION_VIEW')")
     @GetMapping
     public ResponseEntity<ApiResponse<PaginationResponse<VendorApplicationResponse>>> getApplications(
             @Valid @ParameterObject @ModelAttribute AdminVendorApplicationFilterRequest request) {
@@ -67,7 +67,7 @@ public class VendorApplicationController {
 
     @Operation(summary = "Xem lịch sử đơn đăng ký của tôi", description = "Cho phép Trekker xem lịch sử các đơn đăng ký làm Vendor do chính mình tạo.")
     @SecurityRequirement(name = "bearerAuth")
-    @PreAuthorize("hasRole('TREKKER')")
+    @PreAuthorize("hasAuthority('VENDOR_APPLICATION_SUBMIT')")
     @GetMapping("/my-history")
     public ResponseEntity<ApiResponse<PaginationResponse<VendorApplicationResponse>>> getMyApplicationHistory(
             @AuthenticationPrincipal CustomUserDetails userDetails,
@@ -94,7 +94,7 @@ public class VendorApplicationController {
 
     @Operation(summary = "Kiểm duyệt đơn đăng ký (Admin)", description = "Admin phê duyệt (APPROVED) hoặc từ chối (REJECTED) đơn ứng tuyển của đối tác.")
     @SecurityRequirement(name = "bearerAuth")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAuthority('VENDOR_APPLICATION_DECIDE')")
     @PostMapping("/{id}/review")
     public ResponseEntity<ApiResponse<VendorApplicationResponse>> reviewApplication(
             @PathVariable UUID id,
@@ -113,7 +113,7 @@ public class VendorApplicationController {
 
     @Operation(summary = "Cập nhật nội dung đơn đăng ký", description = "Cho phép Trekker cập nhật lại thông tin hồ sơ của đơn nháp (DRAFT) hoặc đơn bị từ chối (REJECTED).")
     @SecurityRequirement(name = "bearerAuth")
-    @PreAuthorize("hasRole('TREKKER')")
+    @PreAuthorize("hasAuthority('VENDOR_APPLICATION_SUBMIT')")
     @PutMapping(value = "/{id}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<ApiResponse<VendorApplicationResponse>> updateApplication(
             @PathVariable UUID id,
@@ -133,7 +133,7 @@ public class VendorApplicationController {
 
     @Operation(summary = "Nộp đơn đăng ký bản nháp", description = "Cho phép Trekker nộp đơn đăng ký từ trạng thái bản nháp (DRAFT) lên PENDING để chờ duyệt.")
     @SecurityRequirement(name = "bearerAuth")
-    @PreAuthorize("hasRole('TREKKER')")
+    @PreAuthorize("hasAuthority('VENDOR_APPLICATION_SUBMIT')")
     @PostMapping("/{id}/submit")
     public ResponseEntity<ApiResponse<VendorApplicationResponse>> submitDraftApplication(
             @PathVariable UUID id,
@@ -152,7 +152,7 @@ public class VendorApplicationController {
 
     @Operation(summary = "Nộp lại đơn đăng ký bị từ chối", description = "Cho phép Trekker nộp lại đơn đăng ký từ trạng thái bị từ chối (REJECTED) lên PENDING để chờ duyệt lại.")
     @SecurityRequirement(name = "bearerAuth")
-    @PreAuthorize("hasRole('TREKKER')")
+    @PreAuthorize("hasAuthority('VENDOR_APPLICATION_SUBMIT')")
     @PostMapping("/{id}/resubmit")
     public ResponseEntity<ApiResponse<VendorApplicationResponse>> resubmitRejectedApplication(
             @PathVariable UUID id,

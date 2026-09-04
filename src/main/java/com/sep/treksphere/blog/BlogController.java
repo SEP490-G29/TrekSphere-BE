@@ -69,6 +69,7 @@ public class BlogController {
         description = "Trekker hoặc VendorStaff đăng bài viết blog mới. Blog được đăng với trạng thái PUBLISHED."
     )
     @SecurityRequirement(name = "bearerAuth")
+    @PreAuthorize("hasAuthority('BLOG_MANAGE_OWN')")
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<ApiResponse<BlogDetailResponse>> createBlog(
             @Valid @ModelAttribute CreateBlogRequest request,
@@ -84,7 +85,7 @@ public class BlogController {
         description = "Tác giả chỉnh sửa nội dung bài viết blog của mình. Chỉ chủ bài viết mới có quyền."
     )
     @SecurityRequirement(name = "bearerAuth")
-    @PreAuthorize("isAuthenticated()")
+    @PreAuthorize("hasAuthority('BLOG_MANAGE_OWN')")
     @PutMapping(value = "/{id}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<ApiResponse<BlogDetailResponse>> updateBlog(
             @Parameter(description = "UUID của bài viết") @PathVariable UUID id,
@@ -100,7 +101,7 @@ public class BlogController {
         description = "Tác giả ẩn blog của chính mình, hoặc Admin ẩn blog vi phạm."
     )
     @SecurityRequirement(name = "bearerAuth")
-    @PreAuthorize("isAuthenticated()")
+    @PreAuthorize("hasAuthority('BLOG_MANAGE_OWN')")
     @PutMapping("/{id}/hide")
     public ResponseEntity<ApiResponse<Void>> hideBlog(
             @Parameter(description = "UUID của bài viết") @PathVariable UUID id,
@@ -114,7 +115,7 @@ public class BlogController {
         description = "Tác giả xóa blog của chính mình, hoặc Admin xóa blog vi phạm."
     )
     @SecurityRequirement(name = "bearerAuth")
-    @PreAuthorize("isAuthenticated()")
+    @PreAuthorize("hasAuthority('BLOG_MANAGE_OWN')")
     @DeleteMapping("/{id}")
     public ResponseEntity<ApiResponse<Void>> deleteBlog(
             @Parameter(description = "UUID của bài viết") @PathVariable UUID id,
@@ -142,7 +143,7 @@ public class BlogController {
         description = "Gửi bình luận mới hoặc trả lời bình luận khác (cung cấp parentCommentId). Yêu cầu đăng nhập."
     )
     @SecurityRequirement(name = "bearerAuth")
-    @PreAuthorize("isAuthenticated()")
+    @PreAuthorize("hasAuthority('BLOG_COMMENT')")
     @PostMapping("/{blogId}/comments")
     public ResponseEntity<ApiResponse<BlogCommentResponse>> addComment(
             @Parameter(description = "UUID của bài viết") @PathVariable UUID blogId,
@@ -158,7 +159,7 @@ public class BlogController {
         description = "Người dùng sửa bình luận của chính mình. Chỉ chủ bình luận mới có quyền."
     )
     @SecurityRequirement(name = "bearerAuth")
-    @PreAuthorize("isAuthenticated()")
+    @PreAuthorize("hasAuthority('BLOG_COMMENT')")
     @PutMapping("/comments/{commentId}")
     public ResponseEntity<ApiResponse<BlogCommentResponse>> updateComment(
             @Parameter(description = "UUID của bình luận") @PathVariable UUID commentId,
@@ -173,7 +174,7 @@ public class BlogController {
         description = "Người dùng xóa bình luận của chính mình. Admin cũng có thể xóa."
     )
     @SecurityRequirement(name = "bearerAuth")
-    @PreAuthorize("isAuthenticated()")
+    @PreAuthorize("hasAuthority('BLOG_COMMENT')")
     @DeleteMapping("/comments/{commentId}")
     public ResponseEntity<ApiResponse<Void>> deleteComment(
             @Parameter(description = "UUID của bình luận") @PathVariable UUID commentId,

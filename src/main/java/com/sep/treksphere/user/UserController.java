@@ -45,6 +45,7 @@ public class UserController {
 
     @Operation(summary = "Xem thông tin cá nhân", description = "Trả về thông tin profile của người dùng đang đăng nhập")
     @SecurityRequirement(name = "bearerAuth")
+    @PreAuthorize("hasAuthority('USER_PROFILE_MANAGE')")
     @GetMapping("/me")
     public ResponseEntity<ApiResponse<UserProfileResponse>> getMyProfile(
             @AuthenticationPrincipal CustomUserDetails userDetails) {
@@ -59,6 +60,7 @@ public class UserController {
 
     @Operation(summary = "Cập nhật thông tin cá nhân", description = "Cập nhật họ tên, số điện thoại và ảnh đại diện")
     @SecurityRequirement(name = "bearerAuth")
+    @PreAuthorize("hasAuthority('USER_PROFILE_MANAGE')")
     @PutMapping(value = "/me", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<ApiResponse<UserProfileResponse>> updateMyProfile(
             @AuthenticationPrincipal CustomUserDetails userDetails,
@@ -74,7 +76,7 @@ public class UserController {
 
     @Operation(summary = "Lấy danh sách User", description = "Trả về danh sách tất cả user, có thể lọc theo trạng thái và role (Dành cho Admin)")
     @SecurityRequirement(name = "bearerAuth")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAuthority('USER_VIEW')")
     @GetMapping
     public ResponseEntity<ApiResponse<PaginationResponse<UserProfileResponse>>> getUsers(
             @Valid @ParameterObject @ModelAttribute UserFilterRequest request) {
@@ -85,7 +87,7 @@ public class UserController {
 
     @Operation(summary = "Lấy chi tiết User", description = "Trả về thông tin chi tiết của một user theo ID (Dành cho Admin)")
     @SecurityRequirement(name = "bearerAuth")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAuthority('USER_VIEW')")
     @GetMapping("/{userId}")
     public ResponseEntity<ApiResponse<UserProfileResponse>> getUserById(
             @PathVariable String userId) {
@@ -96,7 +98,7 @@ public class UserController {
 
     @Operation(summary = "Khoá/Mở khoá tài khoản", description = "Thay đổi trạng thái của người dùng (Dành cho Admin)")
     @SecurityRequirement(name = "bearerAuth")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAuthority('USER_MANAGE_STATUS')")
     @PutMapping("/{userId}/status")
     public ResponseEntity<ApiResponse<Void>> changeUserStatus(
             @PathVariable String userId,

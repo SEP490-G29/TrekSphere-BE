@@ -34,7 +34,7 @@ public class AdminReportController {
     private final ReportService reportService;
 
     @GetMapping
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAuthority('REPORT_VIEW')")
     @Operation(summary = "Lấy danh sách báo cáo vi phạm", description = "Admin xem danh sách các báo cáo, có hỗ trợ lọc theo trạng thái và phân trang.")
     public ResponseEntity<ApiResponse<PaginationResponse<ReportResponse>>> getReportsForAdmin(
             @ParameterObject ReportFilterRequest filter) {
@@ -44,7 +44,7 @@ public class AdminReportController {
     }
 
     @GetMapping("/{reportId}")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAuthority('REPORT_VIEW')")
     @Operation(summary = "Lấy chi tiết báo cáo vi phạm", description = "Admin xem chi tiết một báo cáo.")
     public ResponseEntity<ApiResponse<ReportResponse>> getReportDetailForAdmin(
             @PathVariable UUID reportId) {
@@ -54,7 +54,7 @@ public class AdminReportController {
     }
 
     @PutMapping("/{reportId}/resolve")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAuthority('REPORT_RESOLVE')")
     @Operation(summary = "Xử lý báo cáo vi phạm", description = "Admin cập nhật trạng thái báo cáo (HIDE_CONTENT, WARNING hoặc REJECTED).")
     public ResponseEntity<ApiResponse<Void>> resolveReport(
             @PathVariable UUID reportId,

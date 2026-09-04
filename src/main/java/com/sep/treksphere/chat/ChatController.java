@@ -49,7 +49,7 @@ public class ChatController {
             description = "Lấy danh sách các phòng chat của người dùng, sắp xếp theo tin nhắn mới nhất."
     )
     @GetMapping("/conversations")
-    @PreAuthorize("isAuthenticated()")
+    @PreAuthorize("hasAuthority('CHAT_PARTICIPATE')")
     public ResponseEntity<ApiResponse<PaginationResponse<ConversationResponse>>> getConversations(
             @RequestParam(defaultValue = "1") int page,
             @RequestParam(defaultValue = "10") int size,
@@ -70,7 +70,7 @@ public class ChatController {
             description = "Tạo phòng chat 1-1 (DIRECT) hoặc phòng chat nhóm (GROUP)."
     )
     @PostMapping("/conversations")
-    @PreAuthorize("isAuthenticated()")
+    @PreAuthorize("hasAuthority('CHAT_PARTICIPATE')")
     public ResponseEntity<ApiResponse<ConversationResponse>> createConversation(
             @Valid @RequestBody ConversationCreateRequest request,
             @AuthenticationPrincipal CustomUserDetails userDetails
@@ -89,7 +89,7 @@ public class ChatController {
             description = "Kiểm tra xem phòng chat đã tồn tại chưa (không tạo mới). Trả về thông tin phòng chat nếu có, ngược lại HTTP 204."
     )
     @PostMapping("/conversations/check")
-    @PreAuthorize("isAuthenticated()")
+    @PreAuthorize("hasAuthority('CHAT_PARTICIPATE')")
     public ResponseEntity<ApiResponse<ConversationResponse>> checkConversation(
             @Valid @RequestBody ConversationCreateRequest request,
             @AuthenticationPrincipal CustomUserDetails userDetails
@@ -110,7 +110,7 @@ public class ChatController {
             description = "Lấy lịch sử tin nhắn trong phòng chat, phân trang ngược theo thời gian."
     )
     @GetMapping("/conversations/{id}/messages")
-    @PreAuthorize("isAuthenticated()")
+    @PreAuthorize("hasAuthority('CHAT_PARTICIPATE')")
     public ResponseEntity<ApiResponse<PaginationResponse<MessageResponse>>> getMessages(
             @PathVariable UUID id,
             @RequestParam(defaultValue = "1") int page,
@@ -132,7 +132,7 @@ public class ChatController {
             description = "Gửi tin nhắn mới vào một cuộc hội thoại mà người dùng đang tham gia."
     )
     @PostMapping("/messages")
-    @PreAuthorize("isAuthenticated()")
+    @PreAuthorize("hasAuthority('CHAT_PARTICIPATE')")
     public ResponseEntity<ApiResponse<MessageResponse>> sendMessage(
             @Valid @RequestBody MessageCreateRequest request,
             @AuthenticationPrincipal CustomUserDetails userDetails
@@ -152,7 +152,7 @@ public class ChatController {
             description = "Đánh dấu tất cả tin nhắn chưa đọc do người khác gửi trong cuộc hội thoại là đã đọc."
     )
     @PutMapping("/conversations/{id}/read")
-    @PreAuthorize("isAuthenticated()")
+    @PreAuthorize("hasAuthority('CHAT_PARTICIPATE')")
     public ResponseEntity<ApiResponse<Void>> markMessagesAsRead(
             @PathVariable UUID id,
             @AuthenticationPrincipal CustomUserDetails userDetails
@@ -171,7 +171,7 @@ public class ChatController {
             description = "Xóa cuộc hội thoại. Với DIRECT chat, thành viên nào cũng có thể xóa. Với GROUP chat, chỉ người tạo (chủ nhóm) mới có quyền xóa."
     )
     @DeleteMapping("/conversations/{id}")
-    @PreAuthorize("isAuthenticated()")
+    @PreAuthorize("hasAuthority('CHAT_PARTICIPATE')")
     public ResponseEntity<ApiResponse<Void>> deleteConversation(
             @PathVariable UUID id,
             @AuthenticationPrincipal CustomUserDetails userDetails
@@ -190,7 +190,7 @@ public class ChatController {
             description = "Xóa một thành viên khỏi nhóm chat. Chỉ áp dụng cho GROUP chat và chỉ người tạo (chủ nhóm) mới có quyền thực hiện."
     )
     @DeleteMapping("/conversations/{id}/members/{memberId}")
-    @PreAuthorize("isAuthenticated()")
+    @PreAuthorize("hasAuthority('CHAT_PARTICIPATE')")
     public ResponseEntity<ApiResponse<Void>> removeMember(
             @PathVariable UUID id,
             @PathVariable UUID memberId,
@@ -210,7 +210,7 @@ public class ChatController {
             description = "Thêm một thành viên vào nhóm chat. Chỉ áp dụng cho GROUP chat và chỉ người tạo (chủ nhóm) mới có quyền thực hiện."
     )
     @PostMapping("/conversations/{id}/members/{memberId}")
-    @PreAuthorize("isAuthenticated()")
+    @PreAuthorize("hasAuthority('CHAT_PARTICIPATE')")
     public ResponseEntity<ApiResponse<Void>> addMember(
             @PathVariable UUID id,
             @PathVariable UUID memberId,
@@ -230,7 +230,7 @@ public class ChatController {
             description = "Lấy danh sách thành viên của một cuộc hội thoại."
     )
     @GetMapping("/conversations/{id}/members")
-    @PreAuthorize("isAuthenticated()")
+    @PreAuthorize("hasAuthority('CHAT_PARTICIPATE')")
     public ResponseEntity<ApiResponse<List<UserResponse>>> getConversationMembers(
             @PathVariable UUID id,
             @AuthenticationPrincipal CustomUserDetails userDetails
