@@ -12,7 +12,7 @@ import com.sep.treksphere.matching.dto.request.MatchingGroupCreateRequest;
 import com.sep.treksphere.matching.dto.request.MatchingGroupFilterRequest;
 import com.sep.treksphere.matching.dto.request.MatchingJoinRequestFilter;
 import com.sep.treksphere.matching.dto.request.MyMatchingJoinRequestFilter;
-import com.sep.treksphere.matching.dto.request.OwnedMatchingGroupFilterRequest;
+import com.sep.treksphere.matching.dto.request.MyMatchingGroupFilterRequest;
 import com.sep.treksphere.matching.dto.response.MatchingGroupDetailResponse;
 import com.sep.treksphere.matching.dto.response.MatchingGroupResponse;
 import com.sep.treksphere.matching.dto.response.MatchingMemberResponse;
@@ -61,17 +61,37 @@ public class MatchingGroupService {
                 ? ""
                 : filter.getKeyword().trim().toLowerCase(Locale.ROOT);
 
+        String sourceType = filter.getSourceType() == null
+                ? null
+                : filter.getSourceType().name();
+
+        String difficulty = filter.getDifficulty() == null || filter.getDifficulty().isBlank()
+                ? null
+                : filter.getDifficulty().trim().toUpperCase(Locale.ROOT);
+
+        String location = filter.getLocation() == null || filter.getLocation().isBlank()
+                ? null
+                : filter.getLocation().trim();
+
+        Boolean availableSlotsOnly = filter.getAvailableSlotsOnly() != null ? filter.getAvailableSlotsOnly() : true;
+
         LocalDate today = LocalDate.now();
         LocalDateTime now = LocalDateTime.now();
 
-        log.info("Fetching available matching groups with filters: tourId={}, targetDate={}, keyword={}",
-                filter.getTourId(), filter.getTargetDate(), keyword);
+        log.info("Fetching available matching groups with filters: sourceType={}, tourId={}, difficulty={}, location={}, targetDate={}, targetDateFrom={}, targetDateTo={}, availableSlotsOnly={}, keyword={}",
+                sourceType, filter.getTourId(), difficulty, location, filter.getTargetDate(), filter.getTargetDateFrom(), filter.getTargetDateTo(), availableSlotsOnly, keyword);
 
         Page<MatchingGroup> groups = matchingGroupRepository.findAvailableMatchingGroups(
                 MatchingGroupStatus.OPEN,
                 TourStatus.APPROVED,
+                sourceType,
                 filter.getTourId(),
                 filter.getTargetDate(),
+                filter.getTargetDateFrom(),
+                filter.getTargetDateTo(),
+                difficulty,
+                location,
+                availableSlotsOnly,
                 keyword,
                 today,
                 now,
@@ -82,8 +102,8 @@ public class MatchingGroupService {
     }
 
     @Transactional(readOnly = true)
-    public PaginationResponse<MatchingGroupResponse> getOwnedMatchingGroups(
-            OwnedMatchingGroupFilterRequest filter,
+    public PaginationResponse<MatchingGroupResponse> getMyMatchingGroups(
+            MyMatchingGroupFilterRequest filter,
             CustomUserDetails userDetails
     ) {
         UUID userId = userDetails.getUser().getUserId();
@@ -91,19 +111,26 @@ public class MatchingGroupService {
                 ? ""
                 : filter.getKeyword().trim().toLowerCase(Locale.ROOT);
 
-        log.info("Fetching owned or joined matching groups: userId={}, status={}, keyword={}",
-                userId, filter.getStatus(), keyword);
+        log.info("Fetching owned or joined matching groups: userId={}, role={}, status={}, keyword={}",
+                userId, filter.getRole(), filter.getStatus(), keyword);
 
         Page<MatchingGroup> groups = matchingGroupRepository.findOwnedOrJoinedGroups(
                 userId,
                 MatchingRole.MEMBER,
                 JoinStatus.ACCEPTED,
+                filter.getRole(),
                 filter.getStatus(),
                 keyword,
                 filter.getPageable()
         );
 
-        return PaginationUtils.toPaginationResponse(groups.map(matchingGroupMapper::toResponse));
+        return PaginationUtils.toPaginationResponse(groups.map(group -> {
+            MatchingGroupResponse response = matchingGroupMapper.toResponse(group);
+            boolean isOwner = group.getOwner() != null && userId.equals(group.getOwner().getUserId());
+            response.setIsOwner(isOwner);
+            response.setMyRole(isOwner ? MatchingRole.LEADER : MatchingRole.MEMBER);
+            return response;
+        }));
     }
 
     @Transactional(readOnly = true)
@@ -124,18 +151,6 @@ public class MatchingGroupService {
             matchingGroup.getConversation().getParticipants().forEach(p -> usersInConversation.add(p.getUserId()));
         }
 
-        List<MatchingMemberResponse> acceptedMembers = matchingGroup.getMembers().stream()
-                .filter(member -> member.getStatus() == JoinStatus.ACCEPTED
-                        && !Boolean.TRUE.equals(member.getIsDeleted()))
-                .map(member -> {
-                    MatchingMemberResponse memResponse = matchingGroupMapper.toMemberResponse(member);
-                    memResponse.setIsInConversation(usersInConversation.contains(member.getUser().getUserId()));
-                    return memResponse;
-                })
-                .toList();
-
-        response.setMembers(acceptedMembers);
-
         UUID viewerId = userDetails == null ? null : userDetails.getUser().getUserId();
         boolean isOwner = viewerId != null && matchingGroup.getOwner().getUserId().equals(viewerId);
         MatchingMember viewerMembership = viewerId == null
@@ -147,6 +162,24 @@ public class MatchingGroupService {
                         .orElse(null);
 
         JoinStatus membershipStatus = viewerMembership == null ? null : viewerMembership.getStatus();
+        boolean isAcceptedMember = isOwner || membershipStatus == JoinStatus.ACCEPTED;
+
+        // Chỉ Accepted Member và Leader mới xem được danh sách thành viên (theo Artifact B Permission Matrix)
+        if (isAcceptedMember) {
+            List<MatchingMemberResponse> acceptedMembers = matchingGroup.getMembers().stream()
+                    .filter(member -> member.getStatus() == JoinStatus.ACCEPTED
+                            && !Boolean.TRUE.equals(member.getIsDeleted()))
+                    .map(member -> {
+                        MatchingMemberResponse memResponse = matchingGroupMapper.toMemberResponse(member);
+                        memResponse.setIsInConversation(usersInConversation.contains(member.getUser().getUserId()));
+                        return memResponse;
+                    })
+                    .toList();
+            response.setMembers(acceptedMembers);
+        } else {
+            response.setMembers(java.util.Collections.emptyList());
+        }
+
         boolean hasActiveMembership = membershipStatus == JoinStatus.PENDING
                 || membershipStatus == JoinStatus.ACCEPTED;
         boolean groupIsJoinable = matchingGroup.getStatus() == MatchingGroupStatus.OPEN

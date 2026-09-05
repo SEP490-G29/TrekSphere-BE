@@ -515,6 +515,9 @@ public class MessageConstant {
     public static final String REPORT_TARGET_TYPE_REQUIRED = "Loại nội dung báo cáo không được để trống";
     public static final String REPORT_REASON_REQUIRED = "Lý do báo cáo không được để trống";
     public static final String REPORT_ACTION_REQUIRED = "Hành động xử lý không được để trống";
+
+    // Matching & Hiking Profile Messages
+    public static final String PUBLIC_HIKING_SUMMARY_FETCHED_SUCCESS = "Lấy hồ sơ leo núi công khai thành công";
 }
 
 

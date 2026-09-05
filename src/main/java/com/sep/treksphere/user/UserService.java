@@ -38,6 +38,14 @@ public class UserService {
         return userMapper.toUserProfileResponse(user);
     }
 
+    @Transactional(readOnly = true)
+    public PublicHikingSummaryResponse getPublicHikingSummary(UUID userId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
+
+        return userMapper.toPublicHikingSummaryResponse(user);
+    }
+
     @Transactional
     public UserProfileResponse updateProfile(String email, UpdateProfileRequest request, MultipartFile avatar) {
         User user = userRepository.findByEmail(email)
@@ -61,6 +69,21 @@ public class UserService {
         }
         if (request.getGender() != null) {
             user.setGender(request.getGender());
+        }
+        if (request.getBio() != null) {
+            user.setBio(request.getBio());
+        }
+        if (request.getExperienceLevel() != null) {
+            user.setExperienceLevel(request.getExperienceLevel());
+        }
+        if (request.getPreferredDifficulty() != null) {
+            user.setPreferredDifficulty(request.getPreferredDifficulty());
+        }
+        if (request.getPreferredAreas() != null) {
+            user.setPreferredAreas(request.getPreferredAreas());
+        }
+        if (request.getSkills() != null) {
+            user.setSkills(request.getSkills());
         }
 
         if (avatar != null && !avatar.isEmpty()) {

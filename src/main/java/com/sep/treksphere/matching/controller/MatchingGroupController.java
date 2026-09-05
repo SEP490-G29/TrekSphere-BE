@@ -8,7 +8,7 @@ import com.sep.treksphere.matching.dto.request.MatchingGroupCreateRequest;
 import com.sep.treksphere.matching.dto.request.MatchingGroupFilterRequest;
 import com.sep.treksphere.matching.dto.request.MatchingJoinRequestFilter;
 import com.sep.treksphere.matching.dto.request.MyMatchingJoinRequestFilter;
-import com.sep.treksphere.matching.dto.request.OwnedMatchingGroupFilterRequest;
+import com.sep.treksphere.matching.dto.request.MyMatchingGroupFilterRequest;
 import com.sep.treksphere.common.dto.ApiResponse;
 import com.sep.treksphere.matching.dto.response.MatchingGroupDetailResponse;
 import com.sep.treksphere.matching.dto.response.MatchingGroupResponse;
@@ -41,9 +41,9 @@ public class MatchingGroupController {
 
     @Operation(
         summary = "Tìm kiếm các nhóm ghép bạn đồng hành",
-        description = "Lấy danh sách các nhóm còn mở ghép thành viên của Tour đang public. " +
-                "Cho phép tìm theo tên nhóm hoặc tên Tour, lọc theo Tour và ngày Trekker dự kiến đi; " +
-                "ngày dự kiến không phụ thuộc lịch khởi hành của Tour."
+        description = "Lấy danh sách các nhóm còn mở ghép thành viên của Tour được phê duyệt hoặc Custom Journey độc lập. " +
+                "Cho phép lọc theo loại nguồn (sourceType: TOUR, CUSTOM_JOURNEY), Tour ID, độ khó (difficulty), địa điểm (location), " +
+                "ngày đi dự kiến (targetDate/targetDateFrom/targetDateTo), và tình trạng chỗ trống (availableSlotsOnly)."
     )
     @GetMapping
     public ResponseEntity<ApiResponse<PaginationResponse<MatchingGroupResponse>>> getMatchingGroups(
@@ -53,17 +53,17 @@ public class MatchingGroupController {
     }
 
     @Operation(
-        summary = "Lấy các nhóm ghép của Trekker hiện tại",
-        description = "Trả về các nhóm do Trekker hiện tại sở hữu hoặc đã tham gia với tư cách thành viên được chấp nhận, bao gồm lịch sử nhóm đã giải tán và không giới hạn theo ngày dự kiến đi. " +
-                "Có thể lọc theo trạng thái và tìm theo tên nhóm hoặc tên Tour."
+        summary = "Lấy danh sách các nhóm ghép tôi đã tham gia hoặc làm chủ",
+        description = "Trả về các nhóm do Trekker hiện tại sở hữu (Leader) hoặc đã tham gia với tư cách thành viên được chấp nhận (Accepted Member), bao gồm lịch sử nhóm đã giải tán và không giới hạn theo ngày dự kiến đi. " +
+                "Có thể lọc theo trạng thái và tìm theo tên nhóm, tên Tour hoặc tiêu đề Custom Journey."
     )
-    @GetMapping("/owned")
-    @PreAuthorize("hasAuthority('MATCHING_GROUP_MANAGE_OWN')")
-    public ResponseEntity<ApiResponse<PaginationResponse<MatchingGroupResponse>>> getOwnedMatchingGroups(
-            @Valid @ParameterObject @ModelAttribute OwnedMatchingGroupFilterRequest filter,
+    @GetMapping(value = {"/my-groups", "/my-group"})
+    @PreAuthorize("hasAuthority('MATCHING_GROUP_PARTICIPATE')")
+    public ResponseEntity<ApiResponse<PaginationResponse<MatchingGroupResponse>>> getMyMatchingGroups(
+            @Valid @ParameterObject @ModelAttribute MyMatchingGroupFilterRequest filter,
             @AuthenticationPrincipal CustomUserDetails userDetails) {
         PaginationResponse<MatchingGroupResponse> result =
-                matchingGroupService.getOwnedMatchingGroups(filter, userDetails);
+                matchingGroupService.getMyMatchingGroups(filter, userDetails);
         return ResponseEntity.ok(ApiResponse.success(
                 HttpStatus.OK,
                 result,
@@ -73,7 +73,7 @@ public class MatchingGroupController {
 
     @Operation(
         summary = "Xem chi tiết nhóm ghép bạn đồng hành",
-        description = "Lấy thông tin public của nhóm ghép thuộc Tour đang public, bao gồm các thành viên đã được duyệt. " +
+        description = "Lấy thông tin public của nhóm ghép (Tour đã duyệt hoặc Custom Journey), bao gồm danh sách thành viên đã được duyệt, thông tin hành trình / checkpoint và chi phí ước tính. " +
                 "Nếu người xem đã đăng nhập, response có thêm trạng thái tham gia và quyền join/leave của người đó."
     )
     @GetMapping("/{id}")

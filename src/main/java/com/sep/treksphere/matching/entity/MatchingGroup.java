@@ -62,6 +62,9 @@ public class MatchingGroup extends BaseEntity {
     @OneToMany(mappedBy = "matchingGroup", cascade = CascadeType.ALL, orphanRemoval = true)
     private Set<MatchingMember> members = new HashSet<>();
 
+    @OneToOne(mappedBy = "matchingGroup", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    private CustomJourney customJourney;
+
     @OneToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "conversation_id")
     private Conversation conversation;

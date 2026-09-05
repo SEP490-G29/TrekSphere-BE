@@ -10,6 +10,8 @@ import com.sep.treksphere.matching.enums.JourneyDifficulty;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.HashSet;
+import java.util.Set;
 import java.util.UUID;
 
 @Entity
@@ -47,4 +49,11 @@ public class CustomJourney extends BaseEntity {
     private Boolean isLocked = false;
 
     private LocalDateTime lockedAt;
+
+    @OneToMany(mappedBy = "customJourney", cascade = CascadeType.ALL, orphanRemoval = true)
+    @OrderBy("checkpointOrder ASC")
+    private Set<CustomJourneyCheckpoint> checkpoints = new HashSet<>();
+
+    @OneToMany(mappedBy = "customJourney", cascade = CascadeType.ALL, orphanRemoval = true)
+    private Set<CustomJourneyCostItem> costItems = new HashSet<>();
 }
