@@ -104,6 +104,8 @@ public interface MatchingGroupRepository extends JpaRepository<MatchingGroup, UU
           AND mg.targetDate > :today
           AND t.isDeleted = false
           AND t.status = :tourStatus
+          AND t.vendor.status = com.sep.treksphere.vendor.VendorStatus.ACTIVE
+          AND t.vendor.isDeleted = false
           AND (CAST(:tourId AS uuid) IS NULL OR t.tourId = :tourId)
           AND (CAST(:targetDate AS date) IS NULL OR mg.targetDate = :targetDate)
           AND (
@@ -121,6 +123,8 @@ public interface MatchingGroupRepository extends JpaRepository<MatchingGroup, UU
           AND mg.targetDate > :today
           AND t.isDeleted = false
           AND t.status = :tourStatus
+          AND t.vendor.status = com.sep.treksphere.vendor.VendorStatus.ACTIVE
+          AND t.vendor.isDeleted = false
           AND (CAST(:tourId AS uuid) IS NULL OR t.tourId = :tourId)
           AND (CAST(:targetDate AS date) IS NULL OR mg.targetDate = :targetDate)
           AND (
@@ -151,6 +155,8 @@ public interface MatchingGroupRepository extends JpaRepository<MatchingGroup, UU
           AND mg.status IN :statuses
           AND t.isDeleted = false
           AND t.status = :tourStatus
+          AND t.vendor.status = com.sep.treksphere.vendor.VendorStatus.ACTIVE
+          AND t.vendor.isDeleted = false
     """)
     Optional<MatchingGroup> findPublicDetailById(
             @Param("id") UUID id,
@@ -180,5 +186,11 @@ public interface MatchingGroupRepository extends JpaRepository<MatchingGroup, UU
     Optional<MatchingGroup> findByConversationConversationId(UUID conversationId);
 
     boolean existsByTour_TourIdAndStatusInAndIsDeletedFalse(UUID tourId, Collection<MatchingGroupStatus> statuses);
+
+    boolean existsByTour_TourIdAndMaxSizeGreaterThanAndStatusInAndIsDeletedFalse(
+            UUID tourId, Integer maxSize, Collection<MatchingGroupStatus> statuses);
+
+    boolean existsByTour_TourIdAndMaxSizeLessThanAndStatusInAndIsDeletedFalse(
+            UUID tourId, Integer minSize, Collection<MatchingGroupStatus> statuses);
 }
 

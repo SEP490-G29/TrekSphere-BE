@@ -22,6 +22,8 @@ public class MessageResponse {
     private String senderName;
     private String senderAvatarUrl;
     private String content;
+    private MessageType messageType;
+    private AttachmentResponse attachment;
     private Boolean isRead;
     private LocalDateTime createdAt;
 }

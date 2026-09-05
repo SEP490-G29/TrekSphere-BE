@@ -1,11 +1,8 @@
 package com.sep.treksphere.tour;
 
-import com.sep.treksphere.vendor.Vendor;
 import com.sep.treksphere.common.constant.MessageConstant;
 import com.sep.treksphere.common.dto.BaseFilterRequest;
 import com.sep.treksphere.tour.dto.request.CreateTourRequest;
-import com.sep.treksphere.tour.dto.request.HideTourRequest;
-import com.sep.treksphere.tour.dto.request.RejectTourRequest;
 import com.sep.treksphere.tour.dto.request.UpdateTourRequest;
 import com.sep.treksphere.common.dto.ApiResponse;
 import com.sep.treksphere.common.dto.PaginationResponse;
@@ -14,7 +11,6 @@ import com.sep.treksphere.tour.dto.response.TourSummaryResponse;
 import com.sep.treksphere.common.security.CustomUserDetails;
 import com.sep.treksphere.tour.TourService;
 import io.swagger.v3.oas.annotations.Operation;
-import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -28,15 +24,13 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
-import org.springframework.util.StringUtils;
-
 import java.util.List;
 import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/v1/vendor/tours")
 @RequiredArgsConstructor
-@Tag(name = "Vendor Tour Management", description = "Các API quản lý Tour dành cho Vendor Manager và Vendor Staff")
+@Tag(name = "Vendor Tour Management", description = "Các API quản lý Tour thuộc Vendor hiện tại")
 @SecurityRequirement(name = "bearerAuth")
 public class VendorTourController {
 
@@ -100,67 +94,24 @@ public class VendorTourController {
         return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, null, MessageConstant.TOUR_DELETED_SUCCESSFULLY));
     }
 
-    @Operation(summary = "Gửi yêu cầu kiểm duyệt Tour", description = "VendorStaff/Manager gửi Tour lên hệ thống cho Manager duyệt. Tour phải ở trạng thái DRAFT hoặc REJECTED.")
-    @SecurityRequirement(name = "bearerAuth")
-    @PreAuthorize("hasAuthority('TOUR_MANAGE_OWN')")
-    @PostMapping("/{id}/submit-approval")
-    public ResponseEntity<ApiResponse<TourDetailResponse>> submitTourForApproval(
+    @Operation(summary = "Công khai Tour", description = "Vendor tự công khai Tour DRAFT sau khi đáp ứng đủ điều kiện.")
+    @PreAuthorize("hasAuthority('TOUR_PUBLISH')")
+    @PutMapping("/{id}/publish")
+    public ResponseEntity<ApiResponse<TourDetailResponse>> publishTour(
             @AuthenticationPrincipal CustomUserDetails userDetails,
             @PathVariable UUID id) {
-
-        TourDetailResponse response = tourService.submitTourForApproval(userDetails.getUsername(), id);
-        return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, response, MessageConstant.TOUR_SUBMITTED_FOR_APPROVAL));
+        TourDetailResponse response = tourService.publishTour(userDetails.getUsername(), id);
+        return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, response, MessageConstant.TOUR_PUBLISHED_SUCCESSFULLY));
     }
 
-    @Operation(
-            summary = "Phê duyệt Tour",
-            description = "Vendor Manager phê duyệt Tour thuộc Vendor mình quản lý, đang ở trạng thái PENDING_APPROVAL, để chuyển sang APPROVED."
-    )
-    @SecurityRequirement(name = "bearerAuth")
-    @PreAuthorize("hasAuthority('TOUR_MANAGE_OWN')")
-    @PutMapping("/{id}/approve")
-    public ResponseEntity<ApiResponse<TourDetailResponse>> approveTour(
+    @Operation(summary = "Ngừng công khai Tour", description = "Vendor đưa Tour PUBLISHED về DRAFT khi không có nhóm ghép đang hoạt động.")
+    @PreAuthorize("hasAuthority('TOUR_PUBLISH')")
+    @PutMapping("/{id}/unpublish")
+    public ResponseEntity<ApiResponse<TourDetailResponse>> unpublishTour(
             @AuthenticationPrincipal CustomUserDetails userDetails,
             @PathVariable UUID id) {
-
-        TourDetailResponse response = tourService.approveTour(userDetails.getUsername(), id);
-        return ResponseEntity.ok(ApiResponse.success(
-                HttpStatus.OK,
-                response,
-                MessageConstant.TOUR_APPROVED_SUCCESSFULLY
-        ));
-    }
-
-    @Operation(
-            summary = "Từ chối Tour",
-            description = "Vendor Manager từ chối Tour thuộc Vendor mình quản lý, đang ở trạng thái PENDING_APPROVAL, và bắt buộc nêu rõ lý do chỉnh sửa."
-    )
-    @SecurityRequirement(name = "bearerAuth")
-    @PreAuthorize("hasAuthority('TOUR_MANAGE_OWN')")
-    @PutMapping("/{id}/reject")
-    public ResponseEntity<ApiResponse<TourDetailResponse>> rejectTour(
-            @AuthenticationPrincipal CustomUserDetails userDetails,
-            @PathVariable UUID id,
-            @Valid @RequestBody RejectTourRequest request) {
-
-        TourDetailResponse response = tourService.rejectTour(userDetails.getUsername(), id, request.getReason());
-        return ResponseEntity.ok(ApiResponse.success(
-                HttpStatus.OK,
-                response,
-                MessageConstant.TOUR_REJECTED_SUCCESSFULLY
-        ));
-    }
-
-    @Operation(summary = "Revert Tour bị từ chối", description = "Staff chuyển Tour REJECTED → DRAFT. Manager chuyển Tour REJECTED → PENDING_APPROVAL.")
-    @SecurityRequirement(name = "bearerAuth")
-    @PreAuthorize("hasAuthority('TOUR_MANAGE_OWN')")
-    @PostMapping("/{id}/revert-to-draft")
-    public ResponseEntity<ApiResponse<TourDetailResponse>> revertTour(
-            @AuthenticationPrincipal CustomUserDetails userDetails,
-            @PathVariable UUID id) {
-
-        TourDetailResponse response = tourService.revertTour(userDetails.getUsername(), id);
-        return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, response, MessageConstant.TOUR_REVERTED_TO_DRAFT));
+        TourDetailResponse response = tourService.unpublishTour(userDetails.getUsername(), id);
+        return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, response, MessageConstant.TOUR_UNPUBLISHED_SUCCESSFULLY));
     }
 
     @Operation(summary = "Khôi phục Tour đã xóa", description = "VendorManager khôi phục Tour đã bị xóa mềm. Tour sẽ được chuyển về trạng thái DRAFT cùng toàn bộ dữ liệu con (checkpoint, schedule, image).")
@@ -173,32 +124,6 @@ public class VendorTourController {
 
         TourDetailResponse response = tourService.restoreTour(userDetails.getUsername(), id);
         return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, response, MessageConstant.TOUR_RESTORED_SUCCESSFULLY));
-    }
-
-    @Operation(summary = "Ẩn Tour vi phạm", description = "Admin/VendorManager ẩn Tour đang bán nếu phát hiện vi phạm. Hệ thống sẽ gửi thông báo cho chủ tour.")
-    @PreAuthorize("hasAuthority('TOUR_HIDE_UNHIDE')")
-    @PutMapping("/{id}/hide")
-    public ResponseEntity<ApiResponse<TourDetailResponse>> hideTour(
-            @AuthenticationPrincipal CustomUserDetails userDetails,
-            @PathVariable UUID id,
-            @RequestBody(required = false) HideTourRequest request) {
-
-        String reason = (request != null && StringUtils.hasText(request.getReason()))
-                ? request.getReason()
-                : "Tạm ẩn tour do vi phạm hoặc theo yêu cầu";
-        TourDetailResponse response = tourService.hideTourForViolation(userDetails.getUsername(), id, reason);
-        return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, response, MessageConstant.TOUR_HIDDEN_SUCCESSFULLY));
-    }
-
-    @Operation(summary = "Mở lại (Bỏ ẩn) Tour", description = "Admin/VendorManager bỏ ẩn Tour đang ở trạng thái HIDDEN để đưa về APPROVED mở bán lại.")
-    @PreAuthorize("hasAuthority('TOUR_HIDE_UNHIDE')")
-    @PutMapping("/{id}/unhide")
-    public ResponseEntity<ApiResponse<TourDetailResponse>> unhideTour(
-            @AuthenticationPrincipal CustomUserDetails userDetails,
-            @PathVariable UUID id) {
-
-        TourDetailResponse response = tourService.unhideTour(userDetails.getUsername(), id);
-        return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, response, MessageConstant.TOUR_UNHIDDEN_SUCCESSFULLY));
     }
 
 }

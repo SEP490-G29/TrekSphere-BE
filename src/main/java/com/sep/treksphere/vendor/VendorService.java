@@ -7,6 +7,8 @@ import com.sep.treksphere.common.exception.ErrorCode;
 import com.sep.treksphere.common.security.CustomUserDetails;
 import com.sep.treksphere.file.FileService;
 import com.sep.treksphere.vendor.application.VendorApplicationRepository;
+import com.sep.treksphere.tour.TourRepository;
+import com.sep.treksphere.tour.TourStatus;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -26,6 +28,8 @@ public class VendorService {
     private final VendorApplicationRepository vendorApplicationRepository;
     private final FileService fileService;
     private final VendorMapper vendorMapper;
+    private final VendorAccessService vendorAccessService;
+    private final TourRepository tourRepository;
 
     @Transactional(readOnly = true)
     public PaginationResponse<VendorResponse> getVendors(VendorFilterRequest request) {
@@ -54,18 +58,7 @@ public class VendorService {
         UUID userId = userDetails.getUser().getUserId();
         log.info("Fetching vendor profile for user ID: {}", userId);
 
-        boolean isVendor = userDetails.getAuthorities().stream()
-                .anyMatch(a -> a.getAuthority().equals("ROLE_VENDOR"));
-        if (!isVendor) {
-            log.warn("User ID {} with unauthorized roles tried to access vendor profile", userId);
-            throw new AppException(ErrorCode.UNAUTHORIZED_VENDOR_ACCESS);
-        }
-
-        Vendor vendor = vendorRepository.findByManager_UserId(userId)
-                .orElseThrow(() -> {
-                    log.error("Vendor not found for manager user ID: {}", userId);
-                    return new AppException(ErrorCode.VENDOR_NOT_FOUND);
-                });
+        Vendor vendor = vendorAccessService.resolveByManagerEmail(userDetails.getUsername());
 
         return vendorMapper.toVendorProfileResponse(vendor);
     }
@@ -75,11 +68,7 @@ public class VendorService {
         UUID userId = userDetails.getUser().getUserId();
         log.info("Updating vendor profile for user ID: {}", userId);
 
-        Vendor vendor = vendorRepository.findByManager_UserId(userId)
-                .orElseThrow(() -> {
-                    log.error("Vendor not found for manager user ID: {}", userId);
-                    return new AppException(ErrorCode.VENDOR_NOT_FOUND);
-                });
+        Vendor vendor = vendorAccessService.resolveActiveByManagerEmail(userDetails.getUsername());
 
         if (StringUtils.hasText(request.getContactEmail())) {
             String newEmail = request.getContactEmail().trim();
@@ -110,6 +99,12 @@ public class VendorService {
         if (StringUtils.hasText(request.getDescription())) {
             vendor.setDescription(request.getDescription().trim());
         }
+        if (request.getBusinessAddress() != null) {
+            vendor.setBusinessAddress(normalizeNullable(request.getBusinessAddress()));
+        }
+        if (request.getWebsiteUrl() != null) {
+            vendor.setWebsiteUrl(normalizeNullable(request.getWebsiteUrl()));
+        }
         if (request.getLogo() != null && !request.getLogo().isEmpty()) {
             log.info("Uploading new logo for vendor ID: {}", vendor.getVendorId());
             String logoUrl = fileService.uploadFile(request.getLogo(), "vendor-logos");
@@ -126,20 +121,46 @@ public class VendorService {
     public VendorResponse updateVendorStatus(UUID id, VendorStatusUpdateRequest request) {
         log.info("Updating status for vendor ID: {} to {}", id, request.getStatus());
         Vendor vendor = vendorRepository.findById(id)
+                .filter(v -> !Boolean.TRUE.equals(v.getIsDeleted()))
                 .orElseThrow(() -> {
                     log.error("Vendor not found with ID: {}", id);
                     return new AppException(ErrorCode.VENDOR_NOT_FOUND);
                 });
 
-        if (vendor.getStatus() == VendorStatus.SUSPENDED) {
-            log.warn("Cannot change status for already SUSPENDED vendor ID: {}", id);
-            throw new AppException(ErrorCode.VENDOR_REVOKED_STATUS);
+        VendorStatus currentStatus = vendor.getStatus();
+        VendorStatus targetStatus = request.getStatus();
+        if (!currentStatus.canTransitionTo(targetStatus)) {
+            throw new AppException(ErrorCode.INVALID_VENDOR_STATUS_TRANSITION);
         }
 
-        vendor.setStatus(request.getStatus());
+        vendor.setStatus(targetStatus);
         vendor = vendorRepository.save(vendor);
         log.info("Successfully updated status for vendor ID: {}", id);
 
         return vendorMapper.toVendorResponse(vendor);
+    }
+
+    @Transactional(readOnly = true)
+    public PublicVendorProfileResponse getPublicVendorProfile(UUID vendorId) {
+        Vendor vendor = vendorRepository
+                .findByVendorIdAndStatusAndIsDeletedFalse(vendorId, VendorStatus.ACTIVE)
+                .orElseThrow(() -> new AppException(ErrorCode.VENDOR_NOT_FOUND));
+        return PublicVendorProfileResponse.builder()
+                .vendorId(vendor.getVendorId())
+                .companyName(vendor.getCompanyName())
+                .description(vendor.getDescription())
+                .logoUrl(vendor.getLogoUrl())
+                .businessAddress(vendor.getBusinessAddress())
+                .websiteUrl(vendor.getWebsiteUrl())
+                .contactEmail(vendor.getContactEmail())
+                .contactPhone(vendor.getContactPhone())
+                .partnerSince(vendor.getCreatedAt())
+                .publishedTourCount(tourRepository.countByVendorVendorIdAndStatusAndIsDeletedFalse(
+                        vendorId, TourStatus.PUBLISHED))
+                .build();
+    }
+
+    private String normalizeNullable(String value) {
+        return StringUtils.hasText(value) ? value.trim() : null;
     }
 }

@@ -28,6 +28,33 @@ public interface TourScheduleRepository extends JpaRepository<TourSchedule, UUID
 
        Optional<TourSchedule> findByTourScheduleIdAndIsDeletedFalse(UUID tourScheduleId);
 
+       boolean existsByTourAndStatusAndDepartureDateAfterAndIsDeletedFalse(
+                     Tour tour, ScheduleStatus status, LocalDate date);
+
+       @Query("""
+              SELECT COUNT(ts) FROM TourSchedule ts
+              WHERE ts.tour.tourId = :tourId
+                AND ts.status = com.sep.treksphere.tour.schedule.ScheduleStatus.OPEN
+                AND ts.departureDate > :today
+                AND ts.isDeleted = false
+                AND (CAST(:excludedId AS uuid) IS NULL OR ts.tourScheduleId <> :excludedId)
+              """)
+       long countFutureOpenSchedulesExcluding(
+                     @Param("tourId") UUID tourId,
+                     @Param("today") LocalDate today,
+                     @Param("excludedId") UUID excludedId);
+
+       @Modifying
+       @Query("""
+              UPDATE TourSchedule ts
+              SET ts.status = com.sep.treksphere.tour.schedule.ScheduleStatus.CLOSED,
+                  ts.updatedAt = :now
+              WHERE ts.status = com.sep.treksphere.tour.schedule.ScheduleStatus.OPEN
+                AND ts.departureDate < :today
+                AND ts.isDeleted = false
+              """)
+       int closePastOpenSchedules(@Param("today") LocalDate today, @Param("now") LocalDateTime now);
+
        @Query("SELECT ts FROM TourSchedule ts WHERE ts.tour.vendor.vendorId = :vendorId " +
                      "AND ts.isDeleted = false AND ts.departureDate >= :today ORDER BY ts.departureDate ASC")
        List<TourSchedule> findVendorUpcomingSchedules(

@@ -9,6 +9,9 @@ import lombok.Data;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.time.LocalDate;
+import java.util.List;
+import com.sep.treksphere.tour.DifficultyLevel;
+import jakarta.validation.constraints.Size;
 
 @Data
 public class UpdateProfileRequest {
@@ -23,4 +26,17 @@ public class UpdateProfileRequest {
     private Gender gender;
 
     private MultipartFile avatar;
+
+    @Size(max = 2000)
+    private String bio;
+
+    private ExperienceLevel experienceLevel;
+
+    private DifficultyLevel preferredDifficulty;
+
+    @Size(max = 20)
+    private List<String> preferredAreas;
+
+    @Size(max = 30)
+    private List<String> skills;
 }

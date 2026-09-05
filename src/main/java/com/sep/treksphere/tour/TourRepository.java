@@ -23,8 +23,12 @@ public interface TourRepository extends JpaRepository<Tour, UUID> {
 
      @Query("""
                SELECT t FROM Tour t
+               JOIN t.vendor v
                WHERE t.isDeleted = false
                  AND t.status = :status
+                 AND v.status = com.sep.treksphere.vendor.VendorStatus.ACTIVE
+                 AND v.isDeleted = false
+                 AND (CAST(:vendorId AS uuid) IS NULL OR v.vendorId = :vendorId)
                  AND (CAST(:keyword AS string) IS NULL
                       OR LOWER(t.tourName) LIKE LOWER(CONCAT('%', CAST(:keyword AS string), '%'))
                       OR LOWER(t.location) LIKE LOWER(CONCAT('%', CAST(:keyword AS string), '%')))
@@ -36,6 +40,7 @@ public interface TourRepository extends JpaRepository<Tour, UUID> {
                           SELECT ts.tourScheduleId FROM TourSchedule ts
                           WHERE ts.tour = t
                             AND ts.isDeleted = false
+                            AND ts.status = com.sep.treksphere.tour.schedule.ScheduleStatus.OPEN
                             AND (CAST(:departureDate AS date) IS NULL OR ts.departureDate = :departureDate)
                             AND (CAST(:returnDate AS date) IS NULL OR ts.returnDate = :returnDate)
                       ))
@@ -47,14 +52,21 @@ public interface TourRepository extends JpaRepository<Tour, UUID> {
                @Param("difficulty") DifficultyLevel difficulty,
                @Param("departureDate") LocalDate departureDate,
                @Param("returnDate") LocalDate returnDate,
+               @Param("vendorId") UUID vendorId,
                Pageable pageable);
 
      @Query("""
                SELECT t FROM Tour t
                JOIN FETCH t.vendor v
-               WHERE t.tourId = :tourId AND t.isDeleted = false
+               WHERE t.tourId = :tourId
+                 AND t.isDeleted = false
+                 AND t.status = com.sep.treksphere.tour.TourStatus.PUBLISHED
+                 AND v.status = com.sep.treksphere.vendor.VendorStatus.ACTIVE
+                 AND v.isDeleted = false
                """)
-     Optional<Tour> findDetailById(@Param("tourId") UUID tourId);
+     Optional<Tour> findPublishedDetailById(@Param("tourId") UUID tourId);
+
+     long countByVendorVendorIdAndStatusAndIsDeletedFalse(UUID vendorId, TourStatus status);
 
      @Query("""
                SELECT t FROM Tour t
@@ -93,6 +105,76 @@ public interface TourRepository extends JpaRepository<Tour, UUID> {
                @Param("vendorId") UUID vendorId,
                @Param("statuses") java.util.List<TourStatus> statuses,
                @Param("keyword") String keyword,
+               Pageable pageable);
+
+     @Query(value = """
+               SELECT t.*
+               FROM tour t
+               JOIN vendor v ON v.vendor_id = t.vendor_id
+               WHERE t.is_deleted = FALSE
+                 AND t.status = 'PUBLISHED'
+                 AND v.is_deleted = FALSE
+                 AND v.status = 'ACTIVE'
+                 AND EXISTS (
+                     SELECT 1 FROM tour_schedule ts
+                     WHERE ts.tour_id = t.tour_id
+                       AND ts.is_deleted = FALSE
+                       AND ts.status = 'OPEN'
+                       AND ts.departure_date > CURRENT_DATE
+                 )
+                 AND (
+                     CAST(:maxDifficultyRank AS integer) IS NULL
+                     OR CASE t.difficulty
+                          WHEN 'EASY' THEN 0 WHEN 'MODERATE' THEN 1
+                          WHEN 'HARD' THEN 2 WHEN 'EXPERT' THEN 3
+                        END <= :maxDifficultyRank
+                 )
+               ORDER BY (
+                   CASE WHEN :usePreferences = TRUE AND EXISTS (
+                       SELECT 1
+                       FROM jsonb_array_elements_text(CAST(:areasJson AS jsonb)) area
+                       WHERE LOWER(t.location) LIKE CONCAT('%', LOWER(area), '%')
+                   ) THEN 60 ELSE 0 END
+                   + CASE WHEN CAST(:preferredDifficulty AS varchar) IS NOT NULL
+                               AND t.difficulty = :preferredDifficulty THEN 30 ELSE 0 END
+                   + CASE WHEN CAST(:maxDifficultyRank AS integer) IS NOT NULL THEN 10 ELSE 0 END
+               ) DESC,
+               (SELECT COUNT(*) FROM matching_group mg
+                 WHERE mg.tour_id = t.tour_id
+                   AND mg.is_deleted = FALSE
+                   AND mg.status IN ('OPEN','FULL','CLOSED','IN_PROGRESS','COMPLETED')) DESC,
+               t.published_at DESC NULLS LAST,
+               t.tour_id
+               """,
+               countQuery = """
+               SELECT COUNT(*)
+               FROM tour t
+               JOIN vendor v ON v.vendor_id = t.vendor_id
+               WHERE t.is_deleted = FALSE
+                 AND t.status = 'PUBLISHED'
+                 AND v.is_deleted = FALSE
+                 AND v.status = 'ACTIVE'
+                 AND EXISTS (
+                     SELECT 1 FROM tour_schedule ts
+                     WHERE ts.tour_id = t.tour_id
+                       AND ts.is_deleted = FALSE
+                       AND ts.status = 'OPEN'
+                       AND ts.departure_date > CURRENT_DATE
+                 )
+                 AND (
+                     CAST(:maxDifficultyRank AS integer) IS NULL
+                     OR CASE t.difficulty
+                          WHEN 'EASY' THEN 0 WHEN 'MODERATE' THEN 1
+                          WHEN 'HARD' THEN 2 WHEN 'EXPERT' THEN 3
+                        END <= :maxDifficultyRank
+                 )
+               """,
+               nativeQuery = true)
+     Page<Tour> findRecommendedTours(
+               @Param("areasJson") String areasJson,
+               @Param("preferredDifficulty") String preferredDifficulty,
+               @Param("maxDifficultyRank") Integer maxDifficultyRank,
+               @Param("usePreferences") boolean usePreferences,
                Pageable pageable);
 }
 

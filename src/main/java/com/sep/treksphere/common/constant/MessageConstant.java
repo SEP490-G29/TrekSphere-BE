@@ -111,9 +111,17 @@ public class MessageConstant {
     public static final String TOUR_NOT_PENDING_APPROVAL = "Chỉ có thể duyệt hoặc từ chối Tour đang ở trạng thái Chờ duyệt (PENDING_APPROVAL)";
     public static final String TOUR_UNHIDDEN_SUCCESSFULLY = "Mở lại (bỏ ẩn) Tour thành công";
     public static final String TOUR_NOT_HIDDEN = "Chỉ có thể mở lại Tour đang ở trạng thái Bị ẩn (HIDDEN)";
+    public static final String TOUR_NOT_DRAFT = "Chỉ có thể công khai Tour đang ở trạng thái DRAFT";
+    public static final String TOUR_NOT_PUBLISHED = "Tour phải ở trạng thái PUBLISHED để thực hiện thao tác này";
+    public static final String TOUR_PUBLISH_REQUIREMENTS_NOT_MET = "Tour chưa đáp ứng đủ điều kiện công khai";
+    public static final String INVALID_TOUR_CAPACITY = "Sức chứa Tour không hợp lệ";
+    public static final String TOUR_PUBLISHED_SUCCESSFULLY = "Công khai Tour thành công";
+    public static final String TOUR_UNPUBLISHED_SUCCESSFULLY = "Đưa Tour về bản nháp thành công";
 
     // Vendor Messages
     public static final String VENDOR_NOT_FOUND = "Vendor không tồn tại";
+    public static final String VENDOR_NOT_ACTIVE = "Vendor đang không ở trạng thái hoạt động";
+    public static final String VENDOR_APPLICATION_INCOMPLETE = "Hồ sơ đăng ký Vendor chưa đầy đủ";
     public static final String EQUIPMENT_NOT_FOUND = "Trang bị không tồn tại";
     public static final String EQUIPMENT_CREATED_SUCCESSFULLY = "Tạo trang bị thành công";
     public static final String EQUIPMENT_UPDATED_SUCCESSFULLY = "Cập nhật trang bị thành công";
@@ -198,6 +206,7 @@ public class MessageConstant {
     public static final String VENDOR_PROFILE_UPDATED = "Cập nhật thông tin hồ sơ đối tác thành công";
     public static final String VENDOR_STATUS_REQUIRED = "Trạng thái của đối tác không được để trống";
     public static final String VENDOR_STATUS_UPDATED = "Cập nhật trạng thái đối tác thành công";
+    public static final String INVALID_VENDOR_STATUS_TRANSITION = "Không thể chuyển sang trạng thái Vendor được yêu cầu";
     public static final String VENDOR_REVOKED_STATUS = "Không thể thay đổi trạng thái của đối tác đã bị thu hồi quyền (REVOKED)";
     public static final String STAFF_ALREADY_EXISTS = "Nhân viên này đã thuộc công ty của bạn";
     public static final String STAFF_BELONGS_TO_OTHER_VENDOR = "Nhân viên này đang thuộc một công ty khác";
@@ -310,8 +319,8 @@ public class MessageConstant {
     public static final String MATCHING_GROUP_MAX_SIZE_MAX = "Số lượng thành viên tối đa không vượt quá 100 người";
     public static final String MATCHING_TARGET_DATE_REQUIRED = "Ngày đi mong muốn không được để trống";
     public static final String MATCHING_DEADLINE_REQUIRED = "Hạn chót ghép nhóm không được để trống";
-    public static final String MATCHING_TOUR_NOT_APPROVED = "Chỉ có thể tạo nhóm ghép cho Tour đã duyệt";
-    public static final String MATCHING_GROUP_SIZE_EXCEEDS_TOUR_CAPACITY = "Số thành viên tối đa của nhóm vượt quá sức chứa của Tour";
+    public static final String MATCHING_TOUR_NOT_APPROVED = "Chỉ có thể tạo nhóm ghép cho Tour đang công khai";
+    public static final String MATCHING_GROUP_SIZE_EXCEEDS_TOUR_CAPACITY = "Quy mô nhóm phải nằm trong khoảng sức chứa tối thiểu và tối đa của Tour";
     public static final String MATCHING_TOUR_NOT_AVAILABLE = "Tour của nhóm ghép không còn công khai";
     public static final String MATCHING_OWNER_CANNOT_JOIN = "Trưởng nhóm không thể gửi yêu cầu tham gia nhóm của chính mình";
     public static final String MATCHING_TARGET_DATE_PASSED = "Ngày dự kiến đi của nhóm đã đến hoặc đã qua";
@@ -497,6 +506,7 @@ public class MessageConstant {
     public static final String CONVERSATION_PARTICIPANTS_REQUIRED = "Danh sách người tham gia không được để trống";
     public static final String MESSAGE_CONVERSATION_ID_REQUIRED = "Mã cuộc hội thoại không được để trống";
     public static final String MESSAGE_CONTENT_REQUIRED = "Nội dung tin nhắn không được để trống";
+    public static final String MESSAGE_ATTACHMENT_NOT_FOUND = "Không tìm thấy file đính kèm của tin nhắn";
     public static final String DIRECT_PARTICIPANT_COUNT_INVALID = "Cuộc hội thoại 1-1 phải có đúng một người nhận";
     public static final String GROUP_PARTICIPANT_COUNT_INVALID = "Cuộc hội thoại nhóm phải có ít nhất hai người tham gia";
     public static final String GROUP_TITLE_REQUIRED = "Tên cuộc hội thoại nhóm không được để trống";
