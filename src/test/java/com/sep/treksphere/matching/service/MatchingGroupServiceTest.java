@@ -97,7 +97,7 @@ class MatchingGroupServiceTest {
         sampleTour.setTourName("Fansipan Summit Trek");
         sampleTour.setLocation("Lao Cai, Sa Pa");
         sampleTour.setDifficulty(DifficultyLevel.HARD);
-        sampleTour.setStatus(TourStatus.APPROVED);
+        sampleTour.setStatus(TourStatus.PUBLISHED);
 
         tourGroup = new MatchingGroup();
         tourGroup.setMatchingGroupId(UUID.randomUUID());

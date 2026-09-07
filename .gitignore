@@ -75,4 +75,8 @@ build/
 ### Docs ###
 docs/
 
+### Local agent configuration ###
+/AGENTS.md
+/.agents/
+
 

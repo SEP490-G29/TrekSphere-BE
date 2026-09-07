@@ -1,6 +1,7 @@
 package com.sep.treksphere.matching.dto.request;
 
 import com.sep.treksphere.common.dto.BaseFilterRequest;
+import com.sep.treksphere.matching.enums.JourneyDifficulty;
 import com.sep.treksphere.matching.enums.MatchingGroupSourceType;
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Getter;
@@ -28,8 +29,8 @@ public class MatchingGroupFilterRequest extends BaseFilterRequest {
     @Schema(description = "Lọc ngày dự kiến đi đến ngày (yyyy-MM-dd)")
     private LocalDate targetDateTo;
 
-    @Schema(description = "Lọc theo độ khó hành trình (EASY, MODERATE, HARD, EXTREME/EXPERT)")
-    private String difficulty;
+    @Schema(description = "Lọc theo độ khó hành trình (EASY, MODERATE, HARD, EXTREME)")
+    private JourneyDifficulty difficulty;
 
     @Schema(description = "Lọc theo địa điểm / khu vực")
     private String location;

@@ -47,9 +47,9 @@ public class SecurityConfig {
                                 HttpMethod.GET,
                                 "/api/v1/matching-groups",
                                 "/api/v1/matching-groups/*",
-                                "/api/v1/users/*/hiking-summary"),
-                                "/api/v1/vendors/*/public")
-                        .permitAll()
+                                "/api/v1/users/*/hiking-summary",
+                                "/api/v1/vendors/*/public"
+                        ).permitAll()
                         .requestMatchers(
                                 "/api/v1/auth/login",
                                 "/api/v1/auth/google",
@@ -78,9 +78,10 @@ public class SecurityConfig {
                                 "/swagger-ui.html",
                                 "/actuator/health",
                                 "/actuator/info",
-                                "/ws/**")
-                        .permitAll()
+                                "/ws/**"
+                        ).permitAll()
                         .anyRequest().authenticated()
+                )
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authenticationProvider(authenticationProvider())
                 .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);

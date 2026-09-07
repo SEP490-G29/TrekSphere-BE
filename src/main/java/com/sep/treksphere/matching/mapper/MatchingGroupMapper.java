@@ -1,11 +1,21 @@
 package com.sep.treksphere.matching.mapper;
 
-import com.sep.treksphere.matching.dto.response.*;
-import com.sep.treksphere.matching.entity.*;
+import com.sep.treksphere.matching.dto.request.CustomJourneyCreateRequest;
+import com.sep.treksphere.matching.dto.request.MatchingGroupCreateRequest;
+import com.sep.treksphere.matching.dto.response.CustomJourneyCheckpointResponse;
+import com.sep.treksphere.matching.dto.response.CustomJourneyCostItemResponse;
+import com.sep.treksphere.matching.dto.response.MatchingGroupDetailResponse;
+import com.sep.treksphere.matching.dto.response.MatchingGroupResponse;
+import com.sep.treksphere.matching.dto.response.MatchingMemberResponse;
+import com.sep.treksphere.matching.dto.response.MyMatchingJoinRequestResponse;
+import com.sep.treksphere.matching.entity.CustomJourney;
+import com.sep.treksphere.matching.entity.CustomJourneyCheckpoint;
+import com.sep.treksphere.matching.entity.CustomJourneyCostItem;
+import com.sep.treksphere.matching.entity.MatchingGroup;
+import com.sep.treksphere.matching.entity.MatchingMember;
 import com.sep.treksphere.matching.enums.MatchingGroupSourceType;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
-import org.mapstruct.Named;
 import org.mapstruct.ReportingPolicy;
 
 import java.math.BigDecimal;
@@ -16,6 +26,22 @@ import java.util.Set;
 
 @Mapper(componentModel = "spring", unmappedTargetPolicy = ReportingPolicy.IGNORE)
 public interface MatchingGroupMapper {
+
+    @Mapping(target = "tour", ignore = true)
+    @Mapping(target = "owner", ignore = true)
+    @Mapping(target = "currentSize", constant = "1")
+    @Mapping(target = "status", constant = "OPEN")
+    @Mapping(target = "members", ignore = true)
+    @Mapping(target = "customJourney", ignore = true)
+    @Mapping(target = "conversation", ignore = true)
+    MatchingGroup toEntity(MatchingGroupCreateRequest request);
+
+    @Mapping(target = "matchingGroup", ignore = true)
+    @Mapping(target = "isLocked", constant = "false")
+    @Mapping(target = "lockedAt", ignore = true)
+    @Mapping(target = "checkpoints", ignore = true)
+    @Mapping(target = "costItems", ignore = true)
+    CustomJourney toEntity(CustomJourneyCreateRequest request);
 
     @Mapping(target = "sourceType", expression = "java(deriveSourceType(matchingGroup))")
     @Mapping(target = "tourId", source = "tour.tourId")

@@ -2,7 +2,6 @@ package com.sep.treksphere.matching.controller;
 
 import com.sep.treksphere.matching.enums.JoinStatus;
 
-import com.sep.treksphere.tour.Tour;
 import com.sep.treksphere.common.constant.MessageConstant;
 import com.sep.treksphere.matching.dto.request.MatchingGroupCreateRequest;
 import com.sep.treksphere.matching.dto.request.MatchingGroupFilterRequest;
@@ -27,7 +26,15 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.ModelAttribute;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
 
 import java.util.UUID;
 
@@ -86,15 +93,19 @@ public class MatchingGroupController {
 
     @Operation(
         summary = "Tạo một nhóm ghép bạn đồng hành mới",
-        description = "Cho phép Trekker tạo nhóm ghép mới cho Tour đã được duyệt. " +
-                "Ngày đi dự kiến phải ở tương lai và không bắt buộc trùng với lịch khởi hành của Tour."
+        description = "Cho phép Trekker tạo nhóm từ một Tour đã duyệt hoặc một Custom Journey độc lập. " +
+                "Request phải chọn đúng một sourceType, thời điểm khởi hành dự kiến phải ở tương lai; " +
+                "Group, Leader và GroupTrip PLANNED được tạo atomically."
     )
     @PostMapping
     @PreAuthorize("hasAuthority('MATCHING_GROUP_CREATE')")
     public ResponseEntity<ApiResponse<MatchingGroupDetailResponse>> createMatchingGroup(
             @Valid @RequestBody MatchingGroupCreateRequest request,
             @AuthenticationPrincipal CustomUserDetails userDetails) {
-        MatchingGroupDetailResponse result = matchingGroupService.createMatchingGroup(request, userDetails);
+        MatchingGroupDetailResponse result = matchingGroupService.createMatchingGroup(
+                request,
+                userDetails.getUser().getUserId()
+        );
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(ApiResponse.success(HttpStatus.CREATED, result, MessageConstant.MATCHING_GROUP_CREATED_SUCCESS));
     }

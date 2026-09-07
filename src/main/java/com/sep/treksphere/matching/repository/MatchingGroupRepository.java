@@ -33,6 +33,12 @@ public interface MatchingGroupRepository extends JpaRepository<MatchingGroup, UU
             LocalDate targetDate
     );
 
+    boolean existsByOwnerAndTourIsNullAndGroupNameIgnoreCaseAndTargetDateAndIsDeletedFalse(
+            User owner,
+            String groupName,
+            LocalDate targetDate
+    );
+
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("""
         SELECT mg FROM MatchingGroup mg

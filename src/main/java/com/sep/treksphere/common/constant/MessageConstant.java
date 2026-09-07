@@ -311,6 +311,8 @@ public class MessageConstant {
     public static final String MATCHING_GROUP_CANNOT_BE_DISBANDED = "Chỉ có thể giải tán nhóm ghép đang OPEN hoặc FULL";
 
     public static final String MATCHING_TOUR_ID_REQUIRED = "Mã tour không được để trống";
+    public static final String MATCHING_GROUP_SOURCE_TYPE_REQUIRED = "Loại nguồn của nhóm không được để trống";
+    public static final String MATCHING_GROUP_SOURCE_INVALID = "Nhóm phải dùng đúng một nguồn: Tour hoặc Custom Journey";
     public static final String MATCHING_GROUP_NAME_REQUIRED = "Tên nhóm ghép không được để trống";
     public static final String MATCHING_GROUP_NAME_SIZE = "Tên nhóm ghép phải từ 3 đến 100 ký tự";
     public static final String MATCHING_GROUP_DESCRIPTION_MAX_LENGTH = "Mô tả nhóm ghép không được vượt quá 2000 ký tự";
@@ -319,11 +321,22 @@ public class MessageConstant {
     public static final String MATCHING_GROUP_MAX_SIZE_MAX = "Số lượng thành viên tối đa không vượt quá 100 người";
     public static final String MATCHING_TARGET_DATE_REQUIRED = "Ngày đi mong muốn không được để trống";
     public static final String MATCHING_DEADLINE_REQUIRED = "Hạn chót ghép nhóm không được để trống";
+    public static final String MATCHING_SCHEDULED_START_REQUIRED = "Thời điểm khởi hành dự kiến không được để trống";
+    public static final String MATCHING_SCHEDULED_START_FUTURE = "Thời điểm khởi hành dự kiến phải ở tương lai";
     public static final String MATCHING_TOUR_NOT_APPROVED = "Chỉ có thể tạo nhóm ghép cho Tour đang công khai";
     public static final String MATCHING_GROUP_SIZE_EXCEEDS_TOUR_CAPACITY = "Quy mô nhóm phải nằm trong khoảng sức chứa tối thiểu và tối đa của Tour";
     public static final String MATCHING_TOUR_NOT_AVAILABLE = "Tour của nhóm ghép không còn công khai";
     public static final String MATCHING_OWNER_CANNOT_JOIN = "Trưởng nhóm không thể gửi yêu cầu tham gia nhóm của chính mình";
     public static final String MATCHING_TARGET_DATE_PASSED = "Ngày dự kiến đi của nhóm đã đến hoặc đã qua";
+    public static final String CUSTOM_JOURNEY_TITLE_REQUIRED = "Tên Custom Journey không được để trống";
+    public static final String CUSTOM_JOURNEY_TITLE_MAX_LENGTH = "Tên Custom Journey không được vượt quá 200 ký tự";
+    public static final String CUSTOM_JOURNEY_DESCRIPTION_MAX_LENGTH = "Mô tả Custom Journey không được vượt quá 2000 ký tự";
+    public static final String CUSTOM_JOURNEY_DIFFICULTY_REQUIRED = "Độ khó Custom Journey không được để trống";
+    public static final String CUSTOM_JOURNEY_START_DATE_REQUIRED = "Ngày bắt đầu Custom Journey không được để trống";
+    public static final String CUSTOM_JOURNEY_END_DATE_REQUIRED = "Ngày kết thúc Custom Journey không được để trống";
+    public static final String CUSTOM_JOURNEY_DATE_INVALID = "Ngày kết thúc Custom Journey phải bằng hoặc sau ngày bắt đầu";
+    public static final String CUSTOM_JOURNEY_TARGET_DATE_MISMATCH = "Ngày bắt đầu Custom Journey phải trùng ngày đi dự kiến của nhóm";
+    public static final String DUPLICATE_MATCHING_GROUP = "Yêu cầu tạo nhóm bị trùng với một nhóm đã tồn tại";
     public static final String MATCHING_JOIN_REQUEST_PAGE_MIN = "Số trang không được nhỏ hơn 0";
     public static final String MATCHING_JOIN_REQUEST_SIZE_RANGE = "Số phần tử mỗi trang phải từ 1 đến 50";
     public static final String INVALID_JOIN_REQUEST_FILTER_STATUS = "Danh sách yêu cầu tham gia chỉ hỗ trợ trạng thái PENDING hoặc REJECTED";

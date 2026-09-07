@@ -25,7 +25,7 @@ public class CreateTourRequest {
     private String description;
 
     @NotNull(message = MessageConstant.TOUR_DIFFICULTY_REQUIRED)
-    @Schema(description = "Độ khó của tour (EASY, MODERATE, HARD, EXPERT)", example = "HARD")
+    @Schema(description = "Độ khó của tour (EASY, MODERATE, HARD, EXTREME)", example = "HARD")
     private DifficultyLevel difficulty;
 
     @NotBlank(message = MessageConstant.TOUR_LOCATION_REQUIRED)
