@@ -74,6 +74,17 @@ public class Tour extends BaseEntity {
     @Column(name = "rejection_reason", columnDefinition = "TEXT")
     private String rejectionReason;
 
+    private java.time.LocalDateTime publishedAt;
+
+    @Column(columnDefinition = "TEXT")
+    private String hiddenReason;
+
+    private java.time.LocalDateTime hiddenAt;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "hidden_by")
+    private User hiddenBy;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "creator_id", nullable = false)
     private User creator;

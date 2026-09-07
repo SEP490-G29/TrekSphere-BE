@@ -18,5 +18,9 @@ public class VendorProfileUpdateRequest {
     @Pattern(regexp = ValidationConstant.VENDOR_PHONE_REGEX, message = MessageConstant.INVALID_PHONE)
     private String contactPhone;
 
+    private String businessAddress;
+
+    private String websiteUrl;
+
     private MultipartFile logo;
 }

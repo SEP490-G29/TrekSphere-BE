@@ -25,5 +25,12 @@ public class VendorApplicationResponse {
     private String rejectionReason;
     private String taxCode;
     private String businessLicenseUrl;
+    private String businessAddress;
+    private String legalRepresentativeName;
+    private String legalRepresentativePosition;
+    private String websiteUrl;
+    private UUID reviewedBy;
+    private LocalDateTime reviewedAt;
+    private UUID vendorId;
     private LocalDateTime createdAt;
 }

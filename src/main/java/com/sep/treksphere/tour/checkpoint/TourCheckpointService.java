@@ -5,8 +5,9 @@ import com.sep.treksphere.common.exception.ErrorCode;
 import com.sep.treksphere.file.FileService;
 import com.sep.treksphere.tour.Tour;
 import com.sep.treksphere.tour.TourRepository;
+import com.sep.treksphere.tour.TourReadinessService;
 import com.sep.treksphere.vendor.Vendor;
-import com.sep.treksphere.vendor.VendorRepository;
+import com.sep.treksphere.vendor.VendorAccessService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -22,13 +23,13 @@ public class TourCheckpointService {
 
     private final TourCheckpointRepository tourCheckpointRepository;
     private final TourRepository tourRepository;
-    private final VendorRepository vendorRepository;
+    private final VendorAccessService vendorAccessService;
     private final FileService fileService;
+    private final TourReadinessService readinessService;
 
     @Transactional(readOnly = true)
     public List<TourCheckpointResponse> getCheckpointsByTourId(UUID tourId) {
-        Tour tour = tourRepository.findById(tourId)
-                .filter(t -> !t.getIsDeleted())
+        Tour tour = tourRepository.findPublishedDetailById(tourId)
                 .orElseThrow(() -> new AppException(ErrorCode.TOUR_NOT_FOUND));
 
         List<TourCheckpoint> checkpoints = tourCheckpointRepository
@@ -43,7 +44,7 @@ public class TourCheckpointService {
                 .filter(t -> !t.getIsDeleted())
                 .orElseThrow(() -> new AppException(ErrorCode.TOUR_NOT_FOUND));
 
-        Vendor vendor = resolveVendorByUser(userEmail);
+        Vendor vendor = vendorAccessService.resolveActiveByManagerEmail(userEmail);
         validateTourBelongsToVendor(tour, vendor);
 
         // Validations
@@ -87,7 +88,7 @@ public class TourCheckpointService {
                 .filter(cp -> !cp.getIsDeleted())
                 .orElseThrow(() -> new AppException(ErrorCode.CHECKPOINT_NOT_FOUND));
 
-        Vendor vendor = resolveVendorByUser(userEmail);
+        Vendor vendor = vendorAccessService.resolveActiveByManagerEmail(userEmail);
         validateTourBelongsToVendor(checkpoint.getTour(), vendor);
 
         Tour tour = checkpoint.getTour();
@@ -134,8 +135,10 @@ public class TourCheckpointService {
                 .filter(cp -> !cp.getIsDeleted())
                 .orElseThrow(() -> new AppException(ErrorCode.CHECKPOINT_NOT_FOUND));
 
-        Vendor vendor = resolveVendorByUser(userEmail);
+        Vendor vendor = vendorAccessService.resolveActiveByManagerEmail(userEmail);
         validateTourBelongsToVendor(checkpoint.getTour(), vendor);
+
+        readinessService.ensureCanRemoveCheckpoint(checkpoint.getTour());
 
         checkpoint.setIsDeleted(true);
         checkpoint.setDeletedAt(LocalDateTime.now());
@@ -144,14 +147,6 @@ public class TourCheckpointService {
     }
 
     // ======================== Helper Methods ========================
-
-    /**
-     * Chỉ còn Vendor Owner quản lý Tour — không còn VendorStaff.
-     */
-    private Vendor resolveVendorByUser(String email) {
-        return vendorRepository.findByManager_Email(email)
-                .orElseThrow(() -> new AppException(ErrorCode.VENDOR_NOT_FOUND));
-    }
 
     private void validateTourBelongsToVendor(Tour tour, Vendor vendor) {
         if (!tour.getVendor().getVendorId().equals(vendor.getVendorId())) {

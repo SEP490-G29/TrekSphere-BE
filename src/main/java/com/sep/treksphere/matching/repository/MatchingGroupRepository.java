@@ -144,6 +144,11 @@ public interface MatchingGroupRepository extends JpaRepository<MatchingGroup, UU
               OR (:sourceType = 'TOUR' AND t IS NOT NULL)
               OR (:sourceType = 'CUSTOM_JOURNEY' AND cj IS NOT NULL)
           )
+          AND t.isDeleted = false
+          AND t.status = :tourStatus
+          AND t.vendor.status = com.sep.treksphere.vendor.VendorStatus.ACTIVE
+          AND t.vendor.isDeleted = false
+          AND (CAST(:tourId AS uuid) IS NULL OR t.tourId = :tourId)
           AND (CAST(:targetDate AS date) IS NULL OR mg.targetDate = :targetDate)
           AND (CAST(:targetDateFrom AS date) IS NULL OR mg.targetDate >= :targetDateFrom)
           AND (CAST(:targetDateTo AS date) IS NULL OR mg.targetDate <= :targetDateTo)
@@ -187,6 +192,11 @@ public interface MatchingGroupRepository extends JpaRepository<MatchingGroup, UU
               OR (:sourceType = 'TOUR' AND t IS NOT NULL)
               OR (:sourceType = 'CUSTOM_JOURNEY' AND cj IS NOT NULL)
           )
+          AND t.isDeleted = false
+          AND t.status = :tourStatus
+          AND t.vendor.status = com.sep.treksphere.vendor.VendorStatus.ACTIVE
+          AND t.vendor.isDeleted = false
+          AND (CAST(:tourId AS uuid) IS NULL OR t.tourId = :tourId)
           AND (CAST(:targetDate AS date) IS NULL OR mg.targetDate = :targetDate)
           AND (CAST(:targetDateFrom AS date) IS NULL OR mg.targetDate >= :targetDateFrom)
           AND (CAST(:targetDateTo AS date) IS NULL OR mg.targetDate <= :targetDateTo)
@@ -243,6 +253,10 @@ public interface MatchingGroupRepository extends JpaRepository<MatchingGroup, UU
               (t IS NOT NULL AND t.isDeleted = false AND t.status = :tourStatus)
               OR (cj IS NOT NULL AND cj.isDeleted = false)
           )
+          AND t.isDeleted = false
+          AND t.status = :tourStatus
+          AND t.vendor.status = com.sep.treksphere.vendor.VendorStatus.ACTIVE
+          AND t.vendor.isDeleted = false
     """)
     Optional<MatchingGroup> findPublicDetailById(
             @Param("id") UUID id,
@@ -273,4 +287,10 @@ public interface MatchingGroupRepository extends JpaRepository<MatchingGroup, UU
     Optional<MatchingGroup> findByConversationConversationId(UUID conversationId);
 
     boolean existsByTour_TourIdAndStatusInAndIsDeletedFalse(UUID tourId, Collection<MatchingGroupStatus> statuses);
+
+    boolean existsByTour_TourIdAndMaxSizeGreaterThanAndStatusInAndIsDeletedFalse(
+            UUID tourId, Integer maxSize, Collection<MatchingGroupStatus> statuses);
+
+    boolean existsByTour_TourIdAndMaxSizeLessThanAndStatusInAndIsDeletedFalse(
+            UUID tourId, Integer minSize, Collection<MatchingGroupStatus> statuses);
 }

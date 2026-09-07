@@ -6,6 +6,7 @@ import com.sep.treksphere.chat.message.MessageCreateRequest;
 import com.sep.treksphere.common.dto.ApiResponse;
 import com.sep.treksphere.chat.ConversationResponse;
 import com.sep.treksphere.chat.message.MessageResponse;
+import com.sep.treksphere.chat.message.MessageService;
 import com.sep.treksphere.common.dto.PaginationResponse;
 import com.sep.treksphere.user.UserResponse;
 import com.sep.treksphere.common.security.CustomUserDetails;
@@ -28,6 +29,9 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.http.MediaType;
+import org.springframework.web.multipart.MultipartFile;
+import java.net.URI;
 
 import java.util.List;
 import java.util.UUID;
@@ -43,6 +47,18 @@ import java.util.UUID;
 public class ChatController {
 
     private final ConversationService conversationService;
+    private final MessageService messageService;
+
+    @Operation(summary = "Tạo hoặc lấy chat trực tiếp với Vendor")
+    @PostMapping("/conversations/vendor/{vendorId}")
+    @PreAuthorize("hasAuthority('CHAT_PARTICIPATE')")
+    public ResponseEntity<ApiResponse<ConversationResponse>> createVendorConversation(
+            @PathVariable UUID vendorId,
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+        ConversationResponse result = conversationService.createVendorConversation(vendorId, userDetails);
+        HttpStatus status = Boolean.TRUE.equals(result.getIsNew()) ? HttpStatus.CREATED : HttpStatus.OK;
+        return ResponseEntity.status(status).body(ApiResponse.success(status, result));
+    }
 
     @Operation(
             summary = "Danh sách phòng chat",
@@ -137,7 +153,7 @@ public class ChatController {
             @Valid @RequestBody MessageCreateRequest request,
             @AuthenticationPrincipal CustomUserDetails userDetails
     ) {
-        MessageResponse result = conversationService.sendMessage(request, userDetails);
+        MessageResponse result = messageService.sendText(request, userDetails);
 
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(ApiResponse.success(
@@ -145,6 +161,30 @@ public class ChatController {
                         result,
                         MessageConstant.MESSAGE_SENT_SUCCESS
                 ));
+    }
+
+    @Operation(summary = "Gửi một file hoặc ảnh", description = "Mỗi tin nhắn hỗ trợ tối đa một file, dung lượng tối đa 10 MB.")
+    @PostMapping(value = "/messages/file", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PreAuthorize("hasAuthority('CHAT_PARTICIPATE')")
+    public ResponseEntity<ApiResponse<MessageResponse>> sendFile(
+            @RequestParam UUID conversationId,
+            @RequestParam MultipartFile file,
+            @RequestParam(required = false) String content,
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+        MessageResponse result = messageService.sendFile(conversationId, content, file, userDetails);
+        return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.success(
+                HttpStatus.CREATED, result, MessageConstant.MESSAGE_SENT_SUCCESS));
+    }
+
+    @Operation(summary = "Tải attachment của tin nhắn")
+    @GetMapping("/messages/{messageId}/attachment")
+    @PreAuthorize("hasAuthority('CHAT_PARTICIPATE')")
+    public ResponseEntity<Void> downloadAttachment(
+            @PathVariable UUID messageId,
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+        return ResponseEntity.status(HttpStatus.FOUND)
+                .location(URI.create(messageService.getAttachmentUrl(messageId, userDetails)))
+                .build();
     }
 
     @Operation(

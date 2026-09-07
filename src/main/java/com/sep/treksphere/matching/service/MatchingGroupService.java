@@ -83,7 +83,7 @@ public class MatchingGroupService {
 
         Page<MatchingGroup> groups = matchingGroupRepository.findAvailableMatchingGroups(
                 MatchingGroupStatus.OPEN,
-                TourStatus.APPROVED,
+                TourStatus.PUBLISHED,
                 sourceType,
                 filter.getTourId(),
                 filter.getTargetDate(),
@@ -140,7 +140,7 @@ public class MatchingGroupService {
         MatchingGroup matchingGroup = matchingGroupRepository.findPublicDetailById(
                         id,
                         Set.of(MatchingGroupStatus.OPEN, MatchingGroupStatus.FULL),
-                        TourStatus.APPROVED
+                        TourStatus.PUBLISHED
                 )
                 .orElseThrow(() -> new AppException(ErrorCode.MATCHING_GROUP_NOT_FOUND));
 
@@ -224,7 +224,9 @@ public class MatchingGroupService {
         Tour tour = tourRepository.findByTourIdAndIsDeletedFalse(request.getTourId())
                 .orElseThrow(() -> new AppException(ErrorCode.TOUR_NOT_FOUND));
 
-        if (tour.getStatus() != TourStatus.APPROVED) {
+        if (tour.getStatus() != TourStatus.PUBLISHED
+                || tour.getVendor().getStatus() != com.sep.treksphere.vendor.VendorStatus.ACTIVE
+                || Boolean.TRUE.equals(tour.getVendor().getIsDeleted())) {
             throw new AppException(ErrorCode.MATCHING_TOUR_NOT_APPROVED);
         }
 
@@ -239,7 +241,8 @@ public class MatchingGroupService {
             throw new AppException(ErrorCode.INVALID_DEADLINE);
         }
 
-        if (tour.getMaxCapacity() != null && request.getMaxSize() > tour.getMaxCapacity()) {
+        if (request.getMaxSize() < tour.getMinCapacity()
+                || request.getMaxSize() > tour.getMaxCapacity()) {
             throw new AppException(ErrorCode.MATCHING_GROUP_SIZE_EXCEEDS_TOUR_CAPACITY);
         }
 
@@ -546,7 +549,8 @@ public class MatchingGroupService {
                 && matchingGroup.getMatchingDeadline().isAfter(LocalDateTime.now())
                 && matchingGroup.getTargetDate().isAfter(LocalDate.now())
                 && !Boolean.TRUE.equals(tour.getIsDeleted())
-                && tour.getStatus() == TourStatus.APPROVED;
+                && tour.getStatus() == TourStatus.PUBLISHED
+                && tour.getVendor().getStatus() == com.sep.treksphere.vendor.VendorStatus.ACTIVE;
 
         if (canReopen) {
             matchingGroup.setStatus(MatchingGroupStatus.OPEN);
@@ -596,7 +600,10 @@ public class MatchingGroupService {
 
     private void validateGroupOpenAndActive(MatchingGroup matchingGroup) {
         Tour tour = matchingGroup.getTour();
-        if (tour != null && (Boolean.TRUE.equals(tour.getIsDeleted()) || tour.getStatus() != TourStatus.APPROVED)) {
+        if (tour != null && (Boolean.TRUE.equals(tour.getIsDeleted())
+                || tour.getStatus() != TourStatus.PUBLISHED
+                || tour.getVendor().getStatus() != com.sep.treksphere.vendor.VendorStatus.ACTIVE
+                || Boolean.TRUE.equals(tour.getVendor().getIsDeleted()))) {
             throw new AppException(ErrorCode.MATCHING_TOUR_NOT_AVAILABLE);
         }
 

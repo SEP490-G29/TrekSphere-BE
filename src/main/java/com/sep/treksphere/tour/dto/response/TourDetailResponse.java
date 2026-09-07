@@ -35,7 +35,10 @@ public class TourDetailResponse {
     private String excludes;
     private String coverImageUrl;
     private TourStatus status;
-    private String rejectionReason;
+    private String hiddenReason;
+    private LocalDateTime publishedAt;
+    private LocalDateTime hiddenAt;
+    private String hiddenBy;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 
@@ -55,4 +58,7 @@ public class TourDetailResponse {
     private List<TourCheckpointResponse> checkpoints;
 
     private List<TourScheduleResponse> schedules;
+
+    private boolean publishable;
+    private List<String> publishReadinessErrors;
 }

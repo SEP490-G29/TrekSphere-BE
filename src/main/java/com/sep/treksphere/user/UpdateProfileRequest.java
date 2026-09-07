@@ -3,7 +3,6 @@ package com.sep.treksphere.user;
 import com.sep.treksphere.common.constant.MessageConstant;
 import com.sep.treksphere.common.constant.ValidationConstant;
 import com.sep.treksphere.tour.DifficultyLevel;
-import com.sep.treksphere.user.Gender;
 import jakarta.validation.constraints.Past;
 import jakarta.validation.constraints.Pattern;
 import lombok.Data;
@@ -11,6 +10,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.time.LocalDate;
 import java.util.List;
+import jakarta.validation.constraints.Size;
 
 @Data
 public class UpdateProfileRequest {
@@ -26,13 +26,16 @@ public class UpdateProfileRequest {
 
     private MultipartFile avatar;
 
+    @Size(max = 2000)
     private String bio;
 
     private ExperienceLevel experienceLevel;
 
     private DifficultyLevel preferredDifficulty;
 
+    @Size(max = 20)
     private List<String> preferredAreas;
 
+    @Size(max = 30)
     private List<String> skills;
 }

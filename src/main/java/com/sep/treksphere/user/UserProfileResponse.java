@@ -11,6 +11,7 @@ import lombok.NoArgsConstructor;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
+import com.sep.treksphere.tour.DifficultyLevel;
 
 @Data
 @Builder
@@ -34,4 +35,9 @@ public class UserProfileResponse {
     private Short trustScore;
     private Integer trustReviewCount;
     private List<String> roles;
+    private String bio;
+    private ExperienceLevel experienceLevel;
+    private DifficultyLevel preferredDifficulty;
+    private List<String> preferredAreas;
+    private List<String> skills;
 }

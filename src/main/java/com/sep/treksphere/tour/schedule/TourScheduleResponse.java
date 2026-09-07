@@ -22,6 +22,8 @@ public class TourScheduleResponse {
     private LocalDate returnDate;
     private BigDecimal price;
     private ScheduleStatus status;
+    private String cancellationReason;
+    private LocalDateTime cancelledAt;
 
     // Audit fields
     private Boolean isDeleted;

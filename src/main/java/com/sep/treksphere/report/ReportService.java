@@ -109,6 +109,9 @@ public class ReportService {
             } else if (report.getTour() != null) {
                 Tour tour = report.getTour();
                 tour.setStatus(TourStatus.HIDDEN);
+                tour.setHiddenReason(request.getResolutionNotes());
+                tour.setHiddenAt(java.time.LocalDateTime.now());
+                tour.setHiddenBy(admin);
                 tourRepository.save(tour);
             }
         }

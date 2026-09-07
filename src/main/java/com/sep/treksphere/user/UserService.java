@@ -13,6 +13,8 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 import java.util.UUID;
+import java.util.Locale;
+import java.util.Objects;
 
 @Service
 @RequiredArgsConstructor
@@ -71,7 +73,7 @@ public class UserService {
             user.setGender(request.getGender());
         }
         if (request.getBio() != null) {
-            user.setBio(request.getBio());
+            user.setBio(request.getBio().isBlank() ? null : request.getBio().trim());
         }
         if (request.getExperienceLevel() != null) {
             user.setExperienceLevel(request.getExperienceLevel());
@@ -80,11 +82,13 @@ public class UserService {
             user.setPreferredDifficulty(request.getPreferredDifficulty());
         }
         if (request.getPreferredAreas() != null) {
-            user.setPreferredAreas(request.getPreferredAreas());
+            user.setPreferredAreas(normalizeTags(request.getPreferredAreas(), 100));
         }
         if (request.getSkills() != null) {
-            user.setSkills(request.getSkills());
+            user.setSkills(normalizeTags(request.getSkills(), 100));
         }
+
+        validatePreferenceCompatibility(user);
 
         if (avatar != null && !avatar.isEmpty()) {
             String avatarUrl = fileService.uploadFile(avatar, "avatars");
@@ -94,6 +98,27 @@ public class UserService {
         userRepository.save(user);
 
         return userMapper.toUserProfileResponse(user);
+    }
+
+    private List<String> normalizeTags(List<String> values, int maxLength) {
+        return values.stream()
+                .filter(Objects::nonNull)
+                .map(String::trim)
+                .filter(value -> !value.isEmpty())
+                .map(value -> value.length() > maxLength ? value.substring(0, maxLength) : value)
+                .map(value -> value.toLowerCase(Locale.ROOT))
+                .distinct()
+                .toList();
+    }
+
+    private void validatePreferenceCompatibility(User user) {
+        if (user.getExperienceLevel() != null
+                && user.getPreferredDifficulty() != null
+                && user.getPreferredDifficulty().ordinal() > user.getExperienceLevel().ordinal()) {
+            throw new AppException(
+                    ErrorCode.VALIDATION_ERROR,
+                    "Độ khó yêu thích không được vượt quá cấp độ kinh nghiệm.");
+        }
     }
 
     @Transactional(readOnly = true)
