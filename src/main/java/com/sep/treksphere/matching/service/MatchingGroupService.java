@@ -1,35 +1,40 @@
 package com.sep.treksphere.matching.service;
 
-import com.sep.treksphere.matching.entity.MatchingGroup;
-import com.sep.treksphere.matching.enums.JoinStatus;
-import com.sep.treksphere.matching.enums.MatchingGroupStatus;
-import com.sep.treksphere.matching.enums.MatchingRole;
-import com.sep.treksphere.matching.mapper.MatchingGroupMapper;
-import com.sep.treksphere.matching.repository.MatchingGroupRepository;
-
-import com.sep.treksphere.common.constant.MessageConstant;
+import com.sep.treksphere.common.dto.PaginationResponse;
+import com.sep.treksphere.common.exception.AppException;
+import com.sep.treksphere.common.exception.ErrorCode;
+import com.sep.treksphere.common.security.CustomUserDetails;
+import com.sep.treksphere.common.util.PaginationUtils;
+import com.sep.treksphere.matching.dto.request.CustomJourneyCreateRequest;
 import com.sep.treksphere.matching.dto.request.MatchingGroupCreateRequest;
 import com.sep.treksphere.matching.dto.request.MatchingGroupFilterRequest;
 import com.sep.treksphere.matching.dto.request.MatchingJoinRequestFilter;
 import com.sep.treksphere.matching.dto.request.MyMatchingJoinRequestFilter;
-import com.sep.treksphere.matching.dto.request.OwnedMatchingGroupFilterRequest;
+import com.sep.treksphere.matching.dto.request.MyMatchingGroupFilterRequest;
 import com.sep.treksphere.matching.dto.response.MatchingGroupDetailResponse;
 import com.sep.treksphere.matching.dto.response.MatchingGroupResponse;
 import com.sep.treksphere.matching.dto.response.MatchingMemberResponse;
 import com.sep.treksphere.matching.dto.response.MyMatchingJoinRequestResponse;
-import com.sep.treksphere.common.dto.PaginationResponse;
+import com.sep.treksphere.matching.entity.CustomJourney;
+import com.sep.treksphere.matching.entity.GroupTrip;
+import com.sep.treksphere.matching.entity.MatchingGroup;
 import com.sep.treksphere.matching.entity.MatchingMember;
-import com.sep.treksphere.tour.Tour;
-import com.sep.treksphere.user.User;
-import com.sep.treksphere.tour.TourStatus;
-import com.sep.treksphere.user.UserStatus;
-import com.sep.treksphere.common.exception.AppException;
-import com.sep.treksphere.common.exception.ErrorCode;
+import com.sep.treksphere.matching.enums.GroupTripStatus;
+import com.sep.treksphere.matching.enums.JoinStatus;
+import com.sep.treksphere.matching.enums.MatchingGroupSourceType;
+import com.sep.treksphere.matching.enums.MatchingGroupStatus;
+import com.sep.treksphere.matching.enums.MatchingRole;
+import com.sep.treksphere.matching.mapper.MatchingGroupMapper;
+import com.sep.treksphere.matching.repository.GroupTripRepository;
+import com.sep.treksphere.matching.repository.MatchingGroupRepository;
 import com.sep.treksphere.matching.repository.MatchingMemberRepository;
+import com.sep.treksphere.tour.Tour;
 import com.sep.treksphere.tour.TourRepository;
+import com.sep.treksphere.tour.TourStatus;
+import com.sep.treksphere.user.User;
 import com.sep.treksphere.user.UserRepository;
-import com.sep.treksphere.common.security.CustomUserDetails;
-import com.sep.treksphere.common.util.PaginationUtils;
+import com.sep.treksphere.user.UserStatus;
+import com.sep.treksphere.vendor.VendorStatus;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -38,6 +43,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
@@ -49,8 +55,12 @@ import java.util.UUID;
 @Slf4j
 public class MatchingGroupService {
 
+    private static final Set<MatchingGroupStatus> ACTIVE_GROUP_STATUSES =
+            Set.of(MatchingGroupStatus.OPEN, MatchingGroupStatus.FULL);
+
     private final MatchingGroupRepository matchingGroupRepository;
     private final MatchingMemberRepository matchingMemberRepository;
+    private final GroupTripRepository groupTripRepository;
     private final TourRepository tourRepository;
     private final UserRepository userRepository;
     private final MatchingGroupMapper matchingGroupMapper;
@@ -61,17 +71,37 @@ public class MatchingGroupService {
                 ? ""
                 : filter.getKeyword().trim().toLowerCase(Locale.ROOT);
 
+        String sourceType = filter.getSourceType() == null
+                ? null
+                : filter.getSourceType().name();
+
+        String difficulty = filter.getDifficulty() == null
+                ? null
+                : filter.getDifficulty().name();
+
+        String location = filter.getLocation() == null || filter.getLocation().isBlank()
+                ? null
+                : filter.getLocation().trim();
+
+        Boolean availableSlotsOnly = filter.getAvailableSlotsOnly() != null ? filter.getAvailableSlotsOnly() : true;
+
         LocalDate today = LocalDate.now();
         LocalDateTime now = LocalDateTime.now();
 
-        log.info("Fetching available matching groups with filters: tourId={}, targetDate={}, keyword={}",
-                filter.getTourId(), filter.getTargetDate(), keyword);
+        log.info("Fetching available matching groups with filters: sourceType={}, tourId={}, difficulty={}, location={}, targetDate={}, targetDateFrom={}, targetDateTo={}, availableSlotsOnly={}, keyword={}",
+                sourceType, filter.getTourId(), difficulty, location, filter.getTargetDate(), filter.getTargetDateFrom(), filter.getTargetDateTo(), availableSlotsOnly, keyword);
 
         Page<MatchingGroup> groups = matchingGroupRepository.findAvailableMatchingGroups(
                 MatchingGroupStatus.OPEN,
                 TourStatus.PUBLISHED,
+                sourceType,
                 filter.getTourId(),
                 filter.getTargetDate(),
+                filter.getTargetDateFrom(),
+                filter.getTargetDateTo(),
+                difficulty,
+                location,
+                availableSlotsOnly,
                 keyword,
                 today,
                 now,
@@ -82,8 +112,8 @@ public class MatchingGroupService {
     }
 
     @Transactional(readOnly = true)
-    public PaginationResponse<MatchingGroupResponse> getOwnedMatchingGroups(
-            OwnedMatchingGroupFilterRequest filter,
+    public PaginationResponse<MatchingGroupResponse> getMyMatchingGroups(
+            MyMatchingGroupFilterRequest filter,
             CustomUserDetails userDetails
     ) {
         UUID userId = userDetails.getUser().getUserId();
@@ -91,19 +121,26 @@ public class MatchingGroupService {
                 ? ""
                 : filter.getKeyword().trim().toLowerCase(Locale.ROOT);
 
-        log.info("Fetching owned or joined matching groups: userId={}, status={}, keyword={}",
-                userId, filter.getStatus(), keyword);
+        log.info("Fetching owned or joined matching groups: userId={}, role={}, status={}, keyword={}",
+                userId, filter.getRole(), filter.getStatus(), keyword);
 
         Page<MatchingGroup> groups = matchingGroupRepository.findOwnedOrJoinedGroups(
                 userId,
                 MatchingRole.MEMBER,
                 JoinStatus.ACCEPTED,
+                filter.getRole(),
                 filter.getStatus(),
                 keyword,
                 filter.getPageable()
         );
 
-        return PaginationUtils.toPaginationResponse(groups.map(matchingGroupMapper::toResponse));
+        return PaginationUtils.toPaginationResponse(groups.map(group -> {
+            MatchingGroupResponse response = matchingGroupMapper.toResponse(group);
+            boolean isOwner = group.getOwner() != null && userId.equals(group.getOwner().getUserId());
+            response.setIsOwner(isOwner);
+            response.setMyRole(isOwner ? MatchingRole.LEADER : MatchingRole.MEMBER);
+            return response;
+        }));
     }
 
     @Transactional(readOnly = true)
@@ -124,18 +161,6 @@ public class MatchingGroupService {
             matchingGroup.getConversation().getParticipants().forEach(p -> usersInConversation.add(p.getUserId()));
         }
 
-        List<MatchingMemberResponse> acceptedMembers = matchingGroup.getMembers().stream()
-                .filter(member -> member.getStatus() == JoinStatus.ACCEPTED
-                        && !Boolean.TRUE.equals(member.getIsDeleted()))
-                .map(member -> {
-                    MatchingMemberResponse memResponse = matchingGroupMapper.toMemberResponse(member);
-                    memResponse.setIsInConversation(usersInConversation.contains(member.getUser().getUserId()));
-                    return memResponse;
-                })
-                .toList();
-
-        response.setMembers(acceptedMembers);
-
         UUID viewerId = userDetails == null ? null : userDetails.getUser().getUserId();
         boolean isOwner = viewerId != null && matchingGroup.getOwner().getUserId().equals(viewerId);
         MatchingMember viewerMembership = viewerId == null
@@ -147,6 +172,24 @@ public class MatchingGroupService {
                         .orElse(null);
 
         JoinStatus membershipStatus = viewerMembership == null ? null : viewerMembership.getStatus();
+        boolean isAcceptedMember = isOwner || membershipStatus == JoinStatus.ACCEPTED;
+
+        // Chỉ Accepted Member và Leader mới xem được danh sách thành viên (theo Artifact B Permission Matrix)
+        if (isAcceptedMember) {
+            List<MatchingMemberResponse> acceptedMembers = matchingGroup.getMembers().stream()
+                    .filter(member -> member.getStatus() == JoinStatus.ACCEPTED
+                            && !Boolean.TRUE.equals(member.getIsDeleted()))
+                    .map(member -> {
+                        MatchingMemberResponse memResponse = matchingGroupMapper.toMemberResponse(member);
+                        memResponse.setIsInConversation(usersInConversation.contains(member.getUser().getUserId()));
+                        return memResponse;
+                    })
+                    .toList();
+            response.setMembers(acceptedMembers);
+        } else {
+            response.setMembers(Collections.emptyList());
+        }
+
         boolean hasActiveMembership = membershipStatus == JoinStatus.PENDING
                 || membershipStatus == JoinStatus.ACCEPTED;
         boolean groupIsJoinable = matchingGroup.getStatus() == MatchingGroupStatus.OPEN
@@ -170,32 +213,22 @@ public class MatchingGroupService {
     }
 
     @Transactional
-    public MatchingGroupDetailResponse createMatchingGroup(MatchingGroupCreateRequest request, CustomUserDetails userDetails) {
-        User currentUser = userRepository.findByIdForUpdate(userDetails.getUser().getUserId())
+    public MatchingGroupDetailResponse createMatchingGroup(MatchingGroupCreateRequest request, UUID userId) {
+        User currentUser = userRepository.findByIdForUpdate(userId)
                 .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
+        if (currentUser.getStatus() != UserStatus.ACTIVE) {
+            throw new AppException(ErrorCode.USER_NOT_ACTIVE);
+        }
+
         log.info("Creating matching group: ownerId={}, groupName={}", currentUser.getUserId(), request.getGroupName());
 
         String normalizedGroupName = request.getGroupName().trim();
-        if (normalizedGroupName.length() < 3 || normalizedGroupName.length() > 100) {
-            throw new AppException(ErrorCode.VALIDATION_ERROR,
-                    MessageConstant.MATCHING_GROUP_NAME_SIZE);
-        }
-        String normalizedDescription = request.getDescription() == null ? null : request.getDescription().trim();
-        if (normalizedDescription != null && normalizedDescription.isEmpty()) {
-            normalizedDescription = null;
-        }
+        String normalizedDescription = normalizeNullableText(request.getDescription());
 
         LocalDate today = LocalDate.now();
         LocalDateTime now = LocalDateTime.now();
 
-        Tour tour = tourRepository.findByTourIdAndIsDeletedFalse(request.getTourId())
-                .orElseThrow(() -> new AppException(ErrorCode.TOUR_NOT_FOUND));
-
-        if (tour.getStatus() != TourStatus.PUBLISHED
-                || tour.getVendor().getStatus() != com.sep.treksphere.vendor.VendorStatus.ACTIVE
-                || Boolean.TRUE.equals(tour.getVendor().getIsDeleted())) {
-            throw new AppException(ErrorCode.MATCHING_TOUR_NOT_APPROVED);
-        }
+        validateSource(request);
 
         if (!request.getTargetDate().isAfter(today)) {
             throw new AppException(ErrorCode.INVALID_TARGET_DATE);
@@ -208,53 +241,140 @@ public class MatchingGroupService {
             throw new AppException(ErrorCode.INVALID_DEADLINE);
         }
 
-        if (request.getMaxSize() < tour.getMinCapacity()
-                || request.getMaxSize() > tour.getMaxCapacity()) {
-            throw new AppException(ErrorCode.MATCHING_GROUP_SIZE_EXCEEDS_TOUR_CAPACITY);
+        if (!request.getScheduledStartAt().isAfter(now)) {
+            throw new AppException(ErrorCode.INVALID_SCHEDULED_START);
         }
 
-        boolean hasActiveGroupForTour = matchingGroupRepository
-                .existsByOwnerAndTourAndStatusInAndMatchingDeadlineAfterAndTargetDateAfterAndIsDeletedFalse(
-                        currentUser,
-                        tour,
-                        Set.of(MatchingGroupStatus.OPEN, MatchingGroupStatus.FULL),
-                        now,
-                        today
-                );
-        if (hasActiveGroupForTour) {
-            throw new AppException(ErrorCode.ALREADY_HAS_ACTIVE_GROUP);
-        }
+        Tour tour = resolveTourSource(request, currentUser, now, today);
+        CustomJourney customJourney = resolveCustomJourneySource(request, currentUser, normalizedGroupName);
 
-        MatchingGroup matchingGroup = new MatchingGroup();
+        MatchingGroup matchingGroup = matchingGroupMapper.toEntity(request);
         matchingGroup.setTour(tour);
         matchingGroup.setOwner(currentUser);
         matchingGroup.setGroupName(normalizedGroupName);
         matchingGroup.setDescription(normalizedDescription);
-        matchingGroup.setMaxSize(request.getMaxSize());
-        matchingGroup.setCurrentSize(1);
-        matchingGroup.setTargetDate(request.getTargetDate());
-        matchingGroup.setMatchingDeadline(request.getMatchingDeadline());
-        matchingGroup.setStatus(MatchingGroupStatus.OPEN);
 
-        MatchingMember ownerMember = new MatchingMember();
-        ownerMember.setMatchingGroup(matchingGroup);
-        ownerMember.setUser(currentUser);
-        ownerMember.setRole(MatchingRole.LEADER);
-        ownerMember.setStatus(JoinStatus.ACCEPTED);
+        if (customJourney != null) {
+            customJourney.setMatchingGroup(matchingGroup);
+            matchingGroup.setCustomJourney(customJourney);
+        }
 
-        matchingGroup.getMembers().add(ownerMember);
+        MatchingMember leaderMembership = new MatchingMember();
+        leaderMembership.setMatchingGroup(matchingGroup);
+        leaderMembership.setUser(currentUser);
+        leaderMembership.setRole(MatchingRole.LEADER);
+        leaderMembership.setStatus(JoinStatus.ACCEPTED);
+
+        matchingGroup.getMembers().add(leaderMembership);
 
         MatchingGroup savedGroup = matchingGroupRepository.save(matchingGroup);
 
+        GroupTrip groupTrip = new GroupTrip();
+        groupTrip.setMatchingGroup(savedGroup);
+        groupTrip.setStatus(GroupTripStatus.PLANNED);
+        groupTrip.setScheduledStartAt(request.getScheduledStartAt());
+        groupTripRepository.save(groupTrip);
+
         MatchingGroupDetailResponse response = matchingGroupMapper.toDetailResponse(savedGroup);
 
-        List<MatchingMemberResponse> memberResponses = savedGroup.getMembers().stream()
-                .filter(m -> m.getStatus() == JoinStatus.ACCEPTED && !Boolean.TRUE.equals(m.getIsDeleted()))
-                .map(matchingGroupMapper::toMemberResponse)
-                .toList();
-        response.setMembers(memberResponses);
+        response.setMembers(List.of(matchingGroupMapper.toMemberResponse(leaderMembership)));
 
         return response;
+    }
+
+    private void validateSource(MatchingGroupCreateRequest request) {
+        boolean hasTour = request.getTourId() != null;
+        boolean hasCustomJourney = request.getCustomJourney() != null;
+
+        if (request.getSourceType() == MatchingGroupSourceType.TOUR && hasTour && !hasCustomJourney) {
+            return;
+        }
+        if (request.getSourceType() == MatchingGroupSourceType.CUSTOM_JOURNEY && !hasTour && hasCustomJourney) {
+            return;
+        }
+        throw new AppException(ErrorCode.MATCHING_GROUP_SOURCE_INVALID);
+    }
+
+    private Tour resolveTourSource(
+            MatchingGroupCreateRequest request,
+            User currentUser,
+            LocalDateTime now,
+            LocalDate today
+    ) {
+        if (request.getSourceType() != MatchingGroupSourceType.TOUR) {
+            return null;
+        }
+
+        Tour tour = tourRepository.findByTourIdAndIsDeletedFalse(request.getTourId())
+                .orElseThrow(() -> new AppException(ErrorCode.TOUR_NOT_FOUND));
+
+        if (tour.getStatus() != TourStatus.PUBLISHED
+                || tour.getVendor() == null
+                || tour.getVendor().getStatus() != VendorStatus.ACTIVE
+                || Boolean.TRUE.equals(tour.getVendor().getIsDeleted())) {
+            throw new AppException(ErrorCode.MATCHING_TOUR_NOT_APPROVED);
+        }
+
+        if ((tour.getMinCapacity() != null && request.getMaxSize() < tour.getMinCapacity())
+                || (tour.getMaxCapacity() != null && request.getMaxSize() > tour.getMaxCapacity())) {
+            throw new AppException(ErrorCode.MATCHING_GROUP_SIZE_EXCEEDS_TOUR_CAPACITY);
+        }
+
+        boolean duplicate = matchingGroupRepository
+                .existsByOwnerAndTourAndStatusInAndMatchingDeadlineAfterAndTargetDateAfterAndIsDeletedFalse(
+                        currentUser,
+                        tour,
+                        ACTIVE_GROUP_STATUSES,
+                        now,
+                        today
+                );
+        if (duplicate) {
+            throw new AppException(ErrorCode.ALREADY_HAS_ACTIVE_GROUP);
+        }
+        return tour;
+    }
+
+    private CustomJourney resolveCustomJourneySource(
+            MatchingGroupCreateRequest request,
+            User currentUser,
+            String normalizedGroupName
+    ) {
+        if (request.getSourceType() != MatchingGroupSourceType.CUSTOM_JOURNEY) {
+            return null;
+        }
+
+        CustomJourneyCreateRequest customJourneyRequest = request.getCustomJourney();
+        if (customJourneyRequest.getEndDate().isBefore(customJourneyRequest.getStartDate())) {
+            throw new AppException(ErrorCode.CUSTOM_JOURNEY_DATE_INVALID);
+        }
+        if (!customJourneyRequest.getStartDate().equals(request.getTargetDate())) {
+            throw new AppException(ErrorCode.CUSTOM_JOURNEY_TARGET_DATE_MISMATCH);
+        }
+
+        String normalizedTitle = customJourneyRequest.getTitle().trim();
+
+        boolean duplicate = matchingGroupRepository
+                .existsByOwnerAndTourIsNullAndGroupNameIgnoreCaseAndTargetDateAndIsDeletedFalse(
+                        currentUser,
+                        normalizedGroupName,
+                        request.getTargetDate()
+                );
+        if (duplicate) {
+            throw new AppException(ErrorCode.DUPLICATE_MATCHING_GROUP);
+        }
+
+        CustomJourney customJourney = matchingGroupMapper.toEntity(customJourneyRequest);
+        customJourney.setTitle(normalizedTitle);
+        customJourney.setDescription(normalizeNullableText(customJourneyRequest.getDescription()));
+        return customJourney;
+    }
+
+    private String normalizeNullableText(String value) {
+        if (value == null) {
+            return null;
+        }
+        String normalized = value.trim();
+        return normalized.isEmpty() ? null : normalized;
     }
 
     @Transactional

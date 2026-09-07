@@ -1,7 +1,10 @@
 package com.sep.treksphere.matching.dto.request;
 
 import com.sep.treksphere.common.constant.MessageConstant;
+import com.sep.treksphere.matching.enums.MatchingGroupSourceType;
+import jakarta.validation.Valid;
 import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Future;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
@@ -17,8 +20,13 @@ import java.util.UUID;
 @Setter
 public class MatchingGroupCreateRequest {
 
-    @NotNull(message = MessageConstant.MATCHING_TOUR_ID_REQUIRED)
+    @NotNull(message = MessageConstant.MATCHING_GROUP_SOURCE_TYPE_REQUIRED)
+    private MatchingGroupSourceType sourceType;
+
     private UUID tourId;
+
+    @Valid
+    private CustomJourneyCreateRequest customJourney;
 
     @NotBlank(message = MessageConstant.MATCHING_GROUP_NAME_REQUIRED)
     @Size(min = 3, max = 100, message = MessageConstant.MATCHING_GROUP_NAME_SIZE)
@@ -37,4 +45,8 @@ public class MatchingGroupCreateRequest {
 
     @NotNull(message = MessageConstant.MATCHING_DEADLINE_REQUIRED)
     private LocalDateTime matchingDeadline;
+
+    @NotNull(message = MessageConstant.MATCHING_SCHEDULED_START_REQUIRED)
+    @Future(message = MessageConstant.MATCHING_SCHEDULED_START_FUTURE)
+    private LocalDateTime scheduledStartAt;
 }

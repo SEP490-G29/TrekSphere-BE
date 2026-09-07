@@ -2,6 +2,8 @@ package com.sep.treksphere.matching.dto.request;
 
 import com.sep.treksphere.common.dto.BaseFilterRequest;
 import com.sep.treksphere.matching.enums.MatchingGroupStatus;
+import com.sep.treksphere.matching.enums.MatchingRole;
+
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Getter;
 import lombok.Setter;
@@ -14,7 +16,7 @@ import java.util.Set;
 
 @Getter
 @Setter
-public class OwnedMatchingGroupFilterRequest extends BaseFilterRequest {
+public class MyMatchingGroupFilterRequest extends BaseFilterRequest {
 
     private static final int MAX_PAGE_SIZE = 100;
     private static final Set<String> ALLOWED_SORT_FIELDS = Set.of(
@@ -25,8 +27,11 @@ public class OwnedMatchingGroupFilterRequest extends BaseFilterRequest {
             "status"
     );
 
-    @Schema(description = "Lọc theo trạng thái nhóm do Trekker sở hữu hoặc đã tham gia")
+    @Schema(description = "Lọc theo trạng thái nhóm do Trekker làm chủ hoặc đã tham gia")
     private MatchingGroupStatus status;
+
+    @Schema(description = "Lọc theo vai trò của người dùng: LEADER (nhóm do mình làm chủ) hoặc MEMBER (nhóm mình tham gia)")
+    private MatchingRole role;
 
     @Override
     public Pageable getPageable() {

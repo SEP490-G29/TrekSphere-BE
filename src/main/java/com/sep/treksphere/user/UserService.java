@@ -40,6 +40,14 @@ public class UserService {
         return userMapper.toUserProfileResponse(user);
     }
 
+    @Transactional(readOnly = true)
+    public PublicHikingSummaryResponse getPublicHikingSummary(UUID userId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
+
+        return userMapper.toPublicHikingSummaryResponse(user);
+    }
+
     @Transactional
     public UserProfileResponse updateProfile(String email, UpdateProfileRequest request, MultipartFile avatar) {
         User user = userRepository.findByEmail(email)

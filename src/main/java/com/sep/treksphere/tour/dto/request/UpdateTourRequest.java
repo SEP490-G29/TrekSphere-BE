@@ -19,7 +19,7 @@ public class UpdateTourRequest {
     @Schema(description = "Mô tả chi tiết về tour")
     private String description;
 
-    @Schema(description = "Độ khó của tour (EASY, MODERATE, HARD, EXPERT)")
+    @Schema(description = "Độ khó của tour (EASY, MODERATE, HARD, EXTREME)")
     private DifficultyLevel difficulty;
 
     @Schema(description = "Địa điểm tổ chức tour")

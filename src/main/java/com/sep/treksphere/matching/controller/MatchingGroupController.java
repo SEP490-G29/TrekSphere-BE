@@ -2,13 +2,12 @@ package com.sep.treksphere.matching.controller;
 
 import com.sep.treksphere.matching.enums.JoinStatus;
 
-import com.sep.treksphere.tour.Tour;
 import com.sep.treksphere.common.constant.MessageConstant;
 import com.sep.treksphere.matching.dto.request.MatchingGroupCreateRequest;
 import com.sep.treksphere.matching.dto.request.MatchingGroupFilterRequest;
 import com.sep.treksphere.matching.dto.request.MatchingJoinRequestFilter;
 import com.sep.treksphere.matching.dto.request.MyMatchingJoinRequestFilter;
-import com.sep.treksphere.matching.dto.request.OwnedMatchingGroupFilterRequest;
+import com.sep.treksphere.matching.dto.request.MyMatchingGroupFilterRequest;
 import com.sep.treksphere.common.dto.ApiResponse;
 import com.sep.treksphere.matching.dto.response.MatchingGroupDetailResponse;
 import com.sep.treksphere.matching.dto.response.MatchingGroupResponse;
@@ -27,7 +26,15 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.ModelAttribute;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
 
 import java.util.UUID;
 
@@ -41,9 +48,9 @@ public class MatchingGroupController {
 
     @Operation(
         summary = "Tìm kiếm các nhóm ghép bạn đồng hành",
-        description = "Lấy danh sách các nhóm còn mở ghép thành viên của Tour đang public. " +
-                "Cho phép tìm theo tên nhóm hoặc tên Tour, lọc theo Tour và ngày Trekker dự kiến đi; " +
-                "ngày dự kiến không phụ thuộc lịch khởi hành của Tour."
+        description = "Lấy danh sách các nhóm còn mở ghép thành viên của Tour được phê duyệt hoặc Custom Journey độc lập. " +
+                "Cho phép lọc theo loại nguồn (sourceType: TOUR, CUSTOM_JOURNEY), Tour ID, độ khó (difficulty), địa điểm (location), " +
+                "ngày đi dự kiến (targetDate/targetDateFrom/targetDateTo), và tình trạng chỗ trống (availableSlotsOnly)."
     )
     @GetMapping
     public ResponseEntity<ApiResponse<PaginationResponse<MatchingGroupResponse>>> getMatchingGroups(
@@ -53,17 +60,17 @@ public class MatchingGroupController {
     }
 
     @Operation(
-        summary = "Lấy các nhóm ghép của Trekker hiện tại",
-        description = "Trả về các nhóm do Trekker hiện tại sở hữu hoặc đã tham gia với tư cách thành viên được chấp nhận, bao gồm lịch sử nhóm đã giải tán và không giới hạn theo ngày dự kiến đi. " +
-                "Có thể lọc theo trạng thái và tìm theo tên nhóm hoặc tên Tour."
+        summary = "Lấy danh sách các nhóm ghép tôi đã tham gia hoặc làm chủ",
+        description = "Trả về các nhóm do Trekker hiện tại sở hữu (Leader) hoặc đã tham gia với tư cách thành viên được chấp nhận (Accepted Member), bao gồm lịch sử nhóm đã giải tán và không giới hạn theo ngày dự kiến đi. " +
+                "Có thể lọc theo trạng thái và tìm theo tên nhóm, tên Tour hoặc tiêu đề Custom Journey."
     )
-    @GetMapping("/owned")
-    @PreAuthorize("hasAuthority('MATCHING_GROUP_MANAGE_OWN')")
-    public ResponseEntity<ApiResponse<PaginationResponse<MatchingGroupResponse>>> getOwnedMatchingGroups(
-            @Valid @ParameterObject @ModelAttribute OwnedMatchingGroupFilterRequest filter,
+    @GetMapping(value = {"/my-groups", "/my-group"})
+    @PreAuthorize("hasAuthority('MATCHING_GROUP_PARTICIPATE')")
+    public ResponseEntity<ApiResponse<PaginationResponse<MatchingGroupResponse>>> getMyMatchingGroups(
+            @Valid @ParameterObject @ModelAttribute MyMatchingGroupFilterRequest filter,
             @AuthenticationPrincipal CustomUserDetails userDetails) {
         PaginationResponse<MatchingGroupResponse> result =
-                matchingGroupService.getOwnedMatchingGroups(filter, userDetails);
+                matchingGroupService.getMyMatchingGroups(filter, userDetails);
         return ResponseEntity.ok(ApiResponse.success(
                 HttpStatus.OK,
                 result,
@@ -73,7 +80,7 @@ public class MatchingGroupController {
 
     @Operation(
         summary = "Xem chi tiết nhóm ghép bạn đồng hành",
-        description = "Lấy thông tin public của nhóm ghép thuộc Tour đang public, bao gồm các thành viên đã được duyệt. " +
+        description = "Lấy thông tin public của nhóm ghép (Tour đã duyệt hoặc Custom Journey), bao gồm danh sách thành viên đã được duyệt, thông tin hành trình / checkpoint và chi phí ước tính. " +
                 "Nếu người xem đã đăng nhập, response có thêm trạng thái tham gia và quyền join/leave của người đó."
     )
     @GetMapping("/{id}")
@@ -86,15 +93,19 @@ public class MatchingGroupController {
 
     @Operation(
         summary = "Tạo một nhóm ghép bạn đồng hành mới",
-        description = "Cho phép Trekker tạo nhóm ghép mới cho Tour đã được duyệt. " +
-                "Ngày đi dự kiến phải ở tương lai và không bắt buộc trùng với lịch khởi hành của Tour."
+        description = "Cho phép Trekker tạo nhóm từ một Tour đã duyệt hoặc một Custom Journey độc lập. " +
+                "Request phải chọn đúng một sourceType, thời điểm khởi hành dự kiến phải ở tương lai; " +
+                "Group, Leader và GroupTrip PLANNED được tạo atomically."
     )
     @PostMapping
     @PreAuthorize("hasAuthority('MATCHING_GROUP_CREATE')")
     public ResponseEntity<ApiResponse<MatchingGroupDetailResponse>> createMatchingGroup(
             @Valid @RequestBody MatchingGroupCreateRequest request,
             @AuthenticationPrincipal CustomUserDetails userDetails) {
-        MatchingGroupDetailResponse result = matchingGroupService.createMatchingGroup(request, userDetails);
+        MatchingGroupDetailResponse result = matchingGroupService.createMatchingGroup(
+                request,
+                userDetails.getUser().getUserId()
+        );
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(ApiResponse.success(HttpStatus.CREATED, result, MessageConstant.MATCHING_GROUP_CREATED_SUCCESS));
     }

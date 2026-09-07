@@ -96,6 +96,15 @@ public class UserController {
         return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, response));
     }
 
+    @Operation(summary = "Xem hồ sơ leo núi công khai", description = "Trả về hiking summary của Trekker (không chứa email, phone, DOB, medical)")
+    @GetMapping("/{userId}/hiking-summary")
+    public ResponseEntity<ApiResponse<PublicHikingSummaryResponse>> getPublicHikingSummary(
+            @PathVariable java.util.UUID userId) {
+        
+        PublicHikingSummaryResponse response = userService.getPublicHikingSummary(userId);
+        return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, response, MessageConstant.PUBLIC_HIKING_SUMMARY_FETCHED_SUCCESS));
+    }
+
     @Operation(summary = "Khoá/Mở khoá tài khoản", description = "Thay đổi trạng thái của người dùng (Dành cho Admin)")
     @SecurityRequirement(name = "bearerAuth")
     @PreAuthorize("hasAuthority('USER_MANAGE_STATUS')")
