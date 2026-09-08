@@ -95,8 +95,13 @@ public interface MatchingGroupMapper {
     @Mapping(target = "matchingGroupId", source = "matchingGroup.matchingGroupId")
     @Mapping(target = "groupName", source = "matchingGroup.groupName")
     @Mapping(target = "groupStatus", source = "matchingGroup.status")
+    @Mapping(target = "sourceType", expression = "java(deriveSourceType(matchingMember.getMatchingGroup()))")
     @Mapping(target = "tourId", source = "matchingGroup.tour.tourId")
     @Mapping(target = "tourName", source = "matchingGroup.tour.tourName")
+    @Mapping(target = "customJourneyId", source = "matchingGroup.customJourney.customJourneyId")
+    @Mapping(target = "customJourneyTitle", source = "matchingGroup.customJourney.title")
+    @Mapping(target = "difficulty", expression = "java(deriveDifficulty(matchingMember.getMatchingGroup()))")
+    @Mapping(target = "location", expression = "java(deriveLocation(matchingMember.getMatchingGroup()))")
     @Mapping(target = "ownerId", source = "matchingGroup.owner.userId")
     @Mapping(target = "ownerName", source = "matchingGroup.owner.fullName")
     @Mapping(target = "ownerAvatarUrl", source = "matchingGroup.owner.avatarUrl")
@@ -105,6 +110,7 @@ public interface MatchingGroupMapper {
     @Mapping(target = "targetDate", source = "matchingGroup.targetDate")
     @Mapping(target = "matchingDeadline", source = "matchingGroup.matchingDeadline")
     @Mapping(target = "canCancel", ignore = true)
+    @Mapping(target = "canWithdraw", ignore = true)
     MyMatchingJoinRequestResponse toMyJoinRequestResponse(MatchingMember matchingMember);
 
     default MatchingGroupSourceType deriveSourceType(MatchingGroup mg) {

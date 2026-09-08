@@ -39,6 +39,9 @@ import com.sep.treksphere.user.UserStatus;
 import com.sep.treksphere.vendor.VendorStatus;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import com.sep.treksphere.matching.dto.request.GroupApplicationRequest;
+import com.sep.treksphere.matching.event.GroupApplicationSubmittedEvent;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -67,6 +70,8 @@ public class MatchingGroupService {
     private final TourRepository tourRepository;
     private final UserRepository userRepository;
     private final MatchingGroupMapper matchingGroupMapper;
+    // TODO: Bật lại eventPublisher khi tích hợp đồng bộ cùng nhánh Notification
+    // private final ApplicationEventPublisher eventPublisher;
 
     @Transactional(readOnly = true)
     public PaginationResponse<MatchingGroupResponse> getMatchingGroups(MatchingGroupFilterRequest filter) {
@@ -403,41 +408,53 @@ public class MatchingGroupService {
 
     @Transactional
     public MatchingMemberResponse joinMatchingGroup(UUID groupId, CustomUserDetails userDetails) {
+        return submitApplication(groupId, null, userDetails);
+    }
+
+    @Transactional
+    public MatchingMemberResponse submitApplication(
+            UUID groupId,
+            GroupApplicationRequest request,
+            CustomUserDetails userDetails
+    ) {
         User currentUser = userRepository.findByIdForUpdate(userDetails.getUser().getUserId())
                 .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
         if (currentUser.getStatus() != UserStatus.ACTIVE) {
             throw new AppException(ErrorCode.USER_NOT_ACTIVE);
         }
 
-        log.info("Request to join matching group: groupId={}, userId={}", groupId, currentUser.getUserId());
+        UUID userId = currentUser.getUserId();
+        log.info("Request to submit application to matching group: groupId={}, userId={}", groupId, userId);
 
         MatchingGroup matchingGroup = matchingGroupRepository.findByIdForUpdate(groupId)
                 .orElseThrow(() -> new AppException(ErrorCode.MATCHING_GROUP_NOT_FOUND));
 
-        if (matchingGroup.getOwner().getUserId().equals(currentUser.getUserId())) {
+        if (matchingGroup.getOwner().getUserId().equals(userId)) {
             throw new AppException(ErrorCode.MATCHING_OWNER_CANNOT_JOIN);
         }
 
         validateGroupOpenAndActive(matchingGroup);
 
-        long acceptedCount = matchingGroup.getMembers().stream()
-                .filter(m -> m.getStatus() == JoinStatus.ACCEPTED && !Boolean.TRUE.equals(m.getIsDeleted()))
-                .count();
+        long acceptedCount = matchingMemberRepository.countActiveMembersByGroupIdAndStatus(
+                groupId,
+                JoinStatus.ACCEPTED
+        );
         if (acceptedCount >= matchingGroup.getMaxSize()) {
             throw new AppException(ErrorCode.MATCHING_GROUP_FULL);
         }
 
         MatchingMember member = matchingMemberRepository.findByMatchingGroupAndUser(matchingGroup, currentUser)
                 .map(existingMember -> {
-                    if (existingMember.getStatus() == JoinStatus.ACCEPTED) {
+                    if (existingMember.getStatus() == JoinStatus.ACCEPTED && !Boolean.TRUE.equals(existingMember.getIsDeleted())) {
                         throw new AppException(ErrorCode.ALREADY_MEMBER);
                     }
-                    if (existingMember.getStatus() == JoinStatus.PENDING) {
+                    if (existingMember.getStatus() == JoinStatus.PENDING && !Boolean.TRUE.equals(existingMember.getIsDeleted())) {
                         throw new AppException(ErrorCode.JOIN_REQUEST_PENDING);
                     }
                     existingMember.setStatus(JoinStatus.PENDING);
                     existingMember.setIsDeleted(false);
                     existingMember.setRole(MatchingRole.MEMBER);
+                    existingMember.setWithdrawnAt(null);
                     return existingMember;
                 })
                 .orElseGet(() -> {
@@ -450,6 +467,16 @@ public class MatchingGroupService {
                 });
 
         MatchingMember savedMember = matchingMemberRepository.save(member);
+
+        // TODO: Bật lại publishEvent khi tích hợp đồng bộ cùng nhánh Notification
+        // eventPublisher.publishEvent(GroupApplicationSubmittedEvent.builder()
+        //         .eventId(UUID.randomUUID())
+        //         .groupId(matchingGroup.getMatchingGroupId())
+        //         .matchingMemberId(savedMember.getMatchingMemberId())
+        //         .applicantUserId(userId)
+        //         .groupOwnerId(matchingGroup.getOwner().getUserId())
+        //         .occurredAt(LocalDateTime.now())
+        //         .build());
 
         return matchingGroupMapper.toMemberResponse(savedMember);
     }
@@ -503,7 +530,9 @@ public class MatchingGroupService {
                 .map(member -> {
                     MyMatchingJoinRequestResponse response =
                             matchingGroupMapper.toMyJoinRequestResponse(member);
-                    response.setCanCancel(member.getStatus() == JoinStatus.PENDING);
+                    boolean isPending = member.getStatus() == JoinStatus.PENDING;
+                    response.setCanCancel(isPending);
+                    response.setCanWithdraw(isPending);
                     return response;
                 });
 

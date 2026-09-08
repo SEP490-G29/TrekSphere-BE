@@ -83,7 +83,8 @@ public interface MatchingMemberRepository extends JpaRepository<MatchingMember, 
         value = """
             SELECT mm FROM MatchingMember mm
             JOIN FETCH mm.matchingGroup mg
-            JOIN FETCH mg.tour t
+            LEFT JOIN FETCH mg.tour t
+            LEFT JOIN FETCH mg.customJourney cj
             JOIN FETCH mg.owner o
             WHERE mm.user.userId = :userId
               AND mm.role = :role
@@ -94,7 +95,6 @@ public interface MatchingMemberRepository extends JpaRepository<MatchingMember, 
         countQuery = """
             SELECT COUNT(mm) FROM MatchingMember mm
             JOIN mm.matchingGroup mg
-            JOIN mg.tour t
             WHERE mm.user.userId = :userId
               AND mm.role = :role
               AND (CAST(:status AS string) IS NULL OR mm.status = :status)
