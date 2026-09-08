@@ -7,6 +7,7 @@ import com.sep.treksphere.matching.enums.MatchingRole;
 import com.sep.treksphere.tour.Tour;
 import com.sep.treksphere.tour.TourStatus;
 import com.sep.treksphere.user.User;
+import com.sep.treksphere.vendor.VendorStatus;
 import jakarta.persistence.LockModeType;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -133,6 +134,7 @@ public interface MatchingGroupRepository extends JpaRepository<MatchingGroup, UU
     @Query(value = """
         SELECT DISTINCT mg FROM MatchingGroup mg
         LEFT JOIN FETCH mg.tour t
+        LEFT JOIN FETCH t.vendor v
         LEFT JOIN FETCH mg.customJourney cj
         JOIN FETCH mg.owner o
         WHERE mg.isDeleted = false
@@ -141,7 +143,7 @@ public interface MatchingGroupRepository extends JpaRepository<MatchingGroup, UU
           AND mg.matchingDeadline > :now
           AND mg.targetDate > :today
           AND (
-              (t IS NOT NULL AND t.isDeleted = false AND t.status = :tourStatus)
+              (t IS NOT NULL AND t.isDeleted = false AND t.status = :tourStatus AND v IS NOT NULL AND v.status = :vendorStatus AND v.isDeleted = false)
               OR (cj IS NOT NULL AND cj.isDeleted = false)
           )
           AND (CAST(:tourId AS uuid) IS NULL OR (t IS NOT NULL AND t.tourId = :tourId))
@@ -150,11 +152,6 @@ public interface MatchingGroupRepository extends JpaRepository<MatchingGroup, UU
               OR (:sourceType = 'TOUR' AND t IS NOT NULL)
               OR (:sourceType = 'CUSTOM_JOURNEY' AND cj IS NOT NULL)
           )
-          AND t.isDeleted = false
-          AND t.status = :tourStatus
-          AND t.vendor.status = com.sep.treksphere.vendor.VendorStatus.ACTIVE
-          AND t.vendor.isDeleted = false
-          AND (CAST(:tourId AS uuid) IS NULL OR t.tourId = :tourId)
           AND (CAST(:targetDate AS date) IS NULL OR mg.targetDate = :targetDate)
           AND (CAST(:targetDateFrom AS date) IS NULL OR mg.targetDate >= :targetDateFrom)
           AND (CAST(:targetDateTo AS date) IS NULL OR mg.targetDate <= :targetDateTo)
@@ -182,6 +179,7 @@ public interface MatchingGroupRepository extends JpaRepository<MatchingGroup, UU
         """, countQuery = """
         SELECT COUNT(DISTINCT mg) FROM MatchingGroup mg
         LEFT JOIN mg.tour t
+        LEFT JOIN t.vendor v
         LEFT JOIN mg.customJourney cj
         WHERE mg.isDeleted = false
           AND mg.status = :status
@@ -189,7 +187,7 @@ public interface MatchingGroupRepository extends JpaRepository<MatchingGroup, UU
           AND mg.matchingDeadline > :now
           AND mg.targetDate > :today
           AND (
-              (t IS NOT NULL AND t.isDeleted = false AND t.status = :tourStatus)
+              (t IS NOT NULL AND t.isDeleted = false AND t.status = :tourStatus AND v IS NOT NULL AND v.status = :vendorStatus AND v.isDeleted = false)
               OR (cj IS NOT NULL AND cj.isDeleted = false)
           )
           AND (CAST(:tourId AS uuid) IS NULL OR (t IS NOT NULL AND t.tourId = :tourId))
@@ -198,11 +196,6 @@ public interface MatchingGroupRepository extends JpaRepository<MatchingGroup, UU
               OR (:sourceType = 'TOUR' AND t IS NOT NULL)
               OR (:sourceType = 'CUSTOM_JOURNEY' AND cj IS NOT NULL)
           )
-          AND t.isDeleted = false
-          AND t.status = :tourStatus
-          AND t.vendor.status = com.sep.treksphere.vendor.VendorStatus.ACTIVE
-          AND t.vendor.isDeleted = false
-          AND (CAST(:tourId AS uuid) IS NULL OR t.tourId = :tourId)
           AND (CAST(:targetDate AS date) IS NULL OR mg.targetDate = :targetDate)
           AND (CAST(:targetDateFrom AS date) IS NULL OR mg.targetDate >= :targetDateFrom)
           AND (CAST(:targetDateTo AS date) IS NULL OR mg.targetDate <= :targetDateTo)
@@ -231,6 +224,7 @@ public interface MatchingGroupRepository extends JpaRepository<MatchingGroup, UU
     Page<MatchingGroup> findAvailableMatchingGroups(
             @Param("status") MatchingGroupStatus status,
             @Param("tourStatus") TourStatus tourStatus,
+            @Param("vendorStatus") VendorStatus vendorStatus,
             @Param("sourceType") String sourceType,
             @Param("tourId") UUID tourId,
             @Param("targetDate") LocalDate targetDate,
@@ -248,6 +242,7 @@ public interface MatchingGroupRepository extends JpaRepository<MatchingGroup, UU
     @Query("""
         SELECT DISTINCT mg FROM MatchingGroup mg
         LEFT JOIN FETCH mg.tour t
+        LEFT JOIN FETCH t.vendor v
         LEFT JOIN FETCH mg.customJourney cj
         JOIN FETCH mg.owner o
         LEFT JOIN FETCH mg.members m
@@ -256,23 +251,21 @@ public interface MatchingGroupRepository extends JpaRepository<MatchingGroup, UU
           AND mg.isDeleted = false
           AND mg.status IN :statuses
           AND (
-              (t IS NOT NULL AND t.isDeleted = false AND t.status = :tourStatus)
+              (t IS NOT NULL AND t.isDeleted = false AND t.status = :tourStatus AND v IS NOT NULL AND v.status = :vendorStatus AND v.isDeleted = false)
               OR (cj IS NOT NULL AND cj.isDeleted = false)
           )
-          AND t.isDeleted = false
-          AND t.status = :tourStatus
-          AND t.vendor.status = com.sep.treksphere.vendor.VendorStatus.ACTIVE
-          AND t.vendor.isDeleted = false
     """)
     Optional<MatchingGroup> findPublicDetailById(
             @Param("id") UUID id,
             @Param("statuses") Collection<MatchingGroupStatus> statuses,
-            @Param("tourStatus") TourStatus tourStatus
+            @Param("tourStatus") TourStatus tourStatus,
+            @Param("vendorStatus") VendorStatus vendorStatus
     );
 
     @Query("""
         SELECT mg FROM MatchingGroup mg
         LEFT JOIN FETCH mg.tour t
+        LEFT JOIN FETCH t.vendor v
         LEFT JOIN FETCH mg.customJourney cj
         JOIN FETCH mg.owner o
         LEFT JOIN FETCH mg.members m

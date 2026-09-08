@@ -28,6 +28,8 @@ import com.sep.treksphere.tour.TourRepository;
 import com.sep.treksphere.tour.TourStatus;
 import com.sep.treksphere.user.User;
 import com.sep.treksphere.user.UserRepository;
+import com.sep.treksphere.vendor.Vendor;
+import com.sep.treksphere.vendor.VendorStatus;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -92,12 +94,19 @@ class MatchingGroupServiceTest {
         memberUser.setAvatarUrl("https://example.com/alice.jpg");
 
         // 1. Setup Tour-backed group
+        Vendor sampleVendor = new Vendor();
+        sampleVendor.setVendorId(UUID.randomUUID());
+        sampleVendor.setStatus(VendorStatus.ACTIVE);
+        sampleVendor.setIsDeleted(false);
+
         sampleTour = new Tour();
         sampleTour.setTourId(UUID.randomUUID());
         sampleTour.setTourName("Fansipan Summit Trek");
         sampleTour.setLocation("Lao Cai, Sa Pa");
         sampleTour.setDifficulty(DifficultyLevel.HARD);
         sampleTour.setStatus(TourStatus.PUBLISHED);
+        sampleTour.setVendor(sampleVendor);
+        sampleTour.setIsDeleted(false);
 
         tourGroup = new MatchingGroup();
         tourGroup.setMatchingGroupId(UUID.randomUUID());
@@ -181,7 +190,7 @@ class MatchingGroupServiceTest {
         Page<MatchingGroup> page = new PageImpl<>(List.of(tourGroup, customJourneyGroup), PageRequest.of(0, 10), 2);
 
         when(matchingGroupRepository.findAvailableMatchingGroups(
-                any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any()
+                any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any()
         )).thenReturn(page);
 
         PaginationResponse<MatchingGroupResponse> result = matchingGroupService.getMatchingGroups(filter);
@@ -211,7 +220,7 @@ class MatchingGroupServiceTest {
     @Test
     @DisplayName("[P2-S2] Privacy Boundary: Khách vãng lai (Guest chưa đăng nhập) xem chi tiết nhóm KHÔNG thấy danh sách members")
     void getMatchingGroupById_AsGuest_HidesMemberList() {
-        when(matchingGroupRepository.findPublicDetailById(eq(tourGroup.getMatchingGroupId()), anyCollection(), any()))
+        when(matchingGroupRepository.findDetailById(eq(tourGroup.getMatchingGroupId())))
                 .thenReturn(Optional.of(tourGroup));
 
         MatchingGroupDetailResponse detail = matchingGroupService.getMatchingGroupById(tourGroup.getMatchingGroupId(), null);
@@ -234,7 +243,7 @@ class MatchingGroupServiceTest {
         outsider.setUserId(UUID.randomUUID());
         CustomUserDetails userDetails = new CustomUserDetails(outsider);
 
-        when(matchingGroupRepository.findPublicDetailById(eq(tourGroup.getMatchingGroupId()), anyCollection(), any()))
+        when(matchingGroupRepository.findDetailById(eq(tourGroup.getMatchingGroupId())))
                 .thenReturn(Optional.of(tourGroup));
 
         MatchingGroupDetailResponse detail = matchingGroupService.getMatchingGroupById(tourGroup.getMatchingGroupId(), userDetails);
@@ -251,7 +260,7 @@ class MatchingGroupServiceTest {
     void getMatchingGroupById_AsAcceptedMember_ShowsMemberList() {
         CustomUserDetails userDetails = new CustomUserDetails(memberUser);
 
-        when(matchingGroupRepository.findPublicDetailById(eq(tourGroup.getMatchingGroupId()), anyCollection(), any()))
+        when(matchingGroupRepository.findDetailById(eq(tourGroup.getMatchingGroupId())))
                 .thenReturn(Optional.of(tourGroup));
 
         MatchingGroupDetailResponse detail = matchingGroupService.getMatchingGroupById(tourGroup.getMatchingGroupId(), userDetails);
@@ -268,7 +277,7 @@ class MatchingGroupServiceTest {
     void getMatchingGroupById_AsLeader_ShowsMemberList() {
         CustomUserDetails userDetails = new CustomUserDetails(owner);
 
-        when(matchingGroupRepository.findPublicDetailById(eq(tourGroup.getMatchingGroupId()), anyCollection(), any()))
+        when(matchingGroupRepository.findDetailById(eq(tourGroup.getMatchingGroupId())))
                 .thenReturn(Optional.of(tourGroup));
 
         MatchingGroupDetailResponse detail = matchingGroupService.getMatchingGroupById(tourGroup.getMatchingGroupId(), userDetails);

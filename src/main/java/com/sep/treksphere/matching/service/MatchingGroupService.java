@@ -6,8 +6,10 @@ import com.sep.treksphere.common.exception.ErrorCode;
 import com.sep.treksphere.common.security.CustomUserDetails;
 import com.sep.treksphere.common.util.PaginationUtils;
 import com.sep.treksphere.matching.dto.request.CustomJourneyCreateRequest;
+import com.sep.treksphere.matching.dto.request.CustomJourneyUpdateRequest;
 import com.sep.treksphere.matching.dto.request.MatchingGroupCreateRequest;
 import com.sep.treksphere.matching.dto.request.MatchingGroupFilterRequest;
+import com.sep.treksphere.matching.dto.request.MatchingGroupUpdateRequest;
 import com.sep.treksphere.matching.dto.request.MatchingJoinRequestFilter;
 import com.sep.treksphere.matching.dto.request.MyMatchingJoinRequestFilter;
 import com.sep.treksphere.matching.dto.request.MyMatchingGroupFilterRequest;
@@ -47,6 +49,7 @@ import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 
@@ -94,6 +97,7 @@ public class MatchingGroupService {
         Page<MatchingGroup> groups = matchingGroupRepository.findAvailableMatchingGroups(
                 MatchingGroupStatus.OPEN,
                 TourStatus.PUBLISHED,
+                VendorStatus.ACTIVE,
                 sourceType,
                 filter.getTourId(),
                 filter.getTargetDate(),
@@ -147,23 +151,12 @@ public class MatchingGroupService {
     public MatchingGroupDetailResponse getMatchingGroupById(UUID id, CustomUserDetails userDetails) {
         log.info("Fetching matching group detail: id={}", id);
 
-        MatchingGroup matchingGroup = matchingGroupRepository.findPublicDetailById(
-                        id,
-                        Set.of(MatchingGroupStatus.OPEN, MatchingGroupStatus.FULL),
-                        TourStatus.PUBLISHED
-                )
+        MatchingGroup matchingGroup = matchingGroupRepository.findDetailById(id)
                 .orElseThrow(() -> new AppException(ErrorCode.MATCHING_GROUP_NOT_FOUND));
 
-        MatchingGroupDetailResponse response = matchingGroupMapper.toDetailResponse(matchingGroup);
-
-        Set<UUID> usersInConversation = new HashSet<>();
-        if (matchingGroup.getConversation() != null && !Boolean.TRUE.equals(matchingGroup.getConversation().getIsDeleted())) {
-            matchingGroup.getConversation().getParticipants().forEach(p -> usersInConversation.add(p.getUserId()));
-        }
-
         UUID viewerId = userDetails == null ? null : userDetails.getUser().getUserId();
-        boolean isOwner = viewerId != null && matchingGroup.getOwner().getUserId().equals(viewerId);
-        MatchingMember viewerMembership = viewerId == null
+        boolean isOwner = viewerId != null && matchingGroup.getOwner() != null && matchingGroup.getOwner().getUserId().equals(viewerId);
+        MatchingMember viewerMembership = (viewerId == null || matchingGroup.getMembers() == null)
                 ? null
                 : matchingGroup.getMembers().stream()
                         .filter(member -> member.getUser().getUserId().equals(viewerId)
@@ -173,6 +166,28 @@ public class MatchingGroupService {
 
         JoinStatus membershipStatus = viewerMembership == null ? null : viewerMembership.getStatus();
         boolean isAcceptedMember = isOwner || membershipStatus == JoinStatus.ACCEPTED;
+
+        // Nếu không phải Leader/Member của nhóm, chỉ cho phép xem nếu nhóm ở trạng thái public (OPEN/FULL) và Tour/Vendor khả dụng
+        if (!isAcceptedMember) {
+            if (matchingGroup.getStatus() != MatchingGroupStatus.OPEN && matchingGroup.getStatus() != MatchingGroupStatus.FULL) {
+                throw new AppException(ErrorCode.MATCHING_GROUP_NOT_FOUND);
+            }
+            Tour tour = matchingGroup.getTour();
+            if (tour != null && (Boolean.TRUE.equals(tour.getIsDeleted())
+                    || tour.getStatus() != TourStatus.PUBLISHED
+                    || tour.getVendor() == null
+                    || tour.getVendor().getStatus() != VendorStatus.ACTIVE
+                    || Boolean.TRUE.equals(tour.getVendor().getIsDeleted()))) {
+                throw new AppException(ErrorCode.MATCHING_GROUP_NOT_FOUND);
+            }
+        }
+
+        MatchingGroupDetailResponse response = matchingGroupMapper.toDetailResponse(matchingGroup);
+
+        Set<UUID> usersInConversation = new HashSet<>();
+        if (matchingGroup.getConversation() != null && !Boolean.TRUE.equals(matchingGroup.getConversation().getIsDeleted())) {
+            matchingGroup.getConversation().getParticipants().forEach(p -> usersInConversation.add(p.getUserId()));
+        }
 
         // Chỉ Accepted Member và Leader mới xem được danh sách thành viên (theo Artifact B Permission Matrix)
         if (isAcceptedMember) {
@@ -277,7 +292,16 @@ public class MatchingGroupService {
 
         MatchingGroupDetailResponse response = matchingGroupMapper.toDetailResponse(savedGroup);
 
-        response.setMembers(List.of(matchingGroupMapper.toMemberResponse(leaderMembership)));
+        MatchingMemberResponse leaderResponse = matchingGroupMapper.toMemberResponse(leaderMembership);
+        leaderResponse.setIsInConversation(false);
+        response.setMembers(List.of(leaderResponse));
+
+        response.setIsOwner(true);
+        response.setMyMembershipStatus(JoinStatus.ACCEPTED);
+        response.setCanJoin(false);
+        response.setCanLeave(false);
+        response.setHasConversation(false);
+        response.setIsInConversation(false);
 
         return response;
     }
@@ -711,6 +735,316 @@ public class MatchingGroupService {
     private void validateGroupOwner(MatchingGroup matchingGroup, User currentUser, ErrorCode errorCode) {
         if (!matchingGroup.getOwner().getUserId().equals(currentUser.getUserId())) {
             throw new AppException(errorCode);
+        }
+    }
+
+    @Transactional
+    public MatchingGroupDetailResponse updateMatchingGroup(
+            UUID groupId,
+            MatchingGroupUpdateRequest request,
+            CustomUserDetails userDetails
+    ) {
+        UUID userId = userDetails.getUser().getUserId();
+        log.info("Updating matching group: groupId={}, userId={}", groupId, userId);
+
+        MatchingGroup matchingGroup = matchingGroupRepository.findByIdForUpdate(groupId)
+                .orElseThrow(() -> new AppException(ErrorCode.MATCHING_GROUP_NOT_FOUND));
+
+        validateGroupLeader(matchingGroup, userId);
+        validateGroupNotInTerminalState(matchingGroup);
+
+        LocalDate today = LocalDate.now();
+        LocalDateTime now = LocalDateTime.now();
+
+        // 1. Validate and resolve dates with 2-way sync
+        LocalDate explicitTargetDate = request.getTargetDate();
+        LocalDate explicitCjStartDate = (request.getCustomJourney() != null) ? request.getCustomJourney().getStartDate() : null;
+
+        if (explicitTargetDate != null && explicitCjStartDate != null && !explicitTargetDate.equals(explicitCjStartDate)) {
+            throw new AppException(ErrorCode.CUSTOM_JOURNEY_TARGET_DATE_MISMATCH);
+        }
+
+        LocalDate newTargetDate;
+        if (explicitTargetDate != null) {
+            newTargetDate = explicitTargetDate;
+        } else if (explicitCjStartDate != null) {
+            newTargetDate = explicitCjStartDate;
+        } else {
+            newTargetDate = matchingGroup.getTargetDate();
+        }
+
+        LocalDateTime newDeadline = request.getMatchingDeadline() != null ? request.getMatchingDeadline() : matchingGroup.getMatchingDeadline();
+
+        if ((explicitTargetDate != null || explicitCjStartDate != null) && !newTargetDate.isAfter(today)) {
+            throw new AppException(ErrorCode.INVALID_TARGET_DATE);
+        }
+        if (request.getMatchingDeadline() != null && !request.getMatchingDeadline().isAfter(now)) {
+            throw new AppException(ErrorCode.INVALID_DEADLINE);
+        }
+        if (newDeadline.toLocalDate().isAfter(newTargetDate)) {
+            throw new AppException(ErrorCode.INVALID_DEADLINE);
+        }
+
+        matchingGroup.setTargetDate(newTargetDate);
+        matchingGroup.setMatchingDeadline(newDeadline);
+
+        // 2. Validate and update text fields
+        if (request.getGroupName() != null && !request.getGroupName().isBlank()) {
+            matchingGroup.setGroupName(request.getGroupName().trim());
+        }
+        if (request.getDescription() != null) {
+            matchingGroup.setDescription(normalizeNullableText(request.getDescription()));
+        }
+
+        // 3. Validate and update capacity
+        if (request.getMaxSize() != null) {
+            long activeCount = matchingMemberRepository.countActiveMembersByGroupIdAndStatus(
+                    groupId,
+                    JoinStatus.ACCEPTED
+            );
+            if (request.getMaxSize() < activeCount) {
+                throw new AppException(ErrorCode.MATCHING_GROUP_CAPACITY_LESS_THAN_ACTIVE_MEMBERS);
+            }
+
+            Tour tour = matchingGroup.getTour();
+            if (tour != null) {
+                if ((tour.getMinCapacity() != null && request.getMaxSize() < tour.getMinCapacity())
+                        || (tour.getMaxCapacity() != null && request.getMaxSize() > tour.getMaxCapacity())) {
+                    throw new AppException(ErrorCode.MATCHING_GROUP_SIZE_EXCEEDS_TOUR_CAPACITY);
+                }
+            }
+
+            matchingGroup.setMaxSize(request.getMaxSize());
+
+            // Auto-adjust status if OPEN or FULL
+            if (matchingGroup.getStatus() == MatchingGroupStatus.OPEN
+                    && matchingGroup.getCurrentSize() >= matchingGroup.getMaxSize()) {
+                matchingGroup.setStatus(MatchingGroupStatus.FULL);
+            } else if (matchingGroup.getStatus() == MatchingGroupStatus.FULL
+                    && matchingGroup.getCurrentSize() < matchingGroup.getMaxSize()
+                    && newDeadline.isAfter(now)
+                    && newTargetDate.isAfter(today)) {
+                matchingGroup.setStatus(MatchingGroupStatus.OPEN);
+            }
+        }
+
+        // 4. Validate and update Custom Journey
+        if (request.getCustomJourney() != null) {
+            CustomJourney customJourney = matchingGroup.getCustomJourney();
+            if (customJourney == null) {
+                throw new AppException(ErrorCode.MATCHING_GROUP_SOURCE_INVALID);
+            }
+
+            if (Boolean.TRUE.equals(customJourney.getIsLocked())) {
+                throw new AppException(ErrorCode.JOURNEY_LOCKED);
+            }
+
+            Optional<GroupTrip> tripOpt = groupTripRepository.findByMatchingGroup(matchingGroup);
+            if (tripOpt.isPresent() && tripOpt.get().getStatus() != GroupTripStatus.PLANNED) {
+                throw new AppException(ErrorCode.JOURNEY_LOCKED);
+            }
+
+            CustomJourneyUpdateRequest cjReq = request.getCustomJourney();
+            LocalDate start = newTargetDate;
+            LocalDate explicitEnd = cjReq.getEndDate();
+
+            if (explicitEnd != null) {
+                if (explicitEnd.isBefore(start)) {
+                    throw new AppException(ErrorCode.CUSTOM_JOURNEY_DATE_INVALID);
+                }
+                customJourney.setEndDate(explicitEnd);
+            } else if (customJourney.getStartDate() != null && customJourney.getEndDate() != null) {
+                long duration = java.time.temporal.ChronoUnit.DAYS.between(customJourney.getStartDate(), customJourney.getEndDate());
+                if (customJourney.getEndDate().isBefore(start)) {
+                    customJourney.setEndDate(start.plusDays(Math.max(0, duration)));
+                }
+            }
+
+            customJourney.setStartDate(start);
+
+            if (cjReq.getTitle() != null && !cjReq.getTitle().isBlank()) {
+                customJourney.setTitle(cjReq.getTitle().trim());
+            }
+            if (cjReq.getDescription() != null) {
+                customJourney.setDescription(normalizeNullableText(cjReq.getDescription()));
+            }
+            if (cjReq.getDifficulty() != null) {
+                customJourney.setDifficulty(cjReq.getDifficulty());
+            }
+        } else if (matchingGroup.getCustomJourney() != null && explicitTargetDate != null) {
+            CustomJourney customJourney = matchingGroup.getCustomJourney();
+            if (Boolean.TRUE.equals(customJourney.getIsLocked())) {
+                throw new AppException(ErrorCode.JOURNEY_LOCKED);
+            }
+            Optional<GroupTrip> tripOpt = groupTripRepository.findByMatchingGroup(matchingGroup);
+            if (tripOpt.isPresent() && tripOpt.get().getStatus() != GroupTripStatus.PLANNED) {
+                throw new AppException(ErrorCode.JOURNEY_LOCKED);
+            }
+            if (customJourney.getStartDate() != null && customJourney.getEndDate() != null) {
+                long duration = java.time.temporal.ChronoUnit.DAYS.between(customJourney.getStartDate(), customJourney.getEndDate());
+                if (customJourney.getEndDate().isBefore(newTargetDate)) {
+                    customJourney.setEndDate(newTargetDate.plusDays(Math.max(0, duration)));
+                }
+            }
+            customJourney.setStartDate(newTargetDate);
+        }
+
+        matchingGroupRepository.save(matchingGroup);
+        return getMatchingGroupById(groupId, userDetails);
+    }
+
+    @Transactional
+    public MatchingGroupDetailResponse hideMatchingGroup(UUID groupId, CustomUserDetails userDetails) {
+        UUID userId = userDetails.getUser().getUserId();
+        log.info("Hiding matching group: groupId={}, userId={}", groupId, userId);
+
+        MatchingGroup matchingGroup = matchingGroupRepository.findByIdForUpdate(groupId)
+                .orElseThrow(() -> new AppException(ErrorCode.MATCHING_GROUP_NOT_FOUND));
+
+        validateGroupLeader(matchingGroup, userId);
+        validateGroupNotInTerminalState(matchingGroup);
+
+        if (matchingGroup.getStatus() == MatchingGroupStatus.HIDDEN) {
+            return getMatchingGroupById(groupId, userDetails);
+        }
+
+        validatePlannedTripState(matchingGroup);
+
+        matchingGroup.setStatus(MatchingGroupStatus.HIDDEN);
+        matchingGroupRepository.save(matchingGroup);
+
+        return getMatchingGroupById(groupId, userDetails);
+    }
+
+    @Transactional
+    public MatchingGroupDetailResponse showMatchingGroup(UUID groupId, CustomUserDetails userDetails) {
+        UUID userId = userDetails.getUser().getUserId();
+        log.info("Showing matching group: groupId={}, userId={}", groupId, userId);
+
+        MatchingGroup matchingGroup = matchingGroupRepository.findByIdForUpdate(groupId)
+                .orElseThrow(() -> new AppException(ErrorCode.MATCHING_GROUP_NOT_FOUND));
+
+        validateGroupLeader(matchingGroup, userId);
+        validateGroupNotInTerminalState(matchingGroup);
+
+        if (matchingGroup.getStatus() != MatchingGroupStatus.HIDDEN) {
+            return getMatchingGroupById(groupId, userDetails);
+        }
+
+        validatePlannedTripState(matchingGroup);
+        validateTourAvailability(matchingGroup.getTour());
+
+        LocalDate today = LocalDate.now();
+        LocalDateTime now = LocalDateTime.now();
+
+        if (!matchingGroup.getMatchingDeadline().isAfter(now)
+                || !matchingGroup.getTargetDate().isAfter(today)) {
+            matchingGroup.setStatus(MatchingGroupStatus.CLOSED);
+        } else if (matchingGroup.getCurrentSize() >= matchingGroup.getMaxSize()) {
+            matchingGroup.setStatus(MatchingGroupStatus.FULL);
+        } else {
+            matchingGroup.setStatus(MatchingGroupStatus.OPEN);
+        }
+
+        matchingGroupRepository.save(matchingGroup);
+        return getMatchingGroupById(groupId, userDetails);
+    }
+
+    @Transactional
+    public MatchingGroupDetailResponse closeMatchingGroup(UUID groupId, CustomUserDetails userDetails) {
+        UUID userId = userDetails.getUser().getUserId();
+        log.info("Closing matching group: groupId={}, userId={}", groupId, userId);
+
+        MatchingGroup matchingGroup = matchingGroupRepository.findByIdForUpdate(groupId)
+                .orElseThrow(() -> new AppException(ErrorCode.MATCHING_GROUP_NOT_FOUND));
+
+        validateGroupLeader(matchingGroup, userId);
+        validateGroupNotInTerminalState(matchingGroup);
+
+        if (matchingGroup.getStatus() == MatchingGroupStatus.CLOSED) {
+            return getMatchingGroupById(groupId, userDetails);
+        }
+
+        matchingGroup.setStatus(MatchingGroupStatus.CLOSED);
+        matchingGroupRepository.save(matchingGroup);
+
+        return getMatchingGroupById(groupId, userDetails);
+    }
+
+    @Transactional
+    public MatchingGroupDetailResponse openMatchingGroup(UUID groupId, CustomUserDetails userDetails) {
+        UUID userId = userDetails.getUser().getUserId();
+        log.info("Opening matching group: groupId={}, userId={}", groupId, userId);
+
+        MatchingGroup matchingGroup = matchingGroupRepository.findByIdForUpdate(groupId)
+                .orElseThrow(() -> new AppException(ErrorCode.MATCHING_GROUP_NOT_FOUND));
+
+        validateGroupLeader(matchingGroup, userId);
+        validateGroupNotInTerminalState(matchingGroup);
+
+        if (matchingGroup.getStatus() == MatchingGroupStatus.OPEN) {
+            return getMatchingGroupById(groupId, userDetails);
+        }
+
+        validateDatesInFuture(matchingGroup.getTargetDate(), matchingGroup.getMatchingDeadline());
+        validateTourAvailability(matchingGroup.getTour());
+
+        if (matchingGroup.getCurrentSize() >= matchingGroup.getMaxSize()) {
+            matchingGroup.setStatus(MatchingGroupStatus.FULL);
+        } else {
+            matchingGroup.setStatus(MatchingGroupStatus.OPEN);
+        }
+
+        matchingGroupRepository.save(matchingGroup);
+        return getMatchingGroupById(groupId, userDetails);
+    }
+
+    private void validateGroupLeader(MatchingGroup matchingGroup, UUID userId) {
+        boolean isLeader = matchingMemberRepository.findByMatchingGroupAndUser(
+                        matchingGroup,
+                        userRepository.getReferenceById(userId)
+                )
+                .filter(m -> m.getRole() == MatchingRole.LEADER
+                        && m.getStatus() == JoinStatus.ACCEPTED
+                        && !Boolean.TRUE.equals(m.getIsDeleted()))
+                .isPresent();
+
+        if (!isLeader) {
+            throw new AppException(ErrorCode.MATCHING_GROUP_UNAUTHORIZED_MANAGE);
+        }
+    }
+
+    private void validateGroupNotInTerminalState(MatchingGroup matchingGroup) {
+        if (matchingGroup.getStatus() == MatchingGroupStatus.IN_PROGRESS
+                || matchingGroup.getStatus() == MatchingGroupStatus.COMPLETED
+                || matchingGroup.getStatus() == MatchingGroupStatus.CANCELLED) {
+            throw new AppException(ErrorCode.MATCHING_GROUP_INVALID_STATE);
+        }
+    }
+
+    private void validatePlannedTripState(MatchingGroup matchingGroup) {
+        Optional<GroupTrip> tripOpt = groupTripRepository.findByMatchingGroup(matchingGroup);
+        if (tripOpt.isPresent() && tripOpt.get().getStatus() != GroupTripStatus.PLANNED) {
+            throw new AppException(ErrorCode.MATCHING_GROUP_INVALID_STATE);
+        }
+    }
+
+    private void validateTourAvailability(Tour tour) {
+        if (tour != null && (Boolean.TRUE.equals(tour.getIsDeleted())
+                || tour.getStatus() != TourStatus.PUBLISHED
+                || tour.getVendor() == null
+                || tour.getVendor().getStatus() != VendorStatus.ACTIVE
+                || Boolean.TRUE.equals(tour.getVendor().getIsDeleted()))) {
+            throw new AppException(ErrorCode.MATCHING_TOUR_NOT_AVAILABLE);
+        }
+    }
+
+    private void validateDatesInFuture(LocalDate targetDate, LocalDateTime matchingDeadline) {
+        if (!targetDate.isAfter(LocalDate.now())) {
+            throw new AppException(ErrorCode.MATCHING_TARGET_DATE_PASSED);
+        }
+        if (!matchingDeadline.isAfter(LocalDateTime.now())) {
+            throw new AppException(ErrorCode.MATCHING_DEADLINE_PASSED);
         }
     }
 }

@@ -26,9 +26,11 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import com.sep.treksphere.matching.dto.request.MatchingGroupUpdateRequest;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.ModelAttribute;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
@@ -108,6 +110,73 @@ public class MatchingGroupController {
         );
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(ApiResponse.success(HttpStatus.CREATED, result, MessageConstant.MATCHING_GROUP_CREATED_SUCCESS));
+    }
+
+    @Operation(
+        summary = "Chỉnh sửa thông tin nhóm ghép bạn đồng hành",
+        description = "Cho phép Trưởng nhóm (Leader) chỉnh sửa thông tin nhóm (tên, mô tả, sức chứa, ngày dự kiến, hạn chót) " +
+                "và thông tin hành trình Custom Journey (nếu chưa bị khóa). Không cho phép giảm sức chứa nhỏ hơn số thành viên đang tham gia."
+    )
+    @PatchMapping("/{groupId}")
+    @PreAuthorize("hasAuthority('MATCHING_GROUP_MANAGE_OWN')")
+    public ResponseEntity<ApiResponse<MatchingGroupDetailResponse>> updateMatchingGroup(
+            @Parameter(description = "UUID của nhóm ghép") @PathVariable UUID groupId,
+            @Valid @RequestBody MatchingGroupUpdateRequest request,
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+        MatchingGroupDetailResponse result = matchingGroupService.updateMatchingGroup(groupId, request, userDetails);
+        return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, result, MessageConstant.MATCHING_GROUP_UPDATED_SUCCESS));
+    }
+
+    @Operation(
+        summary = "Ẩn nhóm ghép khỏi danh sách tìm kiếm công khai",
+        description = "Cho phép Trưởng nhóm (Leader) tạm ẩn nhóm ghép khỏi kết quả tìm kiếm (chuyển sang trạng thái HIDDEN)."
+    )
+    @PostMapping("/{groupId}/hide")
+    @PreAuthorize("hasAuthority('MATCHING_GROUP_MANAGE_OWN')")
+    public ResponseEntity<ApiResponse<MatchingGroupDetailResponse>> hideMatchingGroup(
+            @Parameter(description = "UUID của nhóm ghép") @PathVariable UUID groupId,
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+        MatchingGroupDetailResponse result = matchingGroupService.hideMatchingGroup(groupId, userDetails);
+        return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, result, MessageConstant.MATCHING_GROUP_HIDDEN_SUCCESS));
+    }
+
+    @Operation(
+        summary = "Hiển thị lại nhóm ghép ra công khai",
+        description = "Cho phép Trưởng nhóm (Leader) hiển thị lại nhóm từ trạng thái HIDDEN. Hệ thống sẽ tự động tính toán lại trạng thái (OPEN, FULL hoặc CLOSED) dựa theo số lượng thành viên, hạn chót và ngày đi."
+    )
+    @PostMapping("/{groupId}/show")
+    @PreAuthorize("hasAuthority('MATCHING_GROUP_MANAGE_OWN')")
+    public ResponseEntity<ApiResponse<MatchingGroupDetailResponse>> showMatchingGroup(
+            @Parameter(description = "UUID của nhóm ghép") @PathVariable UUID groupId,
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+        MatchingGroupDetailResponse result = matchingGroupService.showMatchingGroup(groupId, userDetails);
+        return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, result, MessageConstant.MATCHING_GROUP_SHOWN_SUCCESS));
+    }
+
+    @Operation(
+        summary = "Đóng tuyển thành viên nhóm ghép",
+        description = "Cho phép Trưởng nhóm (Leader) chủ động đóng tuyển thành viên mới (chuyển sang trạng thái CLOSED)."
+    )
+    @PostMapping("/{groupId}/close")
+    @PreAuthorize("hasAuthority('MATCHING_GROUP_MANAGE_OWN')")
+    public ResponseEntity<ApiResponse<MatchingGroupDetailResponse>> closeMatchingGroup(
+            @Parameter(description = "UUID của nhóm ghép") @PathVariable UUID groupId,
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+        MatchingGroupDetailResponse result = matchingGroupService.closeMatchingGroup(groupId, userDetails);
+        return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, result, MessageConstant.MATCHING_GROUP_CLOSED_SUCCESS));
+    }
+
+    @Operation(
+        summary = "Mở lại tuyển thành viên nhóm ghép",
+        description = "Cho phép Trưởng nhóm (Leader) mở lại tuyển thành viên từ trạng thái CLOSED nếu hạn chót và ngày đi còn hợp lệ."
+    )
+    @PostMapping("/{groupId}/open")
+    @PreAuthorize("hasAuthority('MATCHING_GROUP_MANAGE_OWN')")
+    public ResponseEntity<ApiResponse<MatchingGroupDetailResponse>> openMatchingGroup(
+            @Parameter(description = "UUID của nhóm ghép") @PathVariable UUID groupId,
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+        MatchingGroupDetailResponse result = matchingGroupService.openMatchingGroup(groupId, userDetails);
+        return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, result, MessageConstant.MATCHING_GROUP_OPENED_SUCCESS));
     }
 
     @Operation(

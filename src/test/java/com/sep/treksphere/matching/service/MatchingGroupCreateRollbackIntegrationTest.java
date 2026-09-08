@@ -1,9 +1,12 @@
 package com.sep.treksphere.matching.service;
 
 import com.sep.treksphere.common.config.AuditConfig;
+import com.sep.treksphere.common.dto.PaginationResponse;
 import com.sep.treksphere.matching.dto.request.CustomJourneyCreateRequest;
 import com.sep.treksphere.matching.dto.request.MatchingGroupCreateRequest;
+import com.sep.treksphere.matching.dto.request.MatchingGroupFilterRequest;
 import com.sep.treksphere.matching.dto.response.MatchingGroupDetailResponse;
+import com.sep.treksphere.matching.dto.response.MatchingGroupResponse;
 import com.sep.treksphere.matching.entity.GroupTrip;
 import com.sep.treksphere.matching.enums.GroupTripStatus;
 import com.sep.treksphere.matching.enums.JoinStatus;
@@ -110,6 +113,11 @@ class MatchingGroupCreateRollbackIntegrationTest {
             assertThat(trip.getMatchingGroup().getMatchingGroupId()).isEqualTo(response.getMatchingGroupId());
             assertThat(trip.getStatus()).isEqualTo(GroupTripStatus.PLANNED);
         });
+
+        // Test discovery query:
+        MatchingGroupFilterRequest filter = new MatchingGroupFilterRequest();
+        PaginationResponse<MatchingGroupResponse> searchResult = matchingGroupService.getMatchingGroups(filter);
+        assertThat(searchResult.getContent()).isNotEmpty();
     }
 
     @Test
