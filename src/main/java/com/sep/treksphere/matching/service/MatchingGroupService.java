@@ -94,6 +94,7 @@ public class MatchingGroupService {
         Page<MatchingGroup> groups = matchingGroupRepository.findAvailableMatchingGroups(
                 MatchingGroupStatus.OPEN,
                 TourStatus.PUBLISHED,
+                VendorStatus.ACTIVE,
                 sourceType,
                 filter.getTourId(),
                 filter.getTargetDate(),
@@ -150,7 +151,8 @@ public class MatchingGroupService {
         MatchingGroup matchingGroup = matchingGroupRepository.findPublicDetailById(
                         id,
                         Set.of(MatchingGroupStatus.OPEN, MatchingGroupStatus.FULL),
-                        TourStatus.PUBLISHED
+                        TourStatus.PUBLISHED,
+                        VendorStatus.ACTIVE
                 )
                 .orElseThrow(() -> new AppException(ErrorCode.MATCHING_GROUP_NOT_FOUND));
 
@@ -277,7 +279,16 @@ public class MatchingGroupService {
 
         MatchingGroupDetailResponse response = matchingGroupMapper.toDetailResponse(savedGroup);
 
-        response.setMembers(List.of(matchingGroupMapper.toMemberResponse(leaderMembership)));
+        MatchingMemberResponse leaderResponse = matchingGroupMapper.toMemberResponse(leaderMembership);
+        leaderResponse.setIsInConversation(false);
+        response.setMembers(List.of(leaderResponse));
+
+        response.setIsOwner(true);
+        response.setMyMembershipStatus(JoinStatus.ACCEPTED);
+        response.setCanJoin(false);
+        response.setCanLeave(false);
+        response.setHasConversation(false);
+        response.setIsInConversation(false);
 
         return response;
     }
