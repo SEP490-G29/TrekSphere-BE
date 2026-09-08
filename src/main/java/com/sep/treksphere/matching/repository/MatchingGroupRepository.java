@@ -265,6 +265,7 @@ public interface MatchingGroupRepository extends JpaRepository<MatchingGroup, UU
     @Query("""
         SELECT mg FROM MatchingGroup mg
         LEFT JOIN FETCH mg.tour t
+        LEFT JOIN FETCH t.vendor v
         LEFT JOIN FETCH mg.customJourney cj
         JOIN FETCH mg.owner o
         LEFT JOIN FETCH mg.members m

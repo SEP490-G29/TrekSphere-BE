@@ -344,6 +344,15 @@ public class MessageConstant {
     public static final String CROSS_GROUP_ACTION_NOT_ALLOWED = "Hành động không hợp lệ do các thực thể không thuộc cùng nhóm ghép";
     public static final String SELF_REVIEW_NOT_ALLOWED = "Bạn không thể tự đánh giá chính mình trong chuyến đi";
     public static final String SINGLE_LEADER_VIOLATION = "Nhóm ghép phải duy trì đúng một Trưởng nhóm (Leader) hoạt động";
+    public static final String MATCHING_GROUP_UPDATED_SUCCESS = "Cập nhật thông tin nhóm ghép thành công";
+    public static final String MATCHING_GROUP_HIDDEN_SUCCESS = "Ẩn nhóm ghép khỏi tìm kiếm công khai thành công";
+    public static final String MATCHING_GROUP_SHOWN_SUCCESS = "Hiển thị lại nhóm ghép thành công";
+    public static final String MATCHING_GROUP_CLOSED_SUCCESS = "Đóng tuyển thành viên nhóm ghép thành công";
+    public static final String MATCHING_GROUP_OPENED_SUCCESS = "Mở lại tuyển thành viên nhóm ghép thành công";
+    public static final String MATCHING_GROUP_UNAUTHORIZED_MANAGE = "Bạn không có quyền quản trị hoặc chỉnh sửa nhóm này";
+    public static final String MATCHING_GROUP_INVALID_STATE = "Trạng thái hiện tại của nhóm không cho phép thực hiện thao tác này";
+    public static final String MATCHING_GROUP_CAPACITY_LESS_THAN_ACTIVE_MEMBERS = "Sức chứa tối đa không thể nhỏ hơn số lượng thành viên đang tham gia nhóm";
+    public static final String JOURNEY_LOCKED = "Hành trình Custom Journey đã bị khóa và không thể chỉnh sửa";
 
     // Schedule Messages
     public static final String SCHEDULE_NOT_FOUND = "Lịch khởi hành không tồn tại";
