@@ -12,11 +12,19 @@ import java.util.UUID;
 @Setter
 public class MatchingMemberResponse {
     private UUID matchingMemberId;
+    private UUID applicationId;
     private UUID userId;
     private String fullName;
     private String avatarUrl;
     private MatchingRole role;
     private JoinStatus status;
+    private String message;
+    private String rejectReason;
     private LocalDateTime createdAt;
+    private LocalDateTime reviewedAt;
+    private LocalDateTime withdrawnAt;
+    private LocalDateTime joinedAt;
+    private LocalDateTime leftAt;
     private Boolean isInConversation;
 }
+

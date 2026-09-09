@@ -13,6 +13,7 @@ import java.util.UUID;
 @Getter
 @Setter
 public class MyMatchingJoinRequestResponse {
+    private UUID applicationId;
     private UUID matchingMemberId;
     private UUID matchingGroupId;
     private String groupName;
@@ -31,9 +32,14 @@ public class MyMatchingJoinRequestResponse {
     private Integer maxSize;
     private LocalDate targetDate;
     private LocalDateTime matchingDeadline;
+    private String message;
+    private String rejectReason;
     private JoinStatus status;
     private LocalDateTime createdAt;
+    private LocalDateTime reviewedAt;
     private LocalDateTime updatedAt;
+    private LocalDateTime withdrawnAt;
     private boolean canCancel;
     private boolean canWithdraw;
 }
+

@@ -1,7 +1,7 @@
 package com.sep.treksphere.matching.dto.request;
 
 import com.sep.treksphere.common.constant.MessageConstant;
-import com.sep.treksphere.matching.enums.JoinStatus;
+import com.sep.treksphere.matching.enums.JoinApplicationStatus;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
@@ -14,8 +14,8 @@ import org.springframework.data.domain.Pageable;
 @Setter
 public class MatchingJoinRequestFilter {
 
-    @Schema(defaultValue = "PENDING", allowableValues = {"PENDING", "REJECTED"})
-    private JoinStatus status = JoinStatus.PENDING;
+    @Schema(defaultValue = "PENDING", allowableValues = {"PENDING", "REJECTED", "ACCEPTED", "WITHDRAWN"})
+    private JoinApplicationStatus status = JoinApplicationStatus.PENDING;
 
     @Min(value = 0, message = MessageConstant.MATCHING_JOIN_REQUEST_PAGE_MIN)
     @Schema(defaultValue = "0", minimum = "0")
@@ -30,3 +30,4 @@ public class MatchingJoinRequestFilter {
         return PageRequest.of(page, size);
     }
 }
+

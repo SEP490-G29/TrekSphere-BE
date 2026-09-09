@@ -129,7 +129,7 @@ class UserServiceTest {
         assertThat(sampleUser.getBio()).isEqualTo("Updated bio");
         assertThat(sampleUser.getExperienceLevel()).isEqualTo(ExperienceLevel.ADVANCED);
         assertThat(sampleUser.getPreferredDifficulty()).isEqualTo(DifficultyLevel.HARD);
-        assertThat(sampleUser.getPreferredAreas()).containsExactly("Yen Bai", "Lai Chau");
-        assertThat(sampleUser.getSkills()).containsExactly("Survival", "First Aid", "Climbing");
+        assertThat(sampleUser.getPreferredAreas()).containsExactly("yen bai", "lai chau");
+        assertThat(sampleUser.getSkills()).containsExactly("survival", "first aid", "climbing");
     }
 }

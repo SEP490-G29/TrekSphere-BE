@@ -12,6 +12,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -19,6 +20,14 @@ import java.util.UUID;
 public interface MatchingMemberRepository extends JpaRepository<MatchingMember, UUID> {
 
     Optional<MatchingMember> findByMatchingGroupAndUser(MatchingGroup matchingGroup, User user);
+
+    Optional<MatchingMember> findByMatchingGroupAndUserAndIsDeletedFalse(MatchingGroup matchingGroup, User user);
+
+    boolean existsByMatchingGroup_MatchingGroupIdAndUser_UserIdAndStatusAndIsDeletedFalse(
+            UUID groupId,
+            UUID userId,
+            JoinStatus status
+    );
 
     @Query("""
         SELECT mm FROM MatchingMember mm
@@ -34,13 +43,11 @@ public interface MatchingMemberRepository extends JpaRepository<MatchingMember, 
         JOIN FETCH mm.user u
         WHERE mm.matchingMemberId = :memberId
           AND mm.matchingGroup.matchingGroupId = :groupId
-          AND mm.role = :role
           AND mm.isDeleted = false
     """)
-    Optional<MatchingMember> findJoinRequestByIdAndGroupId(
+    Optional<MatchingMember> findMemberByIdAndGroupId(
             @Param("memberId") UUID memberId,
-            @Param("groupId") UUID groupId,
-            @Param("role") MatchingRole role
+            @Param("groupId") UUID groupId
     );
 
     @Query("""
@@ -54,29 +61,17 @@ public interface MatchingMemberRepository extends JpaRepository<MatchingMember, 
             @Param("status") JoinStatus status
     );
 
-    @Query(
-        value = """
-            SELECT mm FROM MatchingMember mm
-            JOIN FETCH mm.user u
-            WHERE mm.matchingGroup.matchingGroupId = :groupId
-              AND mm.status = :status
-              AND mm.role = :role
-              AND mm.isDeleted = false
-            ORDER BY mm.createdAt DESC
-        """,
-        countQuery = """
-            SELECT COUNT(mm) FROM MatchingMember mm
-            WHERE mm.matchingGroup.matchingGroupId = :groupId
-              AND mm.status = :status
-              AND mm.role = :role
-              AND mm.isDeleted = false
-        """
-    )
-    Page<MatchingMember> findJoinRequests(
+    @Query("""
+        SELECT mm FROM MatchingMember mm
+        JOIN FETCH mm.user u
+        WHERE mm.matchingGroup.matchingGroupId = :groupId
+          AND mm.status = :status
+          AND mm.isDeleted = false
+        ORDER BY mm.joinedAt ASC
+    """)
+    List<MatchingMember> findActiveMembers(
             @Param("groupId") UUID groupId,
-            @Param("status") JoinStatus status,
-            @Param("role") MatchingRole role,
-            Pageable pageable
+            @Param("status") JoinStatus status
     );
 
     @Query(
@@ -87,25 +82,24 @@ public interface MatchingMemberRepository extends JpaRepository<MatchingMember, 
             LEFT JOIN FETCH mg.customJourney cj
             JOIN FETCH mg.owner o
             WHERE mm.user.userId = :userId
-              AND mm.role = :role
               AND (CAST(:status AS string) IS NULL OR mm.status = :status)
               AND mm.isDeleted = false
               AND mg.isDeleted = false
+            ORDER BY mm.createdAt DESC
         """,
         countQuery = """
             SELECT COUNT(mm) FROM MatchingMember mm
             JOIN mm.matchingGroup mg
             WHERE mm.user.userId = :userId
-              AND mm.role = :role
               AND (CAST(:status AS string) IS NULL OR mm.status = :status)
               AND mm.isDeleted = false
               AND mg.isDeleted = false
         """
     )
-    Page<MatchingMember> findMyJoinRequests(
+    Page<MatchingMember> findMyMemberships(
             @Param("userId") UUID userId,
-            @Param("role") MatchingRole role,
             @Param("status") JoinStatus status,
             Pageable pageable
     );
 }
+
