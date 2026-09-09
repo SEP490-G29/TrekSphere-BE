@@ -22,6 +22,32 @@ public final class NotificationTemplates {
         TEMPLATES.put(NotificationEventType.TOUR_HIDDEN_VIOLATION, new TemplatePair(
                 "Tour bị ẩn do vi phạm",
                 "Tour \"%s\" đã bị ẩn. Lý do: %s"));
+
+        TEMPLATES.put(NotificationEventType.GROUP_JOIN_REQUEST, new TemplatePair(
+                "Yêu cầu tham gia nhóm mới",
+                "%s muốn tham gia nhóm \"%s\" của bạn."));
+        TEMPLATES.put(NotificationEventType.GROUP_MEMBER_APPROVED, new TemplatePair(
+                "Yêu cầu được chấp nhận",
+                "Bạn đã được chấp nhận vào nhóm \"%s\"."));
+        TEMPLATES.put(NotificationEventType.GROUP_MEMBER_REJECTED, new TemplatePair(
+                "Yêu cầu bị từ chối",
+                "Yêu cầu tham gia nhóm \"%s\" bị từ chối."));
+        TEMPLATES.put(NotificationEventType.GROUP_MEMBER_LEFT, new TemplatePair(
+                "Thành viên rời nhóm",
+                "%s đã rời khỏi nhóm \"%s\"."));
+        TEMPLATES.put(NotificationEventType.GROUP_DISBANDED, new TemplatePair(
+                "Nhóm đã giải tán",
+                "Nhóm \"%s\" đã bị giải tán."));
+
+        // Nội dung có 2 biến thể cấu trúc khác nhau (top-level vs reply) nên được
+        // BlogCommentService dựng sẵn thành 1 câu hoàn chỉnh rồi truyền vào đây.
+        TEMPLATES.put(NotificationEventType.BLOG_COMMENT_ADDED, new TemplatePair(
+                "Bình luận mới",
+                "%s"));
+
+        TEMPLATES.put(NotificationEventType.NEW_MESSAGE, new TemplatePair(
+                "Tin nhắn mới",
+                "%s: %s"));
     }
 
     private NotificationTemplates() {

@@ -19,6 +19,9 @@ import com.sep.treksphere.user.UserStatus;
 import com.sep.treksphere.common.exception.AppException;
 import com.sep.treksphere.common.exception.ErrorCode;
 import com.sep.treksphere.matching.member.MatchingMemberRepository;
+import com.sep.treksphere.notification.NotificationEventType;
+import com.sep.treksphere.notification.NotificationService;
+import com.sep.treksphere.notification.ReferenceType;
 import com.sep.treksphere.tour.TourRepository;
 import com.sep.treksphere.user.UserRepository;
 import com.sep.treksphere.common.security.CustomUserDetails;
@@ -47,6 +50,7 @@ public class MatchingGroupService {
     private final TourRepository tourRepository;
     private final UserRepository userRepository;
     private final MatchingGroupMapper matchingGroupMapper;
+    private final NotificationService notificationService;
 
     @Transactional(readOnly = true)
     public PaginationResponse<MatchingGroupResponse> getMatchingGroups(MatchingGroupFilterRequest filter) {
@@ -313,6 +317,13 @@ public class MatchingGroupService {
 
         MatchingMember savedMember = matchingMemberRepository.save(member);
 
+        notificationService.notify(
+                matchingGroup.getOwner().getUserId(),
+                NotificationEventType.GROUP_JOIN_REQUEST,
+                ReferenceType.MATCHING_GROUP, matchingGroup.getMatchingGroupId(),
+                "/trekker/my-groups/" + matchingGroup.getMatchingGroupId(),
+                currentUser.getFullName(), matchingGroup.getGroupName());
+
         return matchingGroupMapper.toMemberResponse(savedMember);
     }
 
@@ -444,6 +455,13 @@ public class MatchingGroupService {
         matchingMemberRepository.save(member);
         matchingGroupRepository.save(matchingGroup);
 
+        notificationService.notify(
+                member.getUser().getUserId(),
+                NotificationEventType.GROUP_MEMBER_APPROVED,
+                ReferenceType.MATCHING_GROUP, matchingGroup.getMatchingGroupId(),
+                "/trekker/my-groups/" + matchingGroup.getMatchingGroupId(),
+                matchingGroup.getGroupName());
+
         return matchingGroupMapper.toMemberResponse(member);
     }
 
@@ -481,6 +499,13 @@ public class MatchingGroupService {
         member.setStatus(JoinStatus.REJECTED);
 
         MatchingMember savedMember = matchingMemberRepository.save(member);
+
+        notificationService.notify(
+                member.getUser().getUserId(),
+                NotificationEventType.GROUP_MEMBER_REJECTED,
+                ReferenceType.MATCHING_GROUP, matchingGroup.getMatchingGroupId(),
+                "/trekker/my-groups",
+                matchingGroup.getGroupName());
 
         return matchingGroupMapper.toMemberResponse(savedMember);
     }
@@ -556,6 +581,13 @@ public class MatchingGroupService {
 
         MatchingMember savedMember = matchingMemberRepository.save(member);
 
+        notificationService.notify(
+                matchingGroup.getOwner().getUserId(),
+                NotificationEventType.GROUP_MEMBER_LEFT,
+                ReferenceType.MATCHING_GROUP, matchingGroup.getMatchingGroupId(),
+                "/trekker/my-groups/" + matchingGroup.getMatchingGroupId(),
+                currentUser.getFullName(), matchingGroup.getGroupName());
+
         return matchingGroupMapper.toMemberResponse(savedMember);
     }
 
@@ -576,6 +608,15 @@ public class MatchingGroupService {
             throw new AppException(ErrorCode.MATCHING_GROUP_CANNOT_BE_DISBANDED);
         }
 
+        List<UUID> memberIdsToNotify = matchingGroup.getMembers() == null
+                ? List.of()
+                : matchingGroup.getMembers().stream()
+                        .filter(member -> member.getStatus() == JoinStatus.ACCEPTED
+                                && !Boolean.TRUE.equals(member.getIsDeleted())
+                                && !member.getUser().getUserId().equals(currentUser.getUserId()))
+                        .map(member -> member.getUser().getUserId())
+                        .toList();
+
         LocalDateTime deletedAt = LocalDateTime.now();
         String deletedBy = currentUser.getUserId().toString();
         matchingGroup.setIsDeleted(true);
@@ -593,5 +634,12 @@ public class MatchingGroupService {
 
         matchingGroupRepository.save(matchingGroup);
         log.info("Matching group disbanded successfully: groupId={}", groupId);
+
+        notificationService.notify(
+                memberIdsToNotify,
+                NotificationEventType.GROUP_DISBANDED,
+                ReferenceType.MATCHING_GROUP, matchingGroup.getMatchingGroupId(),
+                "/trekker/my-groups",
+                matchingGroup.getGroupName());
     }
 }

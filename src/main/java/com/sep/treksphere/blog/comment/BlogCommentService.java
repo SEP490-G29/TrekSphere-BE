@@ -9,6 +9,9 @@ import com.sep.treksphere.common.exception.ErrorCode;
 import com.sep.treksphere.blog.BlogRepository;
 import com.sep.treksphere.common.security.CustomUserDetails;
 import com.sep.treksphere.common.util.PaginationUtils;
+import com.sep.treksphere.notification.NotificationEventType;
+import com.sep.treksphere.notification.NotificationService;
+import com.sep.treksphere.notification.ReferenceType;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -17,8 +20,10 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -29,6 +34,7 @@ public class BlogCommentService {
 
     private final BlogRepository blogRepository;
     private final BlogCommentRepository blogCommentRepository;
+    private final NotificationService notificationService;
 
     @Transactional(readOnly = true)
     public PaginationResponse<BlogCommentResponse> getCommentsByBlogId(UUID blogId, BlogCommentFilterRequest filter) {
@@ -85,7 +91,40 @@ public class BlogCommentService {
         blogCommentRepository.save(comment);
         log.info("User {} added comment to blog {}", userDetails.getUser().getUserId(), blogId);
 
+        notifyNewComment(blog, comment, userDetails.getUser());
+
         return toCommentResponse(comment);
+    }
+
+    private void notifyNewComment(Blog blog, BlogComment comment, User commenter) {
+        UUID commenterId = commenter.getUserId();
+        UUID blogId = blog.getBlogId();
+        String actionUrl = "/news/" + blogId + "#comment-" + comment.getBlogCommentId();
+
+        Set<UUID> recipientIds = new LinkedHashSet<>();
+        User author = blog.getUser();
+        if (!author.getUserId().equals(commenterId)) {
+            recipientIds.add(author.getUserId());
+        }
+
+        String content;
+        if (comment.getParentComment() == null) {
+            content = commenter.getFullName() + " đã bình luận về bài viết \"" + blog.getTitle() + "\" của bạn.";
+        } else {
+            User parentAuthor = comment.getParentComment().getUser();
+            if (!parentAuthor.getUserId().equals(commenterId)) {
+                recipientIds.add(parentAuthor.getUserId());
+            }
+            content = commenter.getFullName() + " đã trả lời bình luận của bạn.";
+        }
+
+        if (!recipientIds.isEmpty()) {
+            notificationService.notify(
+                    new ArrayList<>(recipientIds),
+                    NotificationEventType.BLOG_COMMENT_ADDED,
+                    ReferenceType.BLOG, blogId, actionUrl,
+                    content);
+        }
     }
 
     @Transactional

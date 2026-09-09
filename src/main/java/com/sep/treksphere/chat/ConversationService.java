@@ -16,6 +16,9 @@ import com.sep.treksphere.common.exception.AppException;
 import com.sep.treksphere.common.exception.ErrorCode;
 import com.sep.treksphere.matching.MatchingGroupRepository;
 import com.sep.treksphere.chat.message.MessageRepository;
+import com.sep.treksphere.notification.NotificationEventType;
+import com.sep.treksphere.notification.NotificationService;
+import com.sep.treksphere.notification.ReferenceType;
 import com.sep.treksphere.user.UserRepository;
 import com.sep.treksphere.common.security.CustomUserDetails;
 import lombok.RequiredArgsConstructor;
@@ -41,6 +44,7 @@ public class ConversationService {
     private final UserRepository userRepository;
     private final MatchingGroupRepository matchingGroupRepository;
     private final SimpMessagingTemplate messagingTemplate;
+    private final NotificationService notificationService;
 
     @Transactional(readOnly = true)
     public PaginationResponse<ConversationResponse> getConversations(
@@ -198,7 +202,24 @@ public class ConversationService {
 
         MessageResponse response = toMessageResponse(savedMessage);
         broadcastMessageAfterCommit(response);
+        notifyOtherParticipants(conversation, currentUser, savedMessage);
         return response;
+    }
+
+    private void notifyOtherParticipants(Conversation conversation, User sender, Message message) {
+        List<UUID> recipientIds = conversation.getParticipants().stream()
+                .map(User::getUserId)
+                .filter(userId -> !userId.equals(sender.getUserId()))
+                .toList();
+
+        String content = message.getContent();
+        String excerpt = content.length() > 80 ? content.substring(0, 80) + "..." : content;
+
+        notificationService.notify(
+                recipientIds,
+                NotificationEventType.NEW_MESSAGE,
+                ReferenceType.CONVERSATION, conversation.getConversationId(), "/chat",
+                sender.getFullName(), excerpt);
     }
 
     @Transactional
