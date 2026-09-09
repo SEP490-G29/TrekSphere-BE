@@ -512,6 +512,14 @@ public class MessageConstant {
     public static final String REPORT_TARGET_TYPE_REQUIRED = "Loại nội dung báo cáo không được để trống";
     public static final String REPORT_REASON_REQUIRED = "Lý do báo cáo không được để trống";
     public static final String REPORT_ACTION_REQUIRED = "Hành động xử lý không được để trống";
+
+    // Notification Messages
+    public static final String NOTIFICATIONS_FETCHED_SUCCESS = "Lấy danh sách thông báo thành công";
+    public static final String NOTIFICATION_UNREAD_COUNT_FETCHED_SUCCESS = "Lấy số thông báo chưa đọc thành công";
+    public static final String NOTIFICATION_MARKED_READ_SUCCESS = "Đánh dấu đã đọc thông báo thành công";
+    public static final String NOTIFICATIONS_MARKED_ALL_READ_SUCCESS = "Đánh dấu tất cả thông báo đã đọc thành công";
+    public static final String NOTIFICATION_DELETED_SUCCESS = "Xóa thông báo thành công";
+    public static final String NOTIFICATION_NOT_FOUND = "Thông báo không tồn tại";
 }
 
 
