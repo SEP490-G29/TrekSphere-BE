@@ -11,8 +11,11 @@ import com.sep.treksphere.matching.dto.response.MyMatchingJoinRequestResponse;
 import com.sep.treksphere.matching.entity.CustomJourney;
 import com.sep.treksphere.matching.entity.CustomJourneyCheckpoint;
 import com.sep.treksphere.matching.entity.CustomJourneyCostItem;
+import com.sep.treksphere.matching.entity.GroupJoinApplication;
 import com.sep.treksphere.matching.entity.MatchingGroup;
 import com.sep.treksphere.matching.entity.MatchingMember;
+import com.sep.treksphere.matching.enums.JoinApplicationStatus;
+import com.sep.treksphere.matching.enums.JoinStatus;
 import com.sep.treksphere.matching.enums.MatchingGroupSourceType;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
@@ -88,6 +91,19 @@ public interface MatchingGroupMapper {
     @Mapping(target = "avatarUrl", source = "user.avatarUrl")
     MatchingMemberResponse toMemberResponse(MatchingMember matchingMember);
 
+    @Mapping(target = "applicationId", source = "applicationId")
+    @Mapping(target = "matchingMemberId", source = "applicationId")
+    @Mapping(target = "userId", source = "applicant.userId")
+    @Mapping(target = "fullName", source = "applicant.fullName")
+    @Mapping(target = "avatarUrl", source = "applicant.avatarUrl")
+    @Mapping(target = "role", constant = "MEMBER")
+    @Mapping(target = "status", expression = "java(toJoinStatus(application.getStatus()))")
+    @Mapping(target = "message", source = "message")
+    @Mapping(target = "rejectReason", source = "rejectReason")
+    @Mapping(target = "reviewedAt", source = "reviewedAt")
+    @Mapping(target = "withdrawnAt", source = "withdrawnAt")
+    MatchingMemberResponse toMemberResponse(com.sep.treksphere.matching.entity.GroupJoinApplication application);
+
     CustomJourneyCheckpointResponse toCheckpointResponse(CustomJourneyCheckpoint checkpoint);
 
     CustomJourneyCostItemResponse toCostItemResponse(CustomJourneyCostItem costItem);
@@ -95,8 +111,13 @@ public interface MatchingGroupMapper {
     @Mapping(target = "matchingGroupId", source = "matchingGroup.matchingGroupId")
     @Mapping(target = "groupName", source = "matchingGroup.groupName")
     @Mapping(target = "groupStatus", source = "matchingGroup.status")
+    @Mapping(target = "sourceType", expression = "java(deriveSourceType(matchingMember.getMatchingGroup()))")
     @Mapping(target = "tourId", source = "matchingGroup.tour.tourId")
     @Mapping(target = "tourName", source = "matchingGroup.tour.tourName")
+    @Mapping(target = "customJourneyId", source = "matchingGroup.customJourney.customJourneyId")
+    @Mapping(target = "customJourneyTitle", source = "matchingGroup.customJourney.title")
+    @Mapping(target = "difficulty", expression = "java(deriveDifficulty(matchingMember.getMatchingGroup()))")
+    @Mapping(target = "location", expression = "java(deriveLocation(matchingMember.getMatchingGroup()))")
     @Mapping(target = "ownerId", source = "matchingGroup.owner.userId")
     @Mapping(target = "ownerName", source = "matchingGroup.owner.fullName")
     @Mapping(target = "ownerAvatarUrl", source = "matchingGroup.owner.avatarUrl")
@@ -105,7 +126,46 @@ public interface MatchingGroupMapper {
     @Mapping(target = "targetDate", source = "matchingGroup.targetDate")
     @Mapping(target = "matchingDeadline", source = "matchingGroup.matchingDeadline")
     @Mapping(target = "canCancel", ignore = true)
+    @Mapping(target = "canWithdraw", ignore = true)
     MyMatchingJoinRequestResponse toMyJoinRequestResponse(MatchingMember matchingMember);
+
+    @Mapping(target = "applicationId", source = "applicationId")
+    @Mapping(target = "matchingMemberId", source = "applicationId")
+    @Mapping(target = "matchingGroupId", source = "matchingGroup.matchingGroupId")
+    @Mapping(target = "groupName", source = "matchingGroup.groupName")
+    @Mapping(target = "groupStatus", source = "matchingGroup.status")
+    @Mapping(target = "sourceType", expression = "java(deriveSourceType(application.getMatchingGroup()))")
+    @Mapping(target = "tourId", source = "matchingGroup.tour.tourId")
+    @Mapping(target = "tourName", source = "matchingGroup.tour.tourName")
+    @Mapping(target = "customJourneyId", source = "matchingGroup.customJourney.customJourneyId")
+    @Mapping(target = "customJourneyTitle", source = "matchingGroup.customJourney.title")
+    @Mapping(target = "difficulty", expression = "java(deriveDifficulty(application.getMatchingGroup()))")
+    @Mapping(target = "location", expression = "java(deriveLocation(application.getMatchingGroup()))")
+    @Mapping(target = "ownerId", source = "matchingGroup.owner.userId")
+    @Mapping(target = "ownerName", source = "matchingGroup.owner.fullName")
+    @Mapping(target = "ownerAvatarUrl", source = "matchingGroup.owner.avatarUrl")
+    @Mapping(target = "currentSize", source = "matchingGroup.currentSize")
+    @Mapping(target = "maxSize", source = "matchingGroup.maxSize")
+    @Mapping(target = "targetDate", source = "matchingGroup.targetDate")
+    @Mapping(target = "matchingDeadline", source = "matchingGroup.matchingDeadline")
+    @Mapping(target = "message", source = "message")
+    @Mapping(target = "rejectReason", source = "rejectReason")
+    @Mapping(target = "status", expression = "java(toJoinStatus(application.getStatus()))")
+    @Mapping(target = "reviewedAt", source = "reviewedAt")
+    @Mapping(target = "withdrawnAt", source = "withdrawnAt")
+    @Mapping(target = "canCancel", ignore = true)
+    @Mapping(target = "canWithdraw", ignore = true)
+    MyMatchingJoinRequestResponse toMyJoinRequestResponse(com.sep.treksphere.matching.entity.GroupJoinApplication application);
+
+    default JoinStatus toJoinStatus(com.sep.treksphere.matching.enums.JoinApplicationStatus appStatus) {
+        if (appStatus == null) return null;
+        return switch (appStatus) {
+            case PENDING -> JoinStatus.PENDING;
+            case ACCEPTED -> JoinStatus.ACCEPTED;
+            case REJECTED -> JoinStatus.REJECTED;
+            case WITHDRAWN -> JoinStatus.WITHDRAWN;
+        };
+    }
 
     default MatchingGroupSourceType deriveSourceType(MatchingGroup mg) {
         if (mg == null) return null;
@@ -169,3 +229,4 @@ public interface MatchingGroupMapper {
                 .toList();
     }
 }
+

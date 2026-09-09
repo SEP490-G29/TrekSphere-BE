@@ -180,15 +180,17 @@ public class MatchingGroupController {
     }
 
     @Operation(
-        summary = "Gửi yêu cầu xin tham gia vào nhóm ghép",
-        description = "Cho phép Trekker gửi yêu cầu xin tham gia vào nhóm ghép bạn đồng hành đang mở."
+        summary = "Gửi đơn xin gia nhập nhóm ghép bạn đồng hành",
+        description = "Cho phép Trekker nộp đơn xin gia nhập vào một nhóm ghép đang mở (OPEN) và còn chỗ. " +
+                "Tạo bản ghi matching_member với role=MEMBER, status=PENDING và phát event GroupApplicationSubmitted."
     )
-    @PostMapping("/{groupId}/join")
+    @PostMapping(value = {"/{groupId}/applications", "/{groupId}/join"})
     @PreAuthorize("hasAuthority('MATCHING_GROUP_PARTICIPATE')")
-    public ResponseEntity<ApiResponse<MatchingMemberResponse>> joinMatchingGroup(
+    public ResponseEntity<ApiResponse<MatchingMemberResponse>> submitApplication(
             @Parameter(description = "UUID của nhóm ghép") @PathVariable UUID groupId,
+            @Valid @RequestBody(required = false) com.sep.treksphere.matching.dto.request.GroupApplicationRequest request,
             @AuthenticationPrincipal CustomUserDetails userDetails) {
-        MatchingMemberResponse result = matchingGroupService.joinMatchingGroup(groupId, userDetails);
+        MatchingMemberResponse result = matchingGroupService.submitApplication(groupId, request, userDetails);
         return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.success(
                 HttpStatus.CREATED,
                 result,
@@ -200,7 +202,7 @@ public class MatchingGroupController {
         summary = "Lấy danh sách yêu cầu tham gia nhóm ghép",
         description = "Cho phép Trưởng nhóm (Owner) xem danh sách yêu cầu tham gia của một nhóm cụ thể để duyệt hoặc từ chối."
     )
-    @GetMapping("/{groupId}/join-requests")
+    @GetMapping(value = {"/{groupId}/applications", "/{groupId}/join-requests"})
     @PreAuthorize("hasAuthority('MATCHING_GROUP_MANAGE_OWN')")
     public ResponseEntity<ApiResponse<PaginationResponse<MatchingMemberResponse>>> getJoinRequests(
             @Parameter(description = "UUID của nhóm ghép") @PathVariable UUID groupId,
@@ -216,11 +218,11 @@ public class MatchingGroupController {
     }
 
     @Operation(
-        summary = "Xem các yêu cầu tham gia nhóm ghép của tôi",
-        description = "Cho phép Trekker xem các yêu cầu tham gia nhóm ghép của chính mình. " +
-                "Mặc định trả về yêu cầu ở tất cả trạng thái; Trekker có thể tùy chọn lọc theo JoinStatus."
+        summary = "Xem danh sách các đơn xin tham gia nhóm ghép của tôi",
+        description = "Cho phép Trekker xem toàn bộ các đơn xin tham gia nhóm ghép của chính mình. " +
+                "Hỗ trợ lọc theo trạng thái đơn (JoinStatus: PENDING, ACCEPTED, REJECTED, WITHDRAWN, LEFT, REMOVED) và phân trang."
     )
-    @GetMapping("/join-requests/me")
+    @GetMapping(value = {"/my-applications", "/applications/me", "/join-requests/me"})
     @PreAuthorize("hasAuthority('MATCHING_GROUP_PARTICIPATE')")
     public ResponseEntity<ApiResponse<PaginationResponse<MyMatchingJoinRequestResponse>>> getMyJoinRequests(
             @Valid @ParameterObject @ModelAttribute MyMatchingJoinRequestFilter filter,
@@ -235,10 +237,12 @@ public class MatchingGroupController {
     }
 
     @Operation(
-        summary = "Duyệt thành viên xin vào nhóm",
-        description = "Cho phép Trưởng nhóm (Leader/Owner) phê duyệt yêu cầu tham gia nhóm ghép của thành viên đang ở trạng thái PENDING."
+        summary = "Duyệt đơn xin gia nhập nhóm ghép",
+        description = "Cho phép Trưởng nhóm (Leader) phê duyệt đơn xin gia nhập nhóm ghép của thành viên đang ở trạng thái PENDING. " +
+                "Cập nhật trạng thái thành viên sang ACCEPTED và tăng current_size của nhóm. Tự động chuyển trạng thái nhóm sang FULL nếu đã đủ sĩ số."
     )
-    @PutMapping("/{groupId}/join-requests/{memberId}/approve")
+    @PostMapping(value = {"/{groupId}/applications/{memberId}/approve", "/{groupId}/join-requests/{memberId}/approve"})
+    @PutMapping(value = {"/{groupId}/applications/{memberId}/approve", "/{groupId}/join-requests/{memberId}/approve"})
     @PreAuthorize("hasAuthority('MATCHING_GROUP_MANAGE_OWN')")
     public ResponseEntity<ApiResponse<MatchingMemberResponse>> approveMember(
             @Parameter(description = "UUID của nhóm ghép") @PathVariable UUID groupId,
@@ -249,10 +253,12 @@ public class MatchingGroupController {
     }
 
     @Operation(
-        summary = "Từ chối thành viên xin vào nhóm",
-        description = "Cho phép Trưởng nhóm (Leader/Owner) từ chối yêu cầu tham gia nhóm ghép của thành viên đang ở trạng thái PENDING."
+        summary = "Từ chối đơn xin gia nhập nhóm ghép",
+        description = "Cho phép Trưởng nhóm (Leader) từ chối đơn xin gia nhập nhóm ghép của thành viên đang ở trạng thái PENDING. " +
+                "Chuyển trạng thái sang REJECTED và không thay đổi sĩ số hiện tại của nhóm."
     )
-    @PutMapping("/{groupId}/join-requests/{memberId}/reject")
+    @PostMapping(value = {"/{groupId}/applications/{memberId}/reject", "/{groupId}/join-requests/{memberId}/reject"})
+    @PutMapping(value = {"/{groupId}/applications/{memberId}/reject", "/{groupId}/join-requests/{memberId}/reject"})
     @PreAuthorize("hasAuthority('MATCHING_GROUP_MANAGE_OWN')")
     public ResponseEntity<ApiResponse<MatchingMemberResponse>> rejectMember(
             @Parameter(description = "UUID của nhóm ghép") @PathVariable UUID groupId,
@@ -263,16 +269,17 @@ public class MatchingGroupController {
     }
 
     @Operation(
-        summary = "Hủy yêu cầu tham gia nhóm ghép",
-        description = "Cho phép Trekker hủy yêu cầu tham gia đang ở trạng thái PENDING và chuyển yêu cầu sang CANCELLED. " +
-                "Thao tác này không thay đổi số thành viên hiện tại của nhóm."
+        summary = "Rút đơn xin tham gia nhóm ghép",
+        description = "Cho phép Trekker rút đơn xin tham gia đang ở trạng thái PENDING và chuyển trạng thái sang WITHDRAWN. " +
+                "Ghi nhận thời điểm withdrawn_at và không thay đổi số thành viên hiện tại của nhóm."
     )
+    @PostMapping(value = {"/{groupId}/applications/me/withdraw", "/{groupId}/applications/withdraw"})
     @DeleteMapping("/{groupId}/join-request")
     @PreAuthorize("hasAuthority('MATCHING_GROUP_PARTICIPATE')")
-    public ResponseEntity<ApiResponse<MatchingMemberResponse>> cancelJoinRequest(
+    public ResponseEntity<ApiResponse<MatchingMemberResponse>> withdrawApplication(
             @Parameter(description = "UUID của nhóm ghép") @PathVariable UUID groupId,
             @AuthenticationPrincipal CustomUserDetails userDetails) {
-        MatchingMemberResponse result = matchingGroupService.cancelJoinRequest(groupId, userDetails);
+        MatchingMemberResponse result = matchingGroupService.withdrawApplication(groupId, userDetails);
         return ResponseEntity.ok(ApiResponse.success(
                 HttpStatus.OK,
                 result,

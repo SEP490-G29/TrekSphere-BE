@@ -60,6 +60,9 @@ class MatchingGroupCreateServiceTest {
     private MatchingMemberRepository matchingMemberRepository;
 
     @Mock
+    private com.sep.treksphere.matching.repository.GroupJoinApplicationRepository groupJoinApplicationRepository;
+
+    @Mock
     private GroupTripRepository groupTripRepository;
 
     @Mock
@@ -73,6 +76,7 @@ class MatchingGroupCreateServiceTest {
 
     @InjectMocks
     private MatchingGroupService matchingGroupService;
+
 
     private User owner;
     private Tour tour;

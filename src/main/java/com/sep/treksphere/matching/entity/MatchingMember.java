@@ -19,8 +19,6 @@ import java.util.UUID;
 @Getter
 @Setter
 @NoArgsConstructor
-
-
 public class MatchingMember extends BaseEntity {
 
     @Id
@@ -35,13 +33,22 @@ public class MatchingMember extends BaseEntity {
     @JoinColumn(name = "user_id", nullable = false)
     private User user;
 
+    @OneToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "source_application_id")
+    private GroupJoinApplication sourceApplication;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
     private MatchingRole role;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
-    private JoinStatus status = JoinStatus.PENDING;
+    private JoinStatus status = JoinStatus.ACCEPTED;
+
+    private LocalDateTime joinedAt = LocalDateTime.now();
+
+    private LocalDateTime leftAt;
 
     private LocalDateTime withdrawnAt;
 }
+
