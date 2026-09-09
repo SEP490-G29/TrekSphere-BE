@@ -55,6 +55,42 @@ public final class NotificationTemplates {
         TEMPLATES.put(NotificationEventType.SCHEDULE_UPDATED, new TemplatePair(
                 "Lịch trình đã bị huỷ",
                 "Lịch khởi hành \"%s\" ngày %s đã bị huỷ."));
+
+        TEMPLATES.put(NotificationEventType.VENDOR_APPLICATION_SUBMITTED, new TemplatePair(
+                "Đơn đăng ký nhà cung cấp mới",
+                "%s vừa nộp đơn đăng ký trở thành nhà cung cấp."));
+        TEMPLATES.put(NotificationEventType.VENDOR_APPLICATION_APPROVED, new TemplatePair(
+                "Đơn đăng ký đã được duyệt",
+                "Đơn đăng ký nhà cung cấp của bạn đã được phê duyệt."));
+        TEMPLATES.put(NotificationEventType.VENDOR_APPLICATION_REJECTED, new TemplatePair(
+                "Đơn đăng ký bị từ chối",
+                "Đơn đăng ký của bạn đã bị từ chối. Lý do: %s"));
+        TEMPLATES.put(NotificationEventType.VENDOR_STATUS_CHANGED, new TemplatePair(
+                "Trạng thái tài khoản nhà cung cấp thay đổi",
+                "Tài khoản của bạn đã chuyển sang trạng thái %s."));
+
+        TEMPLATES.put(NotificationEventType.BLOG_HIDDEN, new TemplatePair(
+                "Bài viết đã bị ẩn",
+                "Bài viết \"%s\" đã bị ẩn bởi quản trị viên."));
+        // Nội dung tuỳ loại (blog/comment) nên được caller dựng sẵn thành 1 câu hoàn chỉnh.
+        TEMPLATES.put(NotificationEventType.BLOG_DELETED, new TemplatePair(
+                "Nội dung đã bị xoá",
+                "%s"));
+
+        TEMPLATES.put(NotificationEventType.CONVERSATION_MEMBER_ADDED, new TemplatePair(
+                "Bạn đã được thêm vào cuộc trò chuyện",
+                "%s đã thêm bạn vào \"%s\"."));
+
+        TEMPLATES.put(NotificationEventType.REPORT_SUBMITTED, new TemplatePair(
+                "Báo cáo mới",
+                "%s vừa gửi báo cáo về %s."));
+        TEMPLATES.put(NotificationEventType.REPORT_RESOLVED, new TemplatePair(
+                "Báo cáo đã được xử lý",
+                "Báo cáo của bạn đã được xử lý: %s."));
+
+        TEMPLATES.put(NotificationEventType.USER_STATUS_CHANGED, new TemplatePair(
+                "Tài khoản đã thay đổi trạng thái",
+                "Tài khoản của bạn đã %s bởi quản trị viên."));
     }
 
     private NotificationTemplates() {

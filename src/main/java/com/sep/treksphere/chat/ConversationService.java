@@ -329,6 +329,12 @@ public class ConversationService {
 
         conversation.getParticipants().add(memberToAdd);
         conversationRepository.save(conversation);
+
+        notificationService.notify(
+                memberToAdd.getUserId(),
+                NotificationEventType.CONVERSATION_MEMBER_ADDED,
+                ReferenceType.CONVERSATION, conversation.getConversationId(), "/chat",
+                userDetails.getUser().getFullName(), conversation.getTitle());
     }
 
 

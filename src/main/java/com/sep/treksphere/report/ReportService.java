@@ -8,13 +8,18 @@ import com.sep.treksphere.common.exception.AppException;
 import com.sep.treksphere.common.exception.ErrorCode;
 import com.sep.treksphere.blog.comment.BlogCommentRepository;
 import com.sep.treksphere.blog.BlogRepository;
+import com.sep.treksphere.notification.NotificationEventType;
+import com.sep.treksphere.notification.NotificationService;
+import com.sep.treksphere.notification.ReferenceType;
 import com.sep.treksphere.tour.TourRepository;
 import com.sep.treksphere.user.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
 
+import java.util.List;
 import java.util.UUID;
 
 import com.sep.treksphere.common.dto.PaginationResponse;
@@ -35,6 +40,7 @@ public class ReportService {
     private final BlogCommentRepository blogCommentRepository;
     private final TourRepository tourRepository;
     private final ReportMapper reportMapper;
+    private final NotificationService notificationService;
 
     @Transactional
     public void createReport(CreateReportRequest request, UUID reporterId) {
@@ -68,6 +74,25 @@ public class ReportService {
 
         reportContentRepository.save(report);
         log.info("User {} created a report for {} with ID {}", reporterId, request.getTargetType(), request.getTargetId());
+
+        List<UUID> adminIds = userRepository.findDistinctByRoles_RoleNameAndIsDeletedFalse("ADMIN").stream()
+                .map(User::getUserId)
+                .toList();
+
+        notificationService.notify(
+                adminIds,
+                NotificationEventType.REPORT_SUBMITTED,
+                ReferenceType.REPORT, report.getReportContentId(),
+                "/admin/reports/" + report.getReportContentId(),
+                reporter.getFullName(), describeTargetType(request.getTargetType()));
+    }
+
+    private String describeTargetType(ReportTargetType targetType) {
+        return switch (targetType) {
+            case BLOG -> "một bài viết";
+            case COMMENT -> "một bình luận";
+            case TOUR -> "một tour";
+        };
     }
 
     @Transactional(readOnly = true)
@@ -96,12 +121,20 @@ public class ReportService {
         }
 
         ReportAction action = request.getAction();
+        String contentOwnerReason = StringUtils.hasText(request.getResolutionNotes())
+                ? request.getResolutionNotes()
+                : report.getReason();
 
         if (action == ReportAction.HIDE_CONTENT) {
             if (report.getBlog() != null) {
                 Blog blog = report.getBlog();
                 blog.setStatus(BlogStatus.HIDDEN);
                 blogRepository.save(blog);
+                notificationService.notify(
+                        blog.getUser().getUserId(),
+                        NotificationEventType.BLOG_HIDDEN,
+                        ReferenceType.BLOG, blog.getBlogId(), "/trekker/blog",
+                        blog.getTitle());
             } else if (report.getBlogComment() != null) {
                 BlogComment comment = report.getBlogComment();
                 comment.setStatus(CommentStatus.HIDDEN);
@@ -110,6 +143,12 @@ public class ReportService {
                 Tour tour = report.getTour();
                 tour.setStatus(TourStatus.HIDDEN);
                 tourRepository.save(tour);
+                notificationService.notify(
+                        tour.getVendor().getManager().getUserId(),
+                        NotificationEventType.TOUR_HIDDEN_VIOLATION,
+                        ReferenceType.TOUR, tour.getTourId(),
+                        "/vendor/tours/" + tour.getTourId(),
+                        tour.getTourName(), contentOwnerReason);
             }
         }
 
@@ -124,5 +163,19 @@ public class ReportService {
 
         reportContentRepository.save(report);
         log.info("Admin {} resolved report {} with action {}", adminId, reportId, action);
+
+        notificationService.notify(
+                report.getReporter().getUserId(),
+                NotificationEventType.REPORT_RESOLVED,
+                ReferenceType.REPORT, report.getReportContentId(), null,
+                describeResolution(action));
+    }
+
+    private String describeResolution(ReportAction action) {
+        return switch (action) {
+            case HIDE_CONTENT -> "nội dung đã bị ẩn";
+            case WARNING -> "đã gửi cảnh báo tới người vi phạm";
+            case DISMISS -> "báo cáo không hợp lệ, đã được từ chối";
+        };
     }
 }

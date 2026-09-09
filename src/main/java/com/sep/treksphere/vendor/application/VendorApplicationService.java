@@ -5,6 +5,9 @@ import com.sep.treksphere.common.exception.AppException;
 import com.sep.treksphere.common.exception.ErrorCode;
 import com.sep.treksphere.common.security.CustomUserDetails;
 import com.sep.treksphere.file.FileService;
+import com.sep.treksphere.notification.NotificationEventType;
+import com.sep.treksphere.notification.NotificationService;
+import com.sep.treksphere.notification.ReferenceType;
 import com.sep.treksphere.user.Role;
 import com.sep.treksphere.user.RoleRepository;
 import com.sep.treksphere.user.User;
@@ -50,6 +53,23 @@ public class VendorApplicationService {
     private final RoleRepository roleRepository;
     private final VendorMapper vendorMapper;
     private final FileService fileService;
+    private final NotificationService notificationService;
+
+    private static final String ADMIN_APPLICATION_ACTION_URL_PREFIX = "/admin/applications/";
+    private static final String APPLICANT_APPLICATIONS_URL = "/trekker/vendor-applications";
+
+    private void notifyAdminsOfNewApplication(VendorApplication application) {
+        List<UUID> adminIds = userRepository.findDistinctByRoles_RoleNameAndIsDeletedFalse("ADMIN").stream()
+                .map(User::getUserId)
+                .toList();
+
+        notificationService.notify(
+                adminIds,
+                NotificationEventType.VENDOR_APPLICATION_SUBMITTED,
+                ReferenceType.VENDOR_APPLICATION, application.getVendorApplicationId(),
+                ADMIN_APPLICATION_ACTION_URL_PREFIX + application.getVendorApplicationId(),
+                application.getApplicant().getFullName());
+    }
 
     @Transactional
     public VendorApplicationResponse saveDraftApplication(UUID applicantId, VendorApplicationRequest request) {
@@ -235,6 +255,12 @@ public class VendorApplicationService {
             vendor = vendorRepository.save(vendor);
             log.info("Successfully created Vendor profile with ID: {} for company: {}",
                     vendor.getVendorId(), vendor.getCompanyName());
+
+            notificationService.notify(
+                    applicant.getUserId(),
+                    NotificationEventType.VENDOR_APPLICATION_APPROVED,
+                    ReferenceType.VENDOR_APPLICATION, application.getVendorApplicationId(),
+                    APPLICANT_APPLICATIONS_URL);
         } else {
             if (!StringUtils.hasText(request.getRejectionReason())) {
                 log.warn("Rejection reason is required when status is REJECTED");
@@ -245,6 +271,13 @@ public class VendorApplicationService {
             application.setRejectionReason(request.getRejectionReason().trim());
             vendorApplicationRepository.save(application);
             log.info("Successfully rejected vendor application with ID: {}", id);
+
+            notificationService.notify(
+                    application.getApplicant().getUserId(),
+                    NotificationEventType.VENDOR_APPLICATION_REJECTED,
+                    ReferenceType.VENDOR_APPLICATION, application.getVendorApplicationId(),
+                    APPLICANT_APPLICATIONS_URL,
+                    application.getRejectionReason());
         }
 
         return vendorApplicationMapper.toResponse(application);
@@ -380,6 +413,8 @@ public class VendorApplicationService {
         application = vendorApplicationRepository.save(application);
         log.info("Successfully submitted draft vendor application with ID: {}", id);
 
+        notifyAdminsOfNewApplication(application);
+
         return vendorApplicationMapper.toResponse(application);
     }
 
@@ -433,6 +468,8 @@ public class VendorApplicationService {
 
         application = vendorApplicationRepository.save(application);
         log.info("Successfully resubmitted vendor application with ID: {}", id);
+
+        notifyAdminsOfNewApplication(application);
 
         return vendorApplicationMapper.toResponse(application);
     }

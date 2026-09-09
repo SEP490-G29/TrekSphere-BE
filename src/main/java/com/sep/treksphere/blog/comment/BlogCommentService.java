@@ -173,6 +173,15 @@ public class BlogCommentService {
         comment.setDeletedBy(userDetails.getUser().getUserId().toString());
         blogCommentRepository.save(comment);
         log.info("User {} deleted comment {}", userDetails.getUser().getUserId(), commentId);
+
+        if (isAdmin && !isOwner) {
+            notificationService.notify(
+                    comment.getUser().getUserId(),
+                    NotificationEventType.BLOG_DELETED,
+                    ReferenceType.BLOG, comment.getBlog().getBlogId(), "/trekker/blog",
+                    "Bình luận của bạn trong bài viết \"" + comment.getBlog().getTitle()
+                            + "\" đã bị xoá bởi quản trị viên.");
+        }
     }
 
     // ===================== Helpers =====================

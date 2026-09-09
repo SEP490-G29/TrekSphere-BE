@@ -6,6 +6,9 @@ import com.sep.treksphere.common.exception.AppException;
 import com.sep.treksphere.common.exception.ErrorCode;
 import com.sep.treksphere.common.security.CustomUserDetails;
 import com.sep.treksphere.file.FileService;
+import com.sep.treksphere.notification.NotificationEventType;
+import com.sep.treksphere.notification.NotificationService;
+import com.sep.treksphere.notification.ReferenceType;
 import com.sep.treksphere.vendor.application.VendorApplicationRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -26,6 +29,7 @@ public class VendorService {
     private final VendorApplicationRepository vendorApplicationRepository;
     private final FileService fileService;
     private final VendorMapper vendorMapper;
+    private final NotificationService notificationService;
 
     @Transactional(readOnly = true)
     public PaginationResponse<VendorResponse> getVendors(VendorFilterRequest request) {
@@ -139,6 +143,13 @@ public class VendorService {
         vendor.setStatus(request.getStatus());
         vendor = vendorRepository.save(vendor);
         log.info("Successfully updated status for vendor ID: {}", id);
+
+        notificationService.notify(
+                vendor.getManager().getUserId(),
+                NotificationEventType.VENDOR_STATUS_CHANGED,
+                ReferenceType.VENDOR, vendor.getVendorId(),
+                "/vendor/profile",
+                vendor.getStatus().name());
 
         return vendorMapper.toVendorResponse(vendor);
     }
