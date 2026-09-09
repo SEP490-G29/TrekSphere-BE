@@ -48,6 +48,13 @@ public final class NotificationTemplates {
         TEMPLATES.put(NotificationEventType.NEW_MESSAGE, new TemplatePair(
                 "Tin nhắn mới",
                 "%s: %s"));
+
+        TEMPLATES.put(NotificationEventType.TOUR_UNHIDDEN, new TemplatePair(
+                "Tour đã hiển thị lại",
+                "Tour \"%s\" đã được gỡ ẩn."));
+        TEMPLATES.put(NotificationEventType.SCHEDULE_UPDATED, new TemplatePair(
+                "Lịch trình đã bị huỷ",
+                "Lịch khởi hành \"%s\" ngày %s đã bị huỷ."));
     }
 
     private NotificationTemplates() {

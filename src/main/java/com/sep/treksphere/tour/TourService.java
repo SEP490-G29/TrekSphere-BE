@@ -643,6 +643,13 @@ public class TourService {
         tour.setStatus(TourStatus.APPROVED);
         tour = tourRepository.save(tour);
 
+        notificationService.notify(
+                vendor.getManager().getUserId(),
+                NotificationEventType.TOUR_UNHIDDEN,
+                ReferenceType.TOUR, tour.getTourId(),
+                "/vendor/tours/" + tour.getTourId(),
+                tour.getTourName());
+
         List<TourImage> images = tourImageRepository.findByTourOrderBySortOrderAsc(tour);
         List<TourCheckpoint> checkpoints = tourCheckpointRepository.findByTourAndIsDeletedFalseOrderByCheckpointOrderAsc(tour);
         List<TourSchedule> schedules = tourScheduleRepository.findByTourAndIsDeletedFalseOrderByDepartureDateAsc(tour);
