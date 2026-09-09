@@ -13,7 +13,10 @@ import com.sep.treksphere.matching.enums.JoinStatus;
 import com.sep.treksphere.matching.enums.JourneyDifficulty;
 import com.sep.treksphere.matching.enums.MatchingGroupSourceType;
 import com.sep.treksphere.matching.enums.MatchingRole;
-import com.sep.treksphere.matching.mapper.MatchingGroupMapperImpl;
+import com.sep.treksphere.matching.mapper.MatchingGroupMapper;
+import org.mapstruct.factory.Mappers;
+import org.springframework.boot.test.context.TestConfiguration;
+import org.springframework.context.annotation.Bean;
 import com.sep.treksphere.matching.repository.CustomJourneyRepository;
 import com.sep.treksphere.matching.repository.GroupTripRepository;
 import com.sep.treksphere.matching.repository.MatchingGroupRepository;
@@ -35,6 +38,7 @@ import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
+import com.sep.treksphere.matching.service.impl.MatchingGroupServiceImpl;
 
 import java.io.IOException;
 import java.time.LocalDate;
@@ -48,9 +52,17 @@ import static org.mockito.Mockito.doThrow;
 
 @DataJpaTest
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
-@Import({AuditConfig.class, MatchingGroupService.class, MatchingGroupMapperImpl.class})
+@Import({AuditConfig.class, MatchingGroupServiceImpl.class, MatchingGroupCreateRollbackIntegrationTest.TestConfig.class})
 @Transactional(propagation = Propagation.NOT_SUPPORTED)
 class MatchingGroupCreateRollbackIntegrationTest {
+
+    @TestConfiguration
+    static class TestConfig {
+        @Bean
+        public MatchingGroupMapper matchingGroupMapper() {
+            return Mappers.getMapper(MatchingGroupMapper.class);
+        }
+    }
 
     private static final EmbeddedPostgres POSTGRES = startPostgres();
 

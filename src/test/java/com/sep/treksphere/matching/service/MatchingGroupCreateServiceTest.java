@@ -25,6 +25,7 @@ import com.sep.treksphere.user.UserRepository;
 import com.sep.treksphere.user.UserStatus;
 import com.sep.treksphere.vendor.Vendor;
 import com.sep.treksphere.vendor.VendorStatus;
+import com.sep.treksphere.matching.service.impl.MatchingGroupServiceImpl;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -75,7 +76,7 @@ class MatchingGroupCreateServiceTest {
     private MatchingGroupMapper matchingGroupMapper = Mappers.getMapper(MatchingGroupMapper.class);
 
     @InjectMocks
-    private MatchingGroupService matchingGroupService;
+    private MatchingGroupServiceImpl matchingGroupService;
 
 
     private User owner;

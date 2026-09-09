@@ -258,6 +258,18 @@ public enum ErrorCode {
     MATCHING_GROUP_CAPACITY_LESS_THAN_ACTIVE_MEMBERS(8141, HttpStatus.BAD_REQUEST,
             MessageConstant.MATCHING_GROUP_CAPACITY_LESS_THAN_ACTIVE_MEMBERS),
     JOURNEY_LOCKED(8142, HttpStatus.CONFLICT, MessageConstant.JOURNEY_LOCKED),
+    JOURNEY_NOT_FOUND(8143, HttpStatus.NOT_FOUND, MessageConstant.JOURNEY_NOT_FOUND),
+    CUSTOM_JOURNEY_CHECKPOINT_NOT_FOUND(8144, HttpStatus.NOT_FOUND, MessageConstant.CUSTOM_JOURNEY_CHECKPOINT_NOT_FOUND),
+    CHECKPOINT_ORDER_DUPLICATED(8145, HttpStatus.CONFLICT, MessageConstant.CHECKPOINT_ORDER_DUPLICATED),
+    CHECKLIST_ITEM_NOT_FOUND(8146, HttpStatus.NOT_FOUND, MessageConstant.CHECKLIST_ITEM_NOT_FOUND),
+    POST_NOT_FOUND(8147, HttpStatus.NOT_FOUND, MessageConstant.POST_NOT_FOUND),
+    COMMENT_NOT_FOUND(8148, HttpStatus.NOT_FOUND, MessageConstant.COMMENT_NOT_FOUND),
+    ASSIGNEE_NOT_IN_GROUP(8149, HttpStatus.BAD_REQUEST, MessageConstant.ASSIGNEE_NOT_IN_GROUP),
+    UNAUTHORIZED_WORKSPACE_ACCESS(8150, HttpStatus.FORBIDDEN, MessageConstant.UNAUTHORIZED_WORKSPACE_ACCESS),
+    UNAUTHORIZED_POST_ACTION(8151, HttpStatus.FORBIDDEN, MessageConstant.UNAUTHORIZED_POST_ACTION),
+    UNAUTHORIZED_COMMENT_ACTION(8152, HttpStatus.FORBIDDEN, MessageConstant.UNAUTHORIZED_COMMENT_ACTION),
+    UNAUTHORIZED_CHECKLIST_ACTION(8153, HttpStatus.FORBIDDEN, MessageConstant.UNAUTHORIZED_CHECKLIST_ACTION),
+    CHECKPOINT_TIME_INVALID(8154, HttpStatus.BAD_REQUEST, MessageConstant.CHECKPOINT_TIME_INVALID),
 
     // Review
     REVIEW_NOT_FOUND(9101, HttpStatus.NOT_FOUND, MessageConstant.REVIEW_NOT_FOUND),
@@ -286,5 +298,17 @@ public enum ErrorCode {
         this.code = code;
         this.httpStatus = httpStatus;
         this.message = message;
+    }
+
+    public int getCode() {
+        return code;
+    }
+
+    public HttpStatus getHttpStatus() {
+        return httpStatus;
+    }
+
+    public String getMessage() {
+        return message;
     }
 }
