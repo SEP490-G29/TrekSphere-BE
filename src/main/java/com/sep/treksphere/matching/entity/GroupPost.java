@@ -7,6 +7,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
+import java.util.List;
 import java.util.UUID;
 
 @Entity
@@ -37,4 +38,9 @@ public class GroupPost extends BaseEntity {
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
     private GroupContentStatus status = GroupContentStatus.SHOW;
+
+    @ElementCollection(fetch = FetchType.EAGER)
+    @CollectionTable(name = "group_post_image", joinColumns = @JoinColumn(name = "group_post_id"))
+    @Column(name = "image_url", length = 500)
+    private List<String> imageUrls = new java.util.ArrayList<>();
 }

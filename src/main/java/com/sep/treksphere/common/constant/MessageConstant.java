@@ -353,6 +353,33 @@ public class MessageConstant {
     public static final String MATCHING_GROUP_INVALID_STATE = "Trạng thái hiện tại của nhóm không cho phép thực hiện thao tác này";
     public static final String MATCHING_GROUP_CAPACITY_LESS_THAN_ACTIVE_MEMBERS = "Sức chứa tối đa không thể nhỏ hơn số lượng thành viên đang tham gia nhóm";
     public static final String JOURNEY_LOCKED = "Hành trình Custom Journey đã bị khóa và không thể chỉnh sửa";
+    public static final String JOURNEY_NOT_FOUND = "Hành trình Custom Journey không tồn tại";
+    public static final String CUSTOM_JOURNEY_CHECKPOINT_NOT_FOUND = "Điểm dừng checkpoint không tồn tại";
+    public static final String CHECKPOINT_ORDER_DUPLICATED = "Thứ tự điểm dừng đã tồn tại trong hành trình này";
+    public static final String CHECKPOINT_TIME_INVALID = "Thời gian kết thúc điểm dừng phải sau hoặc bằng thời gian bắt đầu";
+    public static final String CHECKLIST_ITEM_NOT_FOUND = "Mục checklist không tồn tại";
+    public static final String POST_NOT_FOUND = "Bài đăng không tồn tại";
+    public static final String ASSIGNEE_NOT_IN_GROUP = "Thành viên được phân công không thuộc nhóm này hoặc không ở trạng thái hoạt động";
+    public static final String UNAUTHORIZED_WORKSPACE_ACCESS = "Bạn không có quyền truy cập không gian làm việc của nhóm này";
+    public static final String UNAUTHORIZED_POST_ACTION = "Bạn không có quyền chỉnh sửa hoặc xoá bài đăng này";
+    public static final String UNAUTHORIZED_COMMENT_ACTION = "Bạn không có quyền chỉnh sửa hoặc xoá bình luận này";
+    public static final String UNAUTHORIZED_CHECKLIST_ACTION = "Bạn không có quyền thao tác trên mục checklist này";
+    public static final String JOURNEY_UPDATED_SUCCESS = "Cập nhật thông tin hành trình thành công";
+    public static final String CHECKPOINT_CREATED_SUCCESS = "Thêm điểm dừng hành trình thành công";
+    public static final String CHECKPOINT_UPDATED_SUCCESS = "Cập nhật điểm dừng hành trình thành công";
+    public static final String CHECKPOINT_DELETED_SUCCESS = "Xoá điểm dừng hành trình thành công";
+    public static final String CHECKLIST_ITEM_CREATED_SUCCESS = "Tạo mục checklist thành công";
+    public static final String CHECKLIST_ITEM_UPDATED_SUCCESS = "Cập nhật mục checklist thành công";
+    public static final String CHECKLIST_ITEM_STATUS_UPDATED_SUCCESS = "Cập nhật trạng thái mục checklist thành công";
+    public static final String CHECKLIST_ITEM_DELETED_SUCCESS = "Xoá mục checklist thành công";
+    public static final String POST_CREATED_SUCCESS = "Tạo bài đăng thành công";
+    public static final String POST_UPDATED_SUCCESS = "Cập nhật bài đăng thành công";
+    public static final String POST_DELETED_SUCCESS = "Xoá bài đăng thành công";
+    public static final String POST_HIDDEN_SUCCESS = "Ẩn bài đăng thành công";
+    public static final String COMMENT_CREATED_SUCCESS = "Tạo bình luận thành công";
+    public static final String COMMENT_UPDATED_SUCCESS = "Cập nhật bình luận thành công";
+    public static final String COMMENT_DELETED_SUCCESS = "Xoá bình luận thành công";
+    public static final String COMMENT_HIDDEN_SUCCESS = "Ẩn bình luận thành công";
 
     // Schedule Messages
     public static final String SCHEDULE_NOT_FOUND = "Lịch khởi hành không tồn tại";

@@ -19,6 +19,7 @@ import com.sep.treksphere.matching.mapper.MatchingGroupMapper;
 import com.sep.treksphere.matching.repository.GroupTripRepository;
 import com.sep.treksphere.matching.repository.MatchingGroupRepository;
 import com.sep.treksphere.matching.repository.MatchingMemberRepository;
+import com.sep.treksphere.matching.service.impl.MatchingGroupServiceImpl;
 import com.sep.treksphere.tour.DifficultyLevel;
 import com.sep.treksphere.tour.Tour;
 import com.sep.treksphere.tour.TourRepository;
@@ -77,7 +78,7 @@ class MatchingGroupLifecycleServiceTest {
     private MatchingGroupMapper matchingGroupMapper = Mappers.getMapper(MatchingGroupMapper.class);
 
     @InjectMocks
-    private MatchingGroupService matchingGroupService;
+    private MatchingGroupServiceImpl matchingGroupService;
 
 
     private User leaderUser;

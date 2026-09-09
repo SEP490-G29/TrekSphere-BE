@@ -44,7 +44,7 @@ public class FileController {
     }
 
     @DeleteMapping("/delete")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<ApiResponse<String>> deleteFile(
             @RequestParam("publicId") String publicId
     ) {
