@@ -16,8 +16,14 @@ import java.util.UUID;
 public interface VendorRepository extends JpaRepository<Vendor, UUID> {
     
     Optional<Vendor> findByManager_Email(String email);
+
+    Optional<Vendor> findByManager_EmailAndIsDeletedFalse(String email);
     
     Optional<Vendor> findByManager_UserId(UUID managerId);
+
+    Optional<Vendor> findByManager_UserIdAndIsDeletedFalse(UUID managerId);
+
+    Optional<Vendor> findByVendorIdAndStatusAndIsDeletedFalse(UUID vendorId, VendorStatus status);
 
     boolean existsByManager_UserIdAndIsDeletedFalse(UUID managerId);
     

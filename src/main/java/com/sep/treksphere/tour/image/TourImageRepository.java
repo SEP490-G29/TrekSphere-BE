@@ -17,6 +17,8 @@ public interface TourImageRepository extends JpaRepository<TourImage, UUID> {
 
     List<TourImage> findByTourOrderBySortOrderAsc(Tour tour);
 
+    List<TourImage> findByTourAndIsDeletedFalseOrderBySortOrderAsc(Tour tour);
+
     /**
      * Cascade soft delete: đánh dấu xóa mềm tất cả image chưa bị xóa của tour,
      * gán chung deletedAt timestamp để phục vụ restore đúng đợt.

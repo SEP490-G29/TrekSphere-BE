@@ -15,4 +15,6 @@ public interface UserMapper {
 
     @Mapping(target = "roles", source = "roles")
     UserProfileResponse toUserProfileResponse(User user);
+
+    PublicHikingSummaryResponse toPublicHikingSummaryResponse(User user);
 }

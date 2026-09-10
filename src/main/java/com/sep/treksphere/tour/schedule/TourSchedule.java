@@ -10,6 +10,7 @@ import lombok.Setter;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.UUID;
 
 @Entity
@@ -41,4 +42,9 @@ public class TourSchedule extends BaseEntity {
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
     private ScheduleStatus status = ScheduleStatus.OPEN;
+
+    @Column(columnDefinition = "TEXT")
+    private String cancellationReason;
+
+    private LocalDateTime cancelledAt;
 }

@@ -21,5 +21,9 @@ public class VendorResponse {
     private String contactPhone;
     private String taxCode;
     private String businessLicenseUrl;
+    private String businessAddress;
+    private String legalRepresentativeName;
+    private String legalRepresentativePosition;
+    private String websiteUrl;
     private VendorStatus status;
 }

@@ -19,6 +19,8 @@ public interface TourCheckpointRepository extends JpaRepository<TourCheckpoint, 
 
     List<TourCheckpoint> findByTourAndIsDeletedFalseOrderByCheckpointOrderAsc(Tour tour);
 
+    long countByTourAndIsDeletedFalse(Tour tour);
+
     boolean existsByTourAndCheckpointOrderAndIsDeletedFalse(Tour tour, Integer checkpointOrder);
 
     boolean existsByTourAndCheckpointOrderAndTourCheckpointIdNotAndIsDeletedFalse(

@@ -1,13 +1,14 @@
 package com.sep.treksphere.tour;
 
 import com.sep.treksphere.common.dto.BaseFilterRequest;
+import com.sep.treksphere.common.constant.MessageConstant;
 import com.sep.treksphere.common.dto.PaginationResponse;
 import com.sep.treksphere.common.exception.AppException;
 import com.sep.treksphere.common.exception.ErrorCode;
 import com.sep.treksphere.common.util.PaginationUtils;
 import com.sep.treksphere.file.FileService;
-import com.sep.treksphere.matching.MatchingGroupRepository;
-import com.sep.treksphere.matching.MatchingGroupStatus;
+import com.sep.treksphere.matching.enums.MatchingGroupStatus;
+import com.sep.treksphere.matching.repository.MatchingGroupRepository;
 import com.sep.treksphere.notification.NotificationEventType;
 import com.sep.treksphere.notification.NotificationService;
 import com.sep.treksphere.notification.ReferenceType;
@@ -16,6 +17,7 @@ import com.sep.treksphere.tour.checkpoint.TourCheckpointRepository;
 import com.sep.treksphere.tour.checkpoint.TourCheckpointResponse;
 import com.sep.treksphere.tour.dto.request.CreateTourRequest;
 import com.sep.treksphere.tour.dto.request.UpdateTourRequest;
+import com.sep.treksphere.tour.dto.response.PublicTourDetailResponse;
 import com.sep.treksphere.tour.dto.response.TourDetailResponse;
 import com.sep.treksphere.tour.dto.response.TourSummaryResponse;
 import com.sep.treksphere.tour.image.TourImage;
@@ -28,7 +30,7 @@ import com.sep.treksphere.tour.schedule.TourScheduleResponse;
 import com.sep.treksphere.user.User;
 import com.sep.treksphere.user.UserRepository;
 import com.sep.treksphere.vendor.Vendor;
-import com.sep.treksphere.vendor.VendorRepository;
+import com.sep.treksphere.vendor.VendorAccessService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -57,14 +59,11 @@ public class TourService {
     private static final Set<MatchingGroupStatus> ACTIVE_GROUP_STATUSES = EnumSet.of(
             MatchingGroupStatus.OPEN,
             MatchingGroupStatus.FULL,
+            MatchingGroupStatus.CLOSED,
             MatchingGroupStatus.IN_PROGRESS);
-
-    private static final List<TourStatus> VENDOR_VISIBLE_STATUSES = List.of(
-            TourStatus.DRAFT,
-            TourStatus.PENDING_APPROVAL,
-            TourStatus.APPROVED,
-            TourStatus.HIDDEN,
-            TourStatus.REJECTED);
+    private static final List<TourStatus> VENDOR_VISIBLE_STATUSES = List.of(TourStatus.values());
+    private static final Set<String> PUBLIC_SORT_FIELDS = Set.of(
+            "createdAt", "publishedAt", "tourName", "difficulty", "durationDays");
 
     private final TourRepository tourRepository;
     private final TourImageRepository tourImageRepository;
@@ -72,10 +71,11 @@ public class TourService {
     private final TourScheduleRepository tourScheduleRepository;
     private final NotificationService notificationService;
     private final MatchingGroupRepository matchingGroupRepository;
-    private final VendorRepository vendorRepository;
     private final UserRepository userRepository;
     private final TourMapper tourMapper;
     private final FileService fileService;
+    private final VendorAccessService vendorAccessService;
+    private final TourReadinessService readinessService;
 
     @Transactional(readOnly = true)
     public PaginationResponse<TourSummaryResponse> getTours(
@@ -84,64 +84,224 @@ public class TourService {
             DifficultyLevel difficulty,
             LocalDate departureDate,
             LocalDate returnDate,
+            UUID vendorId,
             int page,
             int size,
             String sortBy,
             String sortDir) {
-        String validSortBy = StringUtils.hasText(sortBy) ? sortBy.trim() : "createdAt";
+        String requestedSort = StringUtils.hasText(sortBy) ? sortBy.trim() : "publishedAt";
+        String validSortBy = PUBLIC_SORT_FIELDS.contains(requestedSort) ? requestedSort : "publishedAt";
         Sort sort = "asc".equalsIgnoreCase(sortDir)
                 ? Sort.by(validSortBy).ascending()
                 : Sort.by(validSortBy).descending();
-
-        Pageable pageable = PageRequest.of(page, size, sort);
-        String normalizedKeyword = StringUtils.hasText(keyword) ? keyword.trim() : null;
-        String normalizedLocation = StringUtils.hasText(location) ? location.trim() : null;
+        Pageable pageable = PageRequest.of(Math.max(page, 0), Math.min(Math.max(size, 1), 100), sort);
 
         Page<Tour> tourPage = tourRepository.searchTours(
-                TourStatus.APPROVED,
-                normalizedKeyword,
-                normalizedLocation,
+                TourStatus.PUBLISHED,
+                normalize(keyword),
+                normalize(location),
                 difficulty,
                 departureDate,
                 returnDate,
+                vendorId,
                 pageable);
-
-        Map<UUID, BigDecimal> fromPriceByTourId = loadFromPrices(tourPage.getContent());
+        Map<UUID, BigDecimal> fromPrices = loadFromPrices(tourPage.getContent());
         return PaginationUtils.toPaginationResponse(
-                tourPage.map(tour -> toSummaryResponse(tour, fromPriceByTourId.get(tour.getTourId()))));
+                tourPage.map(tour -> toSummaryResponse(tour, fromPrices.get(tour.getTourId()))));
     }
 
     @Transactional(readOnly = true)
-    public TourDetailResponse getTourById(UUID tourId) {
-        Tour tour = tourRepository.findDetailById(tourId)
+    public PublicTourDetailResponse getTourById(UUID tourId) {
+        Tour tour = tourRepository.findPublishedDetailById(tourId)
                 .orElseThrow(() -> new AppException(ErrorCode.TOUR_NOT_FOUND));
-        List<TourImage> images = tourImageRepository.findByTourOrderBySortOrderAsc(tour);
-        List<TourCheckpoint> checkpoints = tourCheckpointRepository.findByTourAndIsDeletedFalseOrderByCheckpointOrderAsc(tour);
-        List<TourSchedule> schedules = tourScheduleRepository
-                .findByTourAndStatusAndDepartureDateGreaterThanEqualAndIsDeletedFalseOrderByDepartureDateAsc(
-                        tour, ScheduleStatus.OPEN, LocalDate.now());
-        return toDetailResponse(tour, images, checkpoints, schedules, minPriceOf(schedules));
+        List<TourImage> images = activeImages(tour);
+        List<TourCheckpoint> checkpoints = activeCheckpoints(tour);
+        List<TourSchedule> schedules = upcomingSchedules(tour);
+        return toPublicDetailResponse(tour, images, checkpoints, schedules, minPriceOf(schedules));
     }
 
-    private Map<UUID, BigDecimal> loadFromPrices(List<Tour> tours) {
-        if (tours.isEmpty()) {
-            return Map.of();
+    @Transactional(readOnly = true)
+    public PaginationResponse<TourSummaryResponse> getVendorTours(String userEmail, BaseFilterRequest request) {
+        Vendor vendor = vendorAccessService.resolveByManagerEmail(userEmail);
+        Page<Tour> page = tourRepository.findByVendorIdForOwner(
+                vendor.getVendorId(), VENDOR_VISIBLE_STATUSES, normalize(request.getKeyword()), request.getPageable());
+        Map<UUID, BigDecimal> fromPrices = loadFromPrices(page.getContent());
+        return PaginationUtils.toPaginationResponse(
+                page.map(tour -> toSummaryResponse(tour, fromPrices.get(tour.getTourId()))));
+    }
+
+    @Transactional(readOnly = true)
+    public TourDetailResponse getVendorTourById(String userEmail, UUID tourId) {
+        Vendor vendor = vendorAccessService.resolveByManagerEmail(userEmail);
+        return loadVendorDetail(getOwnedTour(tourId, vendor, false));
+    }
+
+    @Transactional
+    public TourDetailResponse createTour(
+            String userEmail,
+            CreateTourRequest request,
+            MultipartFile coverImage,
+            List<MultipartFile> tourImages) {
+        Vendor vendor = vendorAccessService.resolveActiveByManagerEmail(userEmail);
+        User creator = userRepository.findByEmail(userEmail)
+                .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
+        Tour tour = tourMapper.toTour(request);
+        validateCapacity(tour);
+        tour.setStatus(TourStatus.DRAFT);
+        tour.setVendor(vendor);
+        tour.setCreator(creator);
+        if (coverImage != null && !coverImage.isEmpty()) {
+            tour.setCoverImageUrl(fileService.uploadFile(coverImage, "tours"));
         }
-        List<UUID> tourIds = tours.stream().map(Tour::getTourId).toList();
-        List<Object[]> rows = tourScheduleRepository.findMinOpenPriceByTourIds(tourIds, LocalDate.now());
-        return rows.stream().collect(Collectors.toMap(
-                row -> (UUID) row[0],
-                row -> (BigDecimal) row[1]));
+        tour = tourRepository.save(tour);
+        saveGallery(tour, tourImages);
+        return loadVendorDetail(tour);
     }
 
-    private BigDecimal minPriceOf(List<TourSchedule> schedules) {
-        return schedules.stream()
-                .map(TourSchedule::getPrice)
-                .min(BigDecimal::compareTo)
-                .orElse(null);
+    @Transactional
+    public TourDetailResponse updateTour(
+            String userEmail,
+            UUID tourId,
+            UpdateTourRequest request,
+            MultipartFile coverImage,
+            List<MultipartFile> tourImages) {
+        Vendor vendor = vendorAccessService.resolveActiveByManagerEmail(userEmail);
+        Tour tour = getOwnedTour(tourId, vendor, false);
+        tourMapper.updateTourFromRequest(request, tour);
+        validateCapacity(tour);
+        validateExistingGroupCapacity(tour);
+        if (coverImage != null && !coverImage.isEmpty()) {
+            tour.setCoverImageUrl(fileService.uploadFile(coverImage, "tours"));
+        }
+        if (tour.getStatus() == TourStatus.PUBLISHED) {
+            readinessService.validatePublishedStructure(tour);
+        }
+        tour = tourRepository.save(tour);
+        if (tourImages != null) {
+            List<TourImage> existing = activeImages(tour);
+            if (!existing.isEmpty()) {
+                tourImageRepository.deleteAll(existing);
+            }
+            saveGallery(tour, tourImages);
+        }
+        return loadVendorDetail(tour);
     }
 
-    private TourSummaryResponse toSummaryResponse(Tour tour, BigDecimal fromPrice) {
+    @Transactional
+    public TourDetailResponse publishTour(String userEmail, UUID tourId) {
+        Vendor vendor = vendorAccessService.resolveActiveByManagerEmail(userEmail);
+        Tour tour = getOwnedTour(tourId, vendor, false);
+        if (tour.getStatus() != TourStatus.DRAFT) {
+            throw new AppException(ErrorCode.TOUR_NOT_DRAFT);
+        }
+        readinessService.validateForPublish(tour);
+        tour.setStatus(TourStatus.PUBLISHED);
+        if (tour.getPublishedAt() == null) {
+            tour.setPublishedAt(LocalDateTime.now());
+        }
+        tourRepository.save(tour);
+        return loadVendorDetail(tour);
+    }
+
+    @Transactional
+    public TourDetailResponse unpublishTour(String userEmail, UUID tourId) {
+        Vendor vendor = vendorAccessService.resolveActiveByManagerEmail(userEmail);
+        Tour tour = getOwnedTour(tourId, vendor, false);
+        if (tour.getStatus() != TourStatus.PUBLISHED) {
+            throw new AppException(ErrorCode.TOUR_NOT_PUBLISHED);
+        }
+        ensureNoActiveGroups(tourId);
+        tour.setStatus(TourStatus.DRAFT);
+        tourRepository.save(tour);
+        return loadVendorDetail(tour);
+    }
+
+    @Transactional
+    public void deleteTour(String userEmail, UUID tourId) {
+        Vendor vendor = vendorAccessService.resolveActiveByManagerEmail(userEmail);
+        Tour tour = getOwnedTour(tourId, vendor, false);
+        ensureNoActiveGroups(tourId);
+        LocalDateTime now = LocalDateTime.now();
+        tour.setIsDeleted(true);
+        tour.setDeletedAt(now);
+        tour.setDeletedBy(userEmail);
+        tourRepository.save(tour);
+        tourCheckpointRepository.softDeleteByTourId(tourId, now, userEmail);
+        tourScheduleRepository.softDeleteByTourId(tourId, now, userEmail);
+        tourImageRepository.softDeleteByTourId(tourId, now, userEmail);
+    }
+
+    @Transactional
+    public TourDetailResponse restoreTour(String userEmail, UUID tourId) {
+        Vendor vendor = vendorAccessService.resolveActiveByManagerEmail(userEmail);
+        Tour tour = getOwnedTour(tourId, vendor, true);
+        LocalDateTime deletedAt = tour.getDeletedAt();
+        tour.setIsDeleted(false);
+        tour.setDeletedAt(null);
+        tour.setDeletedBy(null);
+        tour.setStatus(TourStatus.DRAFT);
+        tourRepository.save(tour);
+        tourCheckpointRepository.restoreByTourIdAndDeletedAt(tourId, deletedAt);
+        tourScheduleRepository.restoreByTourIdAndDeletedAt(tourId, deletedAt);
+        tourImageRepository.restoreByTourIdAndDeletedAt(tourId, deletedAt);
+        return loadVendorDetail(tour);
+    }
+
+    @Transactional
+    public TourDetailResponse hideTourForViolation(UUID adminId, UUID tourId, String reason) {
+        if (!StringUtils.hasText(reason)) {
+            throw new AppException(ErrorCode.VALIDATION_ERROR, MessageConstant.HIDE_REASON_REQUIRED);
+        }
+        User admin = userRepository.findById(adminId)
+                .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
+        Tour tour = tourRepository.findByTourIdAndIsDeletedFalse(tourId)
+                .orElseThrow(() -> new AppException(ErrorCode.TOUR_NOT_FOUND));
+        if (tour.getStatus() != TourStatus.PUBLISHED) {
+            throw new AppException(ErrorCode.TOUR_NOT_PUBLISHED);
+        }
+        tour.setStatus(TourStatus.HIDDEN);
+        tour.setHiddenReason(reason.trim());
+        tour.setHiddenAt(LocalDateTime.now());
+        tour.setHiddenBy(admin);
+        tourRepository.save(tour);
+
+        notificationService.notify(
+                tour.getVendor().getManager().getUserId(),
+                NotificationEventType.TOUR_HIDDEN_VIOLATION,
+                ReferenceType.TOUR, tour.getTourId(),
+                "/vendor/tours/" + tour.getTourId(),
+                tour.getTourName(), reason.trim());
+
+        return loadVendorDetail(tour);
+    }
+
+    @Transactional
+    public TourDetailResponse unhideTour(UUID adminId, UUID tourId) {
+        userRepository.findById(adminId).orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
+        Tour tour = tourRepository.findByTourIdAndIsDeletedFalse(tourId)
+                .orElseThrow(() -> new AppException(ErrorCode.TOUR_NOT_FOUND));
+        if (tour.getStatus() != TourStatus.HIDDEN) {
+            throw new AppException(ErrorCode.TOUR_NOT_HIDDEN);
+        }
+        vendorAccessService.requireActive(tour.getVendor());
+        readinessService.validateForPublish(tour);
+        tour.setStatus(TourStatus.PUBLISHED);
+        if (tour.getPublishedAt() == null) {
+            tour.setPublishedAt(LocalDateTime.now());
+        }
+        tourRepository.save(tour);
+
+        notificationService.notify(
+                tour.getVendor().getManager().getUserId(),
+                NotificationEventType.TOUR_UNHIDDEN,
+                ReferenceType.TOUR, tour.getTourId(),
+                "/vendor/tours/" + tour.getTourId(),
+                tour.getTourName());
+
+        return loadVendorDetail(tour);
+    }
+
+    public TourSummaryResponse toSummaryResponse(Tour tour, BigDecimal fromPrice) {
         return TourSummaryResponse.builder()
                 .tourId(tour.getTourId().toString())
                 .tourName(tour.getTourName())
@@ -160,17 +320,114 @@ public class TourService {
                 .vendorId(tour.getVendor().getVendorId().toString())
                 .vendorName(tour.getVendor().getCompanyName())
                 .createdAt(tour.getCreatedAt())
+                .publishedAt(tour.getPublishedAt())
                 .build();
     }
 
-    private TourDetailResponse toDetailResponse(
+    public Map<UUID, BigDecimal> loadFromPrices(List<Tour> tours) {
+        if (tours.isEmpty()) {
+            return Map.of();
+        }
+        List<Object[]> rows = tourScheduleRepository.findMinOpenPriceByTourIds(
+                tours.stream().map(Tour::getTourId).toList(), LocalDate.now());
+        return rows.stream().collect(Collectors.toMap(
+                row -> (UUID) row[0], row -> (BigDecimal) row[1]));
+    }
+
+    private Tour getOwnedTour(UUID tourId, Vendor vendor, boolean deleted) {
+        Tour tour = deleted
+                ? tourRepository.findByTourIdAndIsDeletedTrue(tourId)
+                    .orElseThrow(() -> new AppException(ErrorCode.TOUR_NOT_DELETED))
+                : tourRepository.findByTourIdAndIsDeletedFalse(tourId)
+                    .orElseThrow(() -> new AppException(ErrorCode.TOUR_NOT_FOUND));
+        if (!tour.getVendor().getVendorId().equals(vendor.getVendorId())) {
+            throw new AppException(ErrorCode.TOUR_NOT_BELONG_TO_VENDOR);
+        }
+        return tour;
+    }
+
+    private void ensureNoActiveGroups(UUID tourId) {
+        if (matchingGroupRepository.existsByTour_TourIdAndStatusInAndIsDeletedFalse(
+                tourId, ACTIVE_GROUP_STATUSES)) {
+            throw new AppException(ErrorCode.TOUR_HAS_ACTIVE_GROUPS);
+        }
+    }
+
+    private void validateCapacity(Tour tour) {
+        if (tour.getMinCapacity() == null || tour.getMaxCapacity() == null
+                || tour.getMinCapacity() < 1 || tour.getMaxCapacity() < tour.getMinCapacity()) {
+            throw new AppException(ErrorCode.INVALID_TOUR_CAPACITY);
+        }
+    }
+
+    private void validateExistingGroupCapacity(Tour tour) {
+        UUID tourId = tour.getTourId();
+        if (tourId != null && (matchingGroupRepository
+                .existsByTour_TourIdAndMaxSizeGreaterThanAndStatusInAndIsDeletedFalse(
+                        tourId, tour.getMaxCapacity(), ACTIVE_GROUP_STATUSES)
+                || matchingGroupRepository
+                .existsByTour_TourIdAndMaxSizeLessThanAndStatusInAndIsDeletedFalse(
+                        tourId, tour.getMinCapacity(), ACTIVE_GROUP_STATUSES))) {
+            throw new AppException(
+                    ErrorCode.INVALID_TOUR_CAPACITY,
+                    "Sức chứa mới không tương thích với nhóm ghép đã tồn tại.");
+        }
+    }
+
+    private TourDetailResponse loadVendorDetail(Tour tour) {
+        List<TourImage> images = activeImages(tour);
+        List<TourCheckpoint> checkpoints = activeCheckpoints(tour);
+        List<TourSchedule> schedules = tourScheduleRepository
+                .findByTourAndIsDeletedFalseOrderByDepartureDateAsc(tour);
+        return toVendorDetailResponse(tour, images, checkpoints, schedules, minPriceOf(schedules));
+    }
+
+    private List<TourImage> activeImages(Tour tour) {
+        return tourImageRepository.findByTourAndIsDeletedFalseOrderBySortOrderAsc(tour);
+    }
+
+    private List<TourCheckpoint> activeCheckpoints(Tour tour) {
+        return tourCheckpointRepository.findByTourAndIsDeletedFalseOrderByCheckpointOrderAsc(tour);
+    }
+
+    private List<TourSchedule> upcomingSchedules(Tour tour) {
+        return tourScheduleRepository
+                .findByTourAndStatusAndDepartureDateGreaterThanEqualAndIsDeletedFalseOrderByDepartureDateAsc(
+                        tour, ScheduleStatus.OPEN, LocalDate.now());
+    }
+
+    private void saveGallery(Tour tour, List<MultipartFile> tourImages) {
+        if (tourImages == null || tourImages.isEmpty()) {
+            return;
+        }
+        List<String> urls = fileService.uploadFiles(tourImages, "tours");
+        List<TourImage> images = new ArrayList<>();
+        for (int i = 0; i < urls.size(); i++) {
+            TourImage image = new TourImage();
+            image.setTour(tour);
+            image.setImageUrl(urls.get(i));
+            image.setSortOrder(i);
+            images.add(image);
+        }
+        tourImageRepository.saveAll(images);
+    }
+
+    private BigDecimal minPriceOf(List<TourSchedule> schedules) {
+        return schedules.stream()
+                .filter(schedule -> schedule.getStatus() == ScheduleStatus.OPEN)
+                .map(TourSchedule::getPrice)
+                .min(BigDecimal::compareTo)
+                .orElse(null);
+    }
+
+    private TourDetailResponse toVendorDetailResponse(
             Tour tour,
             List<TourImage> images,
             List<TourCheckpoint> checkpoints,
             List<TourSchedule> schedules,
             BigDecimal fromPrice) {
+        List<String> readinessErrors = readinessService.getPublishReadinessErrors(tour);
         return TourDetailResponse.builder()
-                // Tour info
                 .tourId(tour.getTourId().toString())
                 .tourName(tour.getTourName())
                 .description(tour.getDescription())
@@ -186,38 +443,68 @@ public class TourService {
                 .excludes(tour.getExcludes())
                 .coverImageUrl(tour.getCoverImageUrl())
                 .status(tour.getStatus())
-                .rejectionReason(tour.getRejectionReason())
+                .hiddenReason(tour.getHiddenReason())
+                .publishedAt(tour.getPublishedAt())
+                .hiddenAt(tour.getHiddenAt())
+                .hiddenBy(tour.getHiddenBy() == null ? null : tour.getHiddenBy().getUserId().toString())
                 .createdAt(tour.getCreatedAt())
                 .updatedAt(tour.getUpdatedAt())
-                // Vendor info
                 .vendorId(tour.getVendor().getVendorId().toString())
                 .vendorManagerId(tour.getVendor().getManager().getUserId().toString())
                 .vendorName(tour.getVendor().getCompanyName())
                 .vendorLogoUrl(tour.getVendor().getLogoUrl())
                 .vendorContactEmail(tour.getVendor().getContactEmail())
                 .vendorContactPhone(tour.getVendor().getContactPhone())
-                // Creator info
-                .creatorId(tour.getCreator() != null ? tour.getCreator().getUserId().toString() : null)
-                .creatorName(tour.getCreator() != null ? tour.getCreator().getFullName() : null)
-                .creatorEmail(tour.getCreator() != null ? tour.getCreator().getEmail() : null)
-                // Images
+                .creatorId(tour.getCreator().getUserId().toString())
+                .creatorName(tour.getCreator().getFullName())
+                .creatorEmail(tour.getCreator().getEmail())
                 .images(images.stream().map(this::toImageResponse).toList())
-                // Checkpoints
                 .checkpoints(checkpoints.stream().map(this::toCheckpointResponse).toList())
-                // Schedules
+                .schedules(schedules.stream().map(this::toScheduleResponse).toList())
+                .publishable(readinessErrors.isEmpty())
+                .publishReadinessErrors(readinessErrors)
+                .build();
+    }
+
+    private PublicTourDetailResponse toPublicDetailResponse(
+            Tour tour,
+            List<TourImage> images,
+            List<TourCheckpoint> checkpoints,
+            List<TourSchedule> schedules,
+            BigDecimal fromPrice) {
+        return PublicTourDetailResponse.builder()
+                .tourId(tour.getTourId().toString())
+                .tourName(tour.getTourName())
+                .description(tour.getDescription())
+                .difficulty(tour.getDifficulty())
+                .location(tour.getLocation())
+                .durationDays(tour.getDurationDays())
+                .fromPrice(fromPrice)
+                .minCapacity(tour.getMinCapacity())
+                .maxCapacity(tour.getMaxCapacity())
+                .totalDistanceKm(tour.getTotalDistanceKm())
+                .highlights(tour.getHighlights())
+                .includes(tour.getIncludes())
+                .excludes(tour.getExcludes())
+                .coverImageUrl(tour.getCoverImageUrl())
+                .publishedAt(tour.getPublishedAt())
+                .vendorId(tour.getVendor().getVendorId().toString())
+                .vendorName(tour.getVendor().getCompanyName())
+                .vendorLogoUrl(tour.getVendor().getLogoUrl())
+                .vendorContactEmail(tour.getVendor().getContactEmail())
+                .vendorContactPhone(tour.getVendor().getContactPhone())
+                .images(images.stream().map(this::toImageResponse).toList())
+                .checkpoints(checkpoints.stream().map(this::toCheckpointResponse).toList())
                 .schedules(schedules.stream().map(this::toScheduleResponse).toList())
                 .build();
     }
 
     private TourCheckpointResponse toCheckpointResponse(TourCheckpoint checkpoint) {
         String rawUrls = checkpoint.getCheckpointImageUrl();
-        List<String> imageUrlList = (rawUrls != null && !rawUrls.isBlank())
-                ? List.of(rawUrls.split(","))
-                : List.of();
-
+        List<String> urls = rawUrls == null || rawUrls.isBlank() ? List.of() : List.of(rawUrls.split(","));
         return TourCheckpointResponse.builder()
                 .checkpointId(checkpoint.getTourCheckpointId().toString())
-                .tourId(checkpoint.getTour() != null ? checkpoint.getTour().getTourId().toString() : null)
+                .tourId(checkpoint.getTour().getTourId().toString())
                 .checkpointName(checkpoint.getCheckpointName())
                 .description(checkpoint.getDescription())
                 .latitude(checkpoint.getLatitude())
@@ -225,7 +512,7 @@ public class TourService {
                 .altitude(checkpoint.getAltitude())
                 .checkpointOrder(checkpoint.getCheckpointOrder())
                 .checkpointImageUrl(rawUrls)
-                .checkpointImageUrls(imageUrlList)
+                .checkpointImageUrls(urls)
                 .build();
     }
 
@@ -241,419 +528,20 @@ public class TourService {
     private TourScheduleResponse toScheduleResponse(TourSchedule schedule) {
         return TourScheduleResponse.builder()
                 .scheduleId(schedule.getTourScheduleId().toString())
-                .tourId(schedule.getTour() != null ? schedule.getTour().getTourId().toString() : null)
+                .tourId(schedule.getTour().getTourId().toString())
                 .departureDate(schedule.getDepartureDate())
                 .returnDate(schedule.getReturnDate())
                 .price(schedule.getPrice())
                 .status(schedule.getStatus())
+                .cancellationReason(schedule.getCancellationReason())
+                .cancelledAt(schedule.getCancelledAt())
                 .isDeleted(schedule.getIsDeleted())
                 .createdAt(schedule.getCreatedAt())
                 .updatedAt(schedule.getUpdatedAt())
                 .build();
     }
 
-    // --- Vendor Tour Management Methods ---
-
-    private Vendor resolveVendorByEmail(String email) {
-        return vendorRepository.findByManager_Email(email)
-                .orElseThrow(() -> new AppException(ErrorCode.VENDOR_NOT_FOUND));
-    }
-
-    @Transactional(readOnly = true)
-    public PaginationResponse<TourSummaryResponse> getVendorTours(String userEmail, BaseFilterRequest request) {
-        Vendor vendor = resolveVendorByEmail(userEmail);
-
-        Page<Tour> tourPage = tourRepository.findByVendorIdForOwner(
-                vendor.getVendorId(),
-                VENDOR_VISIBLE_STATUSES,
-                request.getKeyword(),
-                request.getPageable()
-        );
-
-        Map<UUID, BigDecimal> fromPriceByTourId = loadFromPrices(tourPage.getContent());
-        return PaginationUtils.toPaginationResponse(
-                tourPage.map(tour -> toSummaryResponse(tour, fromPriceByTourId.get(tour.getTourId()))));
-    }
-
-    @Transactional(readOnly = true)
-    public TourDetailResponse getVendorTourById(String userEmail, UUID tourId) {
-        Vendor vendor = resolveVendorByEmail(userEmail);
-
-        Tour tour = tourRepository.findByTourIdAndIsDeletedFalse(tourId)
-                .orElseThrow(() -> new AppException(ErrorCode.TOUR_NOT_FOUND));
-
-        if (!tour.getVendor().getVendorId().equals(vendor.getVendorId())) {
-            throw new AppException(ErrorCode.TOUR_NOT_BELONG_TO_VENDOR);
-        }
-
-        List<TourImage> images = tourImageRepository.findByTourOrderBySortOrderAsc(tour);
-        List<TourCheckpoint> checkpoints = tourCheckpointRepository.findByTourAndIsDeletedFalseOrderByCheckpointOrderAsc(tour);
-        List<TourSchedule> schedules = tourScheduleRepository.findByTourAndIsDeletedFalseOrderByDepartureDateAsc(tour);
-
-        return toDetailResponse(tour, images, checkpoints, schedules, minPriceOf(schedules));
-    }
-
-    @Transactional
-    public TourDetailResponse createTour(String userEmail, CreateTourRequest request,
-                                          MultipartFile coverImage, List<MultipartFile> tourImages) {
-        Vendor vendor = resolveVendorByEmail(userEmail);
-        User creator = userRepository.findByEmail(userEmail)
-                .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
-
-        Tour tour = tourMapper.toTour(request);
-        tour.setStatus(TourStatus.APPROVED);
-        tour.setVendor(vendor);
-        tour.setCreator(creator);
-
-        // Upload cover image
-        if (coverImage != null && !coverImage.isEmpty()) {
-            String coverUrl = fileService.uploadFile(coverImage, "tours");
-            tour.setCoverImageUrl(coverUrl);
-        }
-
-        tour = tourRepository.save(tour);
-
-        // Upload tour gallery images (batch)
-        List<TourImage> savedImages = new ArrayList<>();
-        if (tourImages != null && !tourImages.isEmpty()) {
-            List<String> imageUrls = fileService.uploadFiles(tourImages, "tours");
-            for (int i = 0; i < imageUrls.size(); i++) {
-                TourImage tourImage = new TourImage();
-                tourImage.setTour(tour);
-                tourImage.setImageUrl(imageUrls.get(i));
-                tourImage.setSortOrder(i);
-                savedImages.add(tourImage);
-            }
-            tourImageRepository.saveAll(savedImages);
-        }
-
-        return toDetailResponse(tour, savedImages, List.of(), List.of(), null);
-    }
-
-    @Transactional
-    public TourDetailResponse updateTour(String userEmail, UUID tourId, UpdateTourRequest request,
-                                          MultipartFile coverImage, List<MultipartFile> tourImages) {
-        Vendor vendor = resolveVendorByEmail(userEmail);
-
-        Tour tour = tourRepository.findByTourIdAndIsDeletedFalse(tourId)
-                .orElseThrow(() -> new AppException(ErrorCode.TOUR_NOT_FOUND));
-
-        if (!tour.getVendor().getVendorId().equals(vendor.getVendorId())) {
-            throw new AppException(ErrorCode.TOUR_NOT_BELONG_TO_VENDOR);
-        }
-
-        if (tour.getStatus() != TourStatus.PENDING_APPROVAL
-                && tour.getStatus() != TourStatus.APPROVED
-                && tour.getStatus() != TourStatus.HIDDEN
-                && tour.getStatus() != TourStatus.DRAFT
-                && tour.getStatus() != TourStatus.REJECTED) {
-            throw new AppException(ErrorCode.TOUR_UPDATE_NOT_ALLOWED);
-        }
-
-        tourMapper.updateTourFromRequest(request, tour);
-
-        // Upload cover image if provided
-        if (coverImage != null && !coverImage.isEmpty()) {
-            String coverUrl = fileService.uploadFile(coverImage, "tours");
-            tour.setCoverImageUrl(coverUrl);
-        }
-
-        tour = tourRepository.save(tour);
-
-        // Smart replace tour gallery images:
-        // - tourImages == null  → không gửi field → giữ nguyên ảnh cũ
-        // - tourImages is empty → gửi mảng rỗng → xoá hết ảnh cũ
-        // - tourImages has files → thay thế ảnh cũ bằng ảnh mới
-        if (tourImages != null) {
-            // Xoá tất cả ảnh cũ
-            List<TourImage> existingImages = tourImageRepository.findByTourOrderBySortOrderAsc(tour);
-            if (!existingImages.isEmpty()) {
-                tourImageRepository.deleteAll(existingImages);
-            }
-
-            // Upload ảnh mới (nếu có)
-            if (!tourImages.isEmpty()) {
-                List<String> imageUrls = fileService.uploadFiles(tourImages, "tours");
-                List<TourImage> newImages = new ArrayList<>();
-                for (int i = 0; i < imageUrls.size(); i++) {
-                    TourImage tourImage = new TourImage();
-                    tourImage.setTour(tour);
-                    tourImage.setImageUrl(imageUrls.get(i));
-                    tourImage.setSortOrder(i);
-                    newImages.add(tourImage);
-                }
-                tourImageRepository.saveAll(newImages);
-            }
-        }
-
-        List<TourImage> images = tourImageRepository.findByTourOrderBySortOrderAsc(tour);
-        List<TourCheckpoint> checkpoints = tourCheckpointRepository.findByTourAndIsDeletedFalseOrderByCheckpointOrderAsc(tour);
-        List<TourSchedule> schedules = tourScheduleRepository.findByTourAndIsDeletedFalseOrderByDepartureDateAsc(tour);
-
-        return toDetailResponse(tour, images, checkpoints, schedules, minPriceOf(schedules));
-    }
-
-    @Transactional
-    public void deleteTour(String userEmail, UUID tourId) {
-        Vendor vendor = resolveVendorByEmail(userEmail);
-
-        Tour tour = tourRepository.findByTourIdAndIsDeletedFalse(tourId)
-                .orElseThrow(() -> new AppException(ErrorCode.TOUR_NOT_FOUND));
-
-        if (!tour.getVendor().getVendorId().equals(vendor.getVendorId())) {
-            throw new AppException(ErrorCode.TOUR_NOT_BELONG_TO_VENDOR);
-        }
-
-        // Tour ở APPROVED hoặc HIDDEN mới cần kiểm tra nhóm ghép đang hoạt động
-        // DRAFT / REJECTED: xóa tự do
-        if (tour.getStatus() == TourStatus.APPROVED || tour.getStatus() == TourStatus.HIDDEN) {
-            if (matchingGroupRepository.existsByTour_TourIdAndStatusInAndIsDeletedFalse(tourId, ACTIVE_GROUP_STATUSES)) {
-                throw new AppException(ErrorCode.TOUR_HAS_ACTIVE_GROUPS);
-            }
-        }
-
-        LocalDateTime now = LocalDateTime.now();
-        tour.setIsDeleted(true);
-        tour.setDeletedAt(now);
-        tour.setDeletedBy(userEmail);
-        tourRepository.save(tour);
-
-        // Cascade: bulk update các bảng con — chỉ xóa những record chưa bị xóa trước đó
-        tourCheckpointRepository.softDeleteByTourId(tourId, now, userEmail);
-        tourScheduleRepository.softDeleteByTourId(tourId, now, userEmail);
-        tourImageRepository.softDeleteByTourId(tourId, now, userEmail);
-    }
-
-    // --- Tour Approval Workflow ---
-
-    @Transactional
-    public TourDetailResponse submitTourForApproval(String userEmail, UUID tourId) {
-        Vendor vendor = resolveVendorByEmail(userEmail);
-
-        Tour tour = tourRepository.findByTourIdAndIsDeletedFalse(tourId)
-                .orElseThrow(() -> new AppException(ErrorCode.TOUR_NOT_FOUND));
-
-        if (!tour.getVendor().getVendorId().equals(vendor.getVendorId())) {
-            throw new AppException(ErrorCode.TOUR_NOT_BELONG_TO_VENDOR);
-        }
-
-        if (tour.getStatus() != TourStatus.DRAFT && tour.getStatus() != TourStatus.REJECTED) {
-            throw new AppException(ErrorCode.TOUR_NOT_IN_DRAFT_OR_REJECTED);
-        }
-
-        tour.setStatus(TourStatus.PENDING_APPROVAL);
-        tour.setRejectionReason(null);
-        tour = tourRepository.save(tour);
-
-        List<TourImage> images = tourImageRepository.findByTourOrderBySortOrderAsc(tour);
-        List<TourCheckpoint> checkpoints = tourCheckpointRepository.findByTourAndIsDeletedFalseOrderByCheckpointOrderAsc(tour);
-        List<TourSchedule> schedules = tourScheduleRepository.findByTourAndIsDeletedFalseOrderByDepartureDateAsc(tour);
-
-        return toDetailResponse(tour, images, checkpoints, schedules, minPriceOf(schedules));
-    }
-
-    @Transactional
-    public TourDetailResponse approveTour(String userEmail, UUID tourId) {
-        Vendor vendor = resolveVendorByEmail(userEmail);
-
-        Tour tour = tourRepository.findByTourIdAndIsDeletedFalse(tourId)
-                .orElseThrow(() -> new AppException(ErrorCode.TOUR_NOT_FOUND));
-
-        if (!tour.getVendor().getVendorId().equals(vendor.getVendorId())) {
-            throw new AppException(ErrorCode.TOUR_NOT_BELONG_TO_VENDOR);
-        }
-
-        if (tour.getStatus() != TourStatus.PENDING_APPROVAL) {
-            throw new AppException(ErrorCode.TOUR_NOT_PENDING_APPROVAL);
-        }
-
-        tour.setStatus(TourStatus.APPROVED);
-        tour.setRejectionReason(null);
-        tour = tourRepository.save(tour);
-
-        // Tự động mở (OPEN) tất cả các lịch khởi hành (Schedule) đang ở trạng thái CLOSED của Tour này
-        List<TourSchedule> pendingSchedules = tourScheduleRepository
-                .findByTourAndIsDeletedFalseOrderByDepartureDateAsc(tour);
-        for (TourSchedule schedule : pendingSchedules) {
-            if (schedule.getStatus() == ScheduleStatus.CLOSED) {
-                schedule.setStatus(ScheduleStatus.OPEN);
-                tourScheduleRepository.save(schedule);
-            }
-        }
-
-        List<TourImage> images = tourImageRepository.findByTourOrderBySortOrderAsc(tour);
-        List<TourCheckpoint> checkpoints = tourCheckpointRepository
-                .findByTourAndIsDeletedFalseOrderByCheckpointOrderAsc(tour);
-        List<TourSchedule> schedules = tourScheduleRepository
-                .findByTourAndIsDeletedFalseOrderByDepartureDateAsc(tour);
-
-        return toDetailResponse(tour, images, checkpoints, schedules, minPriceOf(schedules));
-    }
-
-    @Transactional
-    public TourDetailResponse rejectTour(String userEmail, UUID tourId, String reason) {
-        if (!StringUtils.hasText(reason)) {
-            throw new AppException(ErrorCode.REJECTION_REASON_REQUIRED);
-        }
-        String normalizedReason = reason.trim();
-
-        Vendor vendor = resolveVendorByEmail(userEmail);
-
-        Tour tour = tourRepository.findByTourIdAndIsDeletedFalse(tourId)
-                .orElseThrow(() -> new AppException(ErrorCode.TOUR_NOT_FOUND));
-
-        if (!tour.getVendor().getVendorId().equals(vendor.getVendorId())) {
-            throw new AppException(ErrorCode.TOUR_NOT_BELONG_TO_VENDOR);
-        }
-
-        if (tour.getStatus() != TourStatus.PENDING_APPROVAL) {
-            throw new AppException(ErrorCode.TOUR_NOT_PENDING_APPROVAL);
-        }
-
-        tour.setStatus(TourStatus.REJECTED);
-        tour.setRejectionReason(normalizedReason);
-        tour = tourRepository.save(tour);
-
-        List<TourImage> images = tourImageRepository.findByTourOrderBySortOrderAsc(tour);
-        List<TourCheckpoint> checkpoints = tourCheckpointRepository
-                .findByTourAndIsDeletedFalseOrderByCheckpointOrderAsc(tour);
-        List<TourSchedule> schedules = tourScheduleRepository
-                .findByTourAndIsDeletedFalseOrderByDepartureDateAsc(tour);
-
-        return toDetailResponse(tour, images, checkpoints, schedules, minPriceOf(schedules));
-    }
-
-    @Transactional
-    public TourDetailResponse hideTourForViolation(String userEmail, UUID tourId, String reason) {
-        User currentUser = userRepository.findByEmail(userEmail)
-                .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
-
-        Tour tour = tourRepository.findByTourIdAndIsDeletedFalse(tourId)
-                .orElseThrow(() -> new AppException(ErrorCode.TOUR_NOT_FOUND));
-
-        boolean isAdmin = currentUser.getRoles().stream()
-                .anyMatch(role -> "ADMIN".equals(role.getRoleName()));
-
-        if (!isAdmin) {
-            Vendor vendor = resolveVendorByEmail(userEmail);
-            if (!tour.getVendor().getVendorId().equals(vendor.getVendorId())) {
-                throw new AppException(ErrorCode.TOUR_NOT_BELONG_TO_VENDOR);
-            }
-        }
-        if (tour.getStatus() != TourStatus.APPROVED) {
-            throw new AppException(ErrorCode.TOUR_NOT_APPROVED);
-        }
-
-        // Không cho phép ẩn nếu tour đang có nhóm ghép hoạt động
-        if (matchingGroupRepository.existsByTour_TourIdAndStatusInAndIsDeletedFalse(tourId, ACTIVE_GROUP_STATUSES)) {
-            throw new AppException(ErrorCode.TOUR_HAS_ACTIVE_GROUPS);
-        }
-
-        tour.setStatus(TourStatus.HIDDEN);
-        tour = tourRepository.save(tour);
-
-        User manager = tour.getVendor().getManager();
-        notificationService.notify(
-                manager.getUserId(),
-                NotificationEventType.TOUR_HIDDEN_VIOLATION,
-                ReferenceType.TOUR, tour.getTourId(),
-                "/vendor/tours/" + tour.getTourId(),
-                tour.getTourName(), reason);
-
-        List<TourImage> images = tourImageRepository.findByTourOrderBySortOrderAsc(tour);
-        List<TourCheckpoint> checkpoints = tourCheckpointRepository.findByTourAndIsDeletedFalseOrderByCheckpointOrderAsc(tour);
-        List<TourSchedule> schedules = tourScheduleRepository.findByTourAndIsDeletedFalseOrderByDepartureDateAsc(tour);
-
-        return toDetailResponse(tour, images, checkpoints, schedules, minPriceOf(schedules));
-    }
-
-    @Transactional
-    public TourDetailResponse revertTour(String userEmail, UUID tourId) {
-        Vendor vendor = resolveVendorByEmail(userEmail);
-
-        Tour tour = tourRepository.findByTourIdAndIsDeletedFalse(tourId)
-                .orElseThrow(() -> new AppException(ErrorCode.TOUR_NOT_FOUND));
-
-        if (!tour.getVendor().getVendorId().equals(vendor.getVendorId())) {
-            throw new AppException(ErrorCode.TOUR_NOT_BELONG_TO_VENDOR);
-        }
-
-        if (tour.getStatus() != TourStatus.REJECTED) {
-            throw new AppException(ErrorCode.TOUR_NOT_IN_REJECTED_STATUS);
-        }
-
-        tour.setStatus(TourStatus.PENDING_APPROVAL);
-        tour = tourRepository.save(tour);
-
-        List<TourImage> images = tourImageRepository.findByTourOrderBySortOrderAsc(tour);
-        List<TourCheckpoint> checkpoints = tourCheckpointRepository.findByTourAndIsDeletedFalseOrderByCheckpointOrderAsc(tour);
-        List<TourSchedule> schedules = tourScheduleRepository.findByTourAndIsDeletedFalseOrderByDepartureDateAsc(tour);
-
-        return toDetailResponse(tour, images, checkpoints, schedules, minPriceOf(schedules));
-    }
-
-    @Transactional
-    public TourDetailResponse restoreTour(String userEmail, UUID tourId) {
-        Vendor vendor = resolveVendorByEmail(userEmail);
-
-        Tour tour = tourRepository.findByTourIdAndIsDeletedTrue(tourId)
-                .orElseThrow(() -> new AppException(ErrorCode.TOUR_NOT_DELETED));
-
-        if (!tour.getVendor().getVendorId().equals(vendor.getVendorId())) {
-            throw new AppException(ErrorCode.TOUR_NOT_BELONG_TO_VENDOR);
-        }
-
-        // Lưu lại deletedAt của tour để restore đúng đợt
-        LocalDateTime deletedAt = tour.getDeletedAt();
-
-        // Restore Tour cha
-        tour.setIsDeleted(false);
-        tour.setDeletedAt(null);
-        tour.setDeletedBy(null);
-        tour.setStatus(TourStatus.PENDING_APPROVAL); // Về PENDING_APPROVAL để xem, sửa và duyệt lại
-        tour = tourRepository.save(tour);
-
-        // Restore các bảng con bị xóa cùng đợt (match exact deletedAt)
-        tourCheckpointRepository.restoreByTourIdAndDeletedAt(tourId, deletedAt);
-        tourScheduleRepository.restoreByTourIdAndDeletedAt(tourId, deletedAt);
-        tourImageRepository.restoreByTourIdAndDeletedAt(tourId, deletedAt);
-
-        List<TourImage> images = tourImageRepository.findByTourOrderBySortOrderAsc(tour);
-        List<TourCheckpoint> checkpoints = tourCheckpointRepository.findByTourAndIsDeletedFalseOrderByCheckpointOrderAsc(tour);
-        List<TourSchedule> schedules = tourScheduleRepository.findByTourAndIsDeletedFalseOrderByDepartureDateAsc(tour);
-
-        return toDetailResponse(tour, images, checkpoints, schedules, minPriceOf(schedules));
-    }
-
-    @Transactional
-    public TourDetailResponse unhideTour(String userEmail, UUID tourId) {
-        Vendor vendor = resolveVendorByEmail(userEmail);
-
-        Tour tour = tourRepository.findByTourIdAndIsDeletedFalse(tourId)
-                .orElseThrow(() -> new AppException(ErrorCode.TOUR_NOT_FOUND));
-
-        if (!tour.getVendor().getVendorId().equals(vendor.getVendorId())) {
-            throw new AppException(ErrorCode.TOUR_NOT_BELONG_TO_VENDOR);
-        }
-
-        if (tour.getStatus() != TourStatus.HIDDEN) {
-            throw new AppException(ErrorCode.TOUR_NOT_HIDDEN);
-        }
-
-        tour.setStatus(TourStatus.APPROVED);
-        tour = tourRepository.save(tour);
-
-        notificationService.notify(
-                vendor.getManager().getUserId(),
-                NotificationEventType.TOUR_UNHIDDEN,
-                ReferenceType.TOUR, tour.getTourId(),
-                "/vendor/tours/" + tour.getTourId(),
-                tour.getTourName());
-
-        List<TourImage> images = tourImageRepository.findByTourOrderBySortOrderAsc(tour);
-        List<TourCheckpoint> checkpoints = tourCheckpointRepository.findByTourAndIsDeletedFalseOrderByCheckpointOrderAsc(tour);
-        List<TourSchedule> schedules = tourScheduleRepository.findByTourAndIsDeletedFalseOrderByDepartureDateAsc(tour);
-
-        return toDetailResponse(tour, images, checkpoints, schedules, minPriceOf(schedules));
+    private String normalize(String value) {
+        return StringUtils.hasText(value) ? value.trim() : null;
     }
 }

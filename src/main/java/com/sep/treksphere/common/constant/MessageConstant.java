@@ -111,9 +111,17 @@ public class MessageConstant {
     public static final String TOUR_NOT_PENDING_APPROVAL = "Chỉ có thể duyệt hoặc từ chối Tour đang ở trạng thái Chờ duyệt (PENDING_APPROVAL)";
     public static final String TOUR_UNHIDDEN_SUCCESSFULLY = "Mở lại (bỏ ẩn) Tour thành công";
     public static final String TOUR_NOT_HIDDEN = "Chỉ có thể mở lại Tour đang ở trạng thái Bị ẩn (HIDDEN)";
+    public static final String TOUR_NOT_DRAFT = "Chỉ có thể công khai Tour đang ở trạng thái DRAFT";
+    public static final String TOUR_NOT_PUBLISHED = "Tour phải ở trạng thái PUBLISHED để thực hiện thao tác này";
+    public static final String TOUR_PUBLISH_REQUIREMENTS_NOT_MET = "Tour chưa đáp ứng đủ điều kiện công khai";
+    public static final String INVALID_TOUR_CAPACITY = "Sức chứa Tour không hợp lệ";
+    public static final String TOUR_PUBLISHED_SUCCESSFULLY = "Công khai Tour thành công";
+    public static final String TOUR_UNPUBLISHED_SUCCESSFULLY = "Đưa Tour về bản nháp thành công";
 
     // Vendor Messages
     public static final String VENDOR_NOT_FOUND = "Vendor không tồn tại";
+    public static final String VENDOR_NOT_ACTIVE = "Vendor đang không ở trạng thái hoạt động";
+    public static final String VENDOR_APPLICATION_INCOMPLETE = "Hồ sơ đăng ký Vendor chưa đầy đủ";
     public static final String EQUIPMENT_NOT_FOUND = "Trang bị không tồn tại";
     public static final String EQUIPMENT_CREATED_SUCCESSFULLY = "Tạo trang bị thành công";
     public static final String EQUIPMENT_UPDATED_SUCCESSFULLY = "Cập nhật trang bị thành công";
@@ -198,6 +206,7 @@ public class MessageConstant {
     public static final String VENDOR_PROFILE_UPDATED = "Cập nhật thông tin hồ sơ đối tác thành công";
     public static final String VENDOR_STATUS_REQUIRED = "Trạng thái của đối tác không được để trống";
     public static final String VENDOR_STATUS_UPDATED = "Cập nhật trạng thái đối tác thành công";
+    public static final String INVALID_VENDOR_STATUS_TRANSITION = "Không thể chuyển sang trạng thái Vendor được yêu cầu";
     public static final String VENDOR_REVOKED_STATUS = "Không thể thay đổi trạng thái của đối tác đã bị thu hồi quyền (REVOKED)";
     public static final String STAFF_ALREADY_EXISTS = "Nhân viên này đã thuộc công ty của bạn";
     public static final String STAFF_BELONGS_TO_OTHER_VENDOR = "Nhân viên này đang thuộc một công ty khác";
@@ -302,6 +311,8 @@ public class MessageConstant {
     public static final String MATCHING_GROUP_CANNOT_BE_DISBANDED = "Chỉ có thể giải tán nhóm ghép đang OPEN hoặc FULL";
 
     public static final String MATCHING_TOUR_ID_REQUIRED = "Mã tour không được để trống";
+    public static final String MATCHING_GROUP_SOURCE_TYPE_REQUIRED = "Loại nguồn của nhóm không được để trống";
+    public static final String MATCHING_GROUP_SOURCE_INVALID = "Nhóm phải dùng đúng một nguồn: Tour hoặc Custom Journey";
     public static final String MATCHING_GROUP_NAME_REQUIRED = "Tên nhóm ghép không được để trống";
     public static final String MATCHING_GROUP_NAME_SIZE = "Tên nhóm ghép phải từ 3 đến 100 ký tự";
     public static final String MATCHING_GROUP_DESCRIPTION_MAX_LENGTH = "Mô tả nhóm ghép không được vượt quá 2000 ký tự";
@@ -310,15 +321,65 @@ public class MessageConstant {
     public static final String MATCHING_GROUP_MAX_SIZE_MAX = "Số lượng thành viên tối đa không vượt quá 100 người";
     public static final String MATCHING_TARGET_DATE_REQUIRED = "Ngày đi mong muốn không được để trống";
     public static final String MATCHING_DEADLINE_REQUIRED = "Hạn chót ghép nhóm không được để trống";
-    public static final String MATCHING_TOUR_NOT_APPROVED = "Chỉ có thể tạo nhóm ghép cho Tour đã duyệt";
-    public static final String MATCHING_GROUP_SIZE_EXCEEDS_TOUR_CAPACITY = "Số thành viên tối đa của nhóm vượt quá sức chứa của Tour";
+    public static final String MATCHING_SCHEDULED_START_REQUIRED = "Thời điểm khởi hành dự kiến không được để trống";
+    public static final String MATCHING_SCHEDULED_START_FUTURE = "Thời điểm khởi hành dự kiến phải ở tương lai";
+    public static final String MATCHING_TOUR_NOT_APPROVED = "Chỉ có thể tạo nhóm ghép cho Tour đang công khai";
+    public static final String MATCHING_GROUP_SIZE_EXCEEDS_TOUR_CAPACITY = "Quy mô nhóm phải nằm trong khoảng sức chứa tối thiểu và tối đa của Tour";
     public static final String MATCHING_TOUR_NOT_AVAILABLE = "Tour của nhóm ghép không còn công khai";
     public static final String MATCHING_OWNER_CANNOT_JOIN = "Trưởng nhóm không thể gửi yêu cầu tham gia nhóm của chính mình";
     public static final String MATCHING_TARGET_DATE_PASSED = "Ngày dự kiến đi của nhóm đã đến hoặc đã qua";
+    public static final String CUSTOM_JOURNEY_TITLE_REQUIRED = "Tên Custom Journey không được để trống";
+    public static final String CUSTOM_JOURNEY_TITLE_MAX_LENGTH = "Tên Custom Journey không được vượt quá 200 ký tự";
+    public static final String CUSTOM_JOURNEY_DESCRIPTION_MAX_LENGTH = "Mô tả Custom Journey không được vượt quá 2000 ký tự";
+    public static final String CUSTOM_JOURNEY_DIFFICULTY_REQUIRED = "Độ khó Custom Journey không được để trống";
+    public static final String CUSTOM_JOURNEY_START_DATE_REQUIRED = "Ngày bắt đầu Custom Journey không được để trống";
+    public static final String CUSTOM_JOURNEY_END_DATE_REQUIRED = "Ngày kết thúc Custom Journey không được để trống";
+    public static final String CUSTOM_JOURNEY_DATE_INVALID = "Ngày kết thúc Custom Journey phải bằng hoặc sau ngày bắt đầu";
+    public static final String CUSTOM_JOURNEY_TARGET_DATE_MISMATCH = "Ngày bắt đầu Custom Journey phải trùng ngày đi dự kiến của nhóm";
+    public static final String DUPLICATE_MATCHING_GROUP = "Yêu cầu tạo nhóm bị trùng với một nhóm đã tồn tại";
     public static final String MATCHING_JOIN_REQUEST_PAGE_MIN = "Số trang không được nhỏ hơn 0";
     public static final String MATCHING_JOIN_REQUEST_SIZE_RANGE = "Số phần tử mỗi trang phải từ 1 đến 50";
     public static final String INVALID_JOIN_REQUEST_FILTER_STATUS = "Danh sách yêu cầu tham gia chỉ hỗ trợ trạng thái PENDING hoặc REJECTED";
     public static final String INVALID_JOIN_REQUEST_PAGINATION = "Phân trang yêu cầu tham gia không hợp lệ";
+    public static final String CROSS_GROUP_ACTION_NOT_ALLOWED = "Hành động không hợp lệ do các thực thể không thuộc cùng nhóm ghép";
+    public static final String SELF_REVIEW_NOT_ALLOWED = "Bạn không thể tự đánh giá chính mình trong chuyến đi";
+    public static final String SINGLE_LEADER_VIOLATION = "Nhóm ghép phải duy trì đúng một Trưởng nhóm (Leader) hoạt động";
+    public static final String MATCHING_GROUP_UPDATED_SUCCESS = "Cập nhật thông tin nhóm ghép thành công";
+    public static final String MATCHING_GROUP_HIDDEN_SUCCESS = "Ẩn nhóm ghép khỏi tìm kiếm công khai thành công";
+    public static final String MATCHING_GROUP_SHOWN_SUCCESS = "Hiển thị lại nhóm ghép thành công";
+    public static final String MATCHING_GROUP_CLOSED_SUCCESS = "Đóng tuyển thành viên nhóm ghép thành công";
+    public static final String MATCHING_GROUP_OPENED_SUCCESS = "Mở lại tuyển thành viên nhóm ghép thành công";
+    public static final String MATCHING_GROUP_UNAUTHORIZED_MANAGE = "Bạn không có quyền quản trị hoặc chỉnh sửa nhóm này";
+    public static final String MATCHING_GROUP_INVALID_STATE = "Trạng thái hiện tại của nhóm không cho phép thực hiện thao tác này";
+    public static final String MATCHING_GROUP_CAPACITY_LESS_THAN_ACTIVE_MEMBERS = "Sức chứa tối đa không thể nhỏ hơn số lượng thành viên đang tham gia nhóm";
+    public static final String JOURNEY_LOCKED = "Hành trình Custom Journey đã bị khóa và không thể chỉnh sửa";
+    public static final String JOURNEY_NOT_FOUND = "Hành trình Custom Journey không tồn tại";
+    public static final String CUSTOM_JOURNEY_CHECKPOINT_NOT_FOUND = "Điểm dừng checkpoint không tồn tại";
+    public static final String CHECKPOINT_ORDER_DUPLICATED = "Thứ tự điểm dừng đã tồn tại trong hành trình này";
+    public static final String CHECKPOINT_TIME_INVALID = "Thời gian kết thúc điểm dừng phải sau hoặc bằng thời gian bắt đầu";
+    public static final String CHECKLIST_ITEM_NOT_FOUND = "Mục checklist không tồn tại";
+    public static final String POST_NOT_FOUND = "Bài đăng không tồn tại";
+    public static final String ASSIGNEE_NOT_IN_GROUP = "Thành viên được phân công không thuộc nhóm này hoặc không ở trạng thái hoạt động";
+    public static final String UNAUTHORIZED_WORKSPACE_ACCESS = "Bạn không có quyền truy cập không gian làm việc của nhóm này";
+    public static final String UNAUTHORIZED_POST_ACTION = "Bạn không có quyền chỉnh sửa hoặc xoá bài đăng này";
+    public static final String UNAUTHORIZED_COMMENT_ACTION = "Bạn không có quyền chỉnh sửa hoặc xoá bình luận này";
+    public static final String UNAUTHORIZED_CHECKLIST_ACTION = "Bạn không có quyền thao tác trên mục checklist này";
+    public static final String JOURNEY_UPDATED_SUCCESS = "Cập nhật thông tin hành trình thành công";
+    public static final String CHECKPOINT_CREATED_SUCCESS = "Thêm điểm dừng hành trình thành công";
+    public static final String CHECKPOINT_UPDATED_SUCCESS = "Cập nhật điểm dừng hành trình thành công";
+    public static final String CHECKPOINT_DELETED_SUCCESS = "Xoá điểm dừng hành trình thành công";
+    public static final String CHECKLIST_ITEM_CREATED_SUCCESS = "Tạo mục checklist thành công";
+    public static final String CHECKLIST_ITEM_UPDATED_SUCCESS = "Cập nhật mục checklist thành công";
+    public static final String CHECKLIST_ITEM_STATUS_UPDATED_SUCCESS = "Cập nhật trạng thái mục checklist thành công";
+    public static final String CHECKLIST_ITEM_DELETED_SUCCESS = "Xoá mục checklist thành công";
+    public static final String POST_CREATED_SUCCESS = "Tạo bài đăng thành công";
+    public static final String POST_UPDATED_SUCCESS = "Cập nhật bài đăng thành công";
+    public static final String POST_DELETED_SUCCESS = "Xoá bài đăng thành công";
+    public static final String POST_HIDDEN_SUCCESS = "Ẩn bài đăng thành công";
+    public static final String COMMENT_CREATED_SUCCESS = "Tạo bình luận thành công";
+    public static final String COMMENT_UPDATED_SUCCESS = "Cập nhật bình luận thành công";
+    public static final String COMMENT_DELETED_SUCCESS = "Xoá bình luận thành công";
+    public static final String COMMENT_HIDDEN_SUCCESS = "Ẩn bình luận thành công";
 
     // Schedule Messages
     public static final String SCHEDULE_NOT_FOUND = "Lịch khởi hành không tồn tại";
@@ -494,6 +555,7 @@ public class MessageConstant {
     public static final String CONVERSATION_PARTICIPANTS_REQUIRED = "Danh sách người tham gia không được để trống";
     public static final String MESSAGE_CONVERSATION_ID_REQUIRED = "Mã cuộc hội thoại không được để trống";
     public static final String MESSAGE_CONTENT_REQUIRED = "Nội dung tin nhắn không được để trống";
+    public static final String MESSAGE_ATTACHMENT_NOT_FOUND = "Không tìm thấy file đính kèm của tin nhắn";
     public static final String DIRECT_PARTICIPANT_COUNT_INVALID = "Cuộc hội thoại 1-1 phải có đúng một người nhận";
     public static final String GROUP_PARTICIPANT_COUNT_INVALID = "Cuộc hội thoại nhóm phải có ít nhất hai người tham gia";
     public static final String GROUP_TITLE_REQUIRED = "Tên cuộc hội thoại nhóm không được để trống";
@@ -520,6 +582,9 @@ public class MessageConstant {
     public static final String NOTIFICATIONS_MARKED_ALL_READ_SUCCESS = "Đánh dấu tất cả thông báo đã đọc thành công";
     public static final String NOTIFICATION_DELETED_SUCCESS = "Xóa thông báo thành công";
     public static final String NOTIFICATION_NOT_FOUND = "Thông báo không tồn tại";
+
+    // Matching & Hiking Profile Messages
+    public static final String PUBLIC_HIKING_SUMMARY_FETCHED_SUCCESS = "Lấy hồ sơ leo núi công khai thành công";
 }
 
 
