@@ -2,12 +2,16 @@ package com.sep.treksphere.matching.service.impl;
 
 import com.sep.treksphere.common.exception.AppException;
 import com.sep.treksphere.common.exception.ErrorCode;
+import com.sep.treksphere.matching.dto.request.CustomJourneyActivityCreateRequest;
+import com.sep.treksphere.matching.dto.request.CustomJourneyActivityUpdateRequest;
 import com.sep.treksphere.matching.dto.request.CustomJourneyCheckpointCreateRequest;
 import com.sep.treksphere.matching.dto.request.CustomJourneyCheckpointUpdateRequest;
 import com.sep.treksphere.matching.dto.request.CustomJourneyUpdateRequest;
+import com.sep.treksphere.matching.dto.response.CustomJourneyActivityResponse;
 import com.sep.treksphere.matching.dto.response.CustomJourneyCheckpointResponse;
 import com.sep.treksphere.matching.dto.response.CustomJourneyDetailResponse;
 import com.sep.treksphere.matching.entity.CustomJourney;
+import com.sep.treksphere.matching.entity.CustomJourneyActivity;
 import com.sep.treksphere.matching.entity.CustomJourneyCheckpoint;
 import com.sep.treksphere.matching.entity.MatchingGroup;
 import com.sep.treksphere.matching.entity.MatchingMember;
@@ -15,6 +19,7 @@ import com.sep.treksphere.matching.enums.JoinStatus;
 import com.sep.treksphere.matching.enums.MatchingGroupStatus;
 import com.sep.treksphere.matching.enums.MatchingRole;
 import com.sep.treksphere.matching.mapper.CustomJourneyMapper;
+import com.sep.treksphere.matching.repository.CustomJourneyActivityRepository;
 import com.sep.treksphere.matching.repository.CustomJourneyCheckpointRepository;
 import com.sep.treksphere.matching.repository.CustomJourneyRepository;
 import com.sep.treksphere.matching.repository.MatchingGroupRepository;
@@ -26,8 +31,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
+import java.time.temporal.ChronoUnit;
 import java.util.List;
-import java.util.Optional;
 import java.util.UUID;
 
 @Slf4j
@@ -37,6 +42,7 @@ public class CustomJourneyServiceImpl implements CustomJourneyService {
 
     private final CustomJourneyRepository customJourneyRepository;
     private final CustomJourneyCheckpointRepository checkpointRepository;
+    private final CustomJourneyActivityRepository activityRepository;
     private final MatchingGroupRepository matchingGroupRepository;
     private final MatchingMemberRepository matchingMemberRepository;
     private final CustomJourneyMapper customJourneyMapper;
@@ -123,6 +129,8 @@ public class CustomJourneyServiceImpl implements CustomJourneyService {
             throw new AppException(ErrorCode.CHECKPOINT_TIME_INVALID);
         }
 
+        validateDayNoWithinJourney(journey, request.getDayNo());
+
         CustomJourneyCheckpoint checkpoint = customJourneyMapper.toCheckpointEntity(request);
         checkpoint.setCustomJourney(journey);
 
@@ -143,6 +151,9 @@ public class CustomJourneyServiceImpl implements CustomJourneyService {
                 .orElseThrow(() -> new AppException(ErrorCode.JOURNEY_NOT_FOUND));
 
         validateJourneyNotLocked(journey);
+        if (request.getDayNo() != null) {
+            validateDayNoWithinJourney(journey, request.getDayNo());
+        }
 
         CustomJourneyCheckpoint checkpoint = checkpointRepository
                 .findByCustomJourneyCheckpointIdAndCustomJourney_CustomJourneyIdAndIsDeletedFalse(checkpointId, journey.getCustomJourneyId())
@@ -187,6 +198,126 @@ public class CustomJourneyServiceImpl implements CustomJourneyService {
         log.info("Deleted checkpoint {} in custom journey {}", checkpointId, journey.getCustomJourneyId());
     }
 
+    @Override
+    @Transactional(readOnly = true)
+    public List<CustomJourneyActivityResponse> getActivities(UUID groupId, UUID currentUserId) {
+        MatchingGroup group = getGroupOrThrow(groupId);
+        validateReadPermission(group, currentUserId);
+
+        CustomJourney journey = customJourneyRepository.findByMatchingGroup_MatchingGroupIdAndIsDeletedFalse(groupId)
+                .orElseThrow(() -> new AppException(ErrorCode.JOURNEY_NOT_FOUND));
+
+        List<CustomJourneyActivity> activities = activityRepository
+                .findByCustomJourney_CustomJourneyIdAndIsDeletedFalseOrderByDayNoAscTimeSlotAscActivityOrderAsc(journey.getCustomJourneyId());
+
+        return activities.stream()
+                .map(customJourneyMapper::toActivityResponse)
+                .toList();
+    }
+
+    @Override
+    @Transactional
+    public CustomJourneyActivityResponse createActivity(
+            UUID groupId, CustomJourneyActivityCreateRequest request, UUID currentUserId) {
+        MatchingGroup group = getGroupOrThrow(groupId);
+        validateLeaderPermission(group, currentUserId);
+
+        CustomJourney journey = customJourneyRepository.findByMatchingGroup_MatchingGroupIdAndIsDeletedFalse(groupId)
+                .orElseThrow(() -> new AppException(ErrorCode.JOURNEY_NOT_FOUND));
+
+        validateJourneyNotLocked(journey);
+        validateDayNoWithinJourney(journey, request.getDayNo());
+
+        if (activityRepository.existsByCustomJourney_CustomJourneyIdAndDayNoAndTimeSlotAndActivityOrderAndIsDeletedFalse(
+                journey.getCustomJourneyId(), request.getDayNo(), request.getTimeSlot(), request.getActivityOrder())) {
+            throw new AppException(ErrorCode.ACTIVITY_ORDER_DUPLICATED);
+        }
+
+        validateTimeOrder(request.getPlannedStartAt(), request.getPlannedEndAt());
+
+        CustomJourneyActivity activity = customJourneyMapper.toActivityEntity(request);
+        activity.setCustomJourney(journey);
+
+        if (request.getCustomJourneyCheckpointId() != null) {
+            CustomJourneyCheckpoint checkpoint = checkpointRepository
+                    .findByCustomJourneyCheckpointIdAndCustomJourney_CustomJourneyIdAndIsDeletedFalse(
+                            request.getCustomJourneyCheckpointId(), journey.getCustomJourneyId())
+                    .orElseThrow(() -> new AppException(ErrorCode.CUSTOM_JOURNEY_CHECKPOINT_NOT_FOUND));
+            activity.setCheckpoint(checkpoint);
+        }
+
+        CustomJourneyActivity saved = activityRepository.save(activity);
+        log.info("Created activity {} for custom journey {}", saved.getCustomJourneyActivityId(), journey.getCustomJourneyId());
+
+        return customJourneyMapper.toActivityResponse(saved);
+    }
+
+    @Override
+    @Transactional
+    public CustomJourneyActivityResponse updateActivity(
+            UUID groupId, UUID activityId, CustomJourneyActivityUpdateRequest request, UUID currentUserId) {
+        MatchingGroup group = getGroupOrThrow(groupId);
+        validateLeaderPermission(group, currentUserId);
+
+        CustomJourney journey = customJourneyRepository.findByMatchingGroup_MatchingGroupIdAndIsDeletedFalse(groupId)
+                .orElseThrow(() -> new AppException(ErrorCode.JOURNEY_NOT_FOUND));
+
+        validateJourneyNotLocked(journey);
+        if (request.getDayNo() != null) {
+            validateDayNoWithinJourney(journey, request.getDayNo());
+        }
+
+        CustomJourneyActivity activity = activityRepository
+                .findByCustomJourneyActivityIdAndCustomJourney_CustomJourneyIdAndIsDeletedFalse(activityId, journey.getCustomJourneyId())
+                .orElseThrow(() -> new AppException(ErrorCode.CUSTOM_JOURNEY_ACTIVITY_NOT_FOUND));
+
+        if (activityRepository.existsByCustomJourney_CustomJourneyIdAndDayNoAndTimeSlotAndActivityOrderAndCustomJourneyActivityIdNotAndIsDeletedFalse(
+                journey.getCustomJourneyId(), request.getDayNo(), request.getTimeSlot(), request.getActivityOrder(), activityId)) {
+            throw new AppException(ErrorCode.ACTIVITY_ORDER_DUPLICATED);
+        }
+
+        var plannedStart = request.getPlannedStartAt() != null ? request.getPlannedStartAt() : activity.getPlannedStartAt();
+        var plannedEnd = request.getPlannedEndAt() != null ? request.getPlannedEndAt() : activity.getPlannedEndAt();
+        validateTimeOrder(plannedStart, plannedEnd);
+
+        customJourneyMapper.updateActivityFromRequest(request, activity);
+
+        if (request.getCustomJourneyCheckpointId() != null) {
+            CustomJourneyCheckpoint checkpoint = checkpointRepository
+                    .findByCustomJourneyCheckpointIdAndCustomJourney_CustomJourneyIdAndIsDeletedFalse(
+                            request.getCustomJourneyCheckpointId(), journey.getCustomJourneyId())
+                    .orElseThrow(() -> new AppException(ErrorCode.CUSTOM_JOURNEY_CHECKPOINT_NOT_FOUND));
+            activity.setCheckpoint(checkpoint);
+        } else {
+            activity.setCheckpoint(null);
+        }
+
+        CustomJourneyActivity saved = activityRepository.save(activity);
+        log.info("Updated activity {} in custom journey {}", activityId, journey.getCustomJourneyId());
+
+        return customJourneyMapper.toActivityResponse(saved);
+    }
+
+    @Override
+    @Transactional
+    public void deleteActivity(UUID groupId, UUID activityId, UUID currentUserId) {
+        MatchingGroup group = getGroupOrThrow(groupId);
+        validateLeaderPermission(group, currentUserId);
+
+        CustomJourney journey = customJourneyRepository.findByMatchingGroup_MatchingGroupIdAndIsDeletedFalse(groupId)
+                .orElseThrow(() -> new AppException(ErrorCode.JOURNEY_NOT_FOUND));
+
+        validateJourneyNotLocked(journey);
+
+        CustomJourneyActivity activity = activityRepository
+                .findByCustomJourneyActivityIdAndCustomJourney_CustomJourneyIdAndIsDeletedFalse(activityId, journey.getCustomJourneyId())
+                .orElseThrow(() -> new AppException(ErrorCode.CUSTOM_JOURNEY_ACTIVITY_NOT_FOUND));
+
+        activity.setIsDeleted(true);
+        activityRepository.save(activity);
+        log.info("Deleted activity {} in custom journey {}", activityId, journey.getCustomJourneyId());
+    }
+
     private MatchingGroup getGroupOrThrow(UUID groupId) {
         return matchingGroupRepository.findById(groupId)
                 .filter(g -> !Boolean.TRUE.equals(g.getIsDeleted()))
@@ -223,6 +354,28 @@ public class CustomJourneyServiceImpl implements CustomJourneyService {
                 group.getMatchingGroupId(), currentUserId, JoinStatus.ACCEPTED);
         if (!isAcceptedMember) {
             throw new AppException(ErrorCode.UNAUTHORIZED_WORKSPACE_ACCESS);
+        }
+    }
+
+    private void validateTimeOrder(String start, String end) {
+        if (start != null && !start.isBlank() && end != null && !end.isBlank()) {
+            if (end.trim().compareTo(start.trim()) < 0) {
+                throw new AppException(ErrorCode.CHECKPOINT_TIME_INVALID);
+            }
+        }
+    }
+
+    private void validateDayNoWithinJourney(CustomJourney journey, Integer dayNo) {
+        if (dayNo != null) {
+            if (dayNo < 1) {
+                throw new AppException(ErrorCode.CUSTOM_JOURNEY_DATE_INVALID);
+            }
+            if (journey.getStartDate() != null && journey.getEndDate() != null) {
+                long totalDays = ChronoUnit.DAYS.between(journey.getStartDate(), journey.getEndDate()) + 1;
+                if (dayNo > totalDays) {
+                    throw new AppException(ErrorCode.ACTIVITY_DAY_OUT_OF_RANGE);
+                }
+            }
         }
     }
 }

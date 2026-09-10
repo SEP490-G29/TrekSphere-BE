@@ -368,6 +368,12 @@ public class MessageConstant {
     public static final String CHECKPOINT_CREATED_SUCCESS = "Thêm điểm dừng hành trình thành công";
     public static final String CHECKPOINT_UPDATED_SUCCESS = "Cập nhật điểm dừng hành trình thành công";
     public static final String CHECKPOINT_DELETED_SUCCESS = "Xoá điểm dừng hành trình thành công";
+    public static final String CUSTOM_JOURNEY_ACTIVITY_NOT_FOUND = "Hoạt động trong thời khóa biểu hành trình không tồn tại";
+    public static final String ACTIVITY_ORDER_DUPLICATED = "Thứ tự hoạt động đã tồn tại trong buổi này";
+    public static final String ACTIVITY_DAY_OUT_OF_RANGE = "Ngày diễn ra hoạt động vượt quá tổng số ngày của hành trình";
+    public static final String ACTIVITY_CREATED_SUCCESS = "Thêm hoạt động vào thời khóa biểu thành công";
+    public static final String ACTIVITY_UPDATED_SUCCESS = "Cập nhật hoạt động thời khóa biểu thành công";
+    public static final String ACTIVITY_DELETED_SUCCESS = "Xoá hoạt động khỏi thời khóa biểu thành công";
     public static final String CHECKLIST_ITEM_CREATED_SUCCESS = "Tạo mục checklist thành công";
     public static final String CHECKLIST_ITEM_UPDATED_SUCCESS = "Cập nhật mục checklist thành công";
     public static final String CHECKLIST_ITEM_STATUS_UPDATED_SUCCESS = "Cập nhật trạng thái mục checklist thành công";
