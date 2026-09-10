@@ -21,6 +21,7 @@ import com.sep.treksphere.matching.repository.CustomJourneyRepository;
 import com.sep.treksphere.matching.repository.GroupTripRepository;
 import com.sep.treksphere.matching.repository.MatchingGroupRepository;
 import com.sep.treksphere.matching.repository.MatchingMemberRepository;
+import com.sep.treksphere.notification.NotificationService;
 import com.sep.treksphere.user.AuthProvider;
 import com.sep.treksphere.user.User;
 import com.sep.treksphere.user.UserRepository;
@@ -35,6 +36,7 @@ import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
@@ -83,6 +85,9 @@ class MatchingGroupCreateRollbackIntegrationTest {
 
     @MockitoSpyBean
     private GroupTripRepository groupTripRepository;
+
+    @MockitoBean
+    private NotificationService notificationService;
 
     @DynamicPropertySource
     static void configureDatabase(DynamicPropertyRegistry registry) {

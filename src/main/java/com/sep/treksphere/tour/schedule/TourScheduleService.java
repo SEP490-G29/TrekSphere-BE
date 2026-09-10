@@ -2,6 +2,11 @@ package com.sep.treksphere.tour.schedule;
 
 import com.sep.treksphere.common.exception.AppException;
 import com.sep.treksphere.common.exception.ErrorCode;
+import com.sep.treksphere.matching.enums.JoinStatus;
+import com.sep.treksphere.matching.repository.MatchingMemberRepository;
+import com.sep.treksphere.notification.NotificationEventType;
+import com.sep.treksphere.notification.NotificationService;
+import com.sep.treksphere.notification.ReferenceType;
 import com.sep.treksphere.tour.Tour;
 import com.sep.treksphere.tour.TourReadinessService;
 import com.sep.treksphere.tour.TourRepository;
@@ -15,6 +20,7 @@ import org.springframework.util.StringUtils;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.UUID;
 
@@ -26,6 +32,10 @@ public class TourScheduleService {
     private final TourRepository tourRepository;
     private final VendorAccessService vendorAccessService;
     private final TourReadinessService readinessService;
+    private final MatchingMemberRepository matchingMemberRepository;
+    private final NotificationService notificationService;
+
+    private static final DateTimeFormatter VN_DATE_FORMAT = DateTimeFormatter.ofPattern("dd/MM/yyyy");
 
     @Transactional(readOnly = true)
     public List<TourScheduleResponse> getUpcomingSchedules(UUID tourId) {
@@ -98,7 +108,26 @@ public class TourScheduleService {
             schedule.setCancellationReason(request.getReason().trim());
             schedule.setCancelledAt(LocalDateTime.now());
         }
-        return toResponse(tourScheduleRepository.save(schedule));
+
+        TourSchedule savedSchedule = tourScheduleRepository.save(schedule);
+
+        if (requestedStatus == ScheduleStatus.CANCELLED) {
+            notifyMatchingGroupMembersOfCancellation(savedSchedule);
+        }
+
+        return toResponse(savedSchedule);
+    }
+
+    private void notifyMatchingGroupMembersOfCancellation(TourSchedule schedule) {
+        List<UUID> memberIds = matchingMemberRepository.findAcceptedMemberUserIdsByTourAndTargetDate(
+                schedule.getTour().getTourId(), schedule.getDepartureDate(), JoinStatus.ACCEPTED);
+
+        notificationService.notify(
+                memberIds,
+                NotificationEventType.SCHEDULE_UPDATED,
+                ReferenceType.TOUR, schedule.getTour().getTourId(),
+                "/trekker/my-groups",
+                schedule.getTour().getTourName(), schedule.getDepartureDate().format(VN_DATE_FORMAT));
     }
 
     @Transactional

@@ -6,6 +6,9 @@ import com.sep.treksphere.common.exception.AppException;
 import com.sep.treksphere.common.exception.ErrorCode;
 import com.sep.treksphere.common.security.CustomUserDetails;
 import com.sep.treksphere.file.FileService;
+import com.sep.treksphere.notification.NotificationEventType;
+import com.sep.treksphere.notification.NotificationService;
+import com.sep.treksphere.notification.ReferenceType;
 import com.sep.treksphere.vendor.application.VendorApplicationRepository;
 import com.sep.treksphere.tour.TourRepository;
 import com.sep.treksphere.tour.TourStatus;
@@ -28,6 +31,7 @@ public class VendorService {
     private final VendorApplicationRepository vendorApplicationRepository;
     private final FileService fileService;
     private final VendorMapper vendorMapper;
+    private final NotificationService notificationService;
     private final VendorAccessService vendorAccessService;
     private final TourRepository tourRepository;
 
@@ -136,6 +140,13 @@ public class VendorService {
         vendor.setStatus(targetStatus);
         vendor = vendorRepository.save(vendor);
         log.info("Successfully updated status for vendor ID: {}", id);
+
+        notificationService.notify(
+                vendor.getManager().getUserId(),
+                NotificationEventType.VENDOR_STATUS_CHANGED,
+                ReferenceType.VENDOR, vendor.getVendorId(),
+                "/vendor/profile",
+                vendor.getStatus().name());
 
         return vendorMapper.toVendorResponse(vendor);
     }

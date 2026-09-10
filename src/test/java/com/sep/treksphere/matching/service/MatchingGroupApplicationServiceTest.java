@@ -28,6 +28,7 @@ import com.sep.treksphere.matching.repository.GroupTripRepository;
 import com.sep.treksphere.matching.repository.MatchingGroupRepository;
 import com.sep.treksphere.matching.repository.MatchingMemberRepository;
 import com.sep.treksphere.matching.service.impl.MatchingGroupServiceImpl;
+import com.sep.treksphere.notification.NotificationService;
 import com.sep.treksphere.tour.DifficultyLevel;
 import com.sep.treksphere.tour.Tour;
 import com.sep.treksphere.tour.TourRepository;
@@ -90,6 +91,9 @@ class MatchingGroupApplicationServiceTest {
 
     @Mock
     private ApplicationEventPublisher eventPublisher;
+
+    @Mock
+    private NotificationService notificationService;
 
     @Spy
     private MatchingGroupMapper matchingGroupMapper = Mappers.getMapper(MatchingGroupMapper.class);

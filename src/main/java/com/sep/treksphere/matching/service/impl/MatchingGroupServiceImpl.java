@@ -35,6 +35,9 @@ import com.sep.treksphere.matching.repository.GroupTripRepository;
 import com.sep.treksphere.matching.repository.MatchingGroupRepository;
 import com.sep.treksphere.matching.repository.MatchingMemberRepository;
 import com.sep.treksphere.matching.service.MatchingGroupService;
+import com.sep.treksphere.notification.NotificationEventType;
+import com.sep.treksphere.notification.NotificationService;
+import com.sep.treksphere.notification.ReferenceType;
 import com.sep.treksphere.tour.Tour;
 import com.sep.treksphere.tour.TourRepository;
 import com.sep.treksphere.tour.TourStatus;
@@ -75,6 +78,7 @@ public class MatchingGroupServiceImpl implements MatchingGroupService {
     private final UserRepository userRepository;
     private final MatchingGroupMapper matchingGroupMapper;
     private final ApplicationEventPublisher eventPublisher;
+    private final NotificationService notificationService;
 
     @Override
     @Transactional(readOnly = true)
@@ -482,6 +486,13 @@ public class MatchingGroupServiceImpl implements MatchingGroupService {
 
         GroupJoinApplication savedApp = groupJoinApplicationRepository.save(application);
 
+        notificationService.notify(
+                matchingGroup.getOwner().getUserId(),
+                NotificationEventType.GROUP_JOIN_REQUEST,
+                ReferenceType.MATCHING_GROUP, matchingGroup.getMatchingGroupId(),
+                "/trekker/my-groups/" + matchingGroup.getMatchingGroupId(),
+                currentUser.getFullName(), matchingGroup.getGroupName());
+
         return matchingGroupMapper.toMemberResponse(savedApp);
     }
 
@@ -614,6 +625,13 @@ public class MatchingGroupServiceImpl implements MatchingGroupService {
         MatchingMember savedMember = matchingMemberRepository.save(member);
         matchingGroupRepository.save(matchingGroup);
 
+        notificationService.notify(
+                application.getApplicant().getUserId(),
+                NotificationEventType.GROUP_MEMBER_APPROVED,
+                ReferenceType.MATCHING_GROUP, matchingGroup.getMatchingGroupId(),
+                "/trekker/my-groups/" + matchingGroup.getMatchingGroupId(),
+                matchingGroup.getGroupName());
+
         MatchingMemberResponse response = matchingGroupMapper.toMemberResponse(savedMember);
         response.setApplicationId(application.getApplicationId());
         return response;
@@ -654,6 +672,13 @@ public class MatchingGroupServiceImpl implements MatchingGroupService {
         application.setReviewedAt(LocalDateTime.now());
 
         GroupJoinApplication savedApp = groupJoinApplicationRepository.save(application);
+
+        notificationService.notify(
+                application.getApplicant().getUserId(),
+                NotificationEventType.GROUP_MEMBER_REJECTED,
+                ReferenceType.MATCHING_GROUP, matchingGroup.getMatchingGroupId(),
+                "/trekker/my-groups",
+                matchingGroup.getGroupName());
 
         return matchingGroupMapper.toMemberResponse(savedApp);
     }
@@ -729,6 +754,13 @@ public class MatchingGroupServiceImpl implements MatchingGroupService {
 
         MatchingMember savedMember = matchingMemberRepository.save(member);
 
+        notificationService.notify(
+                matchingGroup.getOwner().getUserId(),
+                NotificationEventType.GROUP_MEMBER_LEFT,
+                ReferenceType.MATCHING_GROUP, matchingGroup.getMatchingGroupId(),
+                "/trekker/my-groups/" + matchingGroup.getMatchingGroupId(),
+                currentUser.getFullName(), matchingGroup.getGroupName());
+
         return matchingGroupMapper.toMemberResponse(savedMember);
     }
 
@@ -748,6 +780,15 @@ public class MatchingGroupServiceImpl implements MatchingGroupService {
             throw new AppException(ErrorCode.MATCHING_GROUP_CANNOT_BE_DISBANDED);
         }
 
+        List<UUID> memberIdsToNotify = matchingGroup.getMembers() == null
+                ? List.of()
+                : matchingGroup.getMembers().stream()
+                        .filter(member -> member.getStatus() == JoinStatus.ACCEPTED
+                                && !Boolean.TRUE.equals(member.getIsDeleted())
+                                && !member.getUser().getUserId().equals(currentUser.getUserId()))
+                        .map(member -> member.getUser().getUserId())
+                        .toList();
+
         LocalDateTime deletedAt = LocalDateTime.now();
         String deletedBy = currentUser.getUserId().toString();
         matchingGroup.setIsDeleted(true);
@@ -765,6 +806,13 @@ public class MatchingGroupServiceImpl implements MatchingGroupService {
 
         matchingGroupRepository.save(matchingGroup);
         log.info("Matching group disbanded successfully: groupId={}", groupId);
+
+        notificationService.notify(
+                memberIdsToNotify,
+                NotificationEventType.GROUP_DISBANDED,
+                ReferenceType.MATCHING_GROUP, matchingGroup.getMatchingGroupId(),
+                "/trekker/my-groups",
+                matchingGroup.getGroupName());
     }
 
     private void validateGroupOpenAndActive(MatchingGroup matchingGroup) {

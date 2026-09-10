@@ -8,6 +8,9 @@ import com.sep.treksphere.common.security.CustomUserDetails;
 import com.sep.treksphere.file.FileService;
 import com.sep.treksphere.file.StoredFile;
 import com.sep.treksphere.file.UploadPolicy;
+import com.sep.treksphere.notification.NotificationEventType;
+import com.sep.treksphere.notification.NotificationService;
+import com.sep.treksphere.notification.ReferenceType;
 import com.sep.treksphere.user.User;
 import lombok.RequiredArgsConstructor;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
@@ -18,6 +21,7 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 import org.springframework.util.StringUtils;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.util.List;
 import java.util.UUID;
 
 @Service
@@ -28,6 +32,7 @@ public class MessageService {
     private final ConversationRepository conversationRepository;
     private final FileService fileService;
     private final SimpMessagingTemplate messagingTemplate;
+    private final NotificationService notificationService;
 
     @Transactional
     public MessageResponse sendText(MessageCreateRequest request, CustomUserDetails userDetails) {
@@ -128,6 +133,31 @@ public class MessageService {
                         response);
             }
         });
+        notifyOtherParticipants(conversation, saved);
         return response;
+    }
+
+    private void notifyOtherParticipants(Conversation conversation, Message message) {
+        User sender = message.getSender();
+        List<UUID> recipientIds = conversation.getParticipants().stream()
+                .map(User::getUserId)
+                .filter(userId -> !userId.equals(sender.getUserId()))
+                .toList();
+
+        String excerpt;
+        if (message.getMessageType() == MessageType.IMAGE) {
+            excerpt = "đã gửi một hình ảnh";
+        } else if (message.getMessageType() == MessageType.FILE) {
+            excerpt = "đã gửi một tệp đính kèm";
+        } else {
+            String content = message.getContent();
+            excerpt = (content != null && content.length() > 80) ? content.substring(0, 80) + "..." : content;
+        }
+
+        notificationService.notify(
+                recipientIds,
+                NotificationEventType.NEW_MESSAGE,
+                ReferenceType.CONVERSATION, conversation.getConversationId(), "/chat",
+                sender.getFullName(), excerpt);
     }
 }

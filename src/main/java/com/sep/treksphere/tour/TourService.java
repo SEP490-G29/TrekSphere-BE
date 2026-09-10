@@ -9,9 +9,8 @@ import com.sep.treksphere.common.util.PaginationUtils;
 import com.sep.treksphere.file.FileService;
 import com.sep.treksphere.matching.enums.MatchingGroupStatus;
 import com.sep.treksphere.matching.repository.MatchingGroupRepository;
-import com.sep.treksphere.notification.Notification;
 import com.sep.treksphere.notification.NotificationEventType;
-import com.sep.treksphere.notification.NotificationRepository;
+import com.sep.treksphere.notification.NotificationService;
 import com.sep.treksphere.notification.ReferenceType;
 import com.sep.treksphere.tour.checkpoint.TourCheckpoint;
 import com.sep.treksphere.tour.checkpoint.TourCheckpointRepository;
@@ -70,7 +69,7 @@ public class TourService {
     private final TourImageRepository tourImageRepository;
     private final TourCheckpointRepository tourCheckpointRepository;
     private final TourScheduleRepository tourScheduleRepository;
-    private final NotificationRepository notificationRepository;
+    private final NotificationService notificationService;
     private final MatchingGroupRepository matchingGroupRepository;
     private final UserRepository userRepository;
     private final TourMapper tourMapper;
@@ -265,7 +264,14 @@ public class TourService {
         tour.setHiddenAt(LocalDateTime.now());
         tour.setHiddenBy(admin);
         tourRepository.save(tour);
-        notifyTourHidden(tour, reason.trim());
+
+        notificationService.notify(
+                tour.getVendor().getManager().getUserId(),
+                NotificationEventType.TOUR_HIDDEN_VIOLATION,
+                ReferenceType.TOUR, tour.getTourId(),
+                "/vendor/tours/" + tour.getTourId(),
+                tour.getTourName(), reason.trim());
+
         return loadVendorDetail(tour);
     }
 
@@ -284,6 +290,14 @@ public class TourService {
             tour.setPublishedAt(LocalDateTime.now());
         }
         tourRepository.save(tour);
+
+        notificationService.notify(
+                tour.getVendor().getManager().getUserId(),
+                NotificationEventType.TOUR_UNHIDDEN,
+                ReferenceType.TOUR, tour.getTourId(),
+                "/vendor/tours/" + tour.getTourId(),
+                tour.getTourName());
+
         return loadVendorDetail(tour);
     }
 
@@ -396,17 +410,6 @@ public class TourService {
             images.add(image);
         }
         tourImageRepository.saveAll(images);
-    }
-
-    private void notifyTourHidden(Tour tour, String reason) {
-        Notification notification = new Notification();
-        notification.setRecipient(tour.getVendor().getManager());
-        notification.setTitle("Tour bị ẩn do vi phạm");
-        notification.setEventType(NotificationEventType.TOUR_HIDDEN_VIOLATION);
-        notification.setContent("Tour \"" + tour.getTourName() + "\" đã bị ẩn. Lý do: " + reason);
-        notification.setReferenceType(ReferenceType.TOUR);
-        notification.setReferenceId(tour.getTourId());
-        notificationRepository.save(notification);
     }
 
     private BigDecimal minPriceOf(List<TourSchedule> schedules) {

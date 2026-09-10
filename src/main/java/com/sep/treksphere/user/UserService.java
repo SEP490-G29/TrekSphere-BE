@@ -5,6 +5,9 @@ import com.sep.treksphere.common.dto.PaginationResponse;
 import com.sep.treksphere.common.exception.AppException;
 import com.sep.treksphere.common.exception.ErrorCode;
 import com.sep.treksphere.file.FileService;
+import com.sep.treksphere.notification.NotificationEventType;
+import com.sep.treksphere.notification.NotificationService;
+import com.sep.treksphere.notification.ReferenceType;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.stereotype.Service;
@@ -23,6 +26,7 @@ public class UserService {
     private final UserRepository userRepository;
     private final UserMapper userMapper;
     private final FileService fileService;
+    private final NotificationService notificationService;
 
     @Transactional(readOnly = true)
     public UserProfileResponse getUserProfile(String email) {
@@ -155,5 +159,12 @@ public class UserService {
 
         user.setStatus(status);
         userRepository.save(user);
+
+        notificationService.notify(
+                user.getUserId(),
+                NotificationEventType.USER_STATUS_CHANGED,
+                ReferenceType.USER, user.getUserId(),
+                "/profile",
+                status == UserStatus.ACTIVE ? "được kích hoạt lại" : "bị vô hiệu hoá");
     }
 }

@@ -12,6 +12,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -100,6 +101,24 @@ public interface MatchingMemberRepository extends JpaRepository<MatchingMember, 
             @Param("userId") UUID userId,
             @Param("status") JoinStatus status,
             Pageable pageable
+    );
+
+    /**
+     * MatchingGroup không có FK trực tiếp tới TourSchedule (chỉ có tour + targetDate),
+     * nên nhóm nào "gắn" với 1 lịch khởi hành được xác định gián tiếp qua cặp (tour, targetDate = departureDate).
+     */
+    @Query("""
+        SELECT DISTINCT mm.user.userId FROM MatchingMember mm
+        WHERE mm.matchingGroup.tour.tourId = :tourId
+          AND mm.matchingGroup.targetDate = :targetDate
+          AND mm.status = :status
+          AND mm.isDeleted = false
+          AND mm.matchingGroup.isDeleted = false
+    """)
+    List<UUID> findAcceptedMemberUserIdsByTourAndTargetDate(
+            @Param("tourId") UUID tourId,
+            @Param("targetDate") LocalDate targetDate,
+            @Param("status") JoinStatus status
     );
 }
 

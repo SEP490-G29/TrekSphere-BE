@@ -17,6 +17,9 @@ import com.sep.treksphere.common.exception.AppException;
 import com.sep.treksphere.common.exception.ErrorCode;
 import com.sep.treksphere.matching.repository.MatchingGroupRepository;
 import com.sep.treksphere.chat.message.MessageRepository;
+import com.sep.treksphere.notification.NotificationEventType;
+import com.sep.treksphere.notification.NotificationService;
+import com.sep.treksphere.notification.ReferenceType;
 import com.sep.treksphere.user.UserRepository;
 import com.sep.treksphere.common.security.CustomUserDetails;
 import com.sep.treksphere.vendor.Vendor;
@@ -40,6 +43,7 @@ public class ConversationService {
     private final MessageRepository messageRepository;
     private final UserRepository userRepository;
     private final MatchingGroupRepository matchingGroupRepository;
+    private final NotificationService notificationService;
     private final MessageService messageService;
     private final VendorRepository vendorRepository;
 
@@ -301,6 +305,12 @@ public class ConversationService {
 
         conversation.getParticipants().add(memberToAdd);
         conversationRepository.save(conversation);
+
+        notificationService.notify(
+                memberToAdd.getUserId(),
+                NotificationEventType.CONVERSATION_MEMBER_ADDED,
+                ReferenceType.CONVERSATION, conversation.getConversationId(), "/chat",
+                userDetails.getUser().getFullName(), conversation.getTitle());
     }
 
     private void validateParticipantCount(ConversationType conversationType, int participantCount) {
