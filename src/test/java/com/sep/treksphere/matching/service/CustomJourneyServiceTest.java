@@ -367,4 +367,40 @@ class CustomJourneyServiceTest {
         assertThat(checkpoint.getIsDeleted()).isTrue();
         verify(checkpointRepository).save(checkpoint);
     }
+
+    @Test
+    @DisplayName("createActivity - Leader tạo hoạt động thành công")
+    void createActivity_Success() {
+        com.sep.treksphere.matching.dto.request.CustomJourneyActivityCreateRequest request =
+                com.sep.treksphere.matching.dto.request.CustomJourneyActivityCreateRequest.builder()
+                        .dayNo(1)
+                        .timeSlot(com.sep.treksphere.matching.enums.TimeSlot.MORNING)
+                        .activityOrder(1)
+                        .title("Ăn sáng")
+                        .plannedStartAt("07:00")
+                        .plannedEndAt("08:00")
+                        .build();
+
+        com.sep.treksphere.matching.repository.CustomJourneyActivityRepository activityRepository =
+                org.mockito.Mockito.mock(com.sep.treksphere.matching.repository.CustomJourneyActivityRepository.class);
+        org.springframework.test.util.ReflectionTestUtils.setField(customJourneyService, "activityRepository", activityRepository);
+
+        when(matchingGroupRepository.findById(groupId)).thenReturn(Optional.of(group));
+        when(matchingMemberRepository.findActiveMembers(groupId, JoinStatus.ACCEPTED)).thenReturn(List.of(leaderMember));
+        when(customJourneyRepository.findByMatchingGroup_MatchingGroupIdAndIsDeletedFalse(groupId)).thenReturn(Optional.of(journey));
+        when(activityRepository.existsByCustomJourney_CustomJourneyIdAndDayNoAndTimeSlotAndActivityOrderAndIsDeletedFalse(
+                journey.getCustomJourneyId(), 1, com.sep.treksphere.matching.enums.TimeSlot.MORNING, 1)).thenReturn(false);
+        when(activityRepository.save(any(com.sep.treksphere.matching.entity.CustomJourneyActivity.class))).thenAnswer(inv -> {
+            com.sep.treksphere.matching.entity.CustomJourneyActivity a = inv.getArgument(0);
+            a.setCustomJourneyActivityId(UUID.randomUUID());
+            return a;
+        });
+
+        com.sep.treksphere.matching.dto.response.CustomJourneyActivityResponse response =
+                customJourneyService.createActivity(groupId, request, leaderId);
+
+        assertThat(response).isNotNull();
+        assertThat(response.getTitle()).isEqualTo("Ăn sáng");
+        verify(activityRepository).save(any(com.sep.treksphere.matching.entity.CustomJourneyActivity.class));
+    }
 }

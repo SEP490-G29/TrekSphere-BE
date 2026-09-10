@@ -1,8 +1,11 @@
 package com.sep.treksphere.matching.service;
 
+import com.sep.treksphere.matching.dto.request.CustomJourneyActivityCreateRequest;
+import com.sep.treksphere.matching.dto.request.CustomJourneyActivityUpdateRequest;
 import com.sep.treksphere.matching.dto.request.CustomJourneyCheckpointCreateRequest;
 import com.sep.treksphere.matching.dto.request.CustomJourneyCheckpointUpdateRequest;
 import com.sep.treksphere.matching.dto.request.CustomJourneyUpdateRequest;
+import com.sep.treksphere.matching.dto.response.CustomJourneyActivityResponse;
 import com.sep.treksphere.matching.dto.response.CustomJourneyCheckpointResponse;
 import com.sep.treksphere.matching.dto.response.CustomJourneyDetailResponse;
 
@@ -22,4 +25,15 @@ public interface CustomJourneyService {
     CustomJourneyCheckpointResponse updateCheckpoint(UUID groupId, UUID checkpointId, CustomJourneyCheckpointUpdateRequest request, UUID currentUserId);
 
     void deleteCheckpoint(UUID groupId, UUID checkpointId, UUID currentUserId);
+
+    List<CustomJourneyActivityResponse> getActivities(UUID groupId, UUID currentUserId);
+
+    CustomJourneyActivityResponse createActivity(
+            UUID groupId, CustomJourneyActivityCreateRequest request, UUID currentUserId);
+
+    CustomJourneyActivityResponse updateActivity(
+            UUID groupId, UUID activityId, CustomJourneyActivityUpdateRequest request, UUID currentUserId);
+
+    void deleteActivity(UUID groupId, UUID activityId, UUID currentUserId);
 }
+

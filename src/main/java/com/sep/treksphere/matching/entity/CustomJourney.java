@@ -1,12 +1,24 @@
 package com.sep.treksphere.matching.entity;
 
 import com.sep.treksphere.common.entity.BaseEntity;
-import jakarta.persistence.*;
+import com.sep.treksphere.matching.enums.JourneyDifficulty;
+import jakarta.persistence.CascadeType;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.OneToMany;
+import jakarta.persistence.OneToOne;
+import jakarta.persistence.OrderBy;
+import jakarta.persistence.Table;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
-
-import com.sep.treksphere.matching.enums.JourneyDifficulty;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -55,5 +67,10 @@ public class CustomJourney extends BaseEntity {
     private Set<CustomJourneyCheckpoint> checkpoints = new HashSet<>();
 
     @OneToMany(mappedBy = "customJourney", cascade = CascadeType.ALL, orphanRemoval = true)
+    @OrderBy("dayNo ASC, timeSlot ASC, activityOrder ASC")
+    private Set<CustomJourneyActivity> activities = new HashSet<>();
+
+    @OneToMany(mappedBy = "customJourney", cascade = CascadeType.ALL, orphanRemoval = true)
     private Set<CustomJourneyCostItem> costItems = new HashSet<>();
 }
+

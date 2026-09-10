@@ -11,9 +11,7 @@ import java.time.LocalDateTime;
 import java.util.UUID;
 
 @Entity
-@Table(name = "custom_journey_checkpoint", uniqueConstraints = {
-    @UniqueConstraint(columnNames = {"custom_journey_id", "checkpoint_order"})
-})
+@Table(name = "custom_journey_checkpoint")
 @Getter
 @Setter
 @NoArgsConstructor

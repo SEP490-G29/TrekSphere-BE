@@ -26,5 +26,6 @@ public class CustomJourneyDetailResponse {
     private Boolean isLocked;
     private LocalDateTime lockedAt;
     private List<CustomJourneyCheckpointResponse> checkpoints;
+    private List<CustomJourneyActivityResponse> activities;
     private List<CustomJourneyCostItemResponse> costItems;
 }

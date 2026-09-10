@@ -3,9 +3,12 @@ package com.sep.treksphere.matching.controller;
 import com.sep.treksphere.common.constant.MessageConstant;
 import com.sep.treksphere.common.dto.ApiResponse;
 import com.sep.treksphere.common.security.CustomUserDetails;
+import com.sep.treksphere.matching.dto.request.CustomJourneyActivityCreateRequest;
+import com.sep.treksphere.matching.dto.request.CustomJourneyActivityUpdateRequest;
 import com.sep.treksphere.matching.dto.request.CustomJourneyCheckpointCreateRequest;
 import com.sep.treksphere.matching.dto.request.CustomJourneyCheckpointUpdateRequest;
 import com.sep.treksphere.matching.dto.request.CustomJourneyUpdateRequest;
+import com.sep.treksphere.matching.dto.response.CustomJourneyActivityResponse;
 import com.sep.treksphere.matching.dto.response.CustomJourneyCheckpointResponse;
 import com.sep.treksphere.matching.dto.response.CustomJourneyDetailResponse;
 import com.sep.treksphere.matching.service.CustomJourneyService;
@@ -50,7 +53,7 @@ public class CustomJourneyController {
 
     @Operation(summary = "Cập nhật thông tin tổng quan Custom Journey (chỉ Leader khi chưa khóa)")
     @PutMapping
-    @PreAuthorize("hasAuthority('MATCHING_GROUP_MANAGE_OWN')")
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<ApiResponse<CustomJourneyDetailResponse>> updateJourney(
             @Parameter(description = "ID nhóm ghép") @PathVariable UUID groupId,
             @Valid @RequestBody CustomJourneyUpdateRequest request,
@@ -72,7 +75,7 @@ public class CustomJourneyController {
 
     @Operation(summary = "Thêm điểm dừng mới vào hành trình (chỉ Leader khi chưa khóa)")
     @PostMapping("/checkpoints")
-    @PreAuthorize("hasAuthority('MATCHING_GROUP_MANAGE_OWN')")
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<ApiResponse<CustomJourneyCheckpointResponse>> createCheckpoint(
             @Parameter(description = "ID nhóm ghép") @PathVariable UUID groupId,
             @Valid @RequestBody CustomJourneyCheckpointCreateRequest request,
@@ -85,7 +88,7 @@ public class CustomJourneyController {
 
     @Operation(summary = "Cập nhật điểm dừng trong hành trình (chỉ Leader khi chưa khóa)")
     @PutMapping("/checkpoints/{checkpointId}")
-    @PreAuthorize("hasAuthority('MATCHING_GROUP_MANAGE_OWN')")
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<ApiResponse<CustomJourneyCheckpointResponse>> updateCheckpoint(
             @Parameter(description = "ID nhóm ghép") @PathVariable UUID groupId,
             @Parameter(description = "ID điểm dừng checkpoint") @PathVariable UUID checkpointId,
@@ -98,12 +101,59 @@ public class CustomJourneyController {
 
     @Operation(summary = "Xoá điểm dừng khỏi hành trình (chỉ Leader khi chưa khóa)")
     @DeleteMapping("/checkpoints/{checkpointId}")
-    @PreAuthorize("hasAuthority('MATCHING_GROUP_MANAGE_OWN')")
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<ApiResponse<Void>> deleteCheckpoint(
             @Parameter(description = "ID nhóm ghép") @PathVariable UUID groupId,
             @Parameter(description = "ID điểm dừng checkpoint") @PathVariable UUID checkpointId,
             @AuthenticationPrincipal CustomUserDetails userDetails) {
         customJourneyService.deleteCheckpoint(groupId, checkpointId, userDetails.getUser().getUserId());
         return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, null, MessageConstant.CHECKPOINT_DELETED_SUCCESS));
+    }
+
+    @Operation(summary = "Lấy danh sách các hoạt động trong thời khóa biểu hành trình")
+    @GetMapping("/activities")
+    public ResponseEntity<ApiResponse<List<CustomJourneyActivityResponse>>> getActivities(
+            @Parameter(description = "ID nhóm ghép") @PathVariable UUID groupId,
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+        UUID currentUserId = userDetails != null ? userDetails.getUser().getUserId() : null;
+        List<CustomJourneyActivityResponse> response = customJourneyService.getActivities(groupId, currentUserId);
+        return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, response));
+    }
+
+    @Operation(summary = "Thêm hoạt động mới vào thời khóa biểu hành trình (chỉ Leader khi chưa khóa)")
+    @PostMapping("/activities")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<ApiResponse<CustomJourneyActivityResponse>> createActivity(
+            @Parameter(description = "ID nhóm ghép") @PathVariable UUID groupId,
+            @Valid @RequestBody CustomJourneyActivityCreateRequest request,
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+        CustomJourneyActivityResponse response = customJourneyService.createActivity(
+                groupId, request, userDetails.getUser().getUserId());
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(ApiResponse.success(HttpStatus.CREATED, response, MessageConstant.ACTIVITY_CREATED_SUCCESS));
+    }
+
+    @Operation(summary = "Cập nhật hoạt động trong thời khóa biểu (chỉ Leader khi chưa khóa)")
+    @PutMapping("/activities/{activityId}")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<ApiResponse<CustomJourneyActivityResponse>> updateActivity(
+            @Parameter(description = "ID nhóm ghép") @PathVariable UUID groupId,
+            @Parameter(description = "ID hoạt động") @PathVariable UUID activityId,
+            @Valid @RequestBody CustomJourneyActivityUpdateRequest request,
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+        CustomJourneyActivityResponse response = customJourneyService.updateActivity(
+                groupId, activityId, request, userDetails.getUser().getUserId());
+        return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, response, MessageConstant.ACTIVITY_UPDATED_SUCCESS));
+    }
+
+    @Operation(summary = "Xoá hoạt động khỏi thời khóa biểu (chỉ Leader khi chưa khóa)")
+    @DeleteMapping("/activities/{activityId}")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<ApiResponse<Void>> deleteActivity(
+            @Parameter(description = "ID nhóm ghép") @PathVariable UUID groupId,
+            @Parameter(description = "ID hoạt động") @PathVariable UUID activityId,
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+        customJourneyService.deleteActivity(groupId, activityId, userDetails.getUser().getUserId());
+        return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, null, MessageConstant.ACTIVITY_DELETED_SUCCESS));
     }
 }
