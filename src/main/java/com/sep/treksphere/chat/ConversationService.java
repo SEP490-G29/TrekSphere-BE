@@ -3,9 +3,10 @@ package com.sep.treksphere.chat;
 import com.sep.treksphere.common.constant.MessageConstant;
 import com.sep.treksphere.chat.message.MessageCreateRequest;
 import com.sep.treksphere.chat.message.MessageResponse;
+import com.sep.treksphere.chat.message.MessageService;
 import com.sep.treksphere.common.dto.PaginationResponse;
 import com.sep.treksphere.user.UserResponse;
-import com.sep.treksphere.matching.MatchingGroup;
+import com.sep.treksphere.matching.entity.MatchingGroup;
 import com.sep.treksphere.chat.message.Message;
 import com.sep.treksphere.user.User;
 import java.util.Optional;
@@ -14,21 +15,23 @@ import java.util.stream.Collectors;
 import com.sep.treksphere.user.UserStatus;
 import com.sep.treksphere.common.exception.AppException;
 import com.sep.treksphere.common.exception.ErrorCode;
-import com.sep.treksphere.matching.MatchingGroupRepository;
+import com.sep.treksphere.matching.repository.MatchingGroupRepository;
 import com.sep.treksphere.chat.message.MessageRepository;
+import com.sep.treksphere.notification.NotificationEventType;
+import com.sep.treksphere.notification.NotificationService;
+import com.sep.treksphere.notification.ReferenceType;
 import com.sep.treksphere.user.UserRepository;
 import com.sep.treksphere.common.security.CustomUserDetails;
+import com.sep.treksphere.vendor.Vendor;
+import com.sep.treksphere.vendor.VendorRepository;
+import com.sep.treksphere.vendor.VendorStatus;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
-import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.transaction.support.TransactionSynchronization;
-import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.util.LinkedHashSet;
-import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 
@@ -40,7 +43,21 @@ public class ConversationService {
     private final MessageRepository messageRepository;
     private final UserRepository userRepository;
     private final MatchingGroupRepository matchingGroupRepository;
-    private final SimpMessagingTemplate messagingTemplate;
+    private final NotificationService notificationService;
+    private final MessageService messageService;
+    private final VendorRepository vendorRepository;
+
+    @Transactional
+    public ConversationResponse createVendorConversation(UUID vendorId, CustomUserDetails userDetails) {
+        Vendor vendor = vendorRepository.findByVendorIdAndStatusAndIsDeletedFalse(vendorId, VendorStatus.ACTIVE)
+                .orElseThrow(() -> new AppException(ErrorCode.VENDOR_NOT_FOUND));
+        ConversationCreateRequest request = new ConversationCreateRequest(
+                ConversationType.DIRECT,
+                null,
+                List.of(vendor.getManager().getUserId()),
+                null);
+        return createConversation(request, userDetails);
+    }
 
     @Transactional(readOnly = true)
     public PaginationResponse<ConversationResponse> getConversations(
@@ -163,7 +180,7 @@ public class ConversationService {
 
         return PaginationResponse.<MessageResponse>builder()
                 .content(messagePage.getContent().stream()
-                        .map(this::toMessageResponse)
+                        .map(messageService::toResponse)
                         .toList())
                 .pageNumber(messagePage.getNumber() + 1)
                 .pageSize(messagePage.getSize())
@@ -178,27 +195,7 @@ public class ConversationService {
             MessageCreateRequest request,
             CustomUserDetails userDetails
     ) {
-        User currentUser = userDetails.getUser();
-        Conversation conversation = conversationRepository
-                .findActiveConversationByIdAndParticipantId(
-                        request.getConversationId(),
-                        currentUser.getUserId()
-                )
-                .orElseThrow(() -> new AppException(ErrorCode.CONVERSATION_NOT_FOUND));
-
-        Message message = new Message();
-        message.setConversation(conversation);
-        message.setSender(currentUser);
-        message.setContent(request.getContent().trim());
-        message.setIsRead(false);
-
-        Message savedMessage = messageRepository.saveAndFlush(message);
-        conversation.setLastMessageAt(savedMessage.getCreatedAt());
-        conversationRepository.save(conversation);
-
-        MessageResponse response = toMessageResponse(savedMessage);
-        broadcastMessageAfterCommit(response);
-        return response;
+        return messageService.sendText(request, userDetails);
     }
 
     @Transactional
@@ -308,23 +305,12 @@ public class ConversationService {
 
         conversation.getParticipants().add(memberToAdd);
         conversationRepository.save(conversation);
-    }
 
-
-    private void broadcastMessageAfterCommit(MessageResponse response) {
-        TransactionSynchronizationManager.registerSynchronization(
-                new TransactionSynchronization() {
-                    @Override
-                    public void afterCommit() {
-                        messagingTemplate.convertAndSend(
-                                "/topic/chat/conversations/"
-                                        + response.getConversationId()
-                                        + "/messages",
-                                response
-                        );
-                    }
-                }
-        );
+        notificationService.notify(
+                memberToAdd.getUserId(),
+                NotificationEventType.CONVERSATION_MEMBER_ADDED,
+                ReferenceType.CONVERSATION, conversation.getConversationId(), "/chat",
+                userDetails.getUser().getFullName(), conversation.getTitle());
     }
 
     private void validateParticipantCount(ConversationType conversationType, int participantCount) {
@@ -414,21 +400,6 @@ public class ConversationService {
                         .avatarUrl(user.getAvatarUrl())
                         .build())
                 .collect(Collectors.toList());
-    }
-
-    private MessageResponse toMessageResponse(Message message) {
-        User sender = message.getSender();
-
-        return MessageResponse.builder()
-                .messageId(message.getMessageId())
-                .conversationId(message.getConversation().getConversationId())
-                .senderId(sender.getUserId())
-                .senderName(sender.getFullName())
-                .senderAvatarUrl(sender.getAvatarUrl())
-                .content(message.getContent())
-                .isRead(message.getIsRead())
-                .createdAt(message.getCreatedAt())
-                .build();
     }
 
     private ConversationResponse toConversationResponse(

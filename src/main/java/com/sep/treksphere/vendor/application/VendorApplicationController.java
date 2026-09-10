@@ -98,9 +98,11 @@ public class VendorApplicationController {
     @PostMapping("/{id}/review")
     public ResponseEntity<ApiResponse<VendorApplicationResponse>> reviewApplication(
             @PathVariable UUID id,
-            @Valid @RequestBody VendorApplicationReviewRequest request) {
+            @Valid @RequestBody VendorApplicationReviewRequest request,
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
         
-        VendorApplicationResponse data = vendorApplicationService.reviewApplication(id, request);
+        VendorApplicationResponse data = vendorApplicationService.reviewApplication(
+                id, request, userDetails.getUser().getUserId());
         
         ApiResponse<VendorApplicationResponse> response = ApiResponse.success(
                 HttpStatus.OK, 

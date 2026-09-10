@@ -11,6 +11,9 @@ import com.sep.treksphere.blog.comment.BlogCommentRepository;
 import com.sep.treksphere.common.security.CustomUserDetails;
 import com.sep.treksphere.file.FileService;
 import com.sep.treksphere.common.util.PaginationUtils;
+import com.sep.treksphere.notification.NotificationEventType;
+import com.sep.treksphere.notification.NotificationService;
+import com.sep.treksphere.notification.ReferenceType;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -34,6 +37,9 @@ public class BlogService {
     private final BlogRepository blogRepository;
     private final BlogCommentRepository blogCommentRepository;
     private final FileService fileService;
+    private final NotificationService notificationService;
+
+    private static final String TREKKER_BLOG_LIST_URL = "/trekker/blog";
 
     @Transactional(readOnly = true)
     public PaginationResponse<BlogSummaryResponse> getBlogs(BlogFilterRequest filter) {
@@ -135,17 +141,36 @@ public class BlogService {
         blog.setStatus(BlogStatus.HIDDEN);
         blogRepository.save(blog);
         log.info("User {} hid blog {}. New status: {}", userDetails.getUser().getUserId(), blogId, blog.getStatus());
+
+        if (isAdminModerationAction(blog, userDetails)) {
+            notificationService.notify(
+                    blog.getUser().getUserId(),
+                    NotificationEventType.BLOG_HIDDEN,
+                    ReferenceType.BLOG, blog.getBlogId(), TREKKER_BLOG_LIST_URL,
+                    blog.getTitle());
+        }
     }
 
     @Transactional
     public void deleteBlog(UUID blogId, CustomUserDetails userDetails) {
         Blog blog = getBlogAndVerifyOwnershipOrAdmin(blogId, userDetails);
+        boolean isModeration = isAdminModerationAction(blog, userDetails);
+        String blogTitle = blog.getTitle();
+
         blog.setStatus(BlogStatus.DELETED);
         blog.setIsDeleted(true);
         blog.setDeletedAt(LocalDateTime.now());
         blog.setDeletedBy(userDetails.getUser().getUserId().toString());
         blogRepository.save(blog);
         log.info("User {} deleted blog {}", userDetails.getUser().getUserId(), blogId);
+
+        if (isModeration) {
+            notificationService.notify(
+                    blog.getUser().getUserId(),
+                    NotificationEventType.BLOG_DELETED,
+                    ReferenceType.BLOG, blog.getBlogId(), TREKKER_BLOG_LIST_URL,
+                    "Bài viết \"" + blogTitle + "\" của bạn đã bị xoá bởi quản trị viên.");
+        }
     }
 
     // ===================== Helpers =====================
@@ -163,6 +188,14 @@ public class BlogService {
             throw new AppException(ErrorCode.ACCESS_DENIED);
         }
         return blog;
+    }
+
+    /** Chỉ tính là hành động kiểm duyệt (cần thông báo cho tác giả) khi Admin thao tác trên bài viết không phải của mình. */
+    private boolean isAdminModerationAction(Blog blog, CustomUserDetails userDetails) {
+        boolean isAdmin = userDetails.getAuthorities().stream()
+                .anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN"));
+        boolean isAuthor = blog.getUser().getUserId().equals(userDetails.getUser().getUserId());
+        return isAdmin && !isAuthor;
     }
 
     private List<BlogCommentResponse> buildCommentTree(List<BlogComment> allComments) {

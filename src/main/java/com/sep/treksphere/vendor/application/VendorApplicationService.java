@@ -5,12 +5,15 @@ import com.sep.treksphere.common.exception.AppException;
 import com.sep.treksphere.common.exception.ErrorCode;
 import com.sep.treksphere.common.security.CustomUserDetails;
 import com.sep.treksphere.file.FileService;
+import com.sep.treksphere.file.UploadPolicy;
+import com.sep.treksphere.notification.NotificationEventType;
+import com.sep.treksphere.notification.NotificationService;
+import com.sep.treksphere.notification.ReferenceType;
 import com.sep.treksphere.user.Role;
 import com.sep.treksphere.user.RoleRepository;
 import com.sep.treksphere.user.User;
 import com.sep.treksphere.user.UserRepository;
 import com.sep.treksphere.vendor.Vendor;
-import com.sep.treksphere.vendor.VendorMapper;
 import com.sep.treksphere.vendor.VendorRepository;
 import com.sep.treksphere.vendor.VendorStatus;
 import com.sep.treksphere.vendor.application.dto.request.AdminVendorApplicationFilterRequest;
@@ -30,6 +33,7 @@ import org.springframework.util.StringUtils;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
+import java.time.LocalDateTime;
 import java.util.stream.Collectors;
 
 @Service
@@ -48,8 +52,24 @@ public class VendorApplicationService {
     private final VendorRepository vendorRepository;
     private final VendorApplicationMapper vendorApplicationMapper;
     private final RoleRepository roleRepository;
-    private final VendorMapper vendorMapper;
     private final FileService fileService;
+    private final NotificationService notificationService;
+
+    private static final String ADMIN_APPLICATION_ACTION_URL_PREFIX = "/admin/applications/";
+    private static final String APPLICANT_APPLICATIONS_URL = "/trekker/vendor-applications";
+
+    private void notifyAdminsOfNewApplication(VendorApplication application) {
+        List<UUID> adminIds = userRepository.findDistinctByRoles_RoleNameAndIsDeletedFalse("ADMIN").stream()
+                .map(User::getUserId)
+                .toList();
+
+        notificationService.notify(
+                adminIds,
+                NotificationEventType.VENDOR_APPLICATION_SUBMITTED,
+                ReferenceType.VENDOR_APPLICATION, application.getVendorApplicationId(),
+                ADMIN_APPLICATION_ACTION_URL_PREFIX + application.getVendorApplicationId(),
+                application.getApplicant().getFullName());
+    }
 
     @Transactional
     public VendorApplicationResponse saveDraftApplication(UUID applicantId, VendorApplicationRequest request) {
@@ -59,33 +79,17 @@ public class VendorApplicationService {
         ensureApplicantHasNoVendor(applicantId);
         ensureApplicantHasNoActiveApplication(applicantId);
 
-        boolean isTaxCodeExistInApplications = vendorApplicationRepository.existsByTaxCode(request.getTaxCode());
-        boolean isTaxCodeExistInVendors = vendorRepository.existsByTaxCode(request.getTaxCode());
-        if (isTaxCodeExistInApplications || isTaxCodeExistInVendors) {
-            log.warn("Tax code {} already exists in the system", request.getTaxCode());
-            throw new AppException(ErrorCode.TAX_CODE_ALREADY_EXISTS);
-        }
+        validateUniqueApplicationFields(request.getTaxCode(), request.getContactEmail(), request.getContactPhone(), null);
 
-        boolean isEmailExistInApplications = vendorApplicationRepository.existsByContactEmail(request.getContactEmail());
-        boolean isEmailExistInVendors = vendorRepository.existsByContactEmail(request.getContactEmail());
-        if (isEmailExistInApplications || isEmailExistInVendors) {
-            log.warn("Contact email {} already exists in the system", request.getContactEmail());
-            throw new AppException(ErrorCode.CONTACT_EMAIL_ALREADY_EXISTS);
-        }
-
-        boolean isPhoneExistInApplications = vendorApplicationRepository.existsByContactPhone(request.getContactPhone());
-        boolean isPhoneExistInVendors = vendorRepository.existsByContactPhone(request.getContactPhone());
-        if (isPhoneExistInApplications || isPhoneExistInVendors) {
-            log.warn("Contact phone {} already exists in the system", request.getContactPhone());
-            throw new AppException(ErrorCode.CONTACT_PHONE_ALREADY_EXISTS);
-        }
-
-        String businessLicenseUrl = fileService.uploadFile(request.getBusinessLicense(), "vendor-licenses");
+        String businessLicenseUrl = request.getBusinessLicense() == null || request.getBusinessLicense().isEmpty()
+                ? null
+                : fileService.upload(request.getBusinessLicense(), "vendor-licenses", UploadPolicy.BUSINESS_LICENSE).url();
 
         VendorApplication vendorApplication = vendorApplicationMapper.toEntity(request);
         vendorApplication.setApplicant(applicant);
         vendorApplication.setApplicationStatus(ApplicationStatus.DRAFT);
         vendorApplication.setBusinessLicenseUrl(businessLicenseUrl);
+        normalizeApplication(vendorApplication);
 
         vendorApplication = vendorApplicationRepository.save(vendorApplication);
         log.info("Successfully created vendor application draft with ID: {} for user: {}",
@@ -170,6 +174,9 @@ public class VendorApplicationService {
                 .anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN"));
         boolean isOwner = application.getApplicant().getUserId().equals(userDetails.getUser().getUserId());
 
+        if (isAdmin && !isOwner && application.getApplicationStatus() == ApplicationStatus.DRAFT) {
+            throw new AppException(ErrorCode.VENDOR_APPLICATION_NOT_FOUND);
+        }
         if (!isAdmin && !isOwner) {
             log.warn("User {} attempted to view vendor application {} without permission",
                     userDetails.getUser().getUserId(), id);
@@ -180,10 +187,12 @@ public class VendorApplicationService {
     }
 
     @Transactional
-    public VendorApplicationResponse reviewApplication(UUID id, VendorApplicationReviewRequest request) {
+    public VendorApplicationResponse reviewApplication(UUID id, VendorApplicationReviewRequest request, UUID reviewerId) {
         log.info("Processing review for vendor application with ID: {} to status: {}", id, request.getStatus());
 
         VendorApplication application = getApplicationWithApplicantLock(id);
+        User reviewer = userRepository.findById(reviewerId)
+                .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
 
         if (application.getApplicationStatus() != ApplicationStatus.PENDING) {
             log.warn("Vendor application {} is already processed. Current status: {}",
@@ -203,21 +212,19 @@ public class VendorApplicationService {
                     application.getVendorApplicationId()
             );
 
-            application.setApplicationStatus(ApplicationStatus.APPROVED);
-            application.setRejectionReason(null);
-            vendorApplicationRepository.save(application);
+            validateSubmissionCompleteness(application);
 
             User applicant = application.getApplicant();
-            Role managerRole = roleRepository.findByRoleName("VENDOR")
+            Role vendorRole = roleRepository.findByRoleName("VENDOR")
                     .orElseThrow(() -> {
                         log.error("Role VENDOR not found in database");
                         return new AppException(ErrorCode.ROLE_NOT_FOUND);
                     });
 
-            boolean hasManagerRole = applicant.getRoles().stream()
+            boolean hasVendorRole = applicant.getRoles().stream()
                     .anyMatch(r -> r.getRoleName().equals("VENDOR"));
-            if (!hasManagerRole) {
-                applicant.getRoles().add(managerRole);
+            if (!hasVendorRole) {
+                applicant.getRoles().add(vendorRole);
                 userRepository.save(applicant);
                 log.info("Role VENDOR successfully assigned to user: {}", applicant.getEmail());
             }
@@ -230,11 +237,27 @@ public class VendorApplicationService {
             vendor.setTaxCode(application.getTaxCode());
             vendor.setBusinessLicenseUrl(application.getBusinessLicenseUrl());
             vendor.setDescription(application.getBusinessDescription());
+            vendor.setBusinessAddress(application.getBusinessAddress());
+            vendor.setLegalRepresentativeName(application.getLegalRepresentativeName());
+            vendor.setLegalRepresentativePosition(application.getLegalRepresentativePosition());
+            vendor.setWebsiteUrl(application.getWebsiteUrl());
             vendor.setStatus(VendorStatus.ACTIVE);
 
             vendor = vendorRepository.save(vendor);
+            application.setApplicationStatus(ApplicationStatus.APPROVED);
+            application.setRejectionReason(null);
+            application.setVendor(vendor);
+            application.setReviewedBy(reviewer);
+            application.setReviewedAt(LocalDateTime.now());
+            vendorApplicationRepository.save(application);
             log.info("Successfully created Vendor profile with ID: {} for company: {}",
                     vendor.getVendorId(), vendor.getCompanyName());
+
+            notificationService.notify(
+                    applicant.getUserId(),
+                    NotificationEventType.VENDOR_APPLICATION_APPROVED,
+                    ReferenceType.VENDOR_APPLICATION, application.getVendorApplicationId(),
+                    APPLICANT_APPLICATIONS_URL);
         } else {
             if (!StringUtils.hasText(request.getRejectionReason())) {
                 log.warn("Rejection reason is required when status is REJECTED");
@@ -243,8 +266,17 @@ public class VendorApplicationService {
 
             application.setApplicationStatus(ApplicationStatus.REJECTED);
             application.setRejectionReason(request.getRejectionReason().trim());
+            application.setReviewedBy(reviewer);
+            application.setReviewedAt(LocalDateTime.now());
             vendorApplicationRepository.save(application);
             log.info("Successfully rejected vendor application with ID: {}", id);
+
+            notificationService.notify(
+                    application.getApplicant().getUserId(),
+                    NotificationEventType.VENDOR_APPLICATION_REJECTED,
+                    ReferenceType.VENDOR_APPLICATION, application.getVendorApplicationId(),
+                    APPLICANT_APPLICATIONS_URL,
+                    application.getRejectionReason());
         }
 
         return vendorApplicationMapper.toResponse(application);
@@ -317,10 +349,23 @@ public class VendorApplicationService {
         if (StringUtils.hasText(request.getBusinessDescription())) {
             application.setBusinessDescription(request.getBusinessDescription().trim());
         }
+        if (request.getBusinessAddress() != null) {
+            application.setBusinessAddress(trimToNull(request.getBusinessAddress()));
+        }
+        if (request.getLegalRepresentativeName() != null) {
+            application.setLegalRepresentativeName(trimToNull(request.getLegalRepresentativeName()));
+        }
+        if (request.getLegalRepresentativePosition() != null) {
+            application.setLegalRepresentativePosition(trimToNull(request.getLegalRepresentativePosition()));
+        }
+        if (request.getWebsiteUrl() != null) {
+            application.setWebsiteUrl(trimToNull(request.getWebsiteUrl()));
+        }
 
         if (request.getBusinessLicense() != null && !request.getBusinessLicense().isEmpty()) {
             log.info("Uploading new business license file for vendor application update");
-            String newUrl = fileService.uploadFile(request.getBusinessLicense(), "vendor-licenses");
+            String newUrl = fileService.upload(
+                    request.getBusinessLicense(), "vendor-licenses", UploadPolicy.BUSINESS_LICENSE).url();
             application.setBusinessLicenseUrl(newUrl);
         }
 
@@ -350,35 +395,16 @@ public class VendorApplicationService {
 
         ensureApplicantHasNoVendor(applicantId);
         ensureApplicantHasNoOtherActiveApplication(applicantId, id);
-
-        boolean isTaxCodeExistInApplications = vendorApplicationRepository
-                .existsByTaxCodeAndVendorApplicationIdNot(application.getTaxCode(), id);
-        boolean isTaxCodeExistInVendors = vendorRepository.existsByTaxCode(application.getTaxCode());
-        if (isTaxCodeExistInApplications || isTaxCodeExistInVendors) {
-            log.warn("Tax code {} already exists during submission of application {}", application.getTaxCode(), id);
-            throw new AppException(ErrorCode.TAX_CODE_ALREADY_EXISTS);
-        }
-
-        boolean isEmailExistInApplications = vendorApplicationRepository
-                .existsByContactEmailAndVendorApplicationIdNot(application.getContactEmail(), id);
-        boolean isEmailExistInVendors = vendorRepository.existsByContactEmail(application.getContactEmail());
-        if (isEmailExistInApplications || isEmailExistInVendors) {
-            log.warn("Contact email {} already exists during submission of application {}", application.getContactEmail(), id);
-            throw new AppException(ErrorCode.CONTACT_EMAIL_ALREADY_EXISTS);
-        }
-
-        boolean isPhoneExistInApplications = vendorApplicationRepository
-                .existsByContactPhoneAndVendorApplicationIdNot(application.getContactPhone(), id);
-        boolean isPhoneExistInVendors = vendorRepository.existsByContactPhone(application.getContactPhone());
-        if (isPhoneExistInApplications || isPhoneExistInVendors) {
-            log.warn("Contact phone {} already exists during submission of application {}", application.getContactPhone(), id);
-            throw new AppException(ErrorCode.CONTACT_PHONE_ALREADY_EXISTS);
-        }
+        validateSubmissionCompleteness(application);
+        validateUniqueApplicationFields(
+                application.getTaxCode(), application.getContactEmail(), application.getContactPhone(), id);
 
         application.setApplicationStatus(ApplicationStatus.PENDING);
 
         application = vendorApplicationRepository.save(application);
         log.info("Successfully submitted draft vendor application with ID: {}", id);
+
+        notifyAdminsOfNewApplication(application);
 
         return vendorApplicationMapper.toResponse(application);
     }
@@ -403,36 +429,19 @@ public class VendorApplicationService {
 
         ensureApplicantHasNoVendor(applicantId);
         ensureApplicantHasNoOtherActiveApplication(applicantId, id);
-
-        boolean isTaxCodeExistInApplications = vendorApplicationRepository
-                .existsByTaxCodeAndVendorApplicationIdNot(application.getTaxCode(), id);
-        boolean isTaxCodeExistInVendors = vendorRepository.existsByTaxCode(application.getTaxCode());
-        if (isTaxCodeExistInApplications || isTaxCodeExistInVendors) {
-            log.warn("Tax code {} already exists during resubmission of application {}", application.getTaxCode(), id);
-            throw new AppException(ErrorCode.TAX_CODE_ALREADY_EXISTS);
-        }
-
-        boolean isEmailExistInApplications = vendorApplicationRepository
-                .existsByContactEmailAndVendorApplicationIdNot(application.getContactEmail(), id);
-        boolean isEmailExistInVendors = vendorRepository.existsByContactEmail(application.getContactEmail());
-        if (isEmailExistInApplications || isEmailExistInVendors) {
-            log.warn("Contact email {} already exists during resubmission of application {}", application.getContactEmail(), id);
-            throw new AppException(ErrorCode.CONTACT_EMAIL_ALREADY_EXISTS);
-        }
-
-        boolean isPhoneExistInApplications = vendorApplicationRepository
-                .existsByContactPhoneAndVendorApplicationIdNot(application.getContactPhone(), id);
-        boolean isPhoneExistInVendors = vendorRepository.existsByContactPhone(application.getContactPhone());
-        if (isPhoneExistInApplications || isPhoneExistInVendors) {
-            log.warn("Contact phone {} already exists during resubmission of application {}", application.getContactPhone(), id);
-            throw new AppException(ErrorCode.CONTACT_PHONE_ALREADY_EXISTS);
-        }
+        validateSubmissionCompleteness(application);
+        validateUniqueApplicationFields(
+                application.getTaxCode(), application.getContactEmail(), application.getContactPhone(), id);
 
         application.setApplicationStatus(ApplicationStatus.PENDING);
         application.setRejectionReason(null);
+        application.setReviewedBy(null);
+        application.setReviewedAt(null);
 
         application = vendorApplicationRepository.save(application);
         log.info("Successfully resubmitted vendor application with ID: {}", id);
+
+        notifyAdminsOfNewApplication(application);
 
         return vendorApplicationMapper.toResponse(application);
     }
@@ -477,5 +486,67 @@ public class VendorApplicationService {
             log.warn("Applicant {} already manages a vendor", applicantId);
             throw new AppException(ErrorCode.APPLICANT_ALREADY_HAS_VENDOR);
         }
+    }
+
+    private void validateSubmissionCompleteness(VendorApplication application) {
+        if (!StringUtils.hasText(application.getCompanyName())
+                || !StringUtils.hasText(application.getContactEmail())
+                || !StringUtils.hasText(application.getContactPhone())
+                || !StringUtils.hasText(application.getTaxCode())
+                || !StringUtils.hasText(application.getBusinessLicenseUrl())
+                || !StringUtils.hasText(application.getBusinessDescription())
+                || !StringUtils.hasText(application.getBusinessAddress())
+                || !StringUtils.hasText(application.getLegalRepresentativeName())
+                || !StringUtils.hasText(application.getLegalRepresentativePosition())) {
+            throw new AppException(
+                    ErrorCode.VENDOR_APPLICATION_INCOMPLETE,
+                    "Hồ sơ phải có đầy đủ thông tin doanh nghiệp, người đại diện và giấy phép trước khi nộp.");
+        }
+    }
+
+    private void validateUniqueApplicationFields(String taxCode, String email, String phone, UUID currentId) {
+        if (StringUtils.hasText(taxCode)) {
+            String value = taxCode.trim();
+            boolean existsInApps = currentId == null
+                    ? vendorApplicationRepository.existsByTaxCode(value)
+                    : vendorApplicationRepository.existsByTaxCodeAndVendorApplicationIdNot(value, currentId);
+            if (existsInApps || vendorRepository.existsByTaxCode(value)) {
+                throw new AppException(ErrorCode.TAX_CODE_ALREADY_EXISTS);
+            }
+        }
+        if (StringUtils.hasText(email)) {
+            String value = email.trim();
+            boolean existsInApps = currentId == null
+                    ? vendorApplicationRepository.existsByContactEmail(value)
+                    : vendorApplicationRepository.existsByContactEmailAndVendorApplicationIdNot(value, currentId);
+            if (existsInApps || vendorRepository.existsByContactEmail(value)) {
+                throw new AppException(ErrorCode.CONTACT_EMAIL_ALREADY_EXISTS);
+            }
+        }
+        if (StringUtils.hasText(phone)) {
+            String value = phone.trim();
+            boolean existsInApps = currentId == null
+                    ? vendorApplicationRepository.existsByContactPhone(value)
+                    : vendorApplicationRepository.existsByContactPhoneAndVendorApplicationIdNot(value, currentId);
+            if (existsInApps || vendorRepository.existsByContactPhone(value)) {
+                throw new AppException(ErrorCode.CONTACT_PHONE_ALREADY_EXISTS);
+            }
+        }
+    }
+
+    private void normalizeApplication(VendorApplication application) {
+        application.setCompanyName(trimToNull(application.getCompanyName()));
+        application.setContactEmail(trimToNull(application.getContactEmail()));
+        application.setContactPhone(trimToNull(application.getContactPhone()));
+        application.setTaxCode(trimToNull(application.getTaxCode()));
+        application.setBusinessDescription(trimToNull(application.getBusinessDescription()));
+        application.setBusinessAddress(trimToNull(application.getBusinessAddress()));
+        application.setLegalRepresentativeName(trimToNull(application.getLegalRepresentativeName()));
+        application.setLegalRepresentativePosition(trimToNull(application.getLegalRepresentativePosition()));
+        application.setWebsiteUrl(trimToNull(application.getWebsiteUrl()));
+    }
+
+    private String trimToNull(String value) {
+        return StringUtils.hasText(value) ? value.trim() : null;
     }
 }

@@ -3,6 +3,7 @@ package com.sep.treksphere.vendor.application;
 import com.sep.treksphere.common.entity.BaseEntity;
 import com.sep.treksphere.user.User;
 import com.sep.treksphere.vendor.application.ApplicationStatus;
+import com.sep.treksphere.vendor.Vendor;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -28,13 +29,13 @@ public class VendorApplication extends BaseEntity {
     @JoinColumn(name = "applicant_id", nullable = false)
     private User applicant;
 
-    @Column(nullable = false, length = 255)
+    @Column(length = 255)
     private String companyName;
 
-    @Column(nullable = false, length = 255)
+    @Column(length = 255)
     private String contactEmail;
 
-    @Column(nullable = false, length = 20)
+    @Column(length = 20)
     private String contactPhone;
 
     @Column(columnDefinition = "TEXT")
@@ -47,9 +48,31 @@ public class VendorApplication extends BaseEntity {
     @Column(columnDefinition = "TEXT")
     private String rejectionReason;
 
-    @Column(nullable = false, unique = true, length = 50)
+    @Column(unique = true, length = 50)
     private String taxCode;
 
-    @Column(nullable = false, length = 500)
+    @Column(length = 500)
     private String businessLicenseUrl;
+
+    @Column(length = 500)
+    private String businessAddress;
+
+    @Column(length = 255)
+    private String legalRepresentativeName;
+
+    @Column(length = 255)
+    private String legalRepresentativePosition;
+
+    @Column(length = 500)
+    private String websiteUrl;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "reviewed_by")
+    private User reviewedBy;
+
+    private java.time.LocalDateTime reviewedAt;
+
+    @OneToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "vendor_id", unique = true)
+    private Vendor vendor;
 }

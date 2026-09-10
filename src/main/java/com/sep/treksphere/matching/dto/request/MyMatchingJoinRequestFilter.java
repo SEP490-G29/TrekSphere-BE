@@ -1,7 +1,7 @@
 package com.sep.treksphere.matching.dto.request;
 
 import com.sep.treksphere.common.constant.MessageConstant;
-import com.sep.treksphere.matching.JoinStatus;
+import com.sep.treksphere.matching.enums.JoinApplicationStatus;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
@@ -15,7 +15,7 @@ import org.springframework.data.domain.Sort;
 @Setter
 public class MyMatchingJoinRequestFilter {
 
-    private JoinStatus status;
+    private JoinApplicationStatus status;
 
     @Min(value = 0, message = MessageConstant.MATCHING_JOIN_REQUEST_PAGE_MIN)
     @Schema(defaultValue = "0", minimum = "0")
@@ -30,3 +30,4 @@ public class MyMatchingJoinRequestFilter {
         return PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt"));
     }
 }
+

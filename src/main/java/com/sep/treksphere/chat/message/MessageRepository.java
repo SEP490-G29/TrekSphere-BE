@@ -15,6 +15,8 @@ import java.util.UUID;
 @Repository
 public interface MessageRepository extends JpaRepository<Message, UUID> {
 
+    Optional<Message> findByMessageIdAndIsDeletedFalse(UUID messageId);
+
     Optional<Message> findFirstByConversationConversationIdAndIsDeletedFalseOrderByCreatedAtDesc(
             UUID conversationId
     );

@@ -1,7 +1,6 @@
 package com.sep.treksphere.user;
 
-import com.sep.treksphere.user.Gender;
-import com.sep.treksphere.user.UserStatus;
+import com.sep.treksphere.tour.DifficultyLevel;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -25,5 +24,12 @@ public class UserProfileResponse {
     private String avatarUrl;
     private UserStatus status;
     private Boolean emailVerified;
+    private String bio;
+    private ExperienceLevel experienceLevel;
+    private DifficultyLevel preferredDifficulty;
+    private List<String> preferredAreas;
+    private List<String> skills;
+    private Short trustScore;
+    private Integer trustReviewCount;
     private List<String> roles;
 }

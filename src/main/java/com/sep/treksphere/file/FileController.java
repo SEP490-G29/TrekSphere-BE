@@ -10,6 +10,7 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
+import org.springframework.security.access.prepost.PreAuthorize;
 
 import java.util.List;
 
@@ -23,26 +24,27 @@ public class FileController {
 
 
     @PostMapping(value = "/upload", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<ApiResponse<String>> uploadFile(
-            @RequestParam("file") MultipartFile file,
-            @RequestParam(value = "folder", defaultValue = "general") String folder
+            @RequestParam("file") MultipartFile file
     ) {
-        log.info("REST request to upload file [{}] to folder: {}", file.getOriginalFilename(), folder);
-        String fileUrl = fileService.uploadFile(file, folder);
+        log.info("REST request to upload file [{}]", file.getOriginalFilename());
+        String fileUrl = fileService.uploadFile(file, "general");
         return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, fileUrl));
     }
 
     @PostMapping(value = "/upload/batch", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<ApiResponse<List<String>>> uploadFiles(
-            @RequestParam("files") List<MultipartFile> files,
-            @RequestParam(value = "folder", defaultValue = "general") String folder
+            @RequestParam("files") List<MultipartFile> files
     ) {
-        log.info("REST request to upload {} files to folder: {}", files.size(), folder);
-        List<String> fileUrls = fileService.uploadFiles(files, folder);
+        log.info("REST request to upload {} files", files.size());
+        List<String> fileUrls = fileService.uploadFiles(files, "general");
         return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, fileUrls));
     }
 
     @DeleteMapping("/delete")
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<ApiResponse<String>> deleteFile(
             @RequestParam("publicId") String publicId
     ) {

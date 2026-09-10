@@ -38,6 +38,14 @@ public class VendorController {
 
     private final VendorService vendorService;
 
+    @Operation(summary = "Xem hồ sơ Vendor công khai")
+    @GetMapping("/{vendorId}/public")
+    public ResponseEntity<ApiResponse<PublicVendorProfileResponse>> getPublicVendorProfile(
+            @PathVariable UUID vendorId) {
+        return ResponseEntity.ok(ApiResponse.success(
+                HttpStatus.OK, vendorService.getPublicVendorProfile(vendorId)));
+    }
+
     @Operation(summary = "Lấy danh sách Vendor", description = "Trả về danh sách các Vendor (Công ty đối tác) trong hệ thống (Dành cho Admin)")
     @SecurityRequirement(name = "bearerAuth")
     @PreAuthorize("hasAuthority('VENDOR_VIEW_ALL')")
@@ -84,7 +92,7 @@ public class VendorController {
         return ResponseEntity.ok(response);
     }
 
-    @Operation(summary = "Admin thay đổi trạng thái Vendor", description = "Cho phép Admin thay đổi trạng thái hoạt động của đối tác thành ACTIVE, INACTIVE hoặc REVOKED.")
+    @Operation(summary = "Admin thay đổi trạng thái Vendor", description = "Cho phép PENDING → ACTIVE và ACTIVE ↔ SUSPENDED.")
     @SecurityRequirement(name = "bearerAuth")
     @PreAuthorize("hasAuthority('VENDOR_MANAGE_STATUS')")
     @PutMapping("/{vendorId}/status")

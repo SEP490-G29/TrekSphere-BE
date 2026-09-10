@@ -36,4 +36,5 @@ public class TourSummaryResponse {
     private String vendorName;
 
     private LocalDateTime createdAt;
+    private LocalDateTime publishedAt;
 }

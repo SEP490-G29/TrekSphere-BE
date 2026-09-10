@@ -48,6 +48,18 @@ public class Vendor extends BaseEntity {
     @Column(nullable = false, length = 500)
     private String businessLicenseUrl;
 
+    @Column(length = 500)
+    private String businessAddress;
+
+    @Column(length = 255)
+    private String legalRepresentativeName;
+
+    @Column(length = 255)
+    private String legalRepresentativePosition;
+
+    @Column(length = 500)
+    private String websiteUrl;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 10)
     private VendorStatus status = VendorStatus.ACTIVE;
