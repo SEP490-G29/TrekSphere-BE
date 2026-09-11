@@ -45,9 +45,11 @@ import java.util.UUID;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+
 
 @ExtendWith(MockitoExtension.class)
 class GroupPostServiceTest {
@@ -209,16 +211,20 @@ class GroupPostServiceTest {
         when(postRepository.findByGroupPostIdAndMatchingGroup_MatchingGroupIdAndIsDeletedFalse(postId, groupId))
                 .thenReturn(Optional.of(post));
         when(matchingMemberRepository.findActiveMembers(groupId, JoinStatus.ACCEPTED)).thenReturn(List.of(authorMember));
-        when(commentRepository.findByGroupPost_GroupPostIdAndStatusAndIsDeletedFalseOrderByCreatedAtAsc(postId, GroupContentStatus.SHOW))
-                .thenReturn(List.of(comment));
+        when(commentRepository.findByGroupPost_GroupPostIdAndParentCommentIsNullAndStatusAndIsDeletedFalseOrderByCreatedAtAsc(
+                postId, GroupContentStatus.SHOW)).thenReturn(List.of(comment));
+        when(commentRepository.findByParentComment_GroupPostCommentIdAndStatusAndIsDeletedFalseOrderByCreatedAtAsc(
+                comment.getGroupPostCommentId(), GroupContentStatus.SHOW)).thenReturn(List.of());
 
         GroupPostDetailResponse detail = postService.getGroupPostDetail(groupId, postId, authorId);
+
 
         assertThat(detail).isNotNull();
         assertThat(detail.getPost().getTitle()).isEqualTo("Kế hoạch chuẩn bị lều");
         assertThat(detail.getComments()).hasSize(1);
         assertThat(detail.getComments().get(0).getContent()).isEqualTo("Mình có lều 4 người");
     }
+
 
     @Test
     @DisplayName("createGroupPost - Thành viên tạo bài đăng kèm ảnh thành công")
@@ -362,6 +368,137 @@ class GroupPostServiceTest {
     }
 
     @Test
+    @DisplayName("createComment - Trả lời bình luận gốc thành công")
+    void createComment_ReplyToRootComment_Success() {
+        UUID postId = post.getGroupPostId();
+        UUID rootCommentId = comment.getGroupPostCommentId();
+        GroupPostCommentCreateRequest request = GroupPostCommentCreateRequest.builder()
+                .content("Trả lời bình luận gốc")
+                .replyToCommentId(rootCommentId)
+                .build();
+
+        when(matchingGroupRepository.findById(groupId)).thenReturn(Optional.of(group));
+        when(matchingMemberRepository.findActiveMembers(groupId, JoinStatus.ACCEPTED)).thenReturn(List.of(authorMember));
+        when(postRepository.findByGroupPostIdAndMatchingGroup_MatchingGroupIdAndIsDeletedFalse(postId, groupId))
+                .thenReturn(Optional.of(post));
+        when(commentRepository.findByGroupPostCommentIdAndGroupPost_GroupPostIdAndIsDeletedFalse(rootCommentId, postId))
+                .thenReturn(Optional.of(comment));
+        when(commentRepository.save(any(GroupPostComment.class))).thenAnswer(inv -> {
+            GroupPostComment c = inv.getArgument(0);
+            c.setGroupPostCommentId(UUID.randomUUID());
+            return c;
+        });
+
+        GroupPostCommentResponse response = postService.createComment(groupId, postId, request, authorId);
+
+        assertThat(response).isNotNull();
+        assertThat(response.getContent()).isEqualTo("Trả lời bình luận gốc");
+        assertThat(response.getParentCommentId()).isEqualTo(rootCommentId);
+        assertThat(response.getReplyToCommentId()).isEqualTo(rootCommentId);
+        assertThat(response.getReplyToFullName()).isEqualTo("Other Member");
+    }
+
+    @Test
+    @DisplayName("createComment - Trả lời một reply con tự động gán parent là root comment (giới hạn 2 cấp)")
+    void createComment_ReplyToChildReply_FlattensToRoot() {
+        UUID postId = post.getGroupPostId();
+        UUID rootCommentId = comment.getGroupPostCommentId();
+
+        GroupPostComment childReply = new GroupPostComment();
+        childReply.setGroupPostCommentId(UUID.randomUUID());
+        childReply.setGroupPost(post);
+        childReply.setParentComment(comment);
+        childReply.setAnsweredBy(authorMember);
+        childReply.setContent("Đây là reply cấp 2");
+        childReply.setStatus(GroupContentStatus.SHOW);
+        childReply.setIsDeleted(false);
+
+        UUID childReplyId = childReply.getGroupPostCommentId();
+
+        GroupPostCommentCreateRequest request = GroupPostCommentCreateRequest.builder()
+                .content("Phản hồi tiếp câu trả lời của tác giả")
+                .replyToCommentId(childReplyId)
+                .build();
+
+        when(matchingGroupRepository.findById(groupId)).thenReturn(Optional.of(group));
+        when(matchingMemberRepository.findActiveMembers(groupId, JoinStatus.ACCEPTED)).thenReturn(List.of(otherMember));
+        when(postRepository.findByGroupPostIdAndMatchingGroup_MatchingGroupIdAndIsDeletedFalse(postId, groupId))
+                .thenReturn(Optional.of(post));
+        when(commentRepository.findByGroupPostCommentIdAndGroupPost_GroupPostIdAndIsDeletedFalse(childReplyId, postId))
+                .thenReturn(Optional.of(childReply));
+        when(commentRepository.save(any(GroupPostComment.class))).thenAnswer(inv -> {
+            GroupPostComment c = inv.getArgument(0);
+            c.setGroupPostCommentId(UUID.randomUUID());
+            return c;
+        });
+
+        GroupPostCommentResponse response = postService.createComment(groupId, postId, request, otherMemberId);
+
+        assertThat(response).isNotNull();
+        // parentCommentId phải trỏ về root comment
+        assertThat(response.getParentCommentId()).isEqualTo(rootCommentId);
+        // replyToCommentId trỏ về childReply
+        assertThat(response.getReplyToCommentId()).isEqualTo(childReplyId);
+        assertThat(response.getReplyToFullName()).isEqualTo("Author User");
+    }
+
+    @Test
+    @DisplayName("createComment - Trả lời comment không tồn tại ném AppException")
+    void createComment_TargetNotFound_ThrowsException() {
+        UUID postId = post.getGroupPostId();
+        UUID fakeCommentId = UUID.randomUUID();
+        GroupPostCommentCreateRequest request = GroupPostCommentCreateRequest.builder()
+                .content("Bình luận lỗi")
+                .replyToCommentId(fakeCommentId)
+                .build();
+
+        when(matchingGroupRepository.findById(groupId)).thenReturn(Optional.of(group));
+        when(matchingMemberRepository.findActiveMembers(groupId, JoinStatus.ACCEPTED)).thenReturn(List.of(authorMember));
+        when(postRepository.findByGroupPostIdAndMatchingGroup_MatchingGroupIdAndIsDeletedFalse(postId, groupId))
+                .thenReturn(Optional.of(post));
+        when(commentRepository.findByGroupPostCommentIdAndGroupPost_GroupPostIdAndIsDeletedFalse(fakeCommentId, postId))
+                .thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> postService.createComment(groupId, postId, request, authorId))
+                .isInstanceOf(AppException.class)
+                .hasMessageContaining(ErrorCode.COMMENT_NOT_FOUND.getMessage());
+    }
+
+    @Test
+    @DisplayName("getGroupPostDetail - Trả về cây 2 cấp cho root comment và replies")
+    void getGroupPostDetail_ReturnsHierarchy() {
+        UUID postId = post.getGroupPostId();
+        UUID rootCommentId = comment.getGroupPostCommentId();
+
+        GroupPostComment reply = new GroupPostComment();
+        reply.setGroupPostCommentId(UUID.randomUUID());
+        reply.setGroupPost(post);
+        reply.setParentComment(comment);
+        reply.setAnsweredBy(authorMember);
+        reply.setContent("Reply cho comment gốc");
+        reply.setStatus(GroupContentStatus.SHOW);
+        reply.setIsDeleted(false);
+
+        when(matchingGroupRepository.findById(groupId)).thenReturn(Optional.of(group));
+        when(matchingMemberRepository.findActiveMembers(groupId, JoinStatus.ACCEPTED)).thenReturn(List.of(authorMember));
+        when(postRepository.findByGroupPostIdAndMatchingGroup_MatchingGroupIdAndIsDeletedFalse(postId, groupId))
+                .thenReturn(Optional.of(post));
+        when(commentRepository.findByGroupPost_GroupPostIdAndParentCommentIsNullAndStatusAndIsDeletedFalseOrderByCreatedAtAsc(
+                postId, GroupContentStatus.SHOW)).thenReturn(List.of(comment));
+        when(commentRepository.findByParentComment_GroupPostCommentIdAndStatusAndIsDeletedFalseOrderByCreatedAtAsc(
+                rootCommentId, GroupContentStatus.SHOW)).thenReturn(List.of(reply));
+
+        var detailResponse = postService.getGroupPostDetail(groupId, postId, authorId);
+
+
+        assertThat(detailResponse).isNotNull();
+        assertThat(detailResponse.getPost().getCommentCount()).isEqualTo(2);
+        assertThat(detailResponse.getComments()).hasSize(1);
+        assertThat(detailResponse.getComments().get(0).getReplies()).hasSize(1);
+        assertThat(detailResponse.getComments().get(0).getReplies().get(0).getContent()).isEqualTo("Reply cho comment gốc");
+    }
+
+    @Test
     @DisplayName("updateComment - Tác giả cập nhật bình luận thành công")
     void updateComment_SuccessByAuthor() {
         UUID postId = post.getGroupPostId();
@@ -383,19 +520,29 @@ class GroupPostServiceTest {
     }
 
     @Test
-    @DisplayName("deleteComment - Leader xóa bình luận của thành viên thành công")
-    void deleteComment_SuccessByLeader() {
+    @DisplayName("deleteComment - Leader xóa bình luận của thành viên và cascade xóa replies")
+    void deleteComment_SuccessByLeader_WithCascadeReplies() {
         UUID postId = post.getGroupPostId();
         UUID commentId = comment.getGroupPostCommentId();
+
+        GroupPostComment childReply = new GroupPostComment();
+        childReply.setGroupPostCommentId(UUID.randomUUID());
+        childReply.setGroupPost(post);
+        childReply.setParentComment(comment);
+        childReply.setIsDeleted(false);
 
         when(matchingGroupRepository.findById(groupId)).thenReturn(Optional.of(group));
         when(matchingMemberRepository.findActiveMembers(groupId, JoinStatus.ACCEPTED)).thenReturn(List.of(leaderMember));
         when(commentRepository.findByGroupPostCommentIdAndGroupPost_GroupPostIdAndIsDeletedFalse(commentId, postId))
                 .thenReturn(Optional.of(comment));
+        when(commentRepository.findByParentComment_GroupPostCommentIdAndIsDeletedFalse(commentId))
+                .thenReturn(List.of(childReply));
 
         postService.deleteComment(groupId, postId, commentId, leaderId);
 
         assertThat(comment.getIsDeleted()).isTrue();
+        assertThat(childReply.getIsDeleted()).isTrue();
         verify(commentRepository).save(comment);
+        verify(commentRepository).saveAll(anyList());
     }
 }
