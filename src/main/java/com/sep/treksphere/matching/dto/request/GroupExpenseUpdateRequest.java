@@ -34,6 +34,8 @@ public class GroupExpenseUpdateRequest {
 
     private SplitMethod splitMethod;
 
+    private List<GroupExpenseCustomShareRequest> customShares;
+
     private LocalDateTime spentAt;
 
     @Size(max = 500, message = "Đường dẫn hóa đơn không được vượt quá 500 ký tự")

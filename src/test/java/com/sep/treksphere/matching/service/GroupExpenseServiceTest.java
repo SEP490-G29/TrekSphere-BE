@@ -4,6 +4,7 @@ import com.sep.treksphere.common.dto.PaginationResponse;
 import com.sep.treksphere.common.exception.AppException;
 import com.sep.treksphere.common.exception.ErrorCode;
 import com.sep.treksphere.matching.dto.request.GroupExpenseCreateRequest;
+import com.sep.treksphere.matching.dto.request.GroupExpenseCustomShareRequest;
 import com.sep.treksphere.matching.dto.request.GroupExpenseFilterRequest;
 import com.sep.treksphere.matching.dto.request.GroupExpenseUpdateRequest;
 import com.sep.treksphere.matching.dto.response.GroupExpenseResponse;
@@ -395,5 +396,187 @@ class GroupExpenseServiceTest {
         assertThat(response).isNotNull();
         assertThat(response.getTotalElements()).isEqualTo(1);
         assertThat(response.getContent()).hasSize(1);
+    }
+
+    @Test
+    void createExpense_Success_WithCustomSplit() {
+        GroupExpenseCreateRequest request = GroupExpenseCreateRequest.builder()
+                .title("Bữa tối lẩu cá tầm")
+                .amount(new BigDecimal("500000.00"))
+                .beneficiaryScope(BeneficiaryScope.ALL_MEMBERS)
+                .splitMethod(SplitMethod.CUSTOM)
+                .customShares(List.of(
+                        GroupExpenseCustomShareRequest.builder()
+                                .matchingMemberId(leaderMember.getMatchingMemberId())
+                                .amount(new BigDecimal("200000.00"))
+                                .build(),
+                        GroupExpenseCustomShareRequest.builder()
+                                .matchingMemberId(regularMember.getMatchingMemberId())
+                                .amount(new BigDecimal("300000.00"))
+                                .build()
+                ))
+                .build();
+
+        when(matchingGroupRepository.findById(groupId)).thenReturn(Optional.of(group));
+        when(matchingMemberRepository.findByGroupIdAndUserId(groupId, leaderUserId))
+                .thenReturn(Optional.of(leaderMember));
+        when(groupTripRepository.findByMatchingGroup(group)).thenReturn(Optional.of(trip));
+        when(matchingMemberRepository.findActiveMembers(groupId, JoinStatus.ACCEPTED))
+                .thenReturn(List.of(leaderMember, regularMember));
+        when(groupExpenseRepository.save(any(GroupExpense.class))).thenAnswer(i -> {
+            GroupExpense e = i.getArgument(0);
+            e.setGroupExpenseId(UUID.randomUUID());
+            return e;
+        });
+        when(groupExpenseShareRepository.saveAll(any())).thenAnswer(i -> i.getArgument(0));
+
+        GroupExpenseResponse response = groupExpenseService.createExpense(groupId, request, leaderUserId);
+
+        assertThat(response).isNotNull();
+        assertThat(response.getSplitMethod()).isEqualTo(SplitMethod.CUSTOM);
+        assertThat(response.getAmount()).isEqualByComparingTo("500000.00");
+        assertThat(response.getShares()).hasSize(2);
+        assertThat(response.getShares()).extracting("shareAmount")
+                .containsExactlyInAnyOrder(new BigDecimal("200000.00"), new BigDecimal("300000.00"));
+    }
+
+    @Test
+    void createExpense_ThrowsWhenCustomSplitSumMismatch() {
+        GroupExpenseCreateRequest request = GroupExpenseCreateRequest.builder()
+                .title("Tiền phòng homestay")
+                .amount(new BigDecimal("500000.00"))
+                .beneficiaryScope(BeneficiaryScope.ALL_MEMBERS)
+                .splitMethod(SplitMethod.CUSTOM)
+                .customShares(List.of(
+                        GroupExpenseCustomShareRequest.builder()
+                                .matchingMemberId(leaderMember.getMatchingMemberId())
+                                .amount(new BigDecimal("200000.00"))
+                                .build(),
+                        GroupExpenseCustomShareRequest.builder()
+                                .matchingMemberId(regularMember.getMatchingMemberId())
+                                .amount(new BigDecimal("250000.00")) // Sum is 450,000 != 500,000
+                                .build()
+                ))
+                .build();
+
+        when(matchingGroupRepository.findById(groupId)).thenReturn(Optional.of(group));
+        when(matchingMemberRepository.findByGroupIdAndUserId(groupId, leaderUserId))
+                .thenReturn(Optional.of(leaderMember));
+        when(groupTripRepository.findByMatchingGroup(group)).thenReturn(Optional.of(trip));
+        when(matchingMemberRepository.findActiveMembers(groupId, JoinStatus.ACCEPTED))
+                .thenReturn(List.of(leaderMember, regularMember));
+        when(groupExpenseRepository.save(any(GroupExpense.class))).thenAnswer(i -> i.getArgument(0));
+
+        assertThatThrownBy(() -> groupExpenseService.createExpense(groupId, request, leaderUserId))
+                .isInstanceOf(AppException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.INVALID_EXPENSE_CUSTOM_SPLIT_SUM);
+    }
+
+    @Test
+    void createExpense_ThrowsWhenCustomSplitMembersMissing() {
+        GroupExpenseCreateRequest request = GroupExpenseCreateRequest.builder()
+                .title("Tiền phòng homestay")
+                .amount(new BigDecimal("500000.00"))
+                .beneficiaryScope(BeneficiaryScope.ALL_MEMBERS)
+                .splitMethod(SplitMethod.CUSTOM)
+                .customShares(List.of(
+                        GroupExpenseCustomShareRequest.builder()
+                                .matchingMemberId(leaderMember.getMatchingMemberId())
+                                .amount(new BigDecimal("500000.00"))
+                                .build()
+                        // regularMember missing from customShares
+                ))
+                .build();
+
+        when(matchingGroupRepository.findById(groupId)).thenReturn(Optional.of(group));
+        when(matchingMemberRepository.findByGroupIdAndUserId(groupId, leaderUserId))
+                .thenReturn(Optional.of(leaderMember));
+        when(groupTripRepository.findByMatchingGroup(group)).thenReturn(Optional.of(trip));
+        when(matchingMemberRepository.findActiveMembers(groupId, JoinStatus.ACCEPTED))
+                .thenReturn(List.of(leaderMember, regularMember));
+        when(groupExpenseRepository.save(any(GroupExpense.class))).thenAnswer(i -> i.getArgument(0));
+
+        assertThatThrownBy(() -> groupExpenseService.createExpense(groupId, request, leaderUserId))
+                .isInstanceOf(AppException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.INVALID_EXPENSE_CUSTOM_SPLIT_MEMBERS);
+    }
+
+    @Test
+    void createExpense_ThrowsWhenCustomSplitDuplicateMember() {
+        GroupExpenseCreateRequest request = GroupExpenseCreateRequest.builder()
+                .title("Tiền phòng homestay")
+                .amount(new BigDecimal("500000.00"))
+                .beneficiaryScope(BeneficiaryScope.ALL_MEMBERS)
+                .splitMethod(SplitMethod.CUSTOM)
+                .customShares(List.of(
+                        GroupExpenseCustomShareRequest.builder()
+                                .matchingMemberId(leaderMember.getMatchingMemberId())
+                                .amount(new BigDecimal("200000.00"))
+                                .build(),
+                        GroupExpenseCustomShareRequest.builder()
+                                .matchingMemberId(leaderMember.getMatchingMemberId()) // Duplicate leaderMember
+                                .amount(new BigDecimal("300000.00"))
+                                .build()
+                ))
+                .build();
+
+        when(matchingGroupRepository.findById(groupId)).thenReturn(Optional.of(group));
+        when(matchingMemberRepository.findByGroupIdAndUserId(groupId, leaderUserId))
+                .thenReturn(Optional.of(leaderMember));
+        when(groupTripRepository.findByMatchingGroup(group)).thenReturn(Optional.of(trip));
+        when(matchingMemberRepository.findActiveMembers(groupId, JoinStatus.ACCEPTED))
+                .thenReturn(List.of(leaderMember, regularMember));
+        when(groupExpenseRepository.save(any(GroupExpense.class))).thenAnswer(i -> i.getArgument(0));
+
+        assertThatThrownBy(() -> groupExpenseService.createExpense(groupId, request, leaderUserId))
+                .isInstanceOf(AppException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.INVALID_EXPENSE_BENEFICIARIES);
+    }
+
+    @Test
+    void updateExpense_Success_SwitchToCustomSplit() {
+        UUID expenseId = UUID.randomUUID();
+        GroupExpense existing = new GroupExpense();
+        existing.setGroupExpenseId(expenseId);
+        existing.setGroupTrip(trip);
+        existing.setPaidBy(leaderMember);
+        existing.setTitle("Tiền ăn");
+        existing.setAmount(new BigDecimal("400000.00"));
+        existing.setBeneficiaryScope(BeneficiaryScope.ALL_MEMBERS);
+        existing.setBeneficiaryCount(2);
+        existing.setSplitMethod(SplitMethod.EQUAL);
+        existing.setShares(new ArrayList<>());
+
+        GroupExpenseUpdateRequest request = GroupExpenseUpdateRequest.builder()
+                .splitMethod(SplitMethod.CUSTOM)
+                .amount(new BigDecimal("400000.00"))
+                .customShares(List.of(
+                        GroupExpenseCustomShareRequest.builder()
+                                .matchingMemberId(leaderMember.getMatchingMemberId())
+                                .amount(new BigDecimal("150000.00"))
+                                .build(),
+                        GroupExpenseCustomShareRequest.builder()
+                                .matchingMemberId(regularMember.getMatchingMemberId())
+                                .amount(new BigDecimal("250000.00"))
+                                .build()
+                ))
+                .build();
+
+        when(matchingGroupRepository.findById(groupId)).thenReturn(Optional.of(group));
+        when(matchingMemberRepository.findByGroupIdAndUserId(groupId, leaderUserId))
+                .thenReturn(Optional.of(leaderMember));
+        when(groupExpenseRepository.findByGroupExpenseIdAndGroupTrip_MatchingGroup_MatchingGroupId(expenseId, groupId))
+                .thenReturn(Optional.of(existing));
+        when(matchingMemberRepository.findActiveMembers(groupId, JoinStatus.ACCEPTED))
+                .thenReturn(List.of(leaderMember, regularMember));
+        when(groupExpenseRepository.save(existing)).thenReturn(existing);
+
+        GroupExpenseResponse response = groupExpenseService.updateExpense(groupId, expenseId, request, leaderUserId);
+
+        assertThat(response).isNotNull();
+        assertThat(existing.getSplitMethod()).isEqualTo(SplitMethod.CUSTOM);
+        assertThat(existing.getShares()).hasSize(2);
+        assertThat(existing.getShares()).extracting("shareAmount")
+                .containsExactlyInAnyOrder(new BigDecimal("150000.00"), new BigDecimal("250000.00"));
     }
 }

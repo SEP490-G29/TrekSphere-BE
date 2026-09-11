@@ -580,6 +580,9 @@ public class MessageConstant {
     public static final String REPORT_TARGET_TYPE_REQUIRED = "Loại nội dung báo cáo không được để trống";
     public static final String REPORT_REASON_REQUIRED = "Lý do báo cáo không được để trống";
     public static final String REPORT_ACTION_REQUIRED = "Hành động xử lý không được để trống";
+    public static final String REPORT_NOT_FOUND = "Báo cáo không tồn tại";
+    public static final String REPORT_TARGET_NOT_FOUND = "Đối tượng bị báo cáo không tồn tại";
+    public static final String REPORT_ALREADY_RESOLVED = "Báo cáo này đã được xử lý từ trước";
 
     // Notification Messages
     public static final String NOTIFICATIONS_FETCHED_SUCCESS = "Lấy danh sách thông báo thành công";
@@ -607,6 +610,22 @@ public class MessageConstant {
     public static final String GROUP_EXPENSE_FETCHED_SUCCESS = "Lấy chi tiết khoản chi tiêu thành công";
     public static final String GROUP_EXPENSES_FETCHED_SUCCESS = "Lấy danh sách chi tiêu thành công";
     public static final String GROUP_EXPENSE_SUMMARY_FETCHED_SUCCESS = "Lấy tổng kết chi tiêu thành công";
+    public static final String INVALID_EXPENSE_CUSTOM_SPLIT_SUM = "Tổng số tiền chia tùy chỉnh phải bằng chính xác tổng số tiền của khoản chi";
+    public static final String INVALID_EXPENSE_CUSTOM_SPLIT_MEMBERS = "Danh sách thành viên chia tiền tùy chỉnh không hợp lệ hoặc không khớp với người thụ hưởng";
+
+    // Settlement Messages
+    public static final String GROUP_SETTLEMENT_NOT_FOUND = "Lệnh quyết toán không tồn tại";
+    public static final String SETTLEMENTS_FETCHED_SUCCESS = "Lấy danh sách quyết toán thành công";
+    public static final String SETTLEMENT_SUMMARY_FETCHED_SUCCESS = "Lấy tổng kết công nợ thành công";
+    public static final String SETTLEMENTS_GENERATED_SUCCESS = "Khởi tạo danh sách quyết toán thành công";
+    public static final String SETTLEMENT_PROOF_SUBMITTED_SUCCESS = "Gửi chứng từ chuyển tiền thành công";
+    public static final String SETTLEMENT_CONFIRMED_SUCCESS = "Xác nhận quyết toán thành công";
+    public static final String SETTLEMENT_REJECTED_SUCCESS = "Từ chối quyết toán thành công";
+    public static final String UNAUTHORIZED_SETTLEMENT_SUBMIT = "Chỉ người nợ (Debtor) mới có quyền gửi chứng từ chuyển tiền";
+    public static final String UNAUTHORIZED_SETTLEMENT_CONFIRM = "Chỉ người nhận tiền (Payee) mới có quyền xác nhận quyết toán";
+    public static final String UNAUTHORIZED_SETTLEMENT_REJECT = "Chỉ người nhận tiền (Payee) mới có quyền từ chối quyết toán";
+    public static final String INVALID_SETTLEMENT_STATUS = "Trạng thái quyết toán không hợp lệ cho thao tác này";
 }
+
 
 

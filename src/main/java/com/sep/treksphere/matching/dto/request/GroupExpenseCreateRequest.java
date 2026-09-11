@@ -40,6 +40,8 @@ public class GroupExpenseCreateRequest {
     @Builder.Default
     private SplitMethod splitMethod = SplitMethod.EQUAL;
 
+    private List<GroupExpenseCustomShareRequest> customShares;
+
     private LocalDateTime spentAt;
 
     @Size(max = 500, message = "Đường dẫn hóa đơn không được vượt quá 500 ký tự")

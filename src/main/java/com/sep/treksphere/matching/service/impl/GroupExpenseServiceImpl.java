@@ -5,6 +5,7 @@ import com.sep.treksphere.common.exception.AppException;
 import com.sep.treksphere.common.exception.ErrorCode;
 import com.sep.treksphere.common.util.PaginationUtils;
 import com.sep.treksphere.matching.dto.request.GroupExpenseCreateRequest;
+import com.sep.treksphere.matching.dto.request.GroupExpenseCustomShareRequest;
 import com.sep.treksphere.matching.dto.request.GroupExpenseFilterRequest;
 import com.sep.treksphere.matching.dto.request.GroupExpenseUpdateRequest;
 import com.sep.treksphere.matching.dto.response.GroupExpenseResponse;
@@ -38,6 +39,8 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -84,7 +87,12 @@ public class GroupExpenseServiceImpl implements GroupExpenseService {
 
         expense = groupExpenseRepository.save(expense);
 
-        List<GroupExpenseShare> shares = generateEqualShares(expense, beneficiaries, expense.getAmount());
+        List<GroupExpenseShare> shares;
+        if (expense.getSplitMethod() == SplitMethod.CUSTOM) {
+            shares = generateCustomShares(expense, beneficiaries, request.getCustomShares(), expense.getAmount());
+        } else {
+            shares = generateEqualShares(expense, beneficiaries, expense.getAmount());
+        }
         expense.setShares(shares);
 
         return groupExpenseMapper.toResponse(expense);
@@ -112,7 +120,9 @@ public class GroupExpenseServiceImpl implements GroupExpenseService {
         BeneficiaryScope scope = expense.getBeneficiaryScope();
         List<UUID> beneficiaryIds = request.getBeneficiaryMemberIds();
 
-        if (request.getBeneficiaryScope() != null || request.getBeneficiaryMemberIds() != null || request.getAmount() != null) {
+        if (request.getBeneficiaryScope() != null || request.getBeneficiaryMemberIds() != null
+                || request.getAmount() != null || request.getSplitMethod() != null
+                || request.getCustomShares() != null) {
             needRecomputeShares = true;
         }
 
@@ -120,7 +130,11 @@ public class GroupExpenseServiceImpl implements GroupExpenseService {
             List<MatchingMember> beneficiaries = resolveBeneficiaries(group, scope, beneficiaryIds);
             expense.setBeneficiaryCount(beneficiaries.size());
 
-            syncExpenseShares(expense, beneficiaries, expense.getAmount());
+            if (expense.getSplitMethod() == SplitMethod.CUSTOM) {
+                syncCustomExpenseShares(expense, beneficiaries, request.getCustomShares(), expense.getAmount());
+            } else {
+                syncEqualExpenseShares(expense, beneficiaries, expense.getAmount());
+            }
         }
 
         GroupExpense updated = groupExpenseRepository.save(expense);
@@ -322,7 +336,25 @@ public class GroupExpenseServiceImpl implements GroupExpenseService {
         return groupExpenseShareRepository.saveAll(shares);
     }
 
-    private void syncExpenseShares(GroupExpense expense, List<MatchingMember> beneficiaries, BigDecimal totalAmount) {
+    private List<GroupExpenseShare> generateCustomShares(GroupExpense expense, List<MatchingMember> beneficiaries,
+                                                         List<GroupExpenseCustomShareRequest> customShares, BigDecimal totalAmount) {
+        Map<UUID, BigDecimal> customShareMap = validateAndMapCustomShares(beneficiaries, customShares, totalAmount);
+        List<GroupExpenseShare> shares = new ArrayList<>();
+
+        for (MatchingMember member : beneficiaries) {
+            BigDecimal shareAmount = customShareMap.get(member.getMatchingMemberId());
+            GroupExpenseShare share = new GroupExpenseShare();
+            share.setGroupExpense(expense);
+            share.setMatchingMember(member);
+            share.setShareAmount(shareAmount);
+            share.setSettlementStatus(ExpenseShareSettlementStatus.UNSETTLED);
+            shares.add(share);
+        }
+
+        return groupExpenseShareRepository.saveAll(shares);
+    }
+
+    private void syncEqualExpenseShares(GroupExpense expense, List<MatchingMember> beneficiaries, BigDecimal totalAmount) {
         int count = beneficiaries.size();
         if (count == 0) {
             return;
@@ -374,5 +406,89 @@ public class GroupExpenseServiceImpl implements GroupExpenseService {
             }
         }
         expense.setShares(currentShares);
+    }
+
+    private void syncCustomExpenseShares(GroupExpense expense, List<MatchingMember> beneficiaries,
+                                         List<GroupExpenseCustomShareRequest> customShares, BigDecimal totalAmount) {
+        Map<UUID, BigDecimal> customShareMap = validateAndMapCustomShares(beneficiaries, customShares, totalAmount);
+
+        List<GroupExpenseShare> currentShares = expense.getShares() != null ? expense.getShares() : new ArrayList<>();
+        Map<UUID, GroupExpenseShare> shareByMemberId = currentShares.stream()
+                .filter(s -> !Boolean.TRUE.equals(s.getIsDeleted()))
+                .collect(Collectors.toMap(s -> s.getMatchingMember().getMatchingMemberId(), s -> s, (a, b) -> a));
+
+        Set<UUID> targetMemberIds = beneficiaries.stream()
+                .map(MatchingMember::getMatchingMemberId)
+                .collect(Collectors.toSet());
+
+        LocalDateTime now = LocalDateTime.now();
+        for (GroupExpenseShare share : currentShares) {
+            if (!targetMemberIds.contains(share.getMatchingMember().getMatchingMemberId())) {
+                share.setIsDeleted(true);
+                share.setDeletedAt(now);
+            }
+        }
+
+        for (MatchingMember member : beneficiaries) {
+            BigDecimal shareAmount = customShareMap.get(member.getMatchingMemberId());
+            GroupExpenseShare existing = shareByMemberId.get(member.getMatchingMemberId());
+            if (existing != null) {
+                existing.setShareAmount(shareAmount);
+                existing.setIsDeleted(false);
+                existing.setDeletedAt(null);
+            } else {
+                GroupExpenseShare newShare = new GroupExpenseShare();
+                newShare.setGroupExpense(expense);
+                newShare.setMatchingMember(member);
+                newShare.setShareAmount(shareAmount);
+                newShare.setSettlementStatus(ExpenseShareSettlementStatus.UNSETTLED);
+                newShare.setIsDeleted(false);
+                currentShares.add(newShare);
+            }
+        }
+        expense.setShares(currentShares);
+    }
+
+    private Map<UUID, BigDecimal> validateAndMapCustomShares(List<MatchingMember> beneficiaries,
+                                                             List<GroupExpenseCustomShareRequest> customShares,
+                                                             BigDecimal totalAmount) {
+        if (customShares == null || customShares.isEmpty()) {
+            throw new AppException(ErrorCode.INVALID_EXPENSE_CUSTOM_SPLIT_MEMBERS);
+        }
+
+        Set<UUID> beneficiaryIdSet = beneficiaries.stream()
+                .map(MatchingMember::getMatchingMemberId)
+                .collect(Collectors.toSet());
+
+        Set<UUID> providedMemberIds = new HashSet<>();
+        Map<UUID, BigDecimal> customShareMap = new HashMap<>();
+        BigDecimal sum = BigDecimal.ZERO;
+
+        for (GroupExpenseCustomShareRequest item : customShares) {
+            if (item == null || item.getMatchingMemberId() == null || item.getAmount() == null) {
+                throw new AppException(ErrorCode.INVALID_EXPENSE_CUSTOM_SPLIT_SUM);
+            }
+            if (item.getAmount().compareTo(BigDecimal.ZERO) < 0) {
+                throw new AppException(ErrorCode.INVALID_EXPENSE_CUSTOM_SPLIT_SUM);
+            }
+            if (!beneficiaryIdSet.contains(item.getMatchingMemberId())) {
+                throw new AppException(ErrorCode.INVALID_EXPENSE_CUSTOM_SPLIT_MEMBERS);
+            }
+            if (!providedMemberIds.add(item.getMatchingMemberId())) {
+                throw new AppException(ErrorCode.INVALID_EXPENSE_BENEFICIARIES);
+            }
+            customShareMap.put(item.getMatchingMemberId(), item.getAmount());
+            sum = sum.add(item.getAmount());
+        }
+
+        if (providedMemberIds.size() != beneficiaries.size()) {
+            throw new AppException(ErrorCode.INVALID_EXPENSE_CUSTOM_SPLIT_MEMBERS);
+        }
+
+        if (sum.compareTo(totalAmount) != 0) {
+            throw new AppException(ErrorCode.INVALID_EXPENSE_CUSTOM_SPLIT_SUM);
+        }
+
+        return customShareMap;
     }
 }
