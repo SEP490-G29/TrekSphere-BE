@@ -547,8 +547,9 @@ class CustomJourneyServiceTest {
 
         assertThat(summary).isNotNull();
         assertThat(summary.getTotalEstimatedCost()).isEqualByComparingTo(BigDecimal.valueOf(3000000));
-        assertThat(summary.getEstimatedCostPerMember()).isEqualByComparingTo(BigDecimal.valueOf(3000000));
+        assertThat(summary.getEstimatedCostPerMember()).isEqualByComparingTo(BigDecimal.valueOf(300000));
         assertThat(summary.getActiveMemberCount()).isEqualTo(1);
+        assertThat(summary.getMaxSize()).isEqualTo(10);
         assertThat(summary.getCostItems()).hasSize(2);
     }
 }

@@ -596,6 +596,17 @@ public class MessageConstant {
     public static final String COST_ITEM_CREATED_SUCCESS = "Thêm khoản dự toán chi phí thành công";
     public static final String COST_ITEM_UPDATED_SUCCESS = "Cập nhật khoản dự toán chi phí thành công";
     public static final String COST_ITEM_DELETED_SUCCESS = "Xóa khoản dự toán chi phí thành công";
+
+    public static final String GROUP_EXPENSE_NOT_FOUND = "Khoản chi tiêu không tồn tại";
+    public static final String UNAUTHORIZED_EXPENSE_ACTION = "Bạn không có quyền thực hiện thao tác trên khoản chi này";
+    public static final String GROUP_TRIP_NOT_FOUND = "Chuyến đi của nhóm không tồn tại";
+    public static final String INVALID_EXPENSE_BENEFICIARIES = "Danh sách người thụ hưởng không hợp lệ hoặc không thuộc nhóm";
+    public static final String GROUP_EXPENSE_CREATED_SUCCESS = "Ghi nhận khoản chi tiêu thành công";
+    public static final String GROUP_EXPENSE_UPDATED_SUCCESS = "Cập nhật khoản chi tiêu thành công";
+    public static final String GROUP_EXPENSE_DELETED_SUCCESS = "Hủy khoản chi tiêu thành công";
+    public static final String GROUP_EXPENSE_FETCHED_SUCCESS = "Lấy chi tiết khoản chi tiêu thành công";
+    public static final String GROUP_EXPENSES_FETCHED_SUCCESS = "Lấy danh sách chi tiêu thành công";
+    public static final String GROUP_EXPENSE_SUMMARY_FETCHED_SUCCESS = "Lấy tổng kết chi tiêu thành công";
 }
 
 

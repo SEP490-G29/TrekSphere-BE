@@ -350,11 +350,9 @@ public class CustomJourneyServiceImpl implements CustomJourneyService {
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
 
         int activeMemberCount = matchingMemberRepository.findActiveMembers(groupId, JoinStatus.ACCEPTED).size();
-        int maxSize = group.getMaxSize() != null ? group.getMaxSize() : 1;
-        int divisor = activeMemberCount > 0 ? activeMemberCount : (group.getCurrentSize() != null && group.getCurrentSize() > 0 ? group.getCurrentSize() : maxSize);
-        if (divisor <= 0) divisor = 1;
+        int plannedMembers = group.getMaxSize() != null && group.getMaxSize() > 0 ? group.getMaxSize() : 1;
 
-        BigDecimal estimatedCostPerMember = totalEstimatedCost.divide(BigDecimal.valueOf(divisor), 2, RoundingMode.HALF_UP);
+        BigDecimal estimatedCostPerMember = totalEstimatedCost.divide(BigDecimal.valueOf(plannedMembers), 2, RoundingMode.HALF_UP);
 
         return CustomJourneyCostSummaryResponse.builder()
                 .customJourneyId(journey.getCustomJourneyId())
