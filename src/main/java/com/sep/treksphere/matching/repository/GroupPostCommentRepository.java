@@ -18,6 +18,21 @@ public interface GroupPostCommentRepository extends JpaRepository<GroupPostComme
     List<GroupPostComment> findByGroupPost_GroupPostIdAndStatusAndIsDeletedFalseOrderByCreatedAtAsc(
             UUID groupPostId, GroupContentStatus status);
 
+    List<GroupPostComment> findByGroupPost_GroupPostIdAndParentCommentIsNullAndIsDeletedFalseOrderByCreatedAtAsc(
+            UUID groupPostId);
+
+    List<GroupPostComment> findByGroupPost_GroupPostIdAndParentCommentIsNullAndStatusAndIsDeletedFalseOrderByCreatedAtAsc(
+            UUID groupPostId, GroupContentStatus status);
+
+    List<GroupPostComment> findByParentComment_GroupPostCommentIdAndIsDeletedFalseOrderByCreatedAtAsc(
+            UUID parentCommentId);
+
+    List<GroupPostComment> findByParentComment_GroupPostCommentIdAndStatusAndIsDeletedFalseOrderByCreatedAtAsc(
+            UUID parentCommentId, GroupContentStatus status);
+
+    List<GroupPostComment> findByParentComment_GroupPostCommentIdAndIsDeletedFalse(
+            UUID parentCommentId);
+
     long countByGroupPost_GroupPostIdAndIsDeletedFalse(UUID groupPostId);
 
     long countByGroupPost_GroupPostIdAndStatusAndIsDeletedFalse(UUID groupPostId, GroupContentStatus status);
@@ -25,3 +40,4 @@ public interface GroupPostCommentRepository extends JpaRepository<GroupPostComme
     Optional<GroupPostComment> findByGroupPostCommentIdAndGroupPost_GroupPostIdAndIsDeletedFalse(
             UUID groupPostCommentId, UUID groupPostId);
 }
+

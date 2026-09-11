@@ -580,6 +580,9 @@ public class MessageConstant {
     public static final String REPORT_TARGET_TYPE_REQUIRED = "Loại nội dung báo cáo không được để trống";
     public static final String REPORT_REASON_REQUIRED = "Lý do báo cáo không được để trống";
     public static final String REPORT_ACTION_REQUIRED = "Hành động xử lý không được để trống";
+    public static final String REPORT_NOT_FOUND = "Báo cáo không tồn tại";
+    public static final String REPORT_TARGET_NOT_FOUND = "Đối tượng bị báo cáo không tồn tại";
+    public static final String REPORT_ALREADY_RESOLVED = "Báo cáo này đã được xử lý từ trước";
 
     // Notification Messages
     public static final String NOTIFICATIONS_FETCHED_SUCCESS = "Lấy danh sách thông báo thành công";
@@ -591,6 +594,38 @@ public class MessageConstant {
 
     // Matching & Hiking Profile Messages
     public static final String PUBLIC_HIKING_SUMMARY_FETCHED_SUCCESS = "Lấy hồ sơ leo núi công khai thành công";
+    public static final String CUSTOM_JOURNEY_COST_ITEM_NOT_FOUND = "Không tìm thấy khoản dự toán chi phí";
+    public static final String COST_ITEMS_FETCHED_SUCCESS = "Lấy danh sách dự toán chi phí thành công";
+    public static final String COST_ITEM_CREATED_SUCCESS = "Thêm khoản dự toán chi phí thành công";
+    public static final String COST_ITEM_UPDATED_SUCCESS = "Cập nhật khoản dự toán chi phí thành công";
+    public static final String COST_ITEM_DELETED_SUCCESS = "Xóa khoản dự toán chi phí thành công";
+
+    public static final String GROUP_EXPENSE_NOT_FOUND = "Khoản chi tiêu không tồn tại";
+    public static final String UNAUTHORIZED_EXPENSE_ACTION = "Bạn không có quyền thực hiện thao tác trên khoản chi này";
+    public static final String GROUP_TRIP_NOT_FOUND = "Chuyến đi của nhóm không tồn tại";
+    public static final String INVALID_EXPENSE_BENEFICIARIES = "Danh sách người thụ hưởng không hợp lệ hoặc không thuộc nhóm";
+    public static final String GROUP_EXPENSE_CREATED_SUCCESS = "Ghi nhận khoản chi tiêu thành công";
+    public static final String GROUP_EXPENSE_UPDATED_SUCCESS = "Cập nhật khoản chi tiêu thành công";
+    public static final String GROUP_EXPENSE_DELETED_SUCCESS = "Hủy khoản chi tiêu thành công";
+    public static final String GROUP_EXPENSE_FETCHED_SUCCESS = "Lấy chi tiết khoản chi tiêu thành công";
+    public static final String GROUP_EXPENSES_FETCHED_SUCCESS = "Lấy danh sách chi tiêu thành công";
+    public static final String GROUP_EXPENSE_SUMMARY_FETCHED_SUCCESS = "Lấy tổng kết chi tiêu thành công";
+    public static final String INVALID_EXPENSE_CUSTOM_SPLIT_SUM = "Tổng số tiền chia tùy chỉnh phải bằng chính xác tổng số tiền của khoản chi";
+    public static final String INVALID_EXPENSE_CUSTOM_SPLIT_MEMBERS = "Danh sách thành viên chia tiền tùy chỉnh không hợp lệ hoặc không khớp với người thụ hưởng";
+
+    // Settlement Messages
+    public static final String GROUP_SETTLEMENT_NOT_FOUND = "Lệnh quyết toán không tồn tại";
+    public static final String SETTLEMENTS_FETCHED_SUCCESS = "Lấy danh sách quyết toán thành công";
+    public static final String SETTLEMENT_SUMMARY_FETCHED_SUCCESS = "Lấy tổng kết công nợ thành công";
+    public static final String SETTLEMENTS_GENERATED_SUCCESS = "Khởi tạo danh sách quyết toán thành công";
+    public static final String SETTLEMENT_PROOF_SUBMITTED_SUCCESS = "Gửi chứng từ chuyển tiền thành công";
+    public static final String SETTLEMENT_CONFIRMED_SUCCESS = "Xác nhận quyết toán thành công";
+    public static final String SETTLEMENT_REJECTED_SUCCESS = "Từ chối quyết toán thành công";
+    public static final String UNAUTHORIZED_SETTLEMENT_SUBMIT = "Chỉ người nợ (Debtor) mới có quyền gửi chứng từ chuyển tiền";
+    public static final String UNAUTHORIZED_SETTLEMENT_CONFIRM = "Chỉ người nhận tiền (Payee) mới có quyền xác nhận quyết toán";
+    public static final String UNAUTHORIZED_SETTLEMENT_REJECT = "Chỉ người nhận tiền (Payee) mới có quyền từ chối quyết toán";
+    public static final String INVALID_SETTLEMENT_STATUS = "Trạng thái quyết toán không hợp lệ cho thao tác này";
 }
+
 
 

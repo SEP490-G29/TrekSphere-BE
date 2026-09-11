@@ -56,6 +56,12 @@ class CustomJourneyServiceTest {
     private CustomJourneyCheckpointRepository checkpointRepository;
 
     @Mock
+    private com.sep.treksphere.matching.repository.CustomJourneyActivityRepository activityRepository;
+
+    @Mock
+    private com.sep.treksphere.matching.repository.CustomJourneyCostItemRepository costItemRepository;
+
+    @Mock
     private MatchingGroupRepository matchingGroupRepository;
 
     @Mock
@@ -402,5 +408,148 @@ class CustomJourneyServiceTest {
         assertThat(response).isNotNull();
         assertThat(response.getTitle()).isEqualTo("Ăn sáng");
         verify(activityRepository).save(any(com.sep.treksphere.matching.entity.CustomJourneyActivity.class));
+    }
+
+    @Test
+    @DisplayName("createCostItem - Leader tạo khoản chi dự toán thành công")
+    void createCostItem_Success() {
+        com.sep.treksphere.matching.dto.request.CustomJourneyCostItemCreateRequest request =
+                com.sep.treksphere.matching.dto.request.CustomJourneyCostItemCreateRequest.builder()
+                        .itemName("Vé tham quan Vườn Quốc Gia")
+                        .category(com.sep.treksphere.matching.enums.CostItemCategory.PERMIT)
+                        .estimatedAmount(BigDecimal.valueOf(500000))
+                        .note("50k/người cho 10 người")
+                        .build();
+
+        when(matchingGroupRepository.findById(groupId)).thenReturn(Optional.of(group));
+        when(matchingMemberRepository.findActiveMembers(groupId, JoinStatus.ACCEPTED)).thenReturn(List.of(leaderMember));
+        when(customJourneyRepository.findByMatchingGroup_MatchingGroupIdAndIsDeletedFalse(groupId)).thenReturn(Optional.of(journey));
+        when(costItemRepository.save(any(com.sep.treksphere.matching.entity.CustomJourneyCostItem.class))).thenAnswer(inv -> {
+            com.sep.treksphere.matching.entity.CustomJourneyCostItem item = inv.getArgument(0);
+            item.setCustomJourneyCostItemId(UUID.randomUUID());
+            return item;
+        });
+
+        com.sep.treksphere.matching.dto.response.CustomJourneyCostItemResponse response =
+                customJourneyService.createCostItem(groupId, request, leaderId);
+
+        assertThat(response).isNotNull();
+        assertThat(response.getItemName()).isEqualTo("Vé tham quan Vườn Quốc Gia");
+        assertThat(response.getCategory()).isEqualTo(com.sep.treksphere.matching.enums.CostItemCategory.PERMIT);
+        assertThat(response.getEstimatedAmount()).isEqualByComparingTo(BigDecimal.valueOf(500000));
+        verify(costItemRepository).save(any(com.sep.treksphere.matching.entity.CustomJourneyCostItem.class));
+    }
+
+    @Test
+    @DisplayName("createCostItem - Ném ngoại lệ khi Journey đã bị khóa")
+    void createCostItem_ThrowsWhenJourneyLocked() {
+        journey.setIsLocked(true);
+        com.sep.treksphere.matching.dto.request.CustomJourneyCostItemCreateRequest request =
+                com.sep.treksphere.matching.dto.request.CustomJourneyCostItemCreateRequest.builder()
+                        .itemName("Thuê lều")
+                        .category(com.sep.treksphere.matching.enums.CostItemCategory.GEAR)
+                        .estimatedAmount(BigDecimal.valueOf(300000))
+                        .build();
+
+        when(matchingGroupRepository.findById(groupId)).thenReturn(Optional.of(group));
+        when(matchingMemberRepository.findActiveMembers(groupId, JoinStatus.ACCEPTED)).thenReturn(List.of(leaderMember));
+        when(customJourneyRepository.findByMatchingGroup_MatchingGroupIdAndIsDeletedFalse(groupId)).thenReturn(Optional.of(journey));
+
+        assertThatThrownBy(() -> customJourneyService.createCostItem(groupId, request, leaderId))
+                .isInstanceOf(AppException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.JOURNEY_LOCKED);
+    }
+
+    @Test
+    @DisplayName("updateCostItem - Leader cập nhật khoản chi dự toán thành công")
+    void updateCostItem_Success() {
+        UUID costItemId = UUID.randomUUID();
+        com.sep.treksphere.matching.entity.CustomJourneyCostItem costItem = new com.sep.treksphere.matching.entity.CustomJourneyCostItem();
+        costItem.setCustomJourneyCostItemId(costItemId);
+        costItem.setCustomJourney(journey);
+        costItem.setItemName("Thuê xe");
+        costItem.setCategory(com.sep.treksphere.matching.enums.CostItemCategory.TRANSPORT);
+        costItem.setEstimatedAmount(BigDecimal.valueOf(1000000));
+        costItem.setIsDeleted(false);
+
+        com.sep.treksphere.matching.dto.request.CustomJourneyCostItemUpdateRequest request =
+                com.sep.treksphere.matching.dto.request.CustomJourneyCostItemUpdateRequest.builder()
+                        .itemName("Thuê xe 16 chỗ")
+                        .estimatedAmount(BigDecimal.valueOf(1200000))
+                        .note("Đã bao gồm xăng xe")
+                        .build();
+
+        when(matchingGroupRepository.findById(groupId)).thenReturn(Optional.of(group));
+        when(matchingMemberRepository.findActiveMembers(groupId, JoinStatus.ACCEPTED)).thenReturn(List.of(leaderMember));
+        when(customJourneyRepository.findByMatchingGroup_MatchingGroupIdAndIsDeletedFalse(groupId)).thenReturn(Optional.of(journey));
+        when(costItemRepository.findByCustomJourneyCostItemIdAndCustomJourney_CustomJourneyIdAndIsDeletedFalse(costItemId, journey.getCustomJourneyId()))
+                .thenReturn(Optional.of(costItem));
+        when(costItemRepository.save(any(com.sep.treksphere.matching.entity.CustomJourneyCostItem.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        com.sep.treksphere.matching.dto.response.CustomJourneyCostItemResponse response =
+                customJourneyService.updateCostItem(groupId, costItemId, request, leaderId);
+
+        assertThat(response).isNotNull();
+        assertThat(response.getItemName()).isEqualTo("Thuê xe 16 chỗ");
+        assertThat(response.getEstimatedAmount()).isEqualByComparingTo(BigDecimal.valueOf(1200000));
+        assertThat(response.getNote()).isEqualTo("Đã bao gồm xăng xe");
+    }
+
+    @Test
+    @DisplayName("deleteCostItem - Leader xoá mềm khoản chi dự toán thành công")
+    void deleteCostItem_Success() {
+        UUID costItemId = UUID.randomUUID();
+        com.sep.treksphere.matching.entity.CustomJourneyCostItem costItem = new com.sep.treksphere.matching.entity.CustomJourneyCostItem();
+        costItem.setCustomJourneyCostItemId(costItemId);
+        costItem.setCustomJourney(journey);
+        costItem.setItemName("Tiền ăn");
+        costItem.setIsDeleted(false);
+
+        when(matchingGroupRepository.findById(groupId)).thenReturn(Optional.of(group));
+        when(matchingMemberRepository.findActiveMembers(groupId, JoinStatus.ACCEPTED)).thenReturn(List.of(leaderMember));
+        when(customJourneyRepository.findByMatchingGroup_MatchingGroupIdAndIsDeletedFalse(groupId)).thenReturn(Optional.of(journey));
+        when(costItemRepository.findByCustomJourneyCostItemIdAndCustomJourney_CustomJourneyIdAndIsDeletedFalse(costItemId, journey.getCustomJourneyId()))
+                .thenReturn(Optional.of(costItem));
+
+        customJourneyService.deleteCostItem(groupId, costItemId, leaderId);
+
+        assertThat(costItem.getIsDeleted()).isTrue();
+        verify(costItemRepository).save(costItem);
+    }
+
+    @Test
+    @DisplayName("getCostSummary - Tính toán đúng tổng chi phí và bình quân đầu người")
+    void getCostSummary_Success() {
+        com.sep.treksphere.matching.entity.CustomJourneyCostItem item1 = new com.sep.treksphere.matching.entity.CustomJourneyCostItem();
+        item1.setCustomJourneyCostItemId(UUID.randomUUID());
+        item1.setItemName("Ăn uống");
+        item1.setEstimatedAmount(BigDecimal.valueOf(2000000));
+        item1.setIsDeleted(false);
+
+        com.sep.treksphere.matching.entity.CustomJourneyCostItem item2 = new com.sep.treksphere.matching.entity.CustomJourneyCostItem();
+        item2.setCustomJourneyCostItemId(UUID.randomUUID());
+        item2.setItemName("Thuê Porter");
+        item2.setEstimatedAmount(BigDecimal.valueOf(1000000));
+        item2.setIsDeleted(false);
+
+        group.setMaxSize(10);
+        group.setCurrentSize(5);
+
+        when(matchingGroupRepository.findById(groupId)).thenReturn(Optional.of(group));
+        when(customJourneyRepository.findByMatchingGroup_MatchingGroupIdAndIsDeletedFalse(groupId)).thenReturn(Optional.of(journey));
+        when(costItemRepository.findByCustomJourney_CustomJourneyIdAndIsDeletedFalse(journey.getCustomJourneyId()))
+                .thenReturn(List.of(item1, item2));
+        when(matchingMemberRepository.findActiveMembers(groupId, JoinStatus.ACCEPTED))
+                .thenReturn(List.of(leaderMember)); // 1 active member
+
+        com.sep.treksphere.matching.dto.response.CustomJourneyCostSummaryResponse summary =
+                customJourneyService.getCostSummary(groupId, leaderId);
+
+        assertThat(summary).isNotNull();
+        assertThat(summary.getTotalEstimatedCost()).isEqualByComparingTo(BigDecimal.valueOf(3000000));
+        assertThat(summary.getEstimatedCostPerMember()).isEqualByComparingTo(BigDecimal.valueOf(300000));
+        assertThat(summary.getActiveMemberCount()).isEqualTo(1);
+        assertThat(summary.getMaxSize()).isEqualTo(10);
+        assertThat(summary.getCostItems()).hasSize(2);
     }
 }

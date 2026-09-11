@@ -25,11 +25,19 @@ import com.sep.treksphere.matching.repository.CustomJourneyRepository;
 import com.sep.treksphere.matching.repository.MatchingGroupRepository;
 import com.sep.treksphere.matching.repository.MatchingMemberRepository;
 import com.sep.treksphere.matching.service.CustomJourneyService;
+import com.sep.treksphere.matching.dto.request.CustomJourneyCostItemCreateRequest;
+import com.sep.treksphere.matching.dto.request.CustomJourneyCostItemUpdateRequest;
+import com.sep.treksphere.matching.dto.response.CustomJourneyCostItemResponse;
+import com.sep.treksphere.matching.dto.response.CustomJourneyCostSummaryResponse;
+import com.sep.treksphere.matching.entity.CustomJourneyCostItem;
+import com.sep.treksphere.matching.repository.CustomJourneyCostItemRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
@@ -43,6 +51,7 @@ public class CustomJourneyServiceImpl implements CustomJourneyService {
     private final CustomJourneyRepository customJourneyRepository;
     private final CustomJourneyCheckpointRepository checkpointRepository;
     private final CustomJourneyActivityRepository activityRepository;
+    private final CustomJourneyCostItemRepository costItemRepository;
     private final MatchingGroupRepository matchingGroupRepository;
     private final MatchingMemberRepository matchingMemberRepository;
     private final CustomJourneyMapper customJourneyMapper;
@@ -194,6 +203,7 @@ public class CustomJourneyServiceImpl implements CustomJourneyService {
                 .orElseThrow(() -> new AppException(ErrorCode.CUSTOM_JOURNEY_CHECKPOINT_NOT_FOUND));
 
         checkpoint.setIsDeleted(true);
+        checkpoint.setDeletedAt(java.time.LocalDateTime.now());
         checkpointRepository.save(checkpoint);
         log.info("Deleted checkpoint {} in custom journey {}", checkpointId, journey.getCustomJourneyId());
     }
@@ -314,8 +324,143 @@ public class CustomJourneyServiceImpl implements CustomJourneyService {
                 .orElseThrow(() -> new AppException(ErrorCode.CUSTOM_JOURNEY_ACTIVITY_NOT_FOUND));
 
         activity.setIsDeleted(true);
+        activity.setDeletedAt(java.time.LocalDateTime.now());
         activityRepository.save(activity);
         log.info("Deleted activity {} in custom journey {}", activityId, journey.getCustomJourneyId());
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public CustomJourneyCostSummaryResponse getCostSummary(UUID groupId, UUID currentUserId) {
+        MatchingGroup group = getGroupOrThrow(groupId);
+        validateReadPermission(group, currentUserId);
+
+        CustomJourney journey = customJourneyRepository.findByMatchingGroup_MatchingGroupIdAndIsDeletedFalse(groupId)
+                .orElseThrow(() -> new AppException(ErrorCode.JOURNEY_NOT_FOUND));
+
+        List<CustomJourneyCostItem> costItems = costItemRepository
+                .findByCustomJourney_CustomJourneyIdAndIsDeletedFalse(journey.getCustomJourneyId());
+
+        List<CustomJourneyCostItemResponse> itemResponses = costItems.stream()
+                .map(customJourneyMapper::toCostItemResponse)
+                .toList();
+
+        BigDecimal totalEstimatedCost = costItems.stream()
+                .map(CustomJourneyCostItem::getEstimatedAmount)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        int activeMemberCount = matchingMemberRepository.findActiveMembers(groupId, JoinStatus.ACCEPTED).size();
+        int plannedMembers = group.getMaxSize() != null && group.getMaxSize() > 0 ? group.getMaxSize() : 1;
+
+        BigDecimal estimatedCostPerMember = totalEstimatedCost.divide(BigDecimal.valueOf(plannedMembers), 2, RoundingMode.HALF_UP);
+
+        return CustomJourneyCostSummaryResponse.builder()
+                .customJourneyId(journey.getCustomJourneyId())
+                .matchingGroupId(groupId)
+                .totalEstimatedCost(totalEstimatedCost)
+                .estimatedCostPerMember(estimatedCostPerMember)
+                .activeMemberCount(activeMemberCount)
+                .maxSize(group.getMaxSize())
+                .costItems(itemResponses)
+                .build();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<CustomJourneyCostItemResponse> getCostItems(UUID groupId, UUID currentUserId) {
+        MatchingGroup group = getGroupOrThrow(groupId);
+        validateReadPermission(group, currentUserId);
+
+        CustomJourney journey = customJourneyRepository.findByMatchingGroup_MatchingGroupIdAndIsDeletedFalse(groupId)
+                .orElseThrow(() -> new AppException(ErrorCode.JOURNEY_NOT_FOUND));
+
+        List<CustomJourneyCostItem> costItems = costItemRepository
+                .findByCustomJourney_CustomJourneyIdAndIsDeletedFalse(journey.getCustomJourneyId());
+
+        return costItems.stream()
+                .map(customJourneyMapper::toCostItemResponse)
+                .toList();
+    }
+
+    @Override
+    @Transactional
+    public CustomJourneyCostItemResponse createCostItem(
+            UUID groupId, CustomJourneyCostItemCreateRequest request, UUID currentUserId) {
+        MatchingGroup group = getGroupOrThrow(groupId);
+        validateLeaderPermission(group, currentUserId);
+
+        CustomJourney journey = customJourneyRepository.findByMatchingGroup_MatchingGroupIdAndIsDeletedFalse(groupId)
+                .orElseThrow(() -> new AppException(ErrorCode.JOURNEY_NOT_FOUND));
+
+        validateJourneyNotLocked(journey);
+
+        CustomJourneyCostItem costItem = customJourneyMapper.toCostItemEntity(request);
+        costItem.setCustomJourney(journey);
+        if (request.getItemName() != null) {
+            costItem.setItemName(request.getItemName().trim());
+        }
+
+        CustomJourneyCostItem saved = costItemRepository.save(costItem);
+        log.info("Created cost item {} for custom journey {}", saved.getCustomJourneyCostItemId(), journey.getCustomJourneyId());
+
+        return customJourneyMapper.toCostItemResponse(saved);
+    }
+
+    @Override
+    @Transactional
+    public CustomJourneyCostItemResponse updateCostItem(
+            UUID groupId, UUID costItemId, CustomJourneyCostItemUpdateRequest request, UUID currentUserId) {
+        MatchingGroup group = getGroupOrThrow(groupId);
+        validateLeaderPermission(group, currentUserId);
+
+        CustomJourney journey = customJourneyRepository.findByMatchingGroup_MatchingGroupIdAndIsDeletedFalse(groupId)
+                .orElseThrow(() -> new AppException(ErrorCode.JOURNEY_NOT_FOUND));
+
+        validateJourneyNotLocked(journey);
+
+        CustomJourneyCostItem costItem = costItemRepository
+                .findByCustomJourneyCostItemIdAndCustomJourney_CustomJourneyIdAndIsDeletedFalse(costItemId, journey.getCustomJourneyId())
+                .orElseThrow(() -> new AppException(ErrorCode.CUSTOM_JOURNEY_COST_ITEM_NOT_FOUND));
+
+        customJourneyMapper.updateCostItemFromRequest(request, costItem);
+        if (request.getItemName() != null && !request.getItemName().isBlank()) {
+            costItem.setItemName(request.getItemName().trim());
+        }
+        if (request.getCategory() != null) {
+            costItem.setCategory(request.getCategory());
+        }
+        if (request.getEstimatedAmount() != null) {
+            costItem.setEstimatedAmount(request.getEstimatedAmount());
+        }
+        if (request.getNote() != null) {
+            costItem.setNote(request.getNote());
+        }
+
+        CustomJourneyCostItem saved = costItemRepository.save(costItem);
+        log.info("Updated cost item {} for custom journey {}", costItemId, journey.getCustomJourneyId());
+
+        return customJourneyMapper.toCostItemResponse(saved);
+    }
+
+    @Override
+    @Transactional
+    public void deleteCostItem(UUID groupId, UUID costItemId, UUID currentUserId) {
+        MatchingGroup group = getGroupOrThrow(groupId);
+        validateLeaderPermission(group, currentUserId);
+
+        CustomJourney journey = customJourneyRepository.findByMatchingGroup_MatchingGroupIdAndIsDeletedFalse(groupId)
+                .orElseThrow(() -> new AppException(ErrorCode.JOURNEY_NOT_FOUND));
+
+        validateJourneyNotLocked(journey);
+
+        CustomJourneyCostItem costItem = costItemRepository
+                .findByCustomJourneyCostItemIdAndCustomJourney_CustomJourneyIdAndIsDeletedFalse(costItemId, journey.getCustomJourneyId())
+                .orElseThrow(() -> new AppException(ErrorCode.CUSTOM_JOURNEY_COST_ITEM_NOT_FOUND));
+
+        costItem.setIsDeleted(true);
+        costItem.setDeletedAt(java.time.LocalDateTime.now());
+        costItemRepository.save(costItem);
+        log.info("Deleted cost item {} for custom journey {}", costItemId, journey.getCustomJourneyId());
     }
 
     private MatchingGroup getGroupOrThrow(UUID groupId) {
