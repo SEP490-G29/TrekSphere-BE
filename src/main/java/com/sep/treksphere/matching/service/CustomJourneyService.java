@@ -9,6 +9,11 @@ import com.sep.treksphere.matching.dto.response.CustomJourneyActivityResponse;
 import com.sep.treksphere.matching.dto.response.CustomJourneyCheckpointResponse;
 import com.sep.treksphere.matching.dto.response.CustomJourneyDetailResponse;
 
+import com.sep.treksphere.matching.dto.request.CustomJourneyCostItemCreateRequest;
+import com.sep.treksphere.matching.dto.request.CustomJourneyCostItemUpdateRequest;
+import com.sep.treksphere.matching.dto.response.CustomJourneyCostItemResponse;
+import com.sep.treksphere.matching.dto.response.CustomJourneyCostSummaryResponse;
+
 import java.util.List;
 import java.util.UUID;
 
@@ -35,5 +40,17 @@ public interface CustomJourneyService {
             UUID groupId, UUID activityId, CustomJourneyActivityUpdateRequest request, UUID currentUserId);
 
     void deleteActivity(UUID groupId, UUID activityId, UUID currentUserId);
+
+    CustomJourneyCostSummaryResponse getCostSummary(UUID groupId, UUID currentUserId);
+
+    List<CustomJourneyCostItemResponse> getCostItems(UUID groupId, UUID currentUserId);
+
+    CustomJourneyCostItemResponse createCostItem(
+            UUID groupId, CustomJourneyCostItemCreateRequest request, UUID currentUserId);
+
+    CustomJourneyCostItemResponse updateCostItem(
+            UUID groupId, UUID costItemId, CustomJourneyCostItemUpdateRequest request, UUID currentUserId);
+
+    void deleteCostItem(UUID groupId, UUID costItemId, UUID currentUserId);
 }
 

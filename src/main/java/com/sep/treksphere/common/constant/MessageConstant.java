@@ -591,6 +591,11 @@ public class MessageConstant {
 
     // Matching & Hiking Profile Messages
     public static final String PUBLIC_HIKING_SUMMARY_FETCHED_SUCCESS = "Lấy hồ sơ leo núi công khai thành công";
+    public static final String CUSTOM_JOURNEY_COST_ITEM_NOT_FOUND = "Không tìm thấy khoản dự toán chi phí";
+    public static final String COST_ITEMS_FETCHED_SUCCESS = "Lấy danh sách dự toán chi phí thành công";
+    public static final String COST_ITEM_CREATED_SUCCESS = "Thêm khoản dự toán chi phí thành công";
+    public static final String COST_ITEM_UPDATED_SUCCESS = "Cập nhật khoản dự toán chi phí thành công";
+    public static final String COST_ITEM_DELETED_SUCCESS = "Xóa khoản dự toán chi phí thành công";
 }
 
 

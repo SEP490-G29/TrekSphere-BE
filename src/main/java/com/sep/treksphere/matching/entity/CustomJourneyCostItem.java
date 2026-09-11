@@ -10,8 +10,11 @@ import lombok.Setter;
 import java.math.BigDecimal;
 import java.util.UUID;
 
+import org.hibernate.annotations.SQLRestriction;
+
 @Entity
 @Table(name = "custom_journey_cost_item")
+@SQLRestriction("is_deleted = false")
 @Getter
 @Setter
 @NoArgsConstructor

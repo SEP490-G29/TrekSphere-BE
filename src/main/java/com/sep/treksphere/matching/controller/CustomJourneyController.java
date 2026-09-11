@@ -156,4 +156,63 @@ public class CustomJourneyController {
         customJourneyService.deleteActivity(groupId, activityId, userDetails.getUser().getUserId());
         return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, null, MessageConstant.ACTIVITY_DELETED_SUCCESS));
     }
+
+    @Operation(summary = "Lấy tổng quan dự toán chi phí và danh sách khoản chi của hành trình")
+    @GetMapping("/cost-items/summary")
+    public ResponseEntity<ApiResponse<com.sep.treksphere.matching.dto.response.CustomJourneyCostSummaryResponse>> getCostSummary(
+            @Parameter(description = "ID nhóm ghép") @PathVariable UUID groupId,
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+        UUID currentUserId = userDetails != null ? userDetails.getUser().getUserId() : null;
+        com.sep.treksphere.matching.dto.response.CustomJourneyCostSummaryResponse response =
+                customJourneyService.getCostSummary(groupId, currentUserId);
+        return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, response));
+    }
+
+    @Operation(summary = "Lấy danh sách các khoản chi dự kiến của hành trình")
+    @GetMapping("/cost-items")
+    public ResponseEntity<ApiResponse<List<com.sep.treksphere.matching.dto.response.CustomJourneyCostItemResponse>>> getCostItems(
+            @Parameter(description = "ID nhóm ghép") @PathVariable UUID groupId,
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+        UUID currentUserId = userDetails != null ? userDetails.getUser().getUserId() : null;
+        List<com.sep.treksphere.matching.dto.response.CustomJourneyCostItemResponse> response =
+                customJourneyService.getCostItems(groupId, currentUserId);
+        return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, response));
+    }
+
+    @Operation(summary = "Thêm khoản chi dự kiến mới vào hành trình (chỉ Leader khi chưa khóa)")
+    @PostMapping("/cost-items")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<ApiResponse<com.sep.treksphere.matching.dto.response.CustomJourneyCostItemResponse>> createCostItem(
+            @Parameter(description = "ID nhóm ghép") @PathVariable UUID groupId,
+            @Valid @RequestBody com.sep.treksphere.matching.dto.request.CustomJourneyCostItemCreateRequest request,
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+        com.sep.treksphere.matching.dto.response.CustomJourneyCostItemResponse response =
+                customJourneyService.createCostItem(groupId, request, userDetails.getUser().getUserId());
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(ApiResponse.success(HttpStatus.CREATED, response, MessageConstant.COST_ITEM_CREATED_SUCCESS));
+    }
+
+    @Operation(summary = "Cập nhật khoản chi dự kiến trong hành trình (chỉ Leader khi chưa khóa)")
+    @PutMapping("/cost-items/{costItemId}")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<ApiResponse<com.sep.treksphere.matching.dto.response.CustomJourneyCostItemResponse>> updateCostItem(
+            @Parameter(description = "ID nhóm ghép") @PathVariable UUID groupId,
+            @Parameter(description = "ID khoản chi dự toán") @PathVariable UUID costItemId,
+            @Valid @RequestBody com.sep.treksphere.matching.dto.request.CustomJourneyCostItemUpdateRequest request,
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+        com.sep.treksphere.matching.dto.response.CustomJourneyCostItemResponse response =
+                customJourneyService.updateCostItem(groupId, costItemId, request, userDetails.getUser().getUserId());
+        return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, response, MessageConstant.COST_ITEM_UPDATED_SUCCESS));
+    }
+
+    @Operation(summary = "Xoá khoản chi dự kiến khỏi hành trình (chỉ Leader khi chưa khóa)")
+    @DeleteMapping("/cost-items/{costItemId}")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<ApiResponse<Void>> deleteCostItem(
+            @Parameter(description = "ID nhóm ghép") @PathVariable UUID groupId,
+            @Parameter(description = "ID khoản chi dự toán") @PathVariable UUID costItemId,
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+        customJourneyService.deleteCostItem(groupId, costItemId, userDetails.getUser().getUserId());
+        return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, null, MessageConstant.COST_ITEM_DELETED_SUCCESS));
+    }
 }

@@ -192,6 +192,7 @@ public interface MatchingGroupMapper {
         }
         if (mg.getCustomJourney() != null && mg.getCustomJourney().getCheckpoints() != null) {
             return mg.getCustomJourney().getCheckpoints().stream()
+                    .filter(c -> !Boolean.TRUE.equals(c.getIsDeleted()))
                     .map(CustomJourneyCheckpoint::getLocationName)
                     .filter(loc -> loc != null && !loc.isBlank())
                     .findFirst()
@@ -204,6 +205,7 @@ public interface MatchingGroupMapper {
         if (mg == null) return null;
         if (mg.getCustomJourney() != null && mg.getCustomJourney().getCostItems() != null) {
             return mg.getCustomJourney().getCostItems().stream()
+                    .filter(c -> !Boolean.TRUE.equals(c.getIsDeleted()))
                     .map(CustomJourneyCostItem::getEstimatedAmount)
                     .filter(Objects::nonNull)
                     .reduce(BigDecimal.ZERO, BigDecimal::add);
@@ -216,6 +218,7 @@ public interface MatchingGroupMapper {
             return Collections.emptyList();
         }
         return customJourney.getCheckpoints().stream()
+                .filter(c -> !Boolean.TRUE.equals(c.getIsDeleted()))
                 .map(this::toCheckpointResponse)
                 .toList();
     }
@@ -225,6 +228,7 @@ public interface MatchingGroupMapper {
             return Collections.emptyList();
         }
         return customJourney.getCostItems().stream()
+                .filter(c -> !Boolean.TRUE.equals(c.getIsDeleted()))
                 .map(this::toCostItemResponse)
                 .toList();
     }
