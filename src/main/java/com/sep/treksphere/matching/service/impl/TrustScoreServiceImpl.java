@@ -28,13 +28,8 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class TrustScoreServiceImpl implements TrustScoreService {
 
-    /** m — điểm trung tính dùng làm prior Bayesian, thang 1..5. */
-    private static final BigDecimal PRIOR_MEAN = new BigDecimal("3.5");
-    /** C — trọng số của prior, tương đương "3 review ảo" ở điểm trung tính. */
-    private static final BigDecimal PRIOR_WEIGHT = new BigDecimal("3");
-    private static final BigDecimal RATING_SCALE_MIN = BigDecimal.ONE;
-    private static final BigDecimal RATING_SCALE_SPAN = new BigDecimal("4"); // 5 - 1
-    private static final BigDecimal PERCENT_SCALE = new BigDecimal("100");
+    public static final short DEFAULT_TRUST_SCORE = 100;
+    private static final BigDecimal POINTS_PER_STAR = new BigDecimal("20"); // 5 sao = 100 điểm (100 / 5)
     private static final BigDecimal RATING_CRITERIA_COUNT = new BigDecimal("3");
     private static final int INTERNAL_SCALE = 10;
 
@@ -56,7 +51,7 @@ public class TrustScoreServiceImpl implements TrustScoreService {
         user.setTrustCalculatedAt(LocalDateTime.now());
 
         if (reviewCount == 0) {
-            user.setTrustScore(null);
+            user.setTrustScore(DEFAULT_TRUST_SCORE);
             userRepository.save(user);
             return;
         }
@@ -66,17 +61,14 @@ public class TrustScoreServiceImpl implements TrustScoreService {
             sumOfPerReviewAverages = sumOfPerReviewAverages.add(perReviewAverage(review));
         }
 
-        // adjusted = (C x m + Sum(r)) / (C + n)
-        BigDecimal numerator = PRIOR_MEAN.multiply(PRIOR_WEIGHT).add(sumOfPerReviewAverages);
-        BigDecimal denominator = PRIOR_WEIGHT.add(BigDecimal.valueOf(reviewCount));
-        BigDecimal adjusted = numerator.divide(denominator, INTERNAL_SCALE, RoundingMode.HALF_UP);
+        // Điểm đánh giá trung bình thực tế (thang 1..5 sao)
+        BigDecimal averageRating = sumOfPerReviewAverages.divide(
+                BigDecimal.valueOf(reviewCount), INTERNAL_SCALE, RoundingMode.HALF_UP);
 
-        // trust_score = ROUND((adjusted - 1) / 4 x 100), thang 0..100
-        BigDecimal scorePercent = adjusted.subtract(RATING_SCALE_MIN)
-                .divide(RATING_SCALE_SPAN, INTERNAL_SCALE, RoundingMode.HALF_UP)
-                .multiply(PERCENT_SCALE);
-
-        short trustScore = (short) scorePercent.setScale(0, RoundingMode.HALF_UP).intValueExact();
+        // Quy đổi ra thang điểm 0..100 (5 sao = 100, 4 sao = 80, 3 sao = 60, 1 sao = 20)
+        BigDecimal scorePercent = averageRating.multiply(POINTS_PER_STAR);
+        int rawScore = scorePercent.setScale(0, RoundingMode.HALF_UP).intValueExact();
+        short trustScore = (short) Math.max(0, Math.min(100, rawScore));
 
         user.setTrustScore(trustScore);
         userRepository.save(user);
