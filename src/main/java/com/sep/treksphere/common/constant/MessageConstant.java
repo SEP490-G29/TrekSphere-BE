@@ -623,6 +623,37 @@ public class MessageConstant {
     public static final String UNAUTHORIZED_SETTLEMENT_CONFIRM = "Chỉ người nhận tiền (Payee) mới có quyền xác nhận quyết toán";
     public static final String UNAUTHORIZED_SETTLEMENT_REJECT = "Chỉ người nhận tiền (Payee) mới có quyền từ chối quyết toán";
     public static final String INVALID_SETTLEMENT_STATUS = "Trạng thái quyết toán không hợp lệ cho thao tác này";
+
+    // Moment Messages
+    public static final String MOMENT_NOT_FOUND = "Khoảnh khắc không tồn tại";
+    public static final String UNAUTHORIZED_MOMENT_ACTION = "Bạn không có quyền thực hiện thao tác trên khoảnh khắc này";
+    public static final String MOMENT_MEDIA_REQUIRED = "Khoảnh khắc phải có ít nhất một hình ảnh";
+    public static final String MOMENT_ALREADY_HIDDEN = "Khoảnh khắc đã ở trạng thái ẩn";
+    public static final String MOMENT_NOT_HIDDEN = "Khoảnh khắc không ở trạng thái ẩn";
+    public static final String MOMENT_HIDDEN_REASON_REQUIRED = "Vui lòng nhập lý do ẩn khoảnh khắc";
+    public static final String MOMENT_CREATED_SUCCESS = "Đăng khoảnh khắc thành công";
+    public static final String MOMENT_UPDATED_SUCCESS = "Cập nhật khoảnh khắc thành công";
+    public static final String MOMENT_DELETED_SUCCESS = "Xóa khoảnh khắc thành công";
+    public static final String MOMENT_VISIBILITY_UPDATED_SUCCESS = "Cập nhật quyền hiển thị khoảnh khắc thành công";
+    public static final String MOMENT_HIDDEN_SUCCESS = "Ẩn khoảnh khắc thành công";
+    public static final String MOMENT_UNHIDDEN_SUCCESS = "Bỏ ẩn khoảnh khắc thành công";
+    public static final String MOMENTS_FETCHED_SUCCESS = "Lấy danh sách khoảnh khắc thành công";
+    public static final String MOMENT_FETCHED_SUCCESS = "Lấy chi tiết khoảnh khắc thành công";
+    public static final String MOMENTS_MAP_FETCHED_SUCCESS = "Lấy danh sách điểm ghim bản đồ thành công";
+    public static final String MOMENTS_ALBUM_FETCHED_SUCCESS = "Lấy album ảnh thành công";
+
+    // Peer Review Messages
+    public static final String PEER_REVIEW_NOT_FOUND = "Đánh giá không tồn tại";
+    public static final String TRIP_NOT_ENDED_FOR_REVIEW = "Chuyến đi chưa kết thúc, chưa thể gửi đánh giá";
+    public static final String ALREADY_REVIEWED_MEMBER = "Bạn đã đánh giá thành viên này trong chuyến đi rồi";
+    public static final String CANNOT_REVIEW_SELF = "Bạn không thể tự đánh giá chính mình";
+    public static final String INVALID_RATING_VALUE = "Điểm đánh giá phải từ 1 đến 5 sao";
+    public static final String NOT_TRIP_PARTICIPANT = "Chỉ thành viên tham gia chuyến đi mới được đánh giá";
+    public static final String PEER_REVIEW_SUBMITTED_SUCCESS = "Gửi đánh giá bạn đồng hành thành công";
+    public static final String PEER_REVIEWS_FETCHED_SUCCESS = "Lấy danh sách đánh giá thành công";
+    public static final String PENDING_PEER_REVIEWS_FETCHED_SUCCESS = "Lấy danh sách thành viên chờ đánh giá thành công";
+    public static final String TRUST_PROFILE_FETCHED_SUCCESS = "Lấy hồ sơ tín nhiệm thành công";
+    public static final String PEER_REVIEW_MODERATED_SUCCESS = "Kiểm duyệt đánh giá thành công";
 }
 
 
