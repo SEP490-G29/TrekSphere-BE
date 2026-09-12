@@ -77,4 +77,8 @@ public interface MatchingGroupService {
     MatchingGroupDetailResponse closeMatchingGroup(UUID groupId, CustomUserDetails userDetails);
 
     MatchingGroupDetailResponse openMatchingGroup(UUID groupId, CustomUserDetails userDetails);
+
+    MatchingGroupDetailResponse startTrip(UUID groupId, CustomUserDetails userDetails);
+
+    MatchingGroupDetailResponse completeTrip(UUID groupId, CustomUserDetails userDetails);
 }

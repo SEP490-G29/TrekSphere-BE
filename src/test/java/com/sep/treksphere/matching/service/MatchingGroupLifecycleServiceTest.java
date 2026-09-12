@@ -77,6 +77,12 @@ class MatchingGroupLifecycleServiceTest {
     @Spy
     private MatchingGroupMapper matchingGroupMapper = Mappers.getMapper(MatchingGroupMapper.class);
 
+    @Mock
+    private org.springframework.context.ApplicationEventPublisher eventPublisher;
+
+    @Mock
+    private com.sep.treksphere.notification.NotificationService notificationService;
+
     @InjectMocks
     private MatchingGroupServiceImpl matchingGroupService;
 
@@ -521,6 +527,22 @@ class MatchingGroupLifecycleServiceTest {
     }
 
     @Test
+    @DisplayName("TC-P2-S4-15B: Đóng nhóm khi đã hết hạn chót vẫn thành công (permissive close)")
+    void closeMatchingGroup_WhenDeadlinePassed_Success() {
+        UUID groupId = tourGroup.getMatchingGroupId();
+        tourGroup.setStatus(MatchingGroupStatus.OPEN);
+        tourGroup.setMatchingDeadline(LocalDateTime.now().minusMinutes(5));
+
+        when(matchingGroupRepository.findByIdForUpdate(groupId)).thenReturn(Optional.of(tourGroup));
+        when(matchingGroupRepository.save(any(MatchingGroup.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(matchingGroupRepository.findDetailById(eq(groupId))).thenReturn(Optional.of(tourGroup));
+
+        matchingGroupService.closeMatchingGroup(groupId, leaderUserDetails);
+
+        assertThat(tourGroup.getStatus()).isEqualTo(MatchingGroupStatus.CLOSED);
+    }
+
+    @Test
     @DisplayName("TC-P2-S4-16: Leader mở lại tuyển thành viên (open) khi điều kiện còn hợp lệ")
     void openMatchingGroup_AsLeader_Success() {
         UUID groupId = tourGroup.getMatchingGroupId();
@@ -551,5 +573,71 @@ class MatchingGroupLifecycleServiceTest {
         assertThatThrownBy(() -> matchingGroupService.openMatchingGroup(groupId, leaderUserDetails))
                 .isInstanceOf(AppException.class)
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.MATCHING_DEADLINE_PASSED);
+    }
+
+    @Test
+    @DisplayName("TC-P2-S4-18: Leader bắt đầu chuyến đi (startTrip) -> Nhóm và chuyến đi chuyển sang IN_PROGRESS")
+    void startTrip_AsLeader_Success() {
+        UUID groupId = tourGroup.getMatchingGroupId();
+        tourGroup.setStatus(MatchingGroupStatus.CLOSED);
+
+        when(matchingGroupRepository.findByIdForUpdate(groupId)).thenReturn(Optional.of(tourGroup));
+        when(matchingGroupRepository.save(any(MatchingGroup.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(groupTripRepository.findByMatchingGroup(tourGroup)).thenReturn(Optional.of(sampleTrip));
+        when(matchingGroupRepository.findDetailById(eq(groupId))).thenReturn(Optional.of(tourGroup));
+
+        matchingGroupService.startTrip(groupId, leaderUserDetails);
+
+        assertThat(tourGroup.getStatus()).isEqualTo(MatchingGroupStatus.IN_PROGRESS);
+        assertThat(sampleTrip.getStatus()).isEqualTo(GroupTripStatus.IN_PROGRESS);
+        assertThat(sampleTrip.getStartedAt()).isNotNull();
+    }
+
+    @Test
+    @DisplayName("TC-P2-S4-18B: Bắt đầu chuyến đi khi ngày kết thúc chuyến đi đã qua bị từ chối")
+    void startTrip_WhenTripEndDatePassed_ThrowsError() {
+        UUID groupId = tourGroup.getMatchingGroupId();
+        tourGroup.setStatus(MatchingGroupStatus.CLOSED);
+        tourGroup.setTargetDate(LocalDate.now().minusDays(5));
+        tourGroup.setTour(null);
+        tourGroup.setCustomJourney(null);
+
+        when(matchingGroupRepository.findByIdForUpdate(groupId)).thenReturn(Optional.of(tourGroup));
+
+        assertThatThrownBy(() -> matchingGroupService.startTrip(groupId, leaderUserDetails))
+                .isInstanceOf(AppException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.MATCHING_TARGET_DATE_PASSED);
+    }
+
+    @Test
+    @DisplayName("TC-P2-S4-19: Leader hoàn thành chuyến đi (completeTrip) -> Nhóm COMPLETED và chuyến đi ENDED")
+    void completeTrip_AsLeader_Success() {
+        UUID groupId = tourGroup.getMatchingGroupId();
+        tourGroup.setStatus(MatchingGroupStatus.IN_PROGRESS);
+        sampleTrip.setStatus(GroupTripStatus.IN_PROGRESS);
+
+        when(matchingGroupRepository.findByIdForUpdate(groupId)).thenReturn(Optional.of(tourGroup));
+        when(matchingGroupRepository.save(any(MatchingGroup.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(groupTripRepository.findByMatchingGroup(tourGroup)).thenReturn(Optional.of(sampleTrip));
+        when(matchingGroupRepository.findDetailById(eq(groupId))).thenReturn(Optional.of(tourGroup));
+
+        matchingGroupService.completeTrip(groupId, leaderUserDetails);
+
+        assertThat(tourGroup.getStatus()).isEqualTo(MatchingGroupStatus.COMPLETED);
+        assertThat(sampleTrip.getStatus()).isEqualTo(GroupTripStatus.ENDED);
+        assertThat(sampleTrip.getEndedAt()).isNotNull();
+    }
+
+    @Test
+    @DisplayName("TC-P2-S4-20: Hoàn thành chuyến đi khi nhóm chưa IN_PROGRESS bị từ chối INVALID_STATE")
+    void completeTrip_WhenNotInProgress_ThrowsInvalidState() {
+        UUID groupId = tourGroup.getMatchingGroupId();
+        tourGroup.setStatus(MatchingGroupStatus.OPEN);
+
+        when(matchingGroupRepository.findByIdForUpdate(groupId)).thenReturn(Optional.of(tourGroup));
+
+        assertThatThrownBy(() -> matchingGroupService.completeTrip(groupId, leaderUserDetails))
+                .isInstanceOf(AppException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.MATCHING_GROUP_INVALID_STATE);
     }
 }

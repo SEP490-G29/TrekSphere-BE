@@ -20,6 +20,7 @@ import com.sep.treksphere.matching.enums.MatchingGroupSourceType;
 import com.sep.treksphere.matching.enums.MatchingGroupStatus;
 import com.sep.treksphere.matching.enums.MatchingRole;
 import com.sep.treksphere.matching.mapper.MatchingGroupMapper;
+import com.sep.treksphere.matching.repository.GroupTripRepository;
 import com.sep.treksphere.matching.repository.MatchingGroupRepository;
 import com.sep.treksphere.matching.repository.MatchingMemberRepository;
 import com.sep.treksphere.matching.service.impl.MatchingGroupServiceImpl;
@@ -67,6 +68,9 @@ class MatchingGroupServiceTest {
     private com.sep.treksphere.matching.repository.GroupJoinApplicationRepository groupJoinApplicationRepository;
 
     @Mock
+    private GroupTripRepository groupTripRepository;
+
+    @Mock
     private TourRepository tourRepository;
 
     @Mock
@@ -74,6 +78,12 @@ class MatchingGroupServiceTest {
 
     @Spy
     private MatchingGroupMapper matchingGroupMapper = Mappers.getMapper(MatchingGroupMapper.class);
+
+    @Mock
+    private org.springframework.context.ApplicationEventPublisher eventPublisher;
+
+    @Mock
+    private com.sep.treksphere.notification.NotificationService notificationService;
 
     @InjectMocks
     private MatchingGroupServiceImpl matchingGroupService;

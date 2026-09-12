@@ -88,7 +88,8 @@ public class User extends BaseEntity {
     @Column(nullable = false, columnDefinition = "jsonb")
     private List<String> skills = new ArrayList<>();
 
-    private Short trustScore;
+    @Column(nullable = false)
+    private Short trustScore = 100;
 
     @Column(nullable = false)
     private Integer trustReviewCount = 0;

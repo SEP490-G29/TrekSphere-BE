@@ -180,6 +180,32 @@ public class MatchingGroupController {
     }
 
     @Operation(
+        summary = "Bắt đầu chuyến đi nhóm ghép",
+        description = "Cho phép Trưởng nhóm (Leader) chuyển trạng thái nhóm và chuyến đi sang IN_PROGRESS."
+    )
+    @PostMapping("/{groupId}/start-trip")
+    @PreAuthorize("hasAuthority('MATCHING_GROUP_MANAGE_OWN')")
+    public ResponseEntity<ApiResponse<MatchingGroupDetailResponse>> startTrip(
+            @Parameter(description = "UUID của nhóm ghép") @PathVariable UUID groupId,
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+        MatchingGroupDetailResponse result = matchingGroupService.startTrip(groupId, userDetails);
+        return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, result, MessageConstant.MATCHING_GROUP_TRIP_STARTED_SUCCESS));
+    }
+
+    @Operation(
+        summary = "Kết thúc/Hoàn thành chuyến đi nhóm ghép",
+        description = "Cho phép Trưởng nhóm (Leader) chuyển trạng thái nhóm sang COMPLETED và chuyến đi sang ENDED để mở khóa đánh giá và chia tiền."
+    )
+    @PostMapping("/{groupId}/complete-trip")
+    @PreAuthorize("hasAuthority('MATCHING_GROUP_MANAGE_OWN')")
+    public ResponseEntity<ApiResponse<MatchingGroupDetailResponse>> completeTrip(
+            @Parameter(description = "UUID của nhóm ghép") @PathVariable UUID groupId,
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+        MatchingGroupDetailResponse result = matchingGroupService.completeTrip(groupId, userDetails);
+        return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, result, MessageConstant.MATCHING_GROUP_TRIP_COMPLETED_SUCCESS));
+    }
+
+    @Operation(
         summary = "Gửi đơn xin gia nhập nhóm ghép bạn đồng hành",
         description = "Cho phép Trekker nộp đơn xin gia nhập vào một nhóm ghép đang mở (OPEN) và còn chỗ. " +
                 "Tạo bản ghi matching_member với role=MEMBER, status=PENDING và phát event GroupApplicationSubmitted."

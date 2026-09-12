@@ -1111,6 +1111,82 @@ public class MatchingGroupServiceImpl implements MatchingGroupService {
         return getMatchingGroupById(groupId, userDetails);
     }
 
+    @Override
+    @Transactional
+    public MatchingGroupDetailResponse startTrip(UUID groupId, CustomUserDetails userDetails) {
+        UUID userId = userDetails.getUser().getUserId();
+        log.info("Starting trip for matching group: groupId={}, userId={}", groupId, userId);
+
+        MatchingGroup matchingGroup = matchingGroupRepository.findByIdForUpdate(groupId)
+                .orElseThrow(() -> new AppException(ErrorCode.MATCHING_GROUP_NOT_FOUND));
+
+        validateGroupLeader(matchingGroup, userId);
+
+        if (matchingGroup.getStatus() == MatchingGroupStatus.IN_PROGRESS) {
+            return getMatchingGroupById(groupId, userDetails);
+        }
+
+        if (matchingGroup.getStatus() == MatchingGroupStatus.COMPLETED
+                || matchingGroup.getStatus() == MatchingGroupStatus.CANCELLED) {
+            throw new AppException(ErrorCode.MATCHING_GROUP_INVALID_STATE);
+        }
+
+        LocalDate today = LocalDate.now();
+        LocalDate tripEndDate = resolveTripEndDate(matchingGroup);
+        if (tripEndDate != null && tripEndDate.isBefore(today)) {
+            throw new AppException(ErrorCode.MATCHING_TARGET_DATE_PASSED);
+        }
+
+        matchingGroup.setStatus(MatchingGroupStatus.IN_PROGRESS);
+        matchingGroupRepository.save(matchingGroup);
+
+        groupTripRepository.findByMatchingGroup(matchingGroup).ifPresent(trip -> {
+            trip.setStatus(GroupTripStatus.IN_PROGRESS);
+            if (trip.getStartedAt() == null) {
+                trip.setStartedAt(LocalDateTime.now());
+            }
+            groupTripRepository.save(trip);
+        });
+
+        return getMatchingGroupById(groupId, userDetails);
+    }
+
+    @Override
+    @Transactional
+    public MatchingGroupDetailResponse completeTrip(UUID groupId, CustomUserDetails userDetails) {
+        UUID userId = userDetails.getUser().getUserId();
+        log.info("Completing trip for matching group: groupId={}, userId={}", groupId, userId);
+
+        MatchingGroup matchingGroup = matchingGroupRepository.findByIdForUpdate(groupId)
+                .orElseThrow(() -> new AppException(ErrorCode.MATCHING_GROUP_NOT_FOUND));
+
+        validateGroupLeader(matchingGroup, userId);
+
+        if (matchingGroup.getStatus() == MatchingGroupStatus.COMPLETED) {
+            return getMatchingGroupById(groupId, userDetails);
+        }
+
+        if (matchingGroup.getStatus() != MatchingGroupStatus.IN_PROGRESS) {
+            throw new AppException(ErrorCode.MATCHING_GROUP_INVALID_STATE);
+        }
+
+        matchingGroup.setStatus(MatchingGroupStatus.COMPLETED);
+        matchingGroupRepository.save(matchingGroup);
+
+        groupTripRepository.findByMatchingGroup(matchingGroup).ifPresent(trip -> {
+            trip.setStatus(GroupTripStatus.ENDED);
+            if (trip.getStartedAt() == null) {
+                trip.setStartedAt(LocalDateTime.now());
+            }
+            if (trip.getEndedAt() == null) {
+                trip.setEndedAt(LocalDateTime.now());
+            }
+            groupTripRepository.save(trip);
+        });
+
+        return getMatchingGroupById(groupId, userDetails);
+    }
+
     private void validateGroupLeader(MatchingGroup matchingGroup, UUID userId) {
         boolean isLeader = matchingMemberRepository.findByMatchingGroupAndUser(
                         matchingGroup,
@@ -1158,5 +1234,15 @@ public class MatchingGroupServiceImpl implements MatchingGroupService {
         if (!matchingDeadline.isAfter(LocalDateTime.now())) {
             throw new AppException(ErrorCode.MATCHING_DEADLINE_PASSED);
         }
+    }
+
+    private LocalDate resolveTripEndDate(MatchingGroup matchingGroup) {
+        if (matchingGroup.getCustomJourney() != null && matchingGroup.getCustomJourney().getEndDate() != null) {
+            return matchingGroup.getCustomJourney().getEndDate();
+        }
+        if (matchingGroup.getTour() != null && matchingGroup.getTour().getDurationDays() != null && matchingGroup.getTargetDate() != null) {
+            return matchingGroup.getTargetDate().plusDays(matchingGroup.getTour().getDurationDays());
+        }
+        return matchingGroup.getTargetDate();
     }
 }
