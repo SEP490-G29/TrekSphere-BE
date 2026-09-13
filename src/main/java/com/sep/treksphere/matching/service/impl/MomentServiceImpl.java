@@ -18,6 +18,7 @@ import com.sep.treksphere.matching.entity.MatchingMember;
 import com.sep.treksphere.matching.entity.Moment;
 import com.sep.treksphere.matching.entity.MomentMedia;
 import com.sep.treksphere.matching.enums.JoinStatus;
+import com.sep.treksphere.matching.enums.MatchingGroupStatus;
 import com.sep.treksphere.matching.enums.MatchingRole;
 import com.sep.treksphere.matching.enums.MomentStatus;
 import com.sep.treksphere.matching.enums.MomentVisibility;
@@ -65,6 +66,7 @@ public class MomentServiceImpl implements MomentService {
     public MomentResponse createGroupMoment(UUID groupId, UUID currentUserId, MomentCreateRequest request) {
         User user = getUserByIdOrThrow(currentUserId);
         MatchingGroup group = getGroupOrThrow(groupId);
+        validateGroupStatusForMomentCreation(group);
         MatchingMember member = getAcceptedMemberOrThrow(groupId, currentUserId);
 
         validateMediaUrls(request.getMediaUrls());
@@ -449,6 +451,12 @@ public class MomentServiceImpl implements MomentService {
         return matchingGroupRepository.findById(groupId)
                 .filter(g -> !Boolean.TRUE.equals(g.getIsDeleted()))
                 .orElseThrow(() -> new AppException(ErrorCode.MATCHING_GROUP_NOT_FOUND));
+    }
+
+    private void validateGroupStatusForMomentCreation(MatchingGroup group) {
+        if (group.getStatus() != MatchingGroupStatus.IN_PROGRESS && group.getStatus() != MatchingGroupStatus.COMPLETED) {
+            throw new AppException(ErrorCode.GROUP_NOT_READY_FOR_MOMENT);
+        }
     }
 
     private Moment getMomentOrThrow(UUID momentId) {
