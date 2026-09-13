@@ -1,10 +1,5 @@
 package com.sep.treksphere.tour;
 
-import com.sep.treksphere.tour.schedule.TourSchedule;
-import com.sep.treksphere.vendor.Vendor;
-import com.sep.treksphere.tour.Tour;
-import com.sep.treksphere.tour.DifficultyLevel;
-import com.sep.treksphere.tour.TourStatus;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;

@@ -2,13 +2,7 @@ package com.sep.treksphere.matching.service;
 
 import com.sep.treksphere.common.dto.PaginationResponse;
 import com.sep.treksphere.common.security.CustomUserDetails;
-import com.sep.treksphere.matching.dto.request.GroupApplicationRequest;
-import com.sep.treksphere.matching.dto.request.MatchingGroupCreateRequest;
-import com.sep.treksphere.matching.dto.request.MatchingGroupFilterRequest;
-import com.sep.treksphere.matching.dto.request.MatchingGroupUpdateRequest;
-import com.sep.treksphere.matching.dto.request.MatchingJoinRequestFilter;
-import com.sep.treksphere.matching.dto.request.MyMatchingGroupFilterRequest;
-import com.sep.treksphere.matching.dto.request.MyMatchingJoinRequestFilter;
+import com.sep.treksphere.matching.dto.request.*;
 import com.sep.treksphere.matching.dto.response.MatchingGroupDetailResponse;
 import com.sep.treksphere.matching.dto.response.MatchingGroupResponse;
 import com.sep.treksphere.matching.dto.response.MatchingMemberResponse;

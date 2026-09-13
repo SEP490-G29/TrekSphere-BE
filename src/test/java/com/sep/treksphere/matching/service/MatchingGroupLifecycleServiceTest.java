@@ -10,11 +10,7 @@ import com.sep.treksphere.matching.entity.CustomJourney;
 import com.sep.treksphere.matching.entity.GroupTrip;
 import com.sep.treksphere.matching.entity.MatchingGroup;
 import com.sep.treksphere.matching.entity.MatchingMember;
-import com.sep.treksphere.matching.enums.GroupTripStatus;
-import com.sep.treksphere.matching.enums.JoinStatus;
-import com.sep.treksphere.matching.enums.JourneyDifficulty;
-import com.sep.treksphere.matching.enums.MatchingGroupStatus;
-import com.sep.treksphere.matching.enums.MatchingRole;
+import com.sep.treksphere.matching.enums.*;
 import com.sep.treksphere.matching.mapper.MatchingGroupMapper;
 import com.sep.treksphere.matching.repository.GroupTripRepository;
 import com.sep.treksphere.matching.repository.MatchingGroupRepository;
@@ -40,19 +36,13 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Optional;
-import java.util.Set;
-import java.util.UUID;
+import java.util.*;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.lenient;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 class MatchingGroupLifecycleServiceTest {

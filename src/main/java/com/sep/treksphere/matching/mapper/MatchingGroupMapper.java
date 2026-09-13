@@ -2,19 +2,8 @@ package com.sep.treksphere.matching.mapper;
 
 import com.sep.treksphere.matching.dto.request.CustomJourneyCreateRequest;
 import com.sep.treksphere.matching.dto.request.MatchingGroupCreateRequest;
-import com.sep.treksphere.matching.dto.response.CustomJourneyCheckpointResponse;
-import com.sep.treksphere.matching.dto.response.CustomJourneyCostItemResponse;
-import com.sep.treksphere.matching.dto.response.MatchingGroupDetailResponse;
-import com.sep.treksphere.matching.dto.response.MatchingGroupResponse;
-import com.sep.treksphere.matching.dto.response.MatchingMemberResponse;
-import com.sep.treksphere.matching.dto.response.MyMatchingJoinRequestResponse;
-import com.sep.treksphere.matching.entity.CustomJourney;
-import com.sep.treksphere.matching.entity.CustomJourneyCheckpoint;
-import com.sep.treksphere.matching.entity.CustomJourneyCostItem;
-import com.sep.treksphere.matching.entity.GroupJoinApplication;
-import com.sep.treksphere.matching.entity.MatchingGroup;
-import com.sep.treksphere.matching.entity.MatchingMember;
-import com.sep.treksphere.matching.enums.JoinApplicationStatus;
+import com.sep.treksphere.matching.dto.response.*;
+import com.sep.treksphere.matching.entity.*;
 import com.sep.treksphere.matching.enums.JoinStatus;
 import com.sep.treksphere.matching.enums.MatchingGroupSourceType;
 import org.mapstruct.Mapper;
@@ -25,7 +14,6 @@ import java.math.BigDecimal;
 import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
-import java.util.Set;
 
 @Mapper(componentModel = "spring", unmappedTargetPolicy = ReportingPolicy.IGNORE)
 public interface MatchingGroupMapper {

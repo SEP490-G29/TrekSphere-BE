@@ -3,7 +3,6 @@ package com.sep.treksphere.blog;
 import com.sep.treksphere.blog.comment.BlogComment;
 import com.sep.treksphere.common.entity.BaseEntity;
 import com.sep.treksphere.user.User;
-import com.sep.treksphere.blog.BlogStatus;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.NoArgsConstructor;

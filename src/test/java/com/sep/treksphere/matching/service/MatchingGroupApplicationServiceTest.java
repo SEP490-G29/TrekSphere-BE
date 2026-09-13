@@ -13,15 +13,7 @@ import com.sep.treksphere.matching.entity.CustomJourney;
 import com.sep.treksphere.matching.entity.GroupJoinApplication;
 import com.sep.treksphere.matching.entity.MatchingGroup;
 import com.sep.treksphere.matching.entity.MatchingMember;
-import com.sep.treksphere.matching.enums.JoinApplicationStatus;
-import com.sep.treksphere.matching.enums.JoinStatus;
-import com.sep.treksphere.matching.enums.JourneyDifficulty;
-import com.sep.treksphere.matching.enums.MatchingGroupSourceType;
-import com.sep.treksphere.matching.enums.MatchingGroupStatus;
-import com.sep.treksphere.matching.enums.MatchingRole;
-import com.sep.treksphere.matching.event.GroupApplicationDecidedEvent;
-import com.sep.treksphere.matching.event.GroupApplicationSubmittedEvent;
-import com.sep.treksphere.matching.event.GroupMembershipActivatedEvent;
+import com.sep.treksphere.matching.enums.*;
 import com.sep.treksphere.matching.mapper.MatchingGroupMapper;
 import com.sep.treksphere.matching.repository.GroupJoinApplicationRepository;
 import com.sep.treksphere.matching.repository.GroupTripRepository;
@@ -39,13 +31,11 @@ import com.sep.treksphere.user.UserStatus;
 import com.sep.treksphere.vendor.Vendor;
 import com.sep.treksphere.vendor.VendorStatus;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mapstruct.factory.Mappers;
-import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.Spy;
@@ -63,10 +53,8 @@ import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.ArgumentMatchers.isNull;
-import static org.mockito.Mockito.*;
+import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class MatchingGroupApplicationServiceTest {

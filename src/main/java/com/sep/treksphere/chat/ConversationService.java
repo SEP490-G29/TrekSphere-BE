@@ -1,27 +1,20 @@
 package com.sep.treksphere.chat;
 
+import com.sep.treksphere.chat.message.*;
 import com.sep.treksphere.common.constant.MessageConstant;
-import com.sep.treksphere.chat.message.MessageCreateRequest;
-import com.sep.treksphere.chat.message.MessageResponse;
-import com.sep.treksphere.chat.message.MessageService;
 import com.sep.treksphere.common.dto.PaginationResponse;
-import com.sep.treksphere.user.UserResponse;
-import com.sep.treksphere.matching.entity.MatchingGroup;
-import com.sep.treksphere.chat.message.Message;
-import com.sep.treksphere.user.User;
-import java.util.Optional;
-import java.util.List;
-import java.util.stream.Collectors;
-import com.sep.treksphere.user.UserStatus;
 import com.sep.treksphere.common.exception.AppException;
 import com.sep.treksphere.common.exception.ErrorCode;
+import com.sep.treksphere.common.security.CustomUserDetails;
+import com.sep.treksphere.matching.entity.MatchingGroup;
 import com.sep.treksphere.matching.repository.MatchingGroupRepository;
-import com.sep.treksphere.chat.message.MessageRepository;
 import com.sep.treksphere.notification.NotificationEventType;
 import com.sep.treksphere.notification.NotificationService;
 import com.sep.treksphere.notification.ReferenceType;
+import com.sep.treksphere.user.User;
 import com.sep.treksphere.user.UserRepository;
-import com.sep.treksphere.common.security.CustomUserDetails;
+import com.sep.treksphere.user.UserResponse;
+import com.sep.treksphere.user.UserStatus;
 import com.sep.treksphere.vendor.Vendor;
 import com.sep.treksphere.vendor.VendorRepository;
 import com.sep.treksphere.vendor.VendorStatus;
@@ -31,9 +24,8 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.LinkedHashSet;
-import java.util.Set;
-import java.util.UUID;
+import java.util.*;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor

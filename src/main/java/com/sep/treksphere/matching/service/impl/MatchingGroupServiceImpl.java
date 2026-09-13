@@ -5,30 +5,13 @@ import com.sep.treksphere.common.exception.AppException;
 import com.sep.treksphere.common.exception.ErrorCode;
 import com.sep.treksphere.common.security.CustomUserDetails;
 import com.sep.treksphere.common.util.PaginationUtils;
-import com.sep.treksphere.matching.dto.request.CustomJourneyCreateRequest;
-import com.sep.treksphere.matching.dto.request.CustomJourneyUpdateRequest;
-import com.sep.treksphere.matching.dto.request.GroupApplicationRequest;
-import com.sep.treksphere.matching.dto.request.MatchingGroupCreateRequest;
-import com.sep.treksphere.matching.dto.request.MatchingGroupFilterRequest;
-import com.sep.treksphere.matching.dto.request.MatchingGroupUpdateRequest;
-import com.sep.treksphere.matching.dto.request.MatchingJoinRequestFilter;
-import com.sep.treksphere.matching.dto.request.MyMatchingGroupFilterRequest;
-import com.sep.treksphere.matching.dto.request.MyMatchingJoinRequestFilter;
+import com.sep.treksphere.matching.dto.request.*;
 import com.sep.treksphere.matching.dto.response.MatchingGroupDetailResponse;
 import com.sep.treksphere.matching.dto.response.MatchingGroupResponse;
 import com.sep.treksphere.matching.dto.response.MatchingMemberResponse;
 import com.sep.treksphere.matching.dto.response.MyMatchingJoinRequestResponse;
-import com.sep.treksphere.matching.entity.CustomJourney;
-import com.sep.treksphere.matching.entity.GroupJoinApplication;
-import com.sep.treksphere.matching.entity.GroupTrip;
-import com.sep.treksphere.matching.entity.MatchingGroup;
-import com.sep.treksphere.matching.entity.MatchingMember;
-import com.sep.treksphere.matching.enums.GroupTripStatus;
-import com.sep.treksphere.matching.enums.JoinApplicationStatus;
-import com.sep.treksphere.matching.enums.JoinStatus;
-import com.sep.treksphere.matching.enums.MatchingGroupSourceType;
-import com.sep.treksphere.matching.enums.MatchingGroupStatus;
-import com.sep.treksphere.matching.enums.MatchingRole;
+import com.sep.treksphere.matching.entity.*;
+import com.sep.treksphere.matching.enums.*;
 import com.sep.treksphere.matching.mapper.MatchingGroupMapper;
 import com.sep.treksphere.matching.repository.GroupJoinApplicationRepository;
 import com.sep.treksphere.matching.repository.GroupTripRepository;
@@ -54,13 +37,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.util.Collections;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Locale;
-import java.util.Optional;
-import java.util.Set;
-import java.util.UUID;
+import java.util.*;
 
 @Service
 @RequiredArgsConstructor

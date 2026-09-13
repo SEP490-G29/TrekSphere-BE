@@ -7,16 +7,12 @@ import com.sep.treksphere.matching.dto.request.MatchingGroupCreateRequest;
 import com.sep.treksphere.matching.entity.GroupTrip;
 import com.sep.treksphere.matching.entity.MatchingGroup;
 import com.sep.treksphere.matching.entity.MatchingMember;
-import com.sep.treksphere.matching.enums.GroupTripStatus;
-import com.sep.treksphere.matching.enums.JoinStatus;
-import com.sep.treksphere.matching.enums.JourneyDifficulty;
-import com.sep.treksphere.matching.enums.MatchingGroupSourceType;
-import com.sep.treksphere.matching.enums.MatchingGroupStatus;
-import com.sep.treksphere.matching.enums.MatchingRole;
+import com.sep.treksphere.matching.enums.*;
 import com.sep.treksphere.matching.mapper.MatchingGroupMapper;
 import com.sep.treksphere.matching.repository.GroupTripRepository;
 import com.sep.treksphere.matching.repository.MatchingGroupRepository;
 import com.sep.treksphere.matching.repository.MatchingMemberRepository;
+import com.sep.treksphere.matching.service.impl.MatchingGroupServiceImpl;
 import com.sep.treksphere.tour.Tour;
 import com.sep.treksphere.tour.TourRepository;
 import com.sep.treksphere.tour.TourStatus;
@@ -25,7 +21,6 @@ import com.sep.treksphere.user.UserRepository;
 import com.sep.treksphere.user.UserStatus;
 import com.sep.treksphere.vendor.Vendor;
 import com.sep.treksphere.vendor.VendorStatus;
-import com.sep.treksphere.matching.service.impl.MatchingGroupServiceImpl;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -44,12 +39,8 @@ import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyCollection;
-import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
+import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 class MatchingGroupCreateServiceTest {

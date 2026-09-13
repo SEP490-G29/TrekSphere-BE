@@ -1,8 +1,5 @@
 package com.sep.treksphere.user;
 
-import com.sep.treksphere.user.UserProfileResponse;
-import com.sep.treksphere.user.UserResponse;
-import com.sep.treksphere.user.User;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
 

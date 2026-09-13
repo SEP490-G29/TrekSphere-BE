@@ -1,6 +1,5 @@
 package com.sep.treksphere.user;
 
-import com.sep.treksphere.user.Role;
 import org.mapstruct.Mapper;
 
 import java.util.Collections;

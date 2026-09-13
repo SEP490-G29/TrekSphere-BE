@@ -1,18 +1,7 @@
 package com.sep.treksphere.matching.service;
 
-import com.sep.treksphere.matching.dto.request.CustomJourneyActivityCreateRequest;
-import com.sep.treksphere.matching.dto.request.CustomJourneyActivityUpdateRequest;
-import com.sep.treksphere.matching.dto.request.CustomJourneyCheckpointCreateRequest;
-import com.sep.treksphere.matching.dto.request.CustomJourneyCheckpointUpdateRequest;
-import com.sep.treksphere.matching.dto.request.CustomJourneyUpdateRequest;
-import com.sep.treksphere.matching.dto.response.CustomJourneyActivityResponse;
-import com.sep.treksphere.matching.dto.response.CustomJourneyCheckpointResponse;
-import com.sep.treksphere.matching.dto.response.CustomJourneyDetailResponse;
-
-import com.sep.treksphere.matching.dto.request.CustomJourneyCostItemCreateRequest;
-import com.sep.treksphere.matching.dto.request.CustomJourneyCostItemUpdateRequest;
-import com.sep.treksphere.matching.dto.response.CustomJourneyCostItemResponse;
-import com.sep.treksphere.matching.dto.response.CustomJourneyCostSummaryResponse;
+import com.sep.treksphere.matching.dto.request.*;
+import com.sep.treksphere.matching.dto.response.*;
 
 import java.util.List;
 import java.util.UUID;

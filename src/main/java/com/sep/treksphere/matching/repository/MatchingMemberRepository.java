@@ -2,9 +2,8 @@ package com.sep.treksphere.matching.repository;
 
 import com.sep.treksphere.matching.entity.MatchingGroup;
 import com.sep.treksphere.matching.entity.MatchingMember;
-import com.sep.treksphere.user.User;
 import com.sep.treksphere.matching.enums.JoinStatus;
-import com.sep.treksphere.matching.enums.MatchingRole;
+import com.sep.treksphere.user.User;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;

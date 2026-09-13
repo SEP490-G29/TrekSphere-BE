@@ -2,15 +2,14 @@ package com.sep.treksphere.file;
 
 import com.sep.treksphere.common.constant.MessageConstant;
 import com.sep.treksphere.common.dto.ApiResponse;
-import com.sep.treksphere.file.FileService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
-import org.springframework.security.access.prepost.PreAuthorize;
 
 import java.util.List;
 

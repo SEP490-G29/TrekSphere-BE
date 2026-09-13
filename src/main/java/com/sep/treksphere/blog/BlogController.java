@@ -1,20 +1,10 @@
 package com.sep.treksphere.blog;
 
+import com.sep.treksphere.blog.comment.*;
 import com.sep.treksphere.common.constant.MessageConstant;
-import com.sep.treksphere.blog.comment.BlogCommentFilterRequest;
-import com.sep.treksphere.blog.BlogFilterRequest;
-import com.sep.treksphere.blog.CreateBlogRequest;
-import com.sep.treksphere.blog.comment.CreateCommentRequest;
-import com.sep.treksphere.blog.UpdateBlogRequest;
-import com.sep.treksphere.blog.comment.UpdateCommentRequest;
 import com.sep.treksphere.common.dto.ApiResponse;
-import com.sep.treksphere.blog.comment.BlogCommentResponse;
-import com.sep.treksphere.blog.BlogDetailResponse;
-import com.sep.treksphere.blog.BlogSummaryResponse;
 import com.sep.treksphere.common.dto.PaginationResponse;
 import com.sep.treksphere.common.security.CustomUserDetails;
-import com.sep.treksphere.blog.comment.BlogCommentService;
-import com.sep.treksphere.blog.BlogService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;

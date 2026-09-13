@@ -3,7 +3,6 @@ package com.sep.treksphere.vendor.application;
 import com.sep.treksphere.user.UserMapper;
 import com.sep.treksphere.vendor.application.dto.request.VendorApplicationRequest;
 import com.sep.treksphere.vendor.application.dto.response.VendorApplicationResponse;
-import com.sep.treksphere.vendor.application.VendorApplication;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
 

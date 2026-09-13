@@ -1,26 +1,25 @@
 package com.sep.treksphere.tour;
+
 import com.sep.treksphere.common.dto.ApiResponse;
 import com.sep.treksphere.common.dto.PaginationResponse;
+import com.sep.treksphere.common.security.CustomUserDetails;
 import com.sep.treksphere.tour.checkpoint.TourCheckpointResponse;
-import com.sep.treksphere.tour.dto.response.PublicTourDetailResponse;
-import com.sep.treksphere.tour.schedule.TourScheduleResponse;
-import com.sep.treksphere.tour.dto.response.TourSummaryResponse;
-import com.sep.treksphere.tour.DifficultyLevel;
 import com.sep.treksphere.tour.checkpoint.TourCheckpointService;
-import com.sep.treksphere.tour.schedule.TourScheduleService;
-import com.sep.treksphere.tour.TourService;
+import com.sep.treksphere.tour.dto.response.PublicTourDetailResponse;
+import com.sep.treksphere.tour.dto.response.TourSummaryResponse;
 import com.sep.treksphere.tour.recommendation.RecommendedTourResponse;
 import com.sep.treksphere.tour.recommendation.TourRecommendationService;
-import com.sep.treksphere.common.security.CustomUserDetails;
-import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import com.sep.treksphere.tour.schedule.TourScheduleResponse;
+import com.sep.treksphere.tour.schedule.TourScheduleService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDate;

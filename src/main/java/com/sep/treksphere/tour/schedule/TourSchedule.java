@@ -2,7 +2,6 @@ package com.sep.treksphere.tour.schedule;
 
 import com.sep.treksphere.common.entity.BaseEntity;
 import com.sep.treksphere.tour.Tour;
-import com.sep.treksphere.tour.schedule.ScheduleStatus;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.NoArgsConstructor;

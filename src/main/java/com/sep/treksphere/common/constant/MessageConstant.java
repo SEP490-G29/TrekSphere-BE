@@ -1,9 +1,5 @@
 package com.sep.treksphere.common.constant;
 
-import com.sep.treksphere.blog.Blog;
-import com.sep.treksphere.tour.Tour;
-import com.sep.treksphere.vendor.Vendor;
-
 public class MessageConstant {
     private MessageConstant() {
     }

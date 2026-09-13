@@ -5,12 +5,11 @@ import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import org.hibernate.annotations.SQLRestriction;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.UUID;
-
-import org.hibernate.annotations.SQLRestriction;
 
 @Entity
 @Table(name = "custom_journey_checkpoint")

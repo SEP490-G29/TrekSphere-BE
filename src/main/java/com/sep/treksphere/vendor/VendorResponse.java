@@ -1,7 +1,6 @@
 package com.sep.treksphere.vendor;
 
 import com.sep.treksphere.user.UserProfileResponse;
-import com.sep.treksphere.vendor.VendorStatus;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;

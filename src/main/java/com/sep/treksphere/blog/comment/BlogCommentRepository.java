@@ -1,8 +1,6 @@
 package com.sep.treksphere.blog.comment;
 
 import com.sep.treksphere.blog.Blog;
-import com.sep.treksphere.blog.comment.BlogComment;
-import com.sep.treksphere.blog.comment.CommentStatus;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;

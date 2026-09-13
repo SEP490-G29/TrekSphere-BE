@@ -2,7 +2,6 @@ package com.sep.treksphere.tour;
 
 import com.sep.treksphere.tour.dto.request.CreateTourRequest;
 import com.sep.treksphere.tour.dto.request.UpdateTourRequest;
-import com.sep.treksphere.tour.Tour;
 import org.springframework.stereotype.Component;
 
 @Component

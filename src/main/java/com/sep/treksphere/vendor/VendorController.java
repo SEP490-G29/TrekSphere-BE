@@ -1,15 +1,9 @@
 package com.sep.treksphere.vendor;
 
 import com.sep.treksphere.common.constant.MessageConstant;
-import com.sep.treksphere.vendor.VendorFilterRequest;
-import com.sep.treksphere.vendor.VendorProfileUpdateRequest;
-import com.sep.treksphere.vendor.VendorStatusUpdateRequest;
 import com.sep.treksphere.common.dto.ApiResponse;
 import com.sep.treksphere.common.dto.PaginationResponse;
-import com.sep.treksphere.vendor.VendorProfileResponse;
-import com.sep.treksphere.vendor.VendorResponse;
 import com.sep.treksphere.common.security.CustomUserDetails;
-import com.sep.treksphere.vendor.VendorService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -20,15 +14,9 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PutMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.ModelAttribute;
-import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.*;
 
 import java.util.UUID;
-import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/api/v1/vendors")

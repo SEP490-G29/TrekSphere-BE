@@ -2,7 +2,6 @@ package com.sep.treksphere.vendor;
 
 import com.sep.treksphere.common.entity.BaseEntity;
 import com.sep.treksphere.user.User;
-import com.sep.treksphere.vendor.VendorStatus;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.NoArgsConstructor;

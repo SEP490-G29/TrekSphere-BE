@@ -7,12 +7,7 @@ import com.sep.treksphere.matching.dto.response.MomentMediaResponse;
 import com.sep.treksphere.matching.dto.response.MomentResponse;
 import com.sep.treksphere.matching.entity.Moment;
 import com.sep.treksphere.matching.entity.MomentMedia;
-import org.mapstruct.BeanMapping;
-import org.mapstruct.Mapper;
-import org.mapstruct.Mapping;
-import org.mapstruct.MappingTarget;
-import org.mapstruct.NullValuePropertyMappingStrategy;
-import org.mapstruct.ReportingPolicy;
+import org.mapstruct.*;
 
 import java.util.List;
 

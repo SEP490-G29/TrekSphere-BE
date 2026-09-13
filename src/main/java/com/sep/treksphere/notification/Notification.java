@@ -2,8 +2,6 @@ package com.sep.treksphere.notification;
 
 import com.sep.treksphere.common.entity.BaseEntity;
 import com.sep.treksphere.user.User;
-import com.sep.treksphere.notification.NotificationEventType;
-import com.sep.treksphere.notification.ReferenceType;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.NoArgsConstructor;

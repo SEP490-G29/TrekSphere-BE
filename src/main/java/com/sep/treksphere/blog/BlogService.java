@@ -1,16 +1,15 @@
 package com.sep.treksphere.blog;
 
-import com.sep.treksphere.user.User;
-import com.sep.treksphere.blog.comment.BlogCommentResponse;
-import com.sep.treksphere.common.dto.PaginationResponse;
 import com.sep.treksphere.blog.comment.BlogComment;
+import com.sep.treksphere.blog.comment.BlogCommentRepository;
+import com.sep.treksphere.blog.comment.BlogCommentResponse;
 import com.sep.treksphere.blog.comment.CommentStatus;
+import com.sep.treksphere.common.dto.PaginationResponse;
 import com.sep.treksphere.common.exception.AppException;
 import com.sep.treksphere.common.exception.ErrorCode;
-import com.sep.treksphere.blog.comment.BlogCommentRepository;
 import com.sep.treksphere.common.security.CustomUserDetails;
-import com.sep.treksphere.file.FileService;
 import com.sep.treksphere.common.util.PaginationUtils;
+import com.sep.treksphere.file.FileService;
 import com.sep.treksphere.notification.NotificationEventType;
 import com.sep.treksphere.notification.NotificationService;
 import com.sep.treksphere.notification.ReferenceType;
@@ -68,9 +67,9 @@ public class BlogService {
         blogRepository.save(blog);
 
         List<BlogComment> allComments = blogCommentRepository
-                .findAllByBlogIdAndStatus(blogId, CommentStatus.ACTIVE);
+                .findAllByBlogIdAndStatus(blogId, CommentStatus.VISIBLE);
         List<BlogCommentResponse> commentTree = buildCommentTree(allComments);
-        int totalComments = blogCommentRepository.countByBlogAndStatus(blog, CommentStatus.ACTIVE);
+        int totalComments = blogCommentRepository.countByBlogAndStatus(blog, CommentStatus.VISIBLE);
 
         return toDetailResponse(blog, commentTree, totalComments);
     }
@@ -128,9 +127,9 @@ public class BlogService {
         log.info("User {} updated blog {}", userDetails.getUser().getUserId(), blogId);
 
         List<BlogComment> allComments = blogCommentRepository
-                .findAllByBlogIdAndStatus(blogId, CommentStatus.ACTIVE);
+                .findAllByBlogIdAndStatus(blogId, CommentStatus.VISIBLE);
         List<BlogCommentResponse> commentTree = buildCommentTree(allComments);
-        int totalComments = blogCommentRepository.countByBlogAndStatus(blog, CommentStatus.ACTIVE);
+        int totalComments = blogCommentRepository.countByBlogAndStatus(blog, CommentStatus.VISIBLE);
 
         return toDetailResponse(blog, commentTree, totalComments);
     }
@@ -222,7 +221,7 @@ public class BlogService {
     }
 
     private BlogSummaryResponse toSummaryResponse(Blog blog) {
-        int totalComments = blogCommentRepository.countByBlogAndStatus(blog, CommentStatus.ACTIVE);
+        int totalComments = blogCommentRepository.countByBlogAndStatus(blog, CommentStatus.VISIBLE);
         return BlogSummaryResponse.builder()
                 .blogId(blog.getBlogId().toString())
                 .title(blog.getTitle())

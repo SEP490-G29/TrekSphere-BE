@@ -2,9 +2,9 @@ package com.sep.treksphere.matching.entity;
 
 import com.sep.treksphere.chat.Conversation;
 import com.sep.treksphere.common.entity.BaseEntity;
+import com.sep.treksphere.matching.enums.MatchingGroupStatus;
 import com.sep.treksphere.tour.Tour;
 import com.sep.treksphere.user.User;
-import com.sep.treksphere.matching.enums.MatchingGroupStatus;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.NoArgsConstructor;

@@ -1,13 +1,8 @@
 package com.sep.treksphere.tour.checkpoint;
 
-import com.sep.treksphere.tour.Tour;
-import com.sep.treksphere.vendor.Vendor;
 import com.sep.treksphere.common.constant.MessageConstant;
-import com.sep.treksphere.tour.checkpoint.TourCheckpointRequest;
 import com.sep.treksphere.common.dto.ApiResponse;
-import com.sep.treksphere.tour.checkpoint.TourCheckpointResponse;
 import com.sep.treksphere.common.security.CustomUserDetails;
-import com.sep.treksphere.tour.checkpoint.TourCheckpointService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;

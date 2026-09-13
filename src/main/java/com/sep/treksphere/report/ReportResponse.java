@@ -1,7 +1,5 @@
 package com.sep.treksphere.report;
 
-import com.sep.treksphere.report.ReportStatus;
-import com.sep.treksphere.report.ReportTargetType;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.Setter;

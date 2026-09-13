@@ -16,17 +16,13 @@ import com.sep.treksphere.common.security.CustomUserDetails;
 import com.sep.treksphere.common.security.JwtService;
 import com.sep.treksphere.common.security.JwtTokenProvider;
 import com.sep.treksphere.notification.EmailService;
-import com.sep.treksphere.user.AuthProvider;
-import com.sep.treksphere.user.Role;
-import com.sep.treksphere.user.RoleRepository;
-import com.sep.treksphere.user.User;
-import com.sep.treksphere.user.UserRepository;
-import com.sep.treksphere.user.UserStatus;
-import org.springframework.data.redis.core.StringRedisTemplate;
-import java.time.Duration;
+import com.sep.treksphere.user.*;
+import io.jsonwebtoken.ExpiredJwtException;
+import io.jsonwebtoken.JwtException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.DisabledException;
 import org.springframework.security.authentication.LockedException;
@@ -34,9 +30,8 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import io.jsonwebtoken.ExpiredJwtException;
-import io.jsonwebtoken.JwtException;
 
+import java.time.Duration;
 import java.util.Collections;
 import java.util.Date;
 

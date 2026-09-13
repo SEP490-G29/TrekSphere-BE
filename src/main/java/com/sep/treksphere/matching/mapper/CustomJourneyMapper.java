@@ -1,10 +1,6 @@
 package com.sep.treksphere.matching.mapper;
 
-import com.sep.treksphere.matching.dto.request.CustomJourneyActivityCreateRequest;
-import com.sep.treksphere.matching.dto.request.CustomJourneyActivityUpdateRequest;
-import com.sep.treksphere.matching.dto.request.CustomJourneyCheckpointCreateRequest;
-import com.sep.treksphere.matching.dto.request.CustomJourneyCheckpointUpdateRequest;
-import com.sep.treksphere.matching.dto.request.CustomJourneyUpdateRequest;
+import com.sep.treksphere.matching.dto.request.*;
 import com.sep.treksphere.matching.dto.response.CustomJourneyActivityResponse;
 import com.sep.treksphere.matching.dto.response.CustomJourneyCheckpointResponse;
 import com.sep.treksphere.matching.dto.response.CustomJourneyCostItemResponse;
@@ -13,12 +9,7 @@ import com.sep.treksphere.matching.entity.CustomJourney;
 import com.sep.treksphere.matching.entity.CustomJourneyActivity;
 import com.sep.treksphere.matching.entity.CustomJourneyCheckpoint;
 import com.sep.treksphere.matching.entity.CustomJourneyCostItem;
-import org.mapstruct.BeanMapping;
-import org.mapstruct.Mapper;
-import org.mapstruct.Mapping;
-import org.mapstruct.MappingTarget;
-import org.mapstruct.NullValuePropertyMappingStrategy;
-import org.mapstruct.ReportingPolicy;
+import org.mapstruct.*;
 
 import java.util.Collections;
 import java.util.Comparator;

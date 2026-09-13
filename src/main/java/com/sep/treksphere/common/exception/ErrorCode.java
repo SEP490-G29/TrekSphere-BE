@@ -1,8 +1,5 @@
 package com.sep.treksphere.common.exception;
 
-import com.sep.treksphere.blog.Blog;
-import com.sep.treksphere.tour.Tour;
-import com.sep.treksphere.vendor.Vendor;
 import com.sep.treksphere.common.constant.MessageConstant;
 import lombok.Getter;
 import org.springframework.http.HttpStatus;
