@@ -41,6 +41,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
@@ -591,6 +592,13 @@ class MatchingGroupLifecycleServiceTest {
         assertThat(tourGroup.getStatus()).isEqualTo(MatchingGroupStatus.IN_PROGRESS);
         assertThat(sampleTrip.getStatus()).isEqualTo(GroupTripStatus.IN_PROGRESS);
         assertThat(sampleTrip.getStartedAt()).isNotNull();
+        verify(notificationService).notify(
+                org.mockito.ArgumentMatchers.<List<UUID>>any(),
+                org.mockito.ArgumentMatchers.eq(com.sep.treksphere.notification.NotificationEventType.GROUP_TRIP_STARTED),
+                org.mockito.ArgumentMatchers.eq(com.sep.treksphere.notification.ReferenceType.GROUP_TRIP),
+                org.mockito.ArgumentMatchers.eq(groupId),
+                org.mockito.ArgumentMatchers.anyString(),
+                org.mockito.ArgumentMatchers.any());
     }
 
     @Test
@@ -626,6 +634,13 @@ class MatchingGroupLifecycleServiceTest {
         assertThat(tourGroup.getStatus()).isEqualTo(MatchingGroupStatus.COMPLETED);
         assertThat(sampleTrip.getStatus()).isEqualTo(GroupTripStatus.ENDED);
         assertThat(sampleTrip.getEndedAt()).isNotNull();
+        verify(notificationService).notify(
+                org.mockito.ArgumentMatchers.<List<UUID>>any(),
+                org.mockito.ArgumentMatchers.eq(com.sep.treksphere.notification.NotificationEventType.GROUP_TRIP_ENDED),
+                org.mockito.ArgumentMatchers.eq(com.sep.treksphere.notification.ReferenceType.GROUP_TRIP),
+                org.mockito.ArgumentMatchers.eq(groupId),
+                org.mockito.ArgumentMatchers.anyString(),
+                org.mockito.ArgumentMatchers.any());
     }
 
     @Test

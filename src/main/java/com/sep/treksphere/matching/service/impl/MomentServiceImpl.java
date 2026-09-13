@@ -28,6 +28,9 @@ import com.sep.treksphere.matching.repository.MatchingMemberRepository;
 import com.sep.treksphere.matching.repository.MomentMediaRepository;
 import com.sep.treksphere.matching.repository.MomentRepository;
 import com.sep.treksphere.matching.service.MomentService;
+import com.sep.treksphere.notification.NotificationEventType;
+import com.sep.treksphere.notification.NotificationService;
+import com.sep.treksphere.notification.ReferenceType;
 import com.sep.treksphere.user.User;
 import com.sep.treksphere.user.UserRepository;
 import com.sep.treksphere.user.UserStatus;
@@ -56,6 +59,7 @@ public class MomentServiceImpl implements MomentService {
     private final MatchingMemberRepository matchingMemberRepository;
     private final UserRepository userRepository;
     private final MomentMapper momentMapper;
+    private final NotificationService notificationService;
 
     // ==========================================
     // GROUP MOMENTS
@@ -93,6 +97,20 @@ public class MomentServiceImpl implements MomentService {
 
         Moment savedMoment = momentRepository.save(moment);
         log.info("Created group moment {} in group {} by user {}", savedMoment.getMomentId(), groupId, currentUserId);
+
+        List<UUID> memberIdsToNotify = matchingMemberRepository.findActiveMembers(groupId, JoinStatus.ACCEPTED)
+                .stream()
+                .map(m -> m.getUser().getUserId())
+                .filter(id -> !id.equals(currentUserId))
+                .toList();
+
+        notificationService.notify(
+                memberIdsToNotify,
+                NotificationEventType.GROUP_MOMENT_CREATED,
+                ReferenceType.MATCHING_GROUP, groupId,
+                "/trekker/my-groups/" + groupId + "?tab=moments",
+                user.getFullName(), group.getGroupName());
+
         return momentMapper.toResponse(savedMoment);
     }
 

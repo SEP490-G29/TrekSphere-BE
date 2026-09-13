@@ -23,6 +23,9 @@ import com.sep.treksphere.matching.repository.GroupPostRepository;
 import com.sep.treksphere.matching.repository.MatchingGroupRepository;
 import com.sep.treksphere.matching.repository.MatchingMemberRepository;
 import com.sep.treksphere.matching.service.GroupPostService;
+import com.sep.treksphere.notification.NotificationEventType;
+import com.sep.treksphere.notification.NotificationService;
+import com.sep.treksphere.notification.ReferenceType;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -44,6 +47,7 @@ public class GroupPostServiceImpl implements GroupPostService {
     private final MatchingGroupRepository matchingGroupRepository;
     private final MatchingMemberRepository matchingMemberRepository;
     private final GroupPostMapper postMapper;
+    private final NotificationService notificationService;
 
     @Override
     @Transactional(readOnly = true)
@@ -144,6 +148,21 @@ public class GroupPostServiceImpl implements GroupPostService {
         GroupPost saved = postRepository.save(post);
         log.info("Created post {} in group {} by user {}", saved.getGroupPostId(), groupId, currentUserId);
 
+        if (callerMember.getRole() == MatchingRole.LEADER) {
+            List<UUID> memberIdsToNotify = matchingMemberRepository.findActiveMembers(groupId, JoinStatus.ACCEPTED)
+                    .stream()
+                    .map(m -> m.getUser().getUserId())
+                    .filter(id -> !id.equals(currentUserId))
+                    .toList();
+
+            notificationService.notify(
+                    memberIdsToNotify,
+                    NotificationEventType.GROUP_POST_ANNOUNCEMENT,
+                    ReferenceType.MATCHING_GROUP, groupId,
+                    "/trekker/my-groups/" + groupId + "?tab=workspace",
+                    group.getGroupName());
+        }
+
         GroupPostResponse response = postMapper.toPostResponse(saved);
         response.setCommentCount(0);
         return response;
@@ -225,7 +244,7 @@ public class GroupPostServiceImpl implements GroupPostService {
     @Transactional
     public GroupPostCommentResponse createComment(
             UUID groupId, UUID postId, GroupPostCommentCreateRequest request, UUID currentUserId) {
-        getGroupOrThrow(groupId);
+        MatchingGroup group = getGroupOrThrow(groupId);
         MatchingMember callerMember = getCallerMemberOrThrow(groupId, currentUserId);
 
         GroupPost post = postRepository
@@ -256,6 +275,24 @@ public class GroupPostServiceImpl implements GroupPostService {
         GroupPostComment saved = commentRepository.save(comment);
         log.info("Created comment {} (replyTo: {}) for post {} by user {}",
                 saved.getGroupPostCommentId(), request.getReplyToCommentId(), postId, currentUserId);
+
+        UUID recipientUserId = null;
+        if (request.getReplyToCommentId() != null && comment.getReplyToMember() != null) {
+            recipientUserId = comment.getReplyToMember().getUser().getUserId();
+        } else if (post.getPostedBy() != null) {
+            recipientUserId = post.getPostedBy().getUser().getUserId();
+        }
+
+        if (recipientUserId != null && !recipientUserId.equals(currentUserId)) {
+            String commenterName = callerMember.getUser() != null ? callerMember.getUser().getFullName() : "Một thành viên";
+            notificationService.notify(
+                    recipientUserId,
+                    NotificationEventType.GROUP_POST_COMMENT_ADDED,
+                    ReferenceType.MATCHING_GROUP, groupId,
+                    "/trekker/my-groups/" + groupId + "?tab=workspace",
+                    commenterName, group.getGroupName());
+        }
+
         return postMapper.toCommentResponse(saved);
     }
 

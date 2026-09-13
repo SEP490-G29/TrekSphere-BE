@@ -26,6 +26,7 @@ import com.sep.treksphere.matching.repository.MatchingMemberRepository;
 import com.sep.treksphere.matching.repository.MomentMediaRepository;
 import com.sep.treksphere.matching.repository.MomentRepository;
 import com.sep.treksphere.matching.service.impl.MomentServiceImpl;
+import com.sep.treksphere.notification.NotificationService;
 import com.sep.treksphere.user.User;
 import com.sep.treksphere.user.UserRepository;
 import com.sep.treksphere.user.UserStatus;
@@ -75,6 +76,9 @@ class MomentServiceTest {
 
     @Mock
     private UserRepository userRepository;
+
+    @Mock
+    private NotificationService notificationService;
 
     @Spy
     private MomentMapper momentMapper = Mappers.getMapper(MomentMapper.class);
@@ -215,6 +219,14 @@ class MomentServiceTest {
         assertThat(response.getAuthorName()).isEqualTo("Nguyen Van Author");
         assertThat(response.getMediaList()).hasSize(2);
         verify(momentRepository).save(any(Moment.class));
+        verify(notificationService).notify(
+                org.mockito.ArgumentMatchers.<List<UUID>>any(),
+                org.mockito.ArgumentMatchers.eq(com.sep.treksphere.notification.NotificationEventType.GROUP_MOMENT_CREATED),
+                org.mockito.ArgumentMatchers.eq(com.sep.treksphere.notification.ReferenceType.MATCHING_GROUP),
+                org.mockito.ArgumentMatchers.eq(groupId),
+                org.mockito.ArgumentMatchers.anyString(),
+                org.mockito.ArgumentMatchers.any(),
+                org.mockito.ArgumentMatchers.any());
     }
 
     @Test

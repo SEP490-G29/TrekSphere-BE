@@ -28,6 +28,9 @@ import com.sep.treksphere.matching.repository.GroupTripRepository;
 import com.sep.treksphere.matching.repository.MatchingGroupRepository;
 import com.sep.treksphere.matching.repository.MatchingMemberRepository;
 import com.sep.treksphere.matching.service.GroupExpenseService;
+import com.sep.treksphere.notification.NotificationEventType;
+import com.sep.treksphere.notification.NotificationService;
+import com.sep.treksphere.notification.ReferenceType;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -59,6 +62,7 @@ public class GroupExpenseServiceImpl implements GroupExpenseService {
     private final MatchingMemberRepository matchingMemberRepository;
     private final GroupTripRepository groupTripRepository;
     private final GroupExpenseMapper groupExpenseMapper;
+    private final NotificationService notificationService;
 
     @Override
     @Transactional
@@ -94,6 +98,21 @@ public class GroupExpenseServiceImpl implements GroupExpenseService {
             shares = generateEqualShares(expense, beneficiaries, expense.getAmount());
         }
         expense.setShares(shares);
+
+        List<UUID> beneficiaryUserIds = beneficiaries.stream()
+                .map(b -> b.getUser().getUserId())
+                .filter(id -> !id.equals(paidBy.getUser().getUserId()))
+                .toList();
+
+        if (!beneficiaryUserIds.isEmpty()) {
+            String payerName = paidBy.getUser() != null ? paidBy.getUser().getFullName() : "Một thành viên";
+            notificationService.notify(
+                    beneficiaryUserIds,
+                    NotificationEventType.GROUP_EXPENSE_CREATED,
+                    ReferenceType.GROUP_EXPENSE, expense.getGroupExpenseId(),
+                    "/trekker/my-groups/" + groupId + "?tab=expenses",
+                    payerName, expense.getTitle(), expense.getAmount().toPlainString(), group.getGroupName());
+        }
 
         return groupExpenseMapper.toResponse(expense);
     }

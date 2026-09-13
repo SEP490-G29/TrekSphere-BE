@@ -25,6 +25,7 @@ import com.sep.treksphere.matching.repository.GroupTripRepository;
 import com.sep.treksphere.matching.repository.MatchingGroupRepository;
 import com.sep.treksphere.matching.repository.MatchingMemberRepository;
 import com.sep.treksphere.matching.service.impl.GroupSettlementServiceImpl;
+import com.sep.treksphere.notification.NotificationService;
 import com.sep.treksphere.user.User;
 import com.sep.treksphere.user.UserRepository;
 import org.junit.jupiter.api.BeforeEach;
@@ -76,6 +77,9 @@ class GroupSettlementServiceTest {
 
     @Mock
     private GroupTripRepository groupTripRepository;
+
+    @Mock
+    private NotificationService notificationService;
 
     @Spy
     private GroupSettlementMapper groupSettlementMapper = Mappers.getMapper(GroupSettlementMapper.class);
@@ -303,6 +307,14 @@ class GroupSettlementServiceTest {
         assertThat(response.getStatus()).isEqualTo(SettlementStatus.PROOF_SUBMITTED);
         assertThat(response.getProofUrl()).isEqualTo("https://img.treksphere.com/receipts/bill123.jpg");
         assertThat(response.getSubmittedAt()).isNotNull();
+        verify(notificationService).notify(
+                org.mockito.ArgumentMatchers.eq(leaderMember.getUser().getUserId()),
+                org.mockito.ArgumentMatchers.eq(com.sep.treksphere.notification.NotificationEventType.GROUP_SETTLEMENT_PROOF_SUBMITTED),
+                org.mockito.ArgumentMatchers.eq(com.sep.treksphere.notification.ReferenceType.GROUP_EXPENSE),
+                org.mockito.ArgumentMatchers.eq(settlementId),
+                org.mockito.ArgumentMatchers.anyString(),
+                org.mockito.ArgumentMatchers.any(),
+                org.mockito.ArgumentMatchers.any());
     }
 
     @Test
@@ -360,6 +372,14 @@ class GroupSettlementServiceTest {
         assertThat(response.getStatus()).isEqualTo(SettlementStatus.CONFIRMED);
         assertThat(response.getConfirmedAt()).isNotNull();
         assertThat(response.getConfirmedBy().getMatchingMemberId()).isEqualTo(leaderMember.getMatchingMemberId());
+        verify(notificationService).notify(
+                org.mockito.ArgumentMatchers.eq(member1.getUser().getUserId()),
+                org.mockito.ArgumentMatchers.eq(com.sep.treksphere.notification.NotificationEventType.GROUP_SETTLEMENT_CONFIRMED),
+                org.mockito.ArgumentMatchers.eq(com.sep.treksphere.notification.ReferenceType.GROUP_EXPENSE),
+                org.mockito.ArgumentMatchers.eq(settlementId),
+                org.mockito.ArgumentMatchers.anyString(),
+                org.mockito.ArgumentMatchers.any(),
+                org.mockito.ArgumentMatchers.any());
     }
 
     @Test

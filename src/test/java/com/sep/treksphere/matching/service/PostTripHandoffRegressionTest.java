@@ -31,6 +31,7 @@ import com.sep.treksphere.matching.repository.MomentRepository;
 import com.sep.treksphere.matching.service.impl.GroupPeerReviewServiceImpl;
 import com.sep.treksphere.matching.service.impl.MomentServiceImpl;
 import com.sep.treksphere.matching.service.impl.TrustScoreServiceImpl;
+import com.sep.treksphere.notification.NotificationService;
 import com.sep.treksphere.user.User;
 import com.sep.treksphere.user.UserRepository;
 import com.sep.treksphere.user.UserStatus;
@@ -87,6 +88,9 @@ class PostTripHandoffRegressionTest {
 
     @Mock
     private TrustScoreService trustScoreService;
+
+    @Mock
+    private NotificationService notificationService;
 
     @Spy
     private MomentMapper momentMapper = Mappers.getMapper(MomentMapper.class);
