@@ -35,9 +35,40 @@ public final class NotificationTemplates {
         TEMPLATES.put(NotificationEventType.GROUP_MEMBER_LEFT, new TemplatePair(
                 "Thành viên rời nhóm",
                 "%s đã rời khỏi nhóm \"%s\"."));
+        TEMPLATES.put(NotificationEventType.GROUP_MEMBER_REMOVED, new TemplatePair(
+                "Bạn đã bị xóa khỏi nhóm",
+                "Bạn đã bị xóa khỏi nhóm \"%s\" bởi trưởng nhóm."));
         TEMPLATES.put(NotificationEventType.GROUP_DISBANDED, new TemplatePair(
                 "Nhóm đã giải tán",
                 "Nhóm \"%s\" đã bị giải tán."));
+
+        TEMPLATES.put(NotificationEventType.GROUP_TRIP_STARTED, new TemplatePair(
+                "Chuyến đi đã bắt đầu",
+                "Chuyến đi của nhóm \"%s\" đã chính thức bắt đầu!"));
+        TEMPLATES.put(NotificationEventType.GROUP_TRIP_ENDED, new TemplatePair(
+                "Chuyến đi đã kết thúc",
+                "Chuyến đi của nhóm \"%s\" đã kết thúc. Hãy đánh giá các bạn đồng hành nhé!"));
+
+        TEMPLATES.put(NotificationEventType.GROUP_MOMENT_CREATED, new TemplatePair(
+                "Khoảnh khắc mới trong nhóm",
+                "%s vừa chia sẻ khoảnh khắc mới trong nhóm \"%s\"."));
+
+        TEMPLATES.put(NotificationEventType.GROUP_POST_ANNOUNCEMENT, new TemplatePair(
+                "Thông báo mới từ trưởng nhóm",
+                "Trưởng nhóm vừa đăng một thông báo quan trọng trong nhóm \"%s\"."));
+        TEMPLATES.put(NotificationEventType.GROUP_POST_COMMENT_ADDED, new TemplatePair(
+                "Bình luận mới trong nhóm",
+                "%s đã bình luận về bài viết của bạn trong nhóm \"%s\"."));
+
+        TEMPLATES.put(NotificationEventType.GROUP_EXPENSE_CREATED, new TemplatePair(
+                "Khoản chi mới trong nhóm",
+                "%s vừa thêm khoản chi \"%s\" (%s VNĐ) trong nhóm \"%s\"."));
+        TEMPLATES.put(NotificationEventType.GROUP_SETTLEMENT_PROOF_SUBMITTED, new TemplatePair(
+                "Minh chứng thanh toán mới",
+                "%s đã gửi minh chứng thanh toán quyết toán cho bạn trong nhóm \"%s\"."));
+        TEMPLATES.put(NotificationEventType.GROUP_SETTLEMENT_CONFIRMED, new TemplatePair(
+                "Xác nhận thanh toán quyết toán",
+                "%s đã xác nhận nhận tiền quyết toán của bạn trong nhóm \"%s\"."));
 
         // Nội dung có 2 biến thể cấu trúc khác nhau (top-level vs reply) nên được
         // BlogCommentService dựng sẵn thành 1 câu hoàn chỉnh rồi truyền vào đây.

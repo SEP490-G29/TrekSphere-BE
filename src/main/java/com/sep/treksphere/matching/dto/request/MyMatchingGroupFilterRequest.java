@@ -3,7 +3,6 @@ package com.sep.treksphere.matching.dto.request;
 import com.sep.treksphere.common.dto.BaseFilterRequest;
 import com.sep.treksphere.matching.enums.MatchingGroupStatus;
 import com.sep.treksphere.matching.enums.MatchingRole;
-
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Getter;
 import lombok.Setter;

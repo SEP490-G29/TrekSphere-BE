@@ -1,6 +1,5 @@
 package com.sep.treksphere.tour.dto.request;
 
-import com.sep.treksphere.tour.Tour;
 import com.sep.treksphere.common.constant.MessageConstant;
 import com.sep.treksphere.tour.DifficultyLevel;
 import io.swagger.v3.oas.annotations.media.Schema;

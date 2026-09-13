@@ -2,19 +2,8 @@ package com.sep.treksphere.matching.mapper;
 
 import com.sep.treksphere.matching.dto.request.CustomJourneyCreateRequest;
 import com.sep.treksphere.matching.dto.request.MatchingGroupCreateRequest;
-import com.sep.treksphere.matching.dto.response.CustomJourneyCheckpointResponse;
-import com.sep.treksphere.matching.dto.response.CustomJourneyCostItemResponse;
-import com.sep.treksphere.matching.dto.response.MatchingGroupDetailResponse;
-import com.sep.treksphere.matching.dto.response.MatchingGroupResponse;
-import com.sep.treksphere.matching.dto.response.MatchingMemberResponse;
-import com.sep.treksphere.matching.dto.response.MyMatchingJoinRequestResponse;
-import com.sep.treksphere.matching.entity.CustomJourney;
-import com.sep.treksphere.matching.entity.CustomJourneyCheckpoint;
-import com.sep.treksphere.matching.entity.CustomJourneyCostItem;
-import com.sep.treksphere.matching.entity.GroupJoinApplication;
-import com.sep.treksphere.matching.entity.MatchingGroup;
-import com.sep.treksphere.matching.entity.MatchingMember;
-import com.sep.treksphere.matching.enums.JoinApplicationStatus;
+import com.sep.treksphere.matching.dto.response.*;
+import com.sep.treksphere.matching.entity.*;
 import com.sep.treksphere.matching.enums.JoinStatus;
 import com.sep.treksphere.matching.enums.MatchingGroupSourceType;
 import org.mapstruct.Mapper;
@@ -25,7 +14,6 @@ import java.math.BigDecimal;
 import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
-import java.util.Set;
 
 @Mapper(componentModel = "spring", unmappedTargetPolicy = ReportingPolicy.IGNORE)
 public interface MatchingGroupMapper {
@@ -192,6 +180,7 @@ public interface MatchingGroupMapper {
         }
         if (mg.getCustomJourney() != null && mg.getCustomJourney().getCheckpoints() != null) {
             return mg.getCustomJourney().getCheckpoints().stream()
+                    .filter(c -> !Boolean.TRUE.equals(c.getIsDeleted()))
                     .map(CustomJourneyCheckpoint::getLocationName)
                     .filter(loc -> loc != null && !loc.isBlank())
                     .findFirst()
@@ -204,6 +193,7 @@ public interface MatchingGroupMapper {
         if (mg == null) return null;
         if (mg.getCustomJourney() != null && mg.getCustomJourney().getCostItems() != null) {
             return mg.getCustomJourney().getCostItems().stream()
+                    .filter(c -> !Boolean.TRUE.equals(c.getIsDeleted()))
                     .map(CustomJourneyCostItem::getEstimatedAmount)
                     .filter(Objects::nonNull)
                     .reduce(BigDecimal.ZERO, BigDecimal::add);
@@ -216,6 +206,7 @@ public interface MatchingGroupMapper {
             return Collections.emptyList();
         }
         return customJourney.getCheckpoints().stream()
+                .filter(c -> !Boolean.TRUE.equals(c.getIsDeleted()))
                 .map(this::toCheckpointResponse)
                 .toList();
     }
@@ -225,6 +216,7 @@ public interface MatchingGroupMapper {
             return Collections.emptyList();
         }
         return customJourney.getCostItems().stream()
+                .filter(c -> !Boolean.TRUE.equals(c.getIsDeleted()))
                 .map(this::toCostItemResponse)
                 .toList();
     }

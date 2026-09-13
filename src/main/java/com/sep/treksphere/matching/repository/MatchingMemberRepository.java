@@ -2,9 +2,8 @@ package com.sep.treksphere.matching.repository;
 
 import com.sep.treksphere.matching.entity.MatchingGroup;
 import com.sep.treksphere.matching.entity.MatchingMember;
-import com.sep.treksphere.user.User;
 import com.sep.treksphere.matching.enums.JoinStatus;
-import com.sep.treksphere.matching.enums.MatchingRole;
+import com.sep.treksphere.user.User;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -23,6 +22,18 @@ public interface MatchingMemberRepository extends JpaRepository<MatchingMember, 
     Optional<MatchingMember> findByMatchingGroupAndUser(MatchingGroup matchingGroup, User user);
 
     Optional<MatchingMember> findByMatchingGroupAndUserAndIsDeletedFalse(MatchingGroup matchingGroup, User user);
+
+    @Query("""
+        SELECT mm FROM MatchingMember mm
+        JOIN FETCH mm.user u
+        WHERE mm.matchingGroup.matchingGroupId = :groupId
+          AND mm.user.userId = :userId
+          AND mm.isDeleted = false
+    """)
+    Optional<MatchingMember> findByGroupIdAndUserId(
+            @Param("groupId") UUID groupId,
+            @Param("userId") UUID userId
+    );
 
     boolean existsByMatchingGroup_MatchingGroupIdAndUser_UserIdAndStatusAndIsDeletedFalse(
             UUID groupId,

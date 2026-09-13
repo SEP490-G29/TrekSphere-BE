@@ -1,7 +1,6 @@
 package com.sep.treksphere.tour.schedule;
 
 import com.sep.treksphere.common.constant.MessageConstant;
-import com.sep.treksphere.tour.schedule.ScheduleStatus;
 import jakarta.validation.constraints.DecimalMin;
 import lombok.Data;
 

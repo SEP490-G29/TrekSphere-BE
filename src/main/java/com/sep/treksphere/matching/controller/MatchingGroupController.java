@@ -1,20 +1,14 @@
 package com.sep.treksphere.matching.controller;
 
-import com.sep.treksphere.matching.enums.JoinStatus;
-
 import com.sep.treksphere.common.constant.MessageConstant;
-import com.sep.treksphere.matching.dto.request.MatchingGroupCreateRequest;
-import com.sep.treksphere.matching.dto.request.MatchingGroupFilterRequest;
-import com.sep.treksphere.matching.dto.request.MatchingJoinRequestFilter;
-import com.sep.treksphere.matching.dto.request.MyMatchingJoinRequestFilter;
-import com.sep.treksphere.matching.dto.request.MyMatchingGroupFilterRequest;
 import com.sep.treksphere.common.dto.ApiResponse;
+import com.sep.treksphere.common.dto.PaginationResponse;
+import com.sep.treksphere.common.security.CustomUserDetails;
+import com.sep.treksphere.matching.dto.request.*;
 import com.sep.treksphere.matching.dto.response.MatchingGroupDetailResponse;
 import com.sep.treksphere.matching.dto.response.MatchingGroupResponse;
 import com.sep.treksphere.matching.dto.response.MatchingMemberResponse;
 import com.sep.treksphere.matching.dto.response.MyMatchingJoinRequestResponse;
-import com.sep.treksphere.common.dto.PaginationResponse;
-import com.sep.treksphere.common.security.CustomUserDetails;
 import com.sep.treksphere.matching.service.MatchingGroupService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -26,17 +20,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import com.sep.treksphere.matching.dto.request.MatchingGroupUpdateRequest;
-import org.springframework.web.bind.annotation.DeleteMapping;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.ModelAttribute;
-import org.springframework.web.bind.annotation.PatchMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.PutMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 import java.util.UUID;
 
@@ -177,6 +161,32 @@ public class MatchingGroupController {
             @AuthenticationPrincipal CustomUserDetails userDetails) {
         MatchingGroupDetailResponse result = matchingGroupService.openMatchingGroup(groupId, userDetails);
         return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, result, MessageConstant.MATCHING_GROUP_OPENED_SUCCESS));
+    }
+
+    @Operation(
+        summary = "Bắt đầu chuyến đi nhóm ghép",
+        description = "Cho phép Trưởng nhóm (Leader) chuyển trạng thái nhóm và chuyến đi sang IN_PROGRESS."
+    )
+    @PostMapping("/{groupId}/start-trip")
+    @PreAuthorize("hasAuthority('MATCHING_GROUP_MANAGE_OWN')")
+    public ResponseEntity<ApiResponse<MatchingGroupDetailResponse>> startTrip(
+            @Parameter(description = "UUID của nhóm ghép") @PathVariable UUID groupId,
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+        MatchingGroupDetailResponse result = matchingGroupService.startTrip(groupId, userDetails);
+        return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, result, MessageConstant.MATCHING_GROUP_TRIP_STARTED_SUCCESS));
+    }
+
+    @Operation(
+        summary = "Kết thúc/Hoàn thành chuyến đi nhóm ghép",
+        description = "Cho phép Trưởng nhóm (Leader) chuyển trạng thái nhóm sang COMPLETED và chuyến đi sang ENDED để mở khóa đánh giá và chia tiền."
+    )
+    @PostMapping("/{groupId}/complete-trip")
+    @PreAuthorize("hasAuthority('MATCHING_GROUP_MANAGE_OWN')")
+    public ResponseEntity<ApiResponse<MatchingGroupDetailResponse>> completeTrip(
+            @Parameter(description = "UUID của nhóm ghép") @PathVariable UUID groupId,
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+        MatchingGroupDetailResponse result = matchingGroupService.completeTrip(groupId, userDetails);
+        return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, result, MessageConstant.MATCHING_GROUP_TRIP_COMPLETED_SUCCESS));
     }
 
     @Operation(

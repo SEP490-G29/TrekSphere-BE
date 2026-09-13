@@ -3,7 +3,6 @@ package com.sep.treksphere.chat;
 import com.sep.treksphere.chat.message.Message;
 import com.sep.treksphere.common.entity.BaseEntity;
 import com.sep.treksphere.user.User;
-import com.sep.treksphere.chat.ConversationType;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.NoArgsConstructor;

@@ -1,7 +1,6 @@
 package com.sep.treksphere.tour.image;
 
 import com.sep.treksphere.tour.Tour;
-import com.sep.treksphere.tour.image.TourImage;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;

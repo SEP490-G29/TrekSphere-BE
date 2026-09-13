@@ -1,17 +1,17 @@
 package com.sep.treksphere.blog.comment;
 
-import com.sep.treksphere.user.User;
-import com.sep.treksphere.common.dto.PaginationResponse;
 import com.sep.treksphere.blog.Blog;
+import com.sep.treksphere.blog.BlogRepository;
 import com.sep.treksphere.blog.BlogStatus;
+import com.sep.treksphere.common.dto.PaginationResponse;
 import com.sep.treksphere.common.exception.AppException;
 import com.sep.treksphere.common.exception.ErrorCode;
-import com.sep.treksphere.blog.BlogRepository;
 import com.sep.treksphere.common.security.CustomUserDetails;
 import com.sep.treksphere.common.util.PaginationUtils;
 import com.sep.treksphere.notification.NotificationEventType;
 import com.sep.treksphere.notification.NotificationService;
 import com.sep.treksphere.notification.ReferenceType;
+import com.sep.treksphere.user.User;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -19,12 +19,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.LinkedHashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.UUID;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -47,13 +42,13 @@ public class BlogCommentService {
 
         // Lấy top-level comments có phân trang
         Page<BlogComment> topLevelPage = blogCommentRepository
-                .findTopLevelByBlogId(blogId, CommentStatus.ACTIVE, filter.getPageable());
+                .findTopLevelByBlogId(blogId, CommentStatus.VISIBLE, filter.getPageable());
 
         // Với mỗi top-level comment, load replies (cây lồng nhau)
         Page<BlogCommentResponse> responsePage = topLevelPage.map(comment -> {
             BlogCommentResponse response = toCommentResponse(comment);
             List<BlogComment> replies = blogCommentRepository
-                    .findRepliesByParentId(comment.getBlogCommentId(), CommentStatus.ACTIVE);
+                    .findRepliesByParentId(comment.getBlogCommentId(), CommentStatus.VISIBLE);
             response.setReplies(buildReplyTree(replies));
             return response;
         });
@@ -74,13 +69,13 @@ public class BlogCommentService {
         comment.setBlog(blog);
         comment.setUser(userDetails.getUser());
         comment.setContent(request.getContent());
-        comment.setStatus(CommentStatus.ACTIVE);
+        comment.setStatus(CommentStatus.VISIBLE);
 
         if (request.getParentCommentId() != null) {
             BlogComment parentComment = blogCommentRepository.findById(request.getParentCommentId())
                     .orElseThrow(() -> new AppException(ErrorCode.BLOG_COMMENT_NOT_FOUND));
 
-            if (parentComment.getStatus() != CommentStatus.ACTIVE 
+            if (parentComment.getStatus() != CommentStatus.VISIBLE
                     || Boolean.TRUE.equals(parentComment.getIsDeleted())
                     || !parentComment.getBlog().getBlogId().equals(blogId)) {
                 throw new AppException(ErrorCode.BLOG_COMMENT_NOT_FOUND);
@@ -132,7 +127,7 @@ public class BlogCommentService {
         BlogComment comment = blogCommentRepository.findById(commentId)
                 .orElseThrow(() -> new AppException(ErrorCode.BLOG_COMMENT_NOT_FOUND));
 
-        if (comment.getStatus() != CommentStatus.ACTIVE || Boolean.TRUE.equals(comment.getIsDeleted())) {
+        if (comment.getStatus() != CommentStatus.VISIBLE || Boolean.TRUE.equals(comment.getIsDeleted())) {
             throw new AppException(ErrorCode.BLOG_COMMENT_NOT_FOUND);
         }
 
@@ -154,7 +149,7 @@ public class BlogCommentService {
         BlogComment comment = blogCommentRepository.findById(commentId)
                 .orElseThrow(() -> new AppException(ErrorCode.BLOG_COMMENT_NOT_FOUND));
 
-        if (comment.getStatus() != CommentStatus.ACTIVE || Boolean.TRUE.equals(comment.getIsDeleted())) {
+        if (comment.getStatus() != CommentStatus.VISIBLE || Boolean.TRUE.equals(comment.getIsDeleted())) {
             throw new AppException(ErrorCode.BLOG_COMMENT_NOT_FOUND);
         }
 
@@ -167,7 +162,6 @@ public class BlogCommentService {
             throw new AppException(ErrorCode.COMMENT_CANNOT_DELETE);
         }
 
-        comment.setStatus(CommentStatus.DELETED);
         comment.setIsDeleted(true);
         comment.setDeletedAt(LocalDateTime.now());
         comment.setDeletedBy(userDetails.getUser().getUserId().toString());

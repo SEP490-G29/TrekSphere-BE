@@ -1,9 +1,5 @@
 package com.sep.treksphere.common.constant;
 
-import com.sep.treksphere.blog.Blog;
-import com.sep.treksphere.tour.Tour;
-import com.sep.treksphere.vendor.Vendor;
-
 public class MessageConstant {
     private MessageConstant() {
     }
@@ -309,6 +305,8 @@ public class MessageConstant {
     public static final String UNAUTHORIZED_DISBAND_GROUP = "Bạn không có quyền giải tán nhóm ghép này";
     public static final String MATCHING_GROUP_DISBANDED_SUCCESS = "Giải tán nhóm ghép bạn đồng hành thành công";
     public static final String MATCHING_GROUP_CANNOT_BE_DISBANDED = "Chỉ có thể giải tán nhóm ghép đang OPEN hoặc FULL";
+    public static final String MATCHING_GROUP_TRIP_STARTED_SUCCESS = "Bắt đầu chuyến đi thành công";
+    public static final String MATCHING_GROUP_TRIP_COMPLETED_SUCCESS = "Hoàn thành chuyến đi thành công";
 
     public static final String MATCHING_TOUR_ID_REQUIRED = "Mã tour không được để trống";
     public static final String MATCHING_GROUP_SOURCE_TYPE_REQUIRED = "Loại nguồn của nhóm không được để trống";
@@ -581,6 +579,7 @@ public class MessageConstant {
     public static final String REPORT_REASON_REQUIRED = "Lý do báo cáo không được để trống";
     public static final String REPORT_ACTION_REQUIRED = "Hành động xử lý không được để trống";
 
+
     // Notification Messages
     public static final String NOTIFICATIONS_FETCHED_SUCCESS = "Lấy danh sách thông báo thành công";
     public static final String NOTIFICATION_UNREAD_COUNT_FETCHED_SUCCESS = "Lấy số thông báo chưa đọc thành công";
@@ -591,6 +590,70 @@ public class MessageConstant {
 
     // Matching & Hiking Profile Messages
     public static final String PUBLIC_HIKING_SUMMARY_FETCHED_SUCCESS = "Lấy hồ sơ leo núi công khai thành công";
+    public static final String CUSTOM_JOURNEY_COST_ITEM_NOT_FOUND = "Không tìm thấy khoản dự toán chi phí";
+    public static final String COST_ITEMS_FETCHED_SUCCESS = "Lấy danh sách dự toán chi phí thành công";
+    public static final String COST_ITEM_CREATED_SUCCESS = "Thêm khoản dự toán chi phí thành công";
+    public static final String COST_ITEM_UPDATED_SUCCESS = "Cập nhật khoản dự toán chi phí thành công";
+    public static final String COST_ITEM_DELETED_SUCCESS = "Xóa khoản dự toán chi phí thành công";
+
+    public static final String GROUP_EXPENSE_NOT_FOUND = "Khoản chi tiêu không tồn tại";
+    public static final String UNAUTHORIZED_EXPENSE_ACTION = "Bạn không có quyền thực hiện thao tác trên khoản chi này";
+    public static final String GROUP_TRIP_NOT_FOUND = "Chuyến đi của nhóm không tồn tại";
+    public static final String INVALID_EXPENSE_BENEFICIARIES = "Danh sách người thụ hưởng không hợp lệ hoặc không thuộc nhóm";
+    public static final String GROUP_EXPENSE_CREATED_SUCCESS = "Ghi nhận khoản chi tiêu thành công";
+    public static final String GROUP_EXPENSE_UPDATED_SUCCESS = "Cập nhật khoản chi tiêu thành công";
+    public static final String GROUP_EXPENSE_DELETED_SUCCESS = "Hủy khoản chi tiêu thành công";
+    public static final String GROUP_EXPENSE_FETCHED_SUCCESS = "Lấy chi tiết khoản chi tiêu thành công";
+    public static final String GROUP_EXPENSES_FETCHED_SUCCESS = "Lấy danh sách chi tiêu thành công";
+    public static final String GROUP_EXPENSE_SUMMARY_FETCHED_SUCCESS = "Lấy tổng kết chi tiêu thành công";
+    public static final String INVALID_EXPENSE_CUSTOM_SPLIT_SUM = "Tổng số tiền chia tùy chỉnh phải bằng chính xác tổng số tiền của khoản chi";
+    public static final String INVALID_EXPENSE_CUSTOM_SPLIT_MEMBERS = "Danh sách thành viên chia tiền tùy chỉnh không hợp lệ hoặc không khớp với người thụ hưởng";
+
+    // Settlement Messages
+    public static final String GROUP_SETTLEMENT_NOT_FOUND = "Lệnh quyết toán không tồn tại";
+    public static final String SETTLEMENTS_FETCHED_SUCCESS = "Lấy danh sách quyết toán thành công";
+    public static final String SETTLEMENT_SUMMARY_FETCHED_SUCCESS = "Lấy tổng kết công nợ thành công";
+    public static final String SETTLEMENTS_GENERATED_SUCCESS = "Khởi tạo danh sách quyết toán thành công";
+    public static final String SETTLEMENT_PROOF_SUBMITTED_SUCCESS = "Gửi chứng từ chuyển tiền thành công";
+    public static final String SETTLEMENT_CONFIRMED_SUCCESS = "Xác nhận quyết toán thành công";
+    public static final String SETTLEMENT_REJECTED_SUCCESS = "Từ chối quyết toán thành công";
+    public static final String UNAUTHORIZED_SETTLEMENT_SUBMIT = "Chỉ người nợ (Debtor) mới có quyền gửi chứng từ chuyển tiền";
+    public static final String UNAUTHORIZED_SETTLEMENT_CONFIRM = "Chỉ người nhận tiền (Payee) mới có quyền xác nhận quyết toán";
+    public static final String UNAUTHORIZED_SETTLEMENT_REJECT = "Chỉ người nhận tiền (Payee) mới có quyền từ chối quyết toán";
+    public static final String INVALID_SETTLEMENT_STATUS = "Trạng thái quyết toán không hợp lệ cho thao tác này";
+
+    // Moment Messages
+    public static final String MOMENT_NOT_FOUND = "Khoảnh khắc không tồn tại";
+    public static final String UNAUTHORIZED_MOMENT_ACTION = "Bạn không có quyền thực hiện thao tác trên khoảnh khắc này";
+    public static final String MOMENT_MEDIA_REQUIRED = "Khoảnh khắc phải có ít nhất một hình ảnh";
+    public static final String MOMENT_ALREADY_HIDDEN = "Khoảnh khắc đã ở trạng thái ẩn";
+    public static final String MOMENT_NOT_HIDDEN = "Khoảnh khắc không ở trạng thái ẩn";
+    public static final String MOMENT_HIDDEN_REASON_REQUIRED = "Vui lòng nhập lý do ẩn khoảnh khắc";
+    public static final String MOMENT_CREATED_SUCCESS = "Đăng khoảnh khắc thành công";
+    public static final String MOMENT_UPDATED_SUCCESS = "Cập nhật khoảnh khắc thành công";
+    public static final String MOMENT_DELETED_SUCCESS = "Xóa khoảnh khắc thành công";
+    public static final String MOMENT_VISIBILITY_UPDATED_SUCCESS = "Cập nhật quyền hiển thị khoảnh khắc thành công";
+    public static final String MOMENT_HIDDEN_SUCCESS = "Ẩn khoảnh khắc thành công";
+    public static final String MOMENT_UNHIDDEN_SUCCESS = "Bỏ ẩn khoảnh khắc thành công";
+    public static final String MOMENTS_FETCHED_SUCCESS = "Lấy danh sách khoảnh khắc thành công";
+    public static final String MOMENT_FETCHED_SUCCESS = "Lấy chi tiết khoảnh khắc thành công";
+    public static final String MOMENTS_MAP_FETCHED_SUCCESS = "Lấy danh sách điểm ghim bản đồ thành công";
+    public static final String MOMENTS_ALBUM_FETCHED_SUCCESS = "Lấy album ảnh thành công";
+    public static final String GROUP_NOT_IN_PROGRESS_OR_COMPLETED_FOR_MOMENT = "Chỉ có thể đăng khoảnh khắc khi nhóm đang đi hoặc sau khi chuyến đi hoàn thành";
+
+    // Peer Review Messages
+    public static final String PEER_REVIEW_NOT_FOUND = "Đánh giá không tồn tại";
+    public static final String TRIP_NOT_ENDED_FOR_REVIEW = "Chuyến đi chưa kết thúc, chưa thể gửi đánh giá";
+    public static final String ALREADY_REVIEWED_MEMBER = "Bạn đã đánh giá thành viên này trong chuyến đi rồi";
+    public static final String CANNOT_REVIEW_SELF = "Bạn không thể tự đánh giá chính mình";
+    public static final String INVALID_RATING_VALUE = "Điểm đánh giá phải từ 1 đến 5 sao";
+    public static final String NOT_TRIP_PARTICIPANT = "Chỉ thành viên tham gia chuyến đi mới được đánh giá";
+    public static final String PEER_REVIEW_SUBMITTED_SUCCESS = "Gửi đánh giá bạn đồng hành thành công";
+    public static final String PEER_REVIEWS_FETCHED_SUCCESS = "Lấy danh sách đánh giá thành công";
+    public static final String PENDING_PEER_REVIEWS_FETCHED_SUCCESS = "Lấy danh sách thành viên chờ đánh giá thành công";
+    public static final String TRUST_PROFILE_FETCHED_SUCCESS = "Lấy hồ sơ tín nhiệm thành công";
+    public static final String PEER_REVIEW_MODERATED_SUCCESS = "Kiểm duyệt đánh giá thành công";
 }
+
 
 

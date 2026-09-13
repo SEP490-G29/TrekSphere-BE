@@ -2,10 +2,6 @@ package com.sep.treksphere.user;
 
 import com.sep.treksphere.common.entity.BaseEntity;
 import com.sep.treksphere.tour.DifficultyLevel;
-import com.sep.treksphere.user.AuthProvider;
-import com.sep.treksphere.user.ExperienceLevel;
-import com.sep.treksphere.user.Gender;
-import com.sep.treksphere.user.UserStatus;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -15,11 +11,7 @@ import org.hibernate.type.SqlTypes;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
-import java.util.UUID;
+import java.util.*;
 
 @Entity
 @Table(name = "users")
@@ -88,7 +80,8 @@ public class User extends BaseEntity {
     @Column(nullable = false, columnDefinition = "jsonb")
     private List<String> skills = new ArrayList<>();
 
-    private Short trustScore;
+    @Column(nullable = false)
+    private Short trustScore = 100;
 
     @Column(nullable = false)
     private Integer trustReviewCount = 0;

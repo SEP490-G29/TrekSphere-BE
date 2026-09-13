@@ -1,7 +1,5 @@
 package com.sep.treksphere.vendor.application;
 
-import com.sep.treksphere.vendor.application.VendorApplication;
-import com.sep.treksphere.vendor.application.ApplicationStatus;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;

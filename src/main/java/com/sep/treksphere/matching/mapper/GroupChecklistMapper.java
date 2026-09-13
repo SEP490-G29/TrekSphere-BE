@@ -4,11 +4,7 @@ import com.sep.treksphere.matching.dto.request.GroupChecklistItemCreateRequest;
 import com.sep.treksphere.matching.dto.request.GroupChecklistItemUpdateRequest;
 import com.sep.treksphere.matching.dto.response.GroupChecklistItemResponse;
 import com.sep.treksphere.matching.entity.GroupChecklistItem;
-import org.mapstruct.BeanMapping;
-import org.mapstruct.Mapper;
-import org.mapstruct.Mapping;
-import org.mapstruct.MappingTarget;
-import org.mapstruct.NullValuePropertyMappingStrategy;
+import org.mapstruct.*;
 
 import java.util.List;
 

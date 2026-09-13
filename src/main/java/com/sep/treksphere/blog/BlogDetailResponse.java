@@ -1,7 +1,6 @@
 package com.sep.treksphere.blog;
 
 import com.sep.treksphere.blog.comment.BlogCommentResponse;
-import com.sep.treksphere.blog.BlogStatus;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;

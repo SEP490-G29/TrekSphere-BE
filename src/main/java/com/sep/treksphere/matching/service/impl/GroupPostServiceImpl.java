@@ -23,6 +23,9 @@ import com.sep.treksphere.matching.repository.GroupPostRepository;
 import com.sep.treksphere.matching.repository.MatchingGroupRepository;
 import com.sep.treksphere.matching.repository.MatchingMemberRepository;
 import com.sep.treksphere.matching.service.GroupPostService;
+import com.sep.treksphere.notification.NotificationEventType;
+import com.sep.treksphere.notification.NotificationService;
+import com.sep.treksphere.notification.ReferenceType;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -30,6 +33,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
@@ -43,6 +47,7 @@ public class GroupPostServiceImpl implements GroupPostService {
     private final MatchingGroupRepository matchingGroupRepository;
     private final MatchingMemberRepository matchingMemberRepository;
     private final GroupPostMapper postMapper;
+    private final NotificationService notificationService;
 
     @Override
     @Transactional(readOnly = true)
@@ -88,23 +93,46 @@ public class GroupPostServiceImpl implements GroupPostService {
             throw new AppException(ErrorCode.POST_NOT_FOUND);
         }
 
-        List<GroupPostComment> comments;
+        List<GroupPostComment> rootComments;
         if (isLeader) {
-            comments = commentRepository.findByGroupPost_GroupPostIdAndIsDeletedFalseOrderByCreatedAtAsc(postId);
+            rootComments = commentRepository.findByGroupPost_GroupPostIdAndParentCommentIsNullAndIsDeletedFalseOrderByCreatedAtAsc(postId);
         } else {
-            comments = commentRepository.findByGroupPost_GroupPostIdAndStatusAndIsDeletedFalseOrderByCreatedAtAsc(
+            rootComments = commentRepository.findByGroupPost_GroupPostIdAndParentCommentIsNullAndStatusAndIsDeletedFalseOrderByCreatedAtAsc(
                     postId, GroupContentStatus.SHOW);
         }
 
+        List<GroupPostCommentResponse> commentResponses = new ArrayList<>();
+        for (GroupPostComment root : rootComments) {
+            GroupPostCommentResponse rootResponse = postMapper.toCommentResponse(root);
+            List<GroupPostComment> replies;
+            if (isLeader) {
+                replies = commentRepository.findByParentComment_GroupPostCommentIdAndIsDeletedFalseOrderByCreatedAtAsc(root.getGroupPostCommentId());
+            } else {
+                replies = commentRepository.findByParentComment_GroupPostCommentIdAndStatusAndIsDeletedFalseOrderByCreatedAtAsc(
+                        root.getGroupPostCommentId(), GroupContentStatus.SHOW);
+            }
+            rootResponse.setReplies(postMapper.toCommentResponseList(replies));
+            commentResponses.add(rootResponse);
+        }
+
+        long totalComments;
+        if (isLeader) {
+            totalComments = commentRepository.countByGroupPost_GroupPostIdAndIsDeletedFalse(postId);
+        } else {
+            totalComments = commentResponses.stream()
+                    .mapToLong(root -> 1 + (root.getReplies() != null ? root.getReplies().size() : 0))
+                    .sum();
+        }
+
         GroupPostResponse postResponse = postMapper.toPostResponse(post);
-        postResponse.setCommentCount(comments.size());
-        List<GroupPostCommentResponse> commentResponses = postMapper.toCommentResponseList(comments);
+        postResponse.setCommentCount(totalComments);
 
         return GroupPostDetailResponse.builder()
                 .post(postResponse)
                 .comments(commentResponses)
                 .build();
     }
+
 
     @Override
     @Transactional
@@ -119,6 +147,21 @@ public class GroupPostServiceImpl implements GroupPostService {
 
         GroupPost saved = postRepository.save(post);
         log.info("Created post {} in group {} by user {}", saved.getGroupPostId(), groupId, currentUserId);
+
+        if (callerMember.getRole() == MatchingRole.LEADER) {
+            List<UUID> memberIdsToNotify = matchingMemberRepository.findActiveMembers(groupId, JoinStatus.ACCEPTED)
+                    .stream()
+                    .map(m -> m.getUser().getUserId())
+                    .filter(id -> !id.equals(currentUserId))
+                    .toList();
+
+            notificationService.notify(
+                    memberIdsToNotify,
+                    NotificationEventType.GROUP_POST_ANNOUNCEMENT,
+                    ReferenceType.MATCHING_GROUP, groupId,
+                    "/trekker/my-groups/" + groupId + "?tab=workspace",
+                    group.getGroupName());
+        }
 
         GroupPostResponse response = postMapper.toPostResponse(saved);
         response.setCommentCount(0);
@@ -201,7 +244,7 @@ public class GroupPostServiceImpl implements GroupPostService {
     @Transactional
     public GroupPostCommentResponse createComment(
             UUID groupId, UUID postId, GroupPostCommentCreateRequest request, UUID currentUserId) {
-        getGroupOrThrow(groupId);
+        MatchingGroup group = getGroupOrThrow(groupId);
         MatchingMember callerMember = getCallerMemberOrThrow(groupId, currentUserId);
 
         GroupPost post = postRepository
@@ -213,8 +256,43 @@ public class GroupPostServiceImpl implements GroupPostService {
         comment.setAnsweredBy(callerMember);
         comment.setStatus(GroupContentStatus.SHOW);
 
+        if (request.getReplyToCommentId() != null) {
+            GroupPostComment targetComment = commentRepository
+                    .findByGroupPostCommentIdAndGroupPost_GroupPostIdAndIsDeletedFalse(request.getReplyToCommentId(), postId)
+                    .filter(c -> c.getGroupPost().getMatchingGroup().getMatchingGroupId().equals(groupId))
+                    .orElseThrow(() -> new AppException(ErrorCode.COMMENT_NOT_FOUND));
+
+            // Enforce max 2-level hierarchy: if target has parent, root is target's parent; otherwise target is root
+            GroupPostComment rootComment = targetComment.getParentComment() != null
+                    ? targetComment.getParentComment()
+                    : targetComment;
+
+            comment.setParentComment(rootComment);
+            comment.setReplyToComment(targetComment);
+            comment.setReplyToMember(targetComment.getAnsweredBy());
+        }
+
         GroupPostComment saved = commentRepository.save(comment);
-        log.info("Created comment {} for post {} by user {}", saved.getGroupPostCommentId(), postId, currentUserId);
+        log.info("Created comment {} (replyTo: {}) for post {} by user {}",
+                saved.getGroupPostCommentId(), request.getReplyToCommentId(), postId, currentUserId);
+
+        UUID recipientUserId = null;
+        if (request.getReplyToCommentId() != null && comment.getReplyToMember() != null) {
+            recipientUserId = comment.getReplyToMember().getUser().getUserId();
+        } else if (post.getPostedBy() != null) {
+            recipientUserId = post.getPostedBy().getUser().getUserId();
+        }
+
+        if (recipientUserId != null && !recipientUserId.equals(currentUserId)) {
+            String commenterName = callerMember.getUser() != null ? callerMember.getUser().getFullName() : "Một thành viên";
+            notificationService.notify(
+                    recipientUserId,
+                    NotificationEventType.GROUP_POST_COMMENT_ADDED,
+                    ReferenceType.MATCHING_GROUP, groupId,
+                    "/trekker/my-groups/" + groupId + "?tab=workspace",
+                    commenterName, group.getGroupName());
+        }
+
         return postMapper.toCommentResponse(saved);
     }
 
@@ -260,6 +338,18 @@ public class GroupPostServiceImpl implements GroupPostService {
 
         comment.setIsDeleted(true);
         commentRepository.save(comment);
+
+        // Cascade soft-delete child replies if this was a root comment
+        if (comment.getParentComment() == null) {
+            List<GroupPostComment> childReplies = commentRepository
+                    .findByParentComment_GroupPostCommentIdAndIsDeletedFalse(commentId);
+            if (!childReplies.isEmpty()) {
+                childReplies.forEach(child -> child.setIsDeleted(true));
+                commentRepository.saveAll(childReplies);
+                log.info("Cascade soft-deleted {} replies under root comment {}", childReplies.size(), commentId);
+            }
+        }
+
         log.info("Deleted comment {} on post {} by user {}", commentId, postId, currentUserId);
     }
 
@@ -284,9 +374,23 @@ public class GroupPostServiceImpl implements GroupPostService {
                 : GroupContentStatus.SHOW;
         comment.setStatus(newStatus);
         GroupPostComment saved = commentRepository.save(comment);
+
+        // Cascade update status for child replies if this is a root comment
+        if (comment.getParentComment() == null) {
+            List<GroupPostComment> childReplies = commentRepository
+                    .findByParentComment_GroupPostCommentIdAndIsDeletedFalse(commentId);
+            if (!childReplies.isEmpty()) {
+                childReplies.forEach(child -> child.setStatus(newStatus));
+                commentRepository.saveAll(childReplies);
+                log.info("Cascade changed {} replies under root comment {} to status {}",
+                        childReplies.size(), commentId, newStatus);
+            }
+        }
+
         log.info("Leader {} changed comment {} status to {}", currentUserId, commentId, newStatus);
         return postMapper.toCommentResponse(saved);
     }
+
 
     private MatchingGroup getGroupOrThrow(UUID groupId) {
         return matchingGroupRepository.findById(groupId)

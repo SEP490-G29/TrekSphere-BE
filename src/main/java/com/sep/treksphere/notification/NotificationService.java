@@ -3,11 +3,14 @@ package com.sep.treksphere.notification;
 import com.sep.treksphere.common.dto.PaginationResponse;
 import com.sep.treksphere.common.exception.AppException;
 import com.sep.treksphere.common.exception.ErrorCode;
+import com.sep.treksphere.user.User;
+import com.sep.treksphere.user.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
@@ -18,6 +21,7 @@ import java.util.UUID;
 public class NotificationService {
 
     private final NotificationRepository notificationRepository;
+    private final UserRepository userRepository;
     private final ApplicationEventPublisher eventPublisher;
 
     @Transactional(readOnly = true)
@@ -90,5 +94,20 @@ public class NotificationService {
         eventPublisher.publishEvent(new NotifyCommand(
                 recipientIds, eventType, resolved.title(), resolved.content(),
                 referenceType, referenceId, actionUrl));
+    }
+
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public Notification createNotification(UUID recipientId, NotifyCommand command) {
+        User recipient = userRepository.getReferenceById(recipientId);
+
+        Notification notification = new Notification();
+        notification.setRecipient(recipient);
+        notification.setTitle(command.title());
+        notification.setEventType(command.eventType());
+        notification.setContent(command.content());
+        notification.setReferenceType(command.referenceType());
+        notification.setReferenceId(command.referenceId());
+        notification.setActionUrl(command.actionUrl());
+        return notificationRepository.save(notification);
     }
 }

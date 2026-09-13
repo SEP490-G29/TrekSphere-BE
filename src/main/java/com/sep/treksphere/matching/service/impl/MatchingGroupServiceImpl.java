@@ -5,30 +5,13 @@ import com.sep.treksphere.common.exception.AppException;
 import com.sep.treksphere.common.exception.ErrorCode;
 import com.sep.treksphere.common.security.CustomUserDetails;
 import com.sep.treksphere.common.util.PaginationUtils;
-import com.sep.treksphere.matching.dto.request.CustomJourneyCreateRequest;
-import com.sep.treksphere.matching.dto.request.CustomJourneyUpdateRequest;
-import com.sep.treksphere.matching.dto.request.GroupApplicationRequest;
-import com.sep.treksphere.matching.dto.request.MatchingGroupCreateRequest;
-import com.sep.treksphere.matching.dto.request.MatchingGroupFilterRequest;
-import com.sep.treksphere.matching.dto.request.MatchingGroupUpdateRequest;
-import com.sep.treksphere.matching.dto.request.MatchingJoinRequestFilter;
-import com.sep.treksphere.matching.dto.request.MyMatchingGroupFilterRequest;
-import com.sep.treksphere.matching.dto.request.MyMatchingJoinRequestFilter;
+import com.sep.treksphere.matching.dto.request.*;
 import com.sep.treksphere.matching.dto.response.MatchingGroupDetailResponse;
 import com.sep.treksphere.matching.dto.response.MatchingGroupResponse;
 import com.sep.treksphere.matching.dto.response.MatchingMemberResponse;
 import com.sep.treksphere.matching.dto.response.MyMatchingJoinRequestResponse;
-import com.sep.treksphere.matching.entity.CustomJourney;
-import com.sep.treksphere.matching.entity.GroupJoinApplication;
-import com.sep.treksphere.matching.entity.GroupTrip;
-import com.sep.treksphere.matching.entity.MatchingGroup;
-import com.sep.treksphere.matching.entity.MatchingMember;
-import com.sep.treksphere.matching.enums.GroupTripStatus;
-import com.sep.treksphere.matching.enums.JoinApplicationStatus;
-import com.sep.treksphere.matching.enums.JoinStatus;
-import com.sep.treksphere.matching.enums.MatchingGroupSourceType;
-import com.sep.treksphere.matching.enums.MatchingGroupStatus;
-import com.sep.treksphere.matching.enums.MatchingRole;
+import com.sep.treksphere.matching.entity.*;
+import com.sep.treksphere.matching.enums.*;
 import com.sep.treksphere.matching.mapper.MatchingGroupMapper;
 import com.sep.treksphere.matching.repository.GroupJoinApplicationRepository;
 import com.sep.treksphere.matching.repository.GroupTripRepository;
@@ -54,13 +37,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.util.Collections;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Locale;
-import java.util.Optional;
-import java.util.Set;
-import java.util.UUID;
+import java.util.*;
 
 @Service
 @RequiredArgsConstructor
@@ -1111,6 +1088,104 @@ public class MatchingGroupServiceImpl implements MatchingGroupService {
         return getMatchingGroupById(groupId, userDetails);
     }
 
+    @Override
+    @Transactional
+    public MatchingGroupDetailResponse startTrip(UUID groupId, CustomUserDetails userDetails) {
+        UUID userId = userDetails.getUser().getUserId();
+        log.info("Starting trip for matching group: groupId={}, userId={}", groupId, userId);
+
+        MatchingGroup matchingGroup = matchingGroupRepository.findByIdForUpdate(groupId)
+                .orElseThrow(() -> new AppException(ErrorCode.MATCHING_GROUP_NOT_FOUND));
+
+        validateGroupLeader(matchingGroup, userId);
+
+        if (matchingGroup.getStatus() == MatchingGroupStatus.IN_PROGRESS) {
+            return getMatchingGroupById(groupId, userDetails);
+        }
+
+        if (matchingGroup.getStatus() == MatchingGroupStatus.COMPLETED
+                || matchingGroup.getStatus() == MatchingGroupStatus.CANCELLED) {
+            throw new AppException(ErrorCode.MATCHING_GROUP_INVALID_STATE);
+        }
+
+        LocalDate today = LocalDate.now();
+        LocalDate tripEndDate = resolveTripEndDate(matchingGroup);
+        if (tripEndDate != null && tripEndDate.isBefore(today)) {
+            throw new AppException(ErrorCode.MATCHING_TARGET_DATE_PASSED);
+        }
+
+        matchingGroup.setStatus(MatchingGroupStatus.IN_PROGRESS);
+        matchingGroupRepository.save(matchingGroup);
+
+        groupTripRepository.findByMatchingGroup(matchingGroup).ifPresent(trip -> {
+            trip.setStatus(GroupTripStatus.IN_PROGRESS);
+            if (trip.getStartedAt() == null) {
+                trip.setStartedAt(LocalDateTime.now());
+            }
+            groupTripRepository.save(trip);
+        });
+
+        List<UUID> memberIdsToNotifyStart = matchingMemberRepository.findActiveMembers(groupId, JoinStatus.ACCEPTED)
+                .stream()
+                .map(m -> m.getUser().getUserId())
+                .toList();
+        notificationService.notify(
+                memberIdsToNotifyStart,
+                NotificationEventType.GROUP_TRIP_STARTED,
+                ReferenceType.GROUP_TRIP, groupId,
+                "/trekker/my-groups/" + groupId,
+                matchingGroup.getGroupName());
+
+        return getMatchingGroupById(groupId, userDetails);
+    }
+
+    @Override
+    @Transactional
+    public MatchingGroupDetailResponse completeTrip(UUID groupId, CustomUserDetails userDetails) {
+        UUID userId = userDetails.getUser().getUserId();
+        log.info("Completing trip for matching group: groupId={}, userId={}", groupId, userId);
+
+        MatchingGroup matchingGroup = matchingGroupRepository.findByIdForUpdate(groupId)
+                .orElseThrow(() -> new AppException(ErrorCode.MATCHING_GROUP_NOT_FOUND));
+
+        validateGroupLeader(matchingGroup, userId);
+
+        if (matchingGroup.getStatus() == MatchingGroupStatus.COMPLETED) {
+            return getMatchingGroupById(groupId, userDetails);
+        }
+
+        if (matchingGroup.getStatus() != MatchingGroupStatus.IN_PROGRESS) {
+            throw new AppException(ErrorCode.MATCHING_GROUP_INVALID_STATE);
+        }
+
+        matchingGroup.setStatus(MatchingGroupStatus.COMPLETED);
+        matchingGroupRepository.save(matchingGroup);
+
+        groupTripRepository.findByMatchingGroup(matchingGroup).ifPresent(trip -> {
+            trip.setStatus(GroupTripStatus.ENDED);
+            if (trip.getStartedAt() == null) {
+                trip.setStartedAt(LocalDateTime.now());
+            }
+            if (trip.getEndedAt() == null) {
+                trip.setEndedAt(LocalDateTime.now());
+            }
+            groupTripRepository.save(trip);
+        });
+
+        List<UUID> memberIdsToNotifyEnd = matchingMemberRepository.findActiveMembers(groupId, JoinStatus.ACCEPTED)
+                .stream()
+                .map(m -> m.getUser().getUserId())
+                .toList();
+        notificationService.notify(
+                memberIdsToNotifyEnd,
+                NotificationEventType.GROUP_TRIP_ENDED,
+                ReferenceType.GROUP_TRIP, groupId,
+                "/trekker/my-groups/" + groupId,
+                matchingGroup.getGroupName());
+
+        return getMatchingGroupById(groupId, userDetails);
+    }
+
     private void validateGroupLeader(MatchingGroup matchingGroup, UUID userId) {
         boolean isLeader = matchingMemberRepository.findByMatchingGroupAndUser(
                         matchingGroup,
@@ -1158,5 +1233,15 @@ public class MatchingGroupServiceImpl implements MatchingGroupService {
         if (!matchingDeadline.isAfter(LocalDateTime.now())) {
             throw new AppException(ErrorCode.MATCHING_DEADLINE_PASSED);
         }
+    }
+
+    private LocalDate resolveTripEndDate(MatchingGroup matchingGroup) {
+        if (matchingGroup.getCustomJourney() != null && matchingGroup.getCustomJourney().getEndDate() != null) {
+            return matchingGroup.getCustomJourney().getEndDate();
+        }
+        if (matchingGroup.getTour() != null && matchingGroup.getTour().getDurationDays() != null && matchingGroup.getTargetDate() != null) {
+            return matchingGroup.getTargetDate().plusDays(matchingGroup.getTour().getDurationDays());
+        }
+        return matchingGroup.getTargetDate();
     }
 }

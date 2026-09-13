@@ -1,9 +1,7 @@
 package com.sep.treksphere.matching.entity;
 
 import jakarta.persistence.*;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
-import lombok.Setter;
+import lombok.*;
 import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
@@ -11,22 +9,24 @@ import java.time.LocalDateTime;
 import java.util.UUID;
 
 @Entity
-@Table(name = "group_moment_media", uniqueConstraints = {
-    @UniqueConstraint(columnNames = {"group_moment_id", "sort_order"})
+@Table(name = "moment_media", uniqueConstraints = {
+    @UniqueConstraint(columnNames = {"moment_id", "sort_order"})
 })
 @Getter
 @Setter
 @NoArgsConstructor
+@AllArgsConstructor
+@Builder
 @EntityListeners(AuditingEntityListener.class)
-public class GroupMomentMedia {
+public class MomentMedia {
 
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
-    private UUID groupMomentMediaId;
+    private UUID momentMediaId;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "group_moment_id", nullable = false)
-    private GroupMoment groupMoment;
+    @JoinColumn(name = "moment_id", nullable = false)
+    private Moment moment;
 
     @Column(nullable = false, length = 500)
     private String imageUrl;

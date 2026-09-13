@@ -1,7 +1,6 @@
 package com.sep.treksphere.report;
 
 import com.sep.treksphere.common.constant.MessageConstant;
-import com.sep.treksphere.report.ReportTargetType;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import lombok.AllArgsConstructor;

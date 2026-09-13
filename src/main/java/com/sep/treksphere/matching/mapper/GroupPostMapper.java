@@ -8,11 +8,7 @@ import com.sep.treksphere.matching.dto.response.GroupPostCommentResponse;
 import com.sep.treksphere.matching.dto.response.GroupPostResponse;
 import com.sep.treksphere.matching.entity.GroupPost;
 import com.sep.treksphere.matching.entity.GroupPostComment;
-import org.mapstruct.BeanMapping;
-import org.mapstruct.Mapper;
-import org.mapstruct.Mapping;
-import org.mapstruct.MappingTarget;
-import org.mapstruct.NullValuePropertyMappingStrategy;
+import org.mapstruct.*;
 
 import java.util.List;
 
@@ -31,11 +27,16 @@ public interface GroupPostMapper {
     List<GroupPostResponse> toPostResponseList(List<GroupPost> posts);
 
     @Mapping(target = "groupPostId", source = "groupPost.groupPostId")
+    @Mapping(target = "parentCommentId", source = "parentComment.groupPostCommentId")
+    @Mapping(target = "replyToCommentId", source = "replyToComment.groupPostCommentId")
+    @Mapping(target = "replyToUserId", source = "replyToMember.user.userId")
+    @Mapping(target = "replyToFullName", source = "replyToMember.user.fullName")
     @Mapping(target = "answeredByMatchingMemberId", source = "answeredBy.matchingMemberId")
     @Mapping(target = "answeredByUserId", source = "answeredBy.user.userId")
     @Mapping(target = "answeredByFullName", source = "answeredBy.user.fullName")
     @Mapping(target = "answeredByAvatarUrl", source = "answeredBy.user.avatarUrl")
     @Mapping(target = "answeredByRole", source = "answeredBy.role")
+    @Mapping(target = "replies", ignore = true)
     GroupPostCommentResponse toCommentResponse(GroupPostComment comment);
 
     List<GroupPostCommentResponse> toCommentResponseList(List<GroupPostComment> comments);
@@ -56,6 +57,10 @@ public interface GroupPostMapper {
     @Mapping(target = "groupPostCommentId", ignore = true)
     @Mapping(target = "groupPost", ignore = true)
     @Mapping(target = "answeredBy", ignore = true)
+    @Mapping(target = "parentComment", ignore = true)
+    @Mapping(target = "replyToComment", ignore = true)
+    @Mapping(target = "replyToMember", ignore = true)
+    @Mapping(target = "replies", ignore = true)
     @Mapping(target = "status", ignore = true)
     GroupPostComment toCommentEntity(GroupPostCommentCreateRequest request);
 
@@ -63,6 +68,10 @@ public interface GroupPostMapper {
     @Mapping(target = "groupPostCommentId", ignore = true)
     @Mapping(target = "groupPost", ignore = true)
     @Mapping(target = "answeredBy", ignore = true)
+    @Mapping(target = "parentComment", ignore = true)
+    @Mapping(target = "replyToComment", ignore = true)
+    @Mapping(target = "replyToMember", ignore = true)
+    @Mapping(target = "replies", ignore = true)
     @Mapping(target = "status", ignore = true)
     void updateCommentEntityFromRequest(GroupPostCommentUpdateRequest request, @MappingTarget GroupPostComment comment);
 }

@@ -1,25 +1,15 @@
 package com.sep.treksphere.matching.service;
 
 import com.sep.treksphere.common.dto.PaginationResponse;
-import com.sep.treksphere.common.exception.AppException;
-import com.sep.treksphere.common.exception.ErrorCode;
 import com.sep.treksphere.common.security.CustomUserDetails;
 import com.sep.treksphere.matching.dto.request.MatchingGroupFilterRequest;
 import com.sep.treksphere.matching.dto.request.MyMatchingGroupFilterRequest;
 import com.sep.treksphere.matching.dto.response.MatchingGroupDetailResponse;
 import com.sep.treksphere.matching.dto.response.MatchingGroupResponse;
-import com.sep.treksphere.matching.entity.CustomJourney;
-import com.sep.treksphere.matching.entity.CustomJourneyCheckpoint;
-import com.sep.treksphere.matching.entity.CustomJourneyCostItem;
-import com.sep.treksphere.matching.entity.MatchingGroup;
-import com.sep.treksphere.matching.entity.MatchingMember;
-import com.sep.treksphere.matching.enums.CostItemCategory;
-import com.sep.treksphere.matching.enums.JoinStatus;
-import com.sep.treksphere.matching.enums.JourneyDifficulty;
-import com.sep.treksphere.matching.enums.MatchingGroupSourceType;
-import com.sep.treksphere.matching.enums.MatchingGroupStatus;
-import com.sep.treksphere.matching.enums.MatchingRole;
+import com.sep.treksphere.matching.entity.*;
+import com.sep.treksphere.matching.enums.*;
 import com.sep.treksphere.matching.mapper.MatchingGroupMapper;
+import com.sep.treksphere.matching.repository.GroupTripRepository;
 import com.sep.treksphere.matching.repository.MatchingGroupRepository;
 import com.sep.treksphere.matching.repository.MatchingMemberRepository;
 import com.sep.treksphere.matching.service.impl.MatchingGroupServiceImpl;
@@ -47,10 +37,11 @@ import org.springframework.data.domain.PageRequest;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.util.*;
+import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.when;
 
@@ -67,6 +58,9 @@ class MatchingGroupServiceTest {
     private com.sep.treksphere.matching.repository.GroupJoinApplicationRepository groupJoinApplicationRepository;
 
     @Mock
+    private GroupTripRepository groupTripRepository;
+
+    @Mock
     private TourRepository tourRepository;
 
     @Mock
@@ -74,6 +68,12 @@ class MatchingGroupServiceTest {
 
     @Spy
     private MatchingGroupMapper matchingGroupMapper = Mappers.getMapper(MatchingGroupMapper.class);
+
+    @Mock
+    private org.springframework.context.ApplicationEventPublisher eventPublisher;
+
+    @Mock
+    private com.sep.treksphere.notification.NotificationService notificationService;
 
     @InjectMocks
     private MatchingGroupServiceImpl matchingGroupService;

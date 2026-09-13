@@ -1,9 +1,5 @@
 package com.sep.treksphere.report;
 
-import com.sep.treksphere.blog.Blog;
-import com.sep.treksphere.report.ReportResponse;
-import com.sep.treksphere.report.ReportContent;
-import com.sep.treksphere.report.ReportTargetType;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
 

@@ -6,15 +6,15 @@ import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import org.hibernate.annotations.SQLRestriction;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.UUID;
 
 @Entity
-@Table(name = "group_expense_share", uniqueConstraints = {
-    @UniqueConstraint(columnNames = {"group_expense_id", "matching_member_id"})
-})
+@Table(name = "group_expense_share")
+@SQLRestriction("is_deleted = false")
 @Getter
 @Setter
 @NoArgsConstructor

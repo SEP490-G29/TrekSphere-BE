@@ -3,8 +3,6 @@ package com.sep.treksphere.tour;
 import com.sep.treksphere.common.entity.BaseEntity;
 import com.sep.treksphere.user.User;
 import com.sep.treksphere.vendor.Vendor;
-import com.sep.treksphere.tour.DifficultyLevel;
-import com.sep.treksphere.tour.TourStatus;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.NoArgsConstructor;

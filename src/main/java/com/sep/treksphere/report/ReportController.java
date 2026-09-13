@@ -1,11 +1,10 @@
 package com.sep.treksphere.report;
 
-import com.sep.treksphere.blog.Blog;
-import com.sep.treksphere.common.security.CustomUserDetails;
 import com.sep.treksphere.common.constant.MessageConstant;
-import com.sep.treksphere.report.CreateReportRequest;
 import com.sep.treksphere.common.dto.ApiResponse;
-import com.sep.treksphere.report.ReportService;
+import com.sep.treksphere.common.security.CustomUserDetails;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -16,9 +15,6 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
-
-import io.swagger.v3.oas.annotations.Operation;
-import io.swagger.v3.oas.annotations.tags.Tag;
 
 import java.util.UUID;
 

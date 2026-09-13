@@ -5,7 +5,6 @@ import com.sep.treksphere.blog.comment.BlogComment;
 import com.sep.treksphere.common.entity.BaseEntity;
 import com.sep.treksphere.tour.Tour;
 import com.sep.treksphere.user.User;
-import com.sep.treksphere.report.ReportStatus;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.NoArgsConstructor;

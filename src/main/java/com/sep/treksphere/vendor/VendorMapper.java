@@ -1,9 +1,6 @@
 package com.sep.treksphere.vendor;
 
 import com.sep.treksphere.user.UserMapper;
-import com.sep.treksphere.vendor.VendorProfileResponse;
-import com.sep.treksphere.vendor.VendorResponse;
-import com.sep.treksphere.vendor.Vendor;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
 

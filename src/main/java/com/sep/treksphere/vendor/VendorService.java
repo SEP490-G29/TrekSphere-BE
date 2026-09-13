@@ -1,6 +1,5 @@
 package com.sep.treksphere.vendor;
 
-import com.sep.treksphere.user.User;
 import com.sep.treksphere.common.dto.PaginationResponse;
 import com.sep.treksphere.common.exception.AppException;
 import com.sep.treksphere.common.exception.ErrorCode;
@@ -9,9 +8,9 @@ import com.sep.treksphere.file.FileService;
 import com.sep.treksphere.notification.NotificationEventType;
 import com.sep.treksphere.notification.NotificationService;
 import com.sep.treksphere.notification.ReferenceType;
-import com.sep.treksphere.vendor.application.VendorApplicationRepository;
 import com.sep.treksphere.tour.TourRepository;
 import com.sep.treksphere.tour.TourStatus;
+import com.sep.treksphere.vendor.application.VendorApplicationRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;

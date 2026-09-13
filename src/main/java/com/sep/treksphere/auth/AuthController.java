@@ -1,11 +1,5 @@
 package com.sep.treksphere.auth;
 
-import com.sep.treksphere.auth.dto.request.ChangePasswordRequest;
-import com.sep.treksphere.auth.dto.request.ForgotPasswordRequest;
-import com.sep.treksphere.auth.dto.request.LoginRequest;
-import com.sep.treksphere.auth.dto.request.RegisterRequest;
-import com.sep.treksphere.auth.dto.request.ResendVerificationRequest;
-import com.sep.treksphere.auth.dto.request.ResetPasswordRequest;
 import com.sep.treksphere.auth.dto.request.*;
 import com.sep.treksphere.auth.dto.response.LoginResponse;
 import com.sep.treksphere.auth.dto.response.RegisterResponse;

@@ -7,6 +7,8 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
 
 @Entity
@@ -28,6 +30,22 @@ public class GroupPostComment extends BaseEntity {
     @JoinColumn(name = "answered_by", nullable = false)
     private MatchingMember answeredBy;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "parent_comment_id")
+    private GroupPostComment parentComment;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "reply_to_comment_id")
+    private GroupPostComment replyToComment;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "reply_to_member_id")
+    private MatchingMember replyToMember;
+
+    @OneToMany(mappedBy = "parentComment", cascade = CascadeType.ALL)
+    @OrderBy("createdAt ASC")
+    private List<GroupPostComment> replies = new ArrayList<>();
+
     @Column(nullable = false, columnDefinition = "TEXT")
     private String content;
 
@@ -35,3 +53,4 @@ public class GroupPostComment extends BaseEntity {
     @Column(nullable = false, length = 20)
     private GroupContentStatus status = GroupContentStatus.SHOW;
 }
+

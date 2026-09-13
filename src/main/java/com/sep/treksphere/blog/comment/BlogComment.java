@@ -3,7 +3,6 @@ package com.sep.treksphere.blog.comment;
 import com.sep.treksphere.blog.Blog;
 import com.sep.treksphere.common.entity.BaseEntity;
 import com.sep.treksphere.user.User;
-import com.sep.treksphere.blog.comment.CommentStatus;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -43,7 +42,7 @@ public class BlogComment extends BaseEntity {
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
-    private CommentStatus status = CommentStatus.ACTIVE;
+    private CommentStatus status = CommentStatus.VISIBLE;
 
     @OneToMany(mappedBy = "parentComment", cascade = CascadeType.ALL, orphanRemoval = true)
     private Set<BlogComment> replies = new HashSet<>();

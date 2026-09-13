@@ -1,6 +1,5 @@
 package com.sep.treksphere.report;
 
-import com.sep.treksphere.report.ReportAction;
 import jakarta.validation.constraints.NotNull;
 import lombok.Data;
 
