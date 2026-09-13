@@ -29,6 +29,9 @@ import com.sep.treksphere.matching.repository.GroupTripRepository;
 import com.sep.treksphere.matching.repository.MatchingGroupRepository;
 import com.sep.treksphere.matching.repository.MatchingMemberRepository;
 import com.sep.treksphere.matching.service.GroupSettlementService;
+import com.sep.treksphere.notification.NotificationEventType;
+import com.sep.treksphere.notification.NotificationService;
+import com.sep.treksphere.notification.ReferenceType;
 import com.sep.treksphere.user.User;
 import com.sep.treksphere.user.UserRepository;
 import lombok.RequiredArgsConstructor;
@@ -64,6 +67,7 @@ public class GroupSettlementServiceImpl implements GroupSettlementService {
     private final GroupSettlementRepository groupSettlementRepository;
     private final GroupTripRepository groupTripRepository;
     private final GroupSettlementMapper groupSettlementMapper;
+    private final NotificationService notificationService;
 
     @Override
     public GroupSettlementSummaryResponse getSettlementSummary(UUID groupId, String userEmail) {
@@ -196,6 +200,17 @@ public class GroupSettlementServiceImpl implements GroupSettlementService {
         GroupSettlement updated = groupSettlementRepository.save(settlement);
         log.info("Debtor {} submitted proof for settlement {}", currentMember.getMatchingMemberId(), settlementId);
 
+        if (settlement.getToMatchingMember() != null && settlement.getToMatchingMember().getUser() != null) {
+            UUID payeeUserId = settlement.getToMatchingMember().getUser().getUserId();
+            String debtorName = currentMember.getUser() != null ? currentMember.getUser().getFullName() : "Một thành viên";
+            notificationService.notify(
+                    payeeUserId,
+                    NotificationEventType.GROUP_SETTLEMENT_PROOF_SUBMITTED,
+                    ReferenceType.GROUP_EXPENSE, settlementId,
+                    "/trekker/my-groups/" + groupId + "?tab=expenses",
+                    debtorName, group.getGroupName());
+        }
+
         return groupSettlementMapper.toResponse(updated);
     }
 
@@ -226,6 +241,18 @@ public class GroupSettlementServiceImpl implements GroupSettlementService {
         markMemberSharesAsSettledIfEligible(group, settlement.getFromMatchingMember());
 
         log.info("Payee {} confirmed settlement {}", currentMember.getMatchingMemberId(), settlementId);
+
+        if (settlement.getFromMatchingMember() != null && settlement.getFromMatchingMember().getUser() != null) {
+            UUID debtorUserId = settlement.getFromMatchingMember().getUser().getUserId();
+            String payeeName = currentMember.getUser() != null ? currentMember.getUser().getFullName() : "Một thành viên";
+            notificationService.notify(
+                    debtorUserId,
+                    NotificationEventType.GROUP_SETTLEMENT_CONFIRMED,
+                    ReferenceType.GROUP_EXPENSE, settlementId,
+                    "/trekker/my-groups/" + groupId + "?tab=expenses",
+                    payeeName, group.getGroupName());
+        }
+
         return groupSettlementMapper.toResponse(updated);
     }
 

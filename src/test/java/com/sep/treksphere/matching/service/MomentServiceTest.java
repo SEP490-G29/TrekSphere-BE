@@ -16,6 +16,7 @@ import com.sep.treksphere.matching.entity.MatchingMember;
 import com.sep.treksphere.matching.entity.Moment;
 import com.sep.treksphere.matching.entity.MomentMedia;
 import com.sep.treksphere.matching.enums.JoinStatus;
+import com.sep.treksphere.matching.enums.MatchingGroupStatus;
 import com.sep.treksphere.matching.enums.MatchingRole;
 import com.sep.treksphere.matching.enums.MomentStatus;
 import com.sep.treksphere.matching.enums.MomentVisibility;
@@ -25,6 +26,7 @@ import com.sep.treksphere.matching.repository.MatchingMemberRepository;
 import com.sep.treksphere.matching.repository.MomentMediaRepository;
 import com.sep.treksphere.matching.repository.MomentRepository;
 import com.sep.treksphere.matching.service.impl.MomentServiceImpl;
+import com.sep.treksphere.notification.NotificationService;
 import com.sep.treksphere.user.User;
 import com.sep.treksphere.user.UserRepository;
 import com.sep.treksphere.user.UserStatus;
@@ -74,6 +76,9 @@ class MomentServiceTest {
 
     @Mock
     private UserRepository userRepository;
+
+    @Mock
+    private NotificationService notificationService;
 
     @Spy
     private MomentMapper momentMapper = Mappers.getMapper(MomentMapper.class);
@@ -125,6 +130,7 @@ class MomentServiceTest {
         matchingGroup = new MatchingGroup();
         matchingGroup.setMatchingGroupId(groupId);
         matchingGroup.setGroupName("Trek Fanxipan 2026");
+        matchingGroup.setStatus(MatchingGroupStatus.COMPLETED);
 
         authorMember = new MatchingMember();
         authorMember.setMatchingMemberId(UUID.randomUUID());
@@ -213,6 +219,14 @@ class MomentServiceTest {
         assertThat(response.getAuthorName()).isEqualTo("Nguyen Van Author");
         assertThat(response.getMediaList()).hasSize(2);
         verify(momentRepository).save(any(Moment.class));
+        verify(notificationService).notify(
+                org.mockito.ArgumentMatchers.<List<UUID>>any(),
+                org.mockito.ArgumentMatchers.eq(com.sep.treksphere.notification.NotificationEventType.GROUP_MOMENT_CREATED),
+                org.mockito.ArgumentMatchers.eq(com.sep.treksphere.notification.ReferenceType.MATCHING_GROUP),
+                org.mockito.ArgumentMatchers.eq(groupId),
+                org.mockito.ArgumentMatchers.anyString(),
+                org.mockito.ArgumentMatchers.any(),
+                org.mockito.ArgumentMatchers.any());
     }
 
     @Test
@@ -230,6 +244,74 @@ class MomentServiceTest {
         assertThatThrownBy(() -> momentService.createGroupMoment(groupId, otherUserId, request))
                 .isInstanceOf(AppException.class)
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.NOT_ACCEPTED_MATCHING_MEMBER);
+    }
+
+    @Test
+    @DisplayName("Tạo khoảnh khắc thất bại khi nhóm chưa khởi hành (trạng thái OPEN)")
+    void createGroupMoment_ThrowsException_WhenGroupOpen() {
+        MatchingGroup openGroup = new MatchingGroup();
+        openGroup.setMatchingGroupId(groupId);
+        openGroup.setStatus(MatchingGroupStatus.OPEN);
+
+        MomentCreateRequest request = MomentCreateRequest.builder()
+                .caption("Đăng ảnh khi chưa đi")
+                .mediaUrls(List.of("https://cloudinary.com/photo1.jpg"))
+                .build();
+
+        when(userRepository.findById(authorUserId)).thenReturn(Optional.of(authorUser));
+        when(matchingGroupRepository.findById(groupId)).thenReturn(Optional.of(openGroup));
+
+        assertThatThrownBy(() -> momentService.createGroupMoment(groupId, authorUserId, request))
+                .isInstanceOf(AppException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.GROUP_NOT_READY_FOR_MOMENT);
+    }
+
+    @Test
+    @DisplayName("Tạo khoảnh khắc thất bại khi nhóm bị hủy (trạng thái CANCELLED)")
+    void createGroupMoment_ThrowsException_WhenGroupCancelled() {
+        MatchingGroup cancelledGroup = new MatchingGroup();
+        cancelledGroup.setMatchingGroupId(groupId);
+        cancelledGroup.setStatus(MatchingGroupStatus.CANCELLED);
+
+        MomentCreateRequest request = MomentCreateRequest.builder()
+                .caption("Đăng ảnh khi nhóm đã hủy")
+                .mediaUrls(List.of("https://cloudinary.com/photo1.jpg"))
+                .build();
+
+        when(userRepository.findById(authorUserId)).thenReturn(Optional.of(authorUser));
+        when(matchingGroupRepository.findById(groupId)).thenReturn(Optional.of(cancelledGroup));
+
+        assertThatThrownBy(() -> momentService.createGroupMoment(groupId, authorUserId, request))
+                .isInstanceOf(AppException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.GROUP_NOT_READY_FOR_MOMENT);
+    }
+
+    @Test
+    @DisplayName("Tạo khoảnh khắc thành công khi nhóm đang đi (trạng thái IN_PROGRESS)")
+    void createGroupMoment_Success_WhenGroupInProgress() {
+        MatchingGroup inProgressGroup = new MatchingGroup();
+        inProgressGroup.setMatchingGroupId(groupId);
+        inProgressGroup.setStatus(MatchingGroupStatus.IN_PROGRESS);
+
+        MomentCreateRequest request = MomentCreateRequest.builder()
+                .caption("Đang check-in trên đường đi")
+                .mediaUrls(List.of("https://cloudinary.com/photo1.jpg"))
+                .build();
+
+        when(userRepository.findById(authorUserId)).thenReturn(Optional.of(authorUser));
+        when(matchingGroupRepository.findById(groupId)).thenReturn(Optional.of(inProgressGroup));
+        when(matchingMemberRepository.findByGroupIdAndUserId(groupId, authorUserId)).thenReturn(Optional.of(authorMember));
+        when(momentRepository.save(any(Moment.class))).thenAnswer(invocation -> {
+            Moment m = invocation.getArgument(0);
+            m.setMomentId(UUID.randomUUID());
+            return m;
+        });
+
+        MomentResponse response = momentService.createGroupMoment(groupId, authorUserId, request);
+
+        assertThat(response).isNotNull();
+        assertThat(response.getCaption()).isEqualTo("Đang check-in trên đường đi");
+        verify(momentRepository).save(any(Moment.class));
     }
 
     @Test

@@ -1148,6 +1148,17 @@ public class MatchingGroupServiceImpl implements MatchingGroupService {
             groupTripRepository.save(trip);
         });
 
+        List<UUID> memberIdsToNotifyStart = matchingMemberRepository.findActiveMembers(groupId, JoinStatus.ACCEPTED)
+                .stream()
+                .map(m -> m.getUser().getUserId())
+                .toList();
+        notificationService.notify(
+                memberIdsToNotifyStart,
+                NotificationEventType.GROUP_TRIP_STARTED,
+                ReferenceType.GROUP_TRIP, groupId,
+                "/trekker/my-groups/" + groupId,
+                matchingGroup.getGroupName());
+
         return getMatchingGroupById(groupId, userDetails);
     }
 
@@ -1183,6 +1194,17 @@ public class MatchingGroupServiceImpl implements MatchingGroupService {
             }
             groupTripRepository.save(trip);
         });
+
+        List<UUID> memberIdsToNotifyEnd = matchingMemberRepository.findActiveMembers(groupId, JoinStatus.ACCEPTED)
+                .stream()
+                .map(m -> m.getUser().getUserId())
+                .toList();
+        notificationService.notify(
+                memberIdsToNotifyEnd,
+                NotificationEventType.GROUP_TRIP_ENDED,
+                ReferenceType.GROUP_TRIP, groupId,
+                "/trekker/my-groups/" + groupId,
+                matchingGroup.getGroupName());
 
         return getMatchingGroupById(groupId, userDetails);
     }

@@ -25,6 +25,7 @@ import com.sep.treksphere.matching.repository.GroupTripRepository;
 import com.sep.treksphere.matching.repository.MatchingGroupRepository;
 import com.sep.treksphere.matching.repository.MatchingMemberRepository;
 import com.sep.treksphere.matching.service.impl.GroupExpenseServiceImpl;
+import com.sep.treksphere.notification.NotificationService;
 import com.sep.treksphere.user.User;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -71,6 +72,9 @@ class GroupExpenseServiceTest {
 
     @Mock
     private GroupTripRepository groupTripRepository;
+
+    @Mock
+    private NotificationService notificationService;
 
     @Spy
     private GroupExpenseMapper groupExpenseMapper = Mappers.getMapper(GroupExpenseMapper.class);
@@ -169,6 +173,16 @@ class GroupExpenseServiceTest {
 
         verify(groupExpenseRepository).save(any(GroupExpense.class));
         verify(groupExpenseShareRepository).saveAll(any());
+        verify(notificationService).notify(
+                org.mockito.ArgumentMatchers.<List<UUID>>any(),
+                org.mockito.ArgumentMatchers.eq(com.sep.treksphere.notification.NotificationEventType.GROUP_EXPENSE_CREATED),
+                org.mockito.ArgumentMatchers.eq(com.sep.treksphere.notification.ReferenceType.GROUP_EXPENSE),
+                any(),
+                org.mockito.ArgumentMatchers.anyString(),
+                org.mockito.ArgumentMatchers.any(),
+                org.mockito.ArgumentMatchers.any(),
+                org.mockito.ArgumentMatchers.any(),
+                org.mockito.ArgumentMatchers.any());
     }
 
     @Test

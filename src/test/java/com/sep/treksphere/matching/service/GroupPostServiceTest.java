@@ -23,6 +23,7 @@ import com.sep.treksphere.matching.repository.GroupPostRepository;
 import com.sep.treksphere.matching.repository.MatchingGroupRepository;
 import com.sep.treksphere.matching.repository.MatchingMemberRepository;
 import com.sep.treksphere.matching.service.impl.GroupPostServiceImpl;
+import com.sep.treksphere.notification.NotificationService;
 import com.sep.treksphere.user.User;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -65,6 +66,9 @@ class GroupPostServiceTest {
 
     @Mock
     private MatchingMemberRepository matchingMemberRepository;
+
+    @Mock
+    private NotificationService notificationService;
 
     @Spy
     private GroupPostMapper postMapper = Mappers.getMapper(GroupPostMapper.class);
@@ -253,6 +257,34 @@ class GroupPostServiceTest {
     }
 
     @Test
+    @DisplayName("createGroupPost - Leader tạo bài đăng gửi thông báo GROUP_POST_ANNOUNCEMENT")
+    void createGroupPost_LeaderSendsAnnouncementNotification() {
+        GroupPostCreateRequest request = GroupPostCreateRequest.builder()
+                .title("Thông báo họp nhóm khẩn")
+                .content("Họp lúc 20h tối nay")
+                .build();
+
+        when(matchingGroupRepository.findById(groupId)).thenReturn(Optional.of(group));
+        when(matchingMemberRepository.findActiveMembers(groupId, JoinStatus.ACCEPTED)).thenReturn(List.of(leaderMember, authorMember, otherMember));
+        when(postRepository.save(any(GroupPost.class))).thenAnswer(inv -> {
+            GroupPost p = inv.getArgument(0);
+            p.setGroupPostId(UUID.randomUUID());
+            return p;
+        });
+
+        GroupPostResponse response = postService.createGroupPost(groupId, request, leaderId);
+
+        assertThat(response).isNotNull();
+        verify(notificationService).notify(
+                org.mockito.ArgumentMatchers.<List<UUID>>any(),
+                org.mockito.ArgumentMatchers.eq(com.sep.treksphere.notification.NotificationEventType.GROUP_POST_ANNOUNCEMENT),
+                org.mockito.ArgumentMatchers.eq(com.sep.treksphere.notification.ReferenceType.MATCHING_GROUP),
+                org.mockito.ArgumentMatchers.eq(groupId),
+                org.mockito.ArgumentMatchers.anyString(),
+                org.mockito.ArgumentMatchers.any());
+    }
+
+    @Test
     @DisplayName("updateGroupPost - Tác giả cập nhật bài đăng và ảnh thành công")
     void updateGroupPost_SuccessByAuthor() {
         UUID postId = post.getGroupPostId();
@@ -365,6 +397,14 @@ class GroupPostServiceTest {
 
         assertThat(response).isNotNull();
         assertThat(response.getContent()).isEqualTo("Bình luận mới");
+        verify(notificationService).notify(
+                org.mockito.ArgumentMatchers.eq(authorMember.getUser().getUserId()),
+                org.mockito.ArgumentMatchers.eq(com.sep.treksphere.notification.NotificationEventType.GROUP_POST_COMMENT_ADDED),
+                org.mockito.ArgumentMatchers.eq(com.sep.treksphere.notification.ReferenceType.MATCHING_GROUP),
+                org.mockito.ArgumentMatchers.eq(groupId),
+                org.mockito.ArgumentMatchers.anyString(),
+                org.mockito.ArgumentMatchers.any(),
+                org.mockito.ArgumentMatchers.any());
     }
 
     @Test

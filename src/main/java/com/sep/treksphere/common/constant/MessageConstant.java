@@ -643,6 +643,7 @@ public class MessageConstant {
     public static final String MOMENT_FETCHED_SUCCESS = "Lấy chi tiết khoảnh khắc thành công";
     public static final String MOMENTS_MAP_FETCHED_SUCCESS = "Lấy danh sách điểm ghim bản đồ thành công";
     public static final String MOMENTS_ALBUM_FETCHED_SUCCESS = "Lấy album ảnh thành công";
+    public static final String GROUP_NOT_IN_PROGRESS_OR_COMPLETED_FOR_MOMENT = "Chỉ có thể đăng khoảnh khắc khi nhóm đang đi hoặc sau khi chuyến đi hoàn thành";
 
     // Peer Review Messages
     public static final String PEER_REVIEW_NOT_FOUND = "Đánh giá không tồn tại";
