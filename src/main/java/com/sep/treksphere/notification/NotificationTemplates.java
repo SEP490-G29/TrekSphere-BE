@@ -122,6 +122,14 @@ public final class NotificationTemplates {
         TEMPLATES.put(NotificationEventType.USER_STATUS_CHANGED, new TemplatePair(
                 "Tài khoản đã thay đổi trạng thái",
                 "Tài khoản của bạn đã %s bởi quản trị viên."));
+
+        TEMPLATES.put(NotificationEventType.SOS_ALERT_RAISED, new TemplatePair(
+                "🚨 Tín hiệu SOS khẩn cấp",
+                "%s vừa phát tín hiệu SOS (%s) trong nhóm. Hãy kiểm tra ngay!"));
+
+        TEMPLATES.put(NotificationEventType.SOS_ALERT_RESOLVED, new TemplatePair(
+                "Tín hiệu SOS đã được xử lý",
+                "%s đã đóng tín hiệu SOS. Sự cố đã được xử lý, mọi người có thể yên tâm."));
     }
 
     private NotificationTemplates() {

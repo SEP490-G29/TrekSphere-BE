@@ -11,4 +11,6 @@ import java.util.UUID;
 @Repository
 public interface GroupTripRepository extends JpaRepository<GroupTrip, UUID> {
     Optional<GroupTrip> findByMatchingGroup(MatchingGroup matchingGroup);
+
+    Optional<GroupTrip> findByMatchingGroup_MatchingGroupId(UUID groupId);
 }
