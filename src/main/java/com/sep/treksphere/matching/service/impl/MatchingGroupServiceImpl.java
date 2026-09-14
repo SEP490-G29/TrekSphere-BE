@@ -270,6 +270,7 @@ public class MatchingGroupServiceImpl implements MatchingGroupService {
         matchingGroup.setOwner(currentUser);
         matchingGroup.setGroupName(normalizedGroupName);
         matchingGroup.setDescription(normalizedDescription);
+        matchingGroup.setCoverImageUrl(normalizeNullableText(request.getCoverImageUrl()));
 
         if (customJourney != null) {
             customJourney.setMatchingGroup(matchingGroup);
@@ -878,6 +879,9 @@ public class MatchingGroupServiceImpl implements MatchingGroupService {
         }
         if (request.getDescription() != null) {
             matchingGroup.setDescription(normalizeNullableText(request.getDescription()));
+        }
+        if (request.getCoverImageUrl() != null) {
+            matchingGroup.setCoverImageUrl(normalizeNullableText(request.getCoverImageUrl()));
         }
 
         // 3. Validate and update capacity

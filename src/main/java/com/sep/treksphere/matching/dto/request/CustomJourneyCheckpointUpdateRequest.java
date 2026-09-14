@@ -1,9 +1,14 @@
 package com.sep.treksphere.matching.dto.request;
 
+import com.sep.treksphere.common.constant.MessageConstant;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.Size;
-import lombok.*;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -16,22 +21,22 @@ import java.time.LocalDateTime;
 @Schema(description = "Request cập nhật điểm dừng checkpoint trong hành trình Custom Journey")
 public class CustomJourneyCheckpointUpdateRequest {
 
-    @Min(value = 1, message = "Số ngày (dayNo) phải lớn hơn hoặc bằng 1")
+    @Min(value = 1, message = MessageConstant.CHECKPOINT_DAY_NO_MIN)
     @Schema(description = "Ngày thứ mấy trong hành trình", example = "1")
     private Integer dayNo;
 
-    @Min(value = 1, message = "Thứ tự điểm dừng phải lớn hơn hoặc bằng 1")
+    @Min(value = 1, message = MessageConstant.CHECKPOINT_ORDER_MIN)
     @Schema(description = "Thứ tự điểm dừng/hoạt động", example = "1")
     private Integer checkpointOrder;
 
-    @Size(max = 200, message = "Tiêu đề điểm dừng không được vượt quá 200 ký tự")
+    @Size(max = 200, message = MessageConstant.CHECKPOINT_TITLE_MAX_LENGTH)
     @Schema(description = "Tiêu đề điểm dừng/hoạt động", example = "Tập trung tại chân núi và bắt đầu leo")
     private String title;
 
     @Schema(description = "Mô tả chi tiết điểm dừng/hoạt động", example = "Kiểm tra trang thiết bị và khởi hành chặng 1")
     private String description;
 
-    @Size(max = 200, message = "Tên địa điểm không được vượt quá 200 ký tự")
+    @Size(max = 200, message = MessageConstant.CHECKPOINT_LOCATION_MAX_LENGTH)
     @Schema(description = "Tên địa điểm hiển thị", example = "Trạm kiểm lâm Lảo Thẩn")
     private String locationName;
 
@@ -47,7 +52,7 @@ public class CustomJourneyCheckpointUpdateRequest {
     @Schema(description = "Thời gian kết thúc dự kiến", example = "2026-10-15T11:30:00")
     private LocalDateTime plannedEndAt;
 
-    @Size(max = 500, message = "Đường dẫn ảnh không được vượt quá 500 ký tự")
+    @Size(max = 500, message = MessageConstant.CHECKPOINT_IMAGE_MAX_LENGTH)
     @Schema(description = "Ảnh minh hoạ điểm dừng", example = "https://example.com/checkpoint1.jpg")
     private String imageUrl;
 }

@@ -390,6 +390,66 @@ public class MessageConstant {
     public static final String COMMENT_DELETED_SUCCESS = "Xoá bình luận thành công";
     public static final String COMMENT_HIDDEN_SUCCESS = "Ẩn bình luận thành công";
 
+    public static final String MATCHING_GROUP_COVER_IMAGE_MAX_LENGTH = "Đường dẫn ảnh bìa không được vượt quá 500 ký tự";
+    public static final String EXPENSE_NAME_REQUIRED = "Tên khoản chi tiêu không được để trống";
+    public static final String EXPENSE_NAME_MAX_LENGTH = "Tên khoản chi tiêu không được vượt quá 200 ký tự";
+    public static final String EXPENSE_AMOUNT_REQUIRED = "Số tiền chi tiêu không được để trống";
+    public static final String EXPENSE_AMOUNT_MIN = "Số tiền chi tiêu phải lớn hơn 0";
+    public static final String EXPENSE_SPLIT_SCOPE_REQUIRED = "Phạm vi người thụ hưởng không được để trống";
+    public static final String EXPENSE_PROOF_IMAGE_MAX_LENGTH = "Đường dẫn hóa đơn không được vượt quá 500 ký tự";
+    public static final String POST_TITLE_MAX_LENGTH = "Tiêu đề bài đăng không được vượt quá 200 ký tự";
+    public static final String POST_CONTENT_REQUIRED = "Nội dung bài đăng không được để trống";
+    public static final String CHECKLIST_STATUS_REQUIRED = "Trạng thái checklist không được để trống";
+    public static final String SETTLEMENT_REJECT_REASON_REQUIRED = "Lý do từ chối không được để trống";
+    public static final String SETTLEMENT_REJECT_REASON_MAX_LENGTH = "Lý do từ chối không được vượt quá 500 ký tự";
+    public static final String SETTLEMENT_PROOF_IMAGE_REQUIRED = "Đường dẫn ảnh chứng từ chuyển tiền không được để trống";
+    public static final String SETTLEMENT_PROOF_IMAGE_MAX_LENGTH = "Đường dẫn ảnh chứng từ không được vượt quá 500 ký tự";
+    public static final String MOMENT_CAPTION_MAX_LENGTH = "Chú thích không được vượt quá 2000 ký tự";
+    public static final String MOMENT_LOCATION_NAME_MAX_LENGTH = "Tên địa điểm không được vượt quá 200 ký tự";
+    public static final String MOMENT_LATITUDE_RANGE = "Vĩ độ phải nằm trong khoảng -90 đến 90";
+    public static final String MOMENT_LONGITUDE_RANGE = "Kinh độ phải nằm trong khoảng -180 đến 180";
+    public static final String MOMENT_MEDIA_MAX_SIZE = "Khoảnh khắc không được vượt quá 20 hình ảnh";
+    public static final String MOMENT_HIDE_REASON_REQUIRED = "Vui lòng nhập lý do ẩn khoảnh khắc";
+    public static final String MOMENT_HIDE_REASON_MAX_LENGTH = "Lý do ẩn không được vượt quá 1000 ký tự";
+    public static final String MOMENT_VISIBILITY_REQUIRED = "Quyền hiển thị không được để trống";
+    public static final String PEER_REVIEW_FITNESS_RATING_REQUIRED = "Điểm thể lực thực tế không được để trống";
+    public static final String PEER_REVIEW_RATING_RANGE = "Điểm đánh giá phải từ 1 đến 5";
+    public static final String PEER_REVIEW_PUNCTUALITY_RATING_REQUIRED = "Điểm đúng giờ và trách nhiệm không được để trống";
+    public static final String PEER_REVIEW_FINANCIAL_RATING_REQUIRED = "Điểm minh bạch tài chính không được để trống";
+    public static final String PEER_REVIEW_FEEDBACK_MAX_LENGTH = "Nhận xét không được vượt quá 1000 ký tự";
+
+    public static final String ACTIVITY_DAY_NO_REQUIRED = "Số ngày (dayNo) không được để trống";
+    public static final String ACTIVITY_DAY_NO_MIN = "Số ngày (dayNo) phải lớn hơn hoặc bằng 1";
+    public static final String ACTIVITY_TIME_SLOT_REQUIRED = "Buổi trong ngày (timeSlot) không được để trống";
+    public static final String ACTIVITY_ORDER_REQUIRED = "Thứ tự hoạt động không được để trống";
+    public static final String ACTIVITY_ORDER_MIN = "Thứ tự hoạt động phải lớn hơn hoặc bằng 1";
+    public static final String ACTIVITY_TITLE_REQUIRED = "Tiêu đề hoạt động không được để trống";
+    public static final String ACTIVITY_TITLE_MAX_LENGTH = "Tiêu đề hoạt động không được vượt quá 255 ký tự";
+    public static final String ACTIVITY_TIME_MAX_LENGTH = "Thời gian không được vượt quá 50 ký tự";
+
+    public static final String CHECKPOINT_DAY_NO_MIN = "Số ngày (dayNo) phải lớn hơn hoặc bằng 1";
+    public static final String CHECKPOINT_ORDER_MIN = "Thứ tự điểm dừng phải lớn hơn hoặc bằng 1";
+    public static final String CHECKPOINT_TITLE_REQUIRED = "Tiêu đề điểm dừng không được để trống";
+    public static final String CHECKPOINT_TITLE_MAX_LENGTH = "Tiêu đề điểm dừng không được vượt quá 200 ký tự";
+    public static final String CHECKPOINT_LOCATION_MAX_LENGTH = "Tên địa điểm không được vượt quá 200 ký tự";
+    public static final String CHECKPOINT_IMAGE_MAX_LENGTH = "Đường dẫn ảnh không được vượt quá 500 ký tự";
+
+    public static final String COST_ITEM_NAME_REQUIRED = "Tên khoản chi không được để trống";
+    public static final String COST_ITEM_NAME_MAX_LENGTH = "Tên khoản chi không được vượt quá 200 ký tự";
+    public static final String COST_ITEM_AMOUNT_REQUIRED = "Số tiền dự kiến không được để trống";
+    public static final String COST_ITEM_AMOUNT_MIN = "Số tiền dự kiến phải lớn hơn hoặc bằng 0";
+    public static final String COST_ITEM_NOTE_MAX_LENGTH = "Ghi chú không được vượt quá 1000 ký tự";
+
+    public static final String CHECKLIST_ITEM_TITLE_REQUIRED = "Tiêu đề mục checklist không được để trống";
+    public static final String CHECKLIST_ITEM_TITLE_MAX_LENGTH = "Tiêu đề mục checklist không được vượt quá 200 ký tự";
+    public static final String CHECKLIST_ITEM_SCOPE_REQUIRED = "Phạm vi mục checklist (itemScope) không được để trống";
+
+    public static final String EXPENSE_SHARE_MEMBER_REQUIRED = "ID thành viên nhận phần chia không được để trống";
+    public static final String EXPENSE_SHARE_AMOUNT_REQUIRED = "Số tiền chia không được để trống";
+    public static final String EXPENSE_SHARE_AMOUNT_MIN = "Số tiền chia không được âm";
+
+    public static final String APPLICATION_MESSAGE_MAX_LENGTH = "Lời nhắn không được vượt quá 500 ký tự";
+
     // Schedule Messages
     public static final String SCHEDULE_NOT_FOUND = "Lịch khởi hành không tồn tại";
     public static final String SCHEDULE_CREATED_SUCCESSFULLY = "Tạo lịch khởi hành thành công";
