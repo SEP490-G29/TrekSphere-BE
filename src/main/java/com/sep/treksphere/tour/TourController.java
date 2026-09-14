@@ -8,12 +8,16 @@ import com.sep.treksphere.tour.checkpoint.TourCheckpointService;
 import com.sep.treksphere.tour.dto.response.PublicTourDetailResponse;
 import com.sep.treksphere.tour.dto.response.TourSummaryResponse;
 import com.sep.treksphere.tour.recommendation.RecommendedTourResponse;
+import com.sep.treksphere.tour.recommendation.TourBehaviorEventBatchRequest;
+import com.sep.treksphere.tour.recommendation.TourBehaviorEventBatchResponse;
+import com.sep.treksphere.tour.recommendation.TourBehaviorEventService;
 import com.sep.treksphere.tour.recommendation.TourRecommendationService;
 import com.sep.treksphere.tour.schedule.TourScheduleResponse;
 import com.sep.treksphere.tour.schedule.TourScheduleService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
@@ -36,8 +40,12 @@ public class TourController {
     private final TourCheckpointService tourCheckpointService;
     private final TourScheduleService tourScheduleService;
     private final TourRecommendationService tourRecommendationService;
+    private final TourBehaviorEventService tourBehaviorEventService;
 
-    @Operation(summary = "Tour được đề xuất cho Trekker hiện tại")
+    @Operation(
+            summary = "Tour được cá nhân hóa cho Trekker hiện tại",
+            description = "Xếp hạng tour từ sở thích khu vực, độ khó, kinh nghiệm, "
+                    + "lịch sử chuyến đã hoàn thành và mức độ phổ biến.")
     @GetMapping("/recommended")
     @PreAuthorize("hasRole('TREKKER')")
     public ResponseEntity<ApiResponse<PaginationResponse<RecommendedTourResponse>>> getRecommendedTours(
@@ -48,6 +56,30 @@ public class TourController {
                 HttpStatus.OK,
                 tourRecommendationService.getRecommendations(
                         userDetails.getUser().getUserId(), page, size)));
+    }
+
+    @Operation(
+            summary = "Ghi nhận hành vi tour của Trekker",
+            description = "Nhận tối đa 50 sự kiện/lần; tự loại sự kiện lặp trong cửa sổ chống spam.")
+    @PostMapping("/behavior-events")
+    @PreAuthorize("hasRole('TREKKER')")
+    public ResponseEntity<ApiResponse<TourBehaviorEventBatchResponse>> recordBehaviorEvents(
+            @AuthenticationPrincipal CustomUserDetails userDetails,
+            @Valid @RequestBody TourBehaviorEventBatchRequest request) {
+        TourBehaviorEventBatchResponse result = tourBehaviorEventService.recordEvents(
+                userDetails.getUser().getUserId(), request);
+        return ResponseEntity.status(HttpStatus.ACCEPTED)
+                .body(ApiResponse.success(HttpStatus.ACCEPTED, result));
+    }
+
+    @Operation(summary = "Xóa lịch sử hành vi dùng để cá nhân hóa tour")
+    @DeleteMapping("/behavior-events")
+    @PreAuthorize("hasRole('TREKKER')")
+    public ResponseEntity<ApiResponse<Void>> clearBehaviorHistory(
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+        tourBehaviorEventService.clearHistory(userDetails.getUser().getUserId());
+        return ResponseEntity.ok(ApiResponse.success(
+                HttpStatus.OK, "Đã xóa lịch sử hành vi cá nhân hóa tour."));
     }
 
     @GetMapping

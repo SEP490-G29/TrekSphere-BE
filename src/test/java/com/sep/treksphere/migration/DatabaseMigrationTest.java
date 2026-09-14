@@ -1,6 +1,6 @@
 package com.sep.treksphere.migration;
 
-import com.sep.treksphere.tour.TourRepository;
+import com.sep.treksphere.tour.recommendation.TourRecommendationRepository;
 import com.sep.treksphere.vendor.statistics.VendorTourStatisticsRepository;
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres;
 import org.flywaydb.core.Flyway;
@@ -31,7 +31,7 @@ class DatabaseMigrationTest {
                     .dataSource(postgres.getPostgresDatabase())
                     .locations("classpath:db/migration")
                     .load();
-            assertEquals(17, flyway.migrate().migrationsExecuted);
+            assertEquals(20, flyway.migrate().migrationsExecuted);
 
             try (Connection connection = postgres.getPostgresDatabase().getConnection()) {
                 assertTrue(hasColumn(connection, "tour", "published_at"));
@@ -41,6 +41,8 @@ class DatabaseMigrationTest {
                 assertTrue(hasColumn(connection, "group_join_application", "application_id"));
                 assertTrue(hasColumn(connection, "matching_member", "source_application_id"));
                 assertTrue(hasColumn(connection, "custom_journey_activity", "custom_journey_activity_id"));
+                assertTrue(hasColumn(connection, "matching_group", "cover_image_url"));
+                assertTrue(hasColumn(connection, "tour_behavior_event", "event_type"));
 
 
                 try (PreparedStatement statement = connection.prepareStatement("""
@@ -106,15 +108,18 @@ class DatabaseMigrationTest {
             assertEquals(1, statsRows.size());
             assertEquals(tourId, statsRows.getFirst().get("tourId"));
 
-            Query recommendationsAnnotation = TourRepository.class.getMethod(
-                            "findRecommendedTours", String.class, String.class,
-                            Integer.class, boolean.class, Pageable.class)
+            Query recommendationsAnnotation = TourRecommendationRepository.class.getMethod(
+                            "findPersonalizedRecommendations", UUID.class, String.class,
+                            String.class, String.class, String.class, Integer.class, Pageable.class)
                     .getAnnotation(Query.class);
             MapSqlParameterSource recommendationParams = new MapSqlParameterSource()
-                    .addValue("areasJson", "[\"lao cai\"]")
+                    .addValue("userId", UUID.fromString(
+                            "1a2b3c4d-0001-4a1b-9c2d-000000000001"))
+                    .addValue("preferredAreasJson", "[\"lao cai\"]")
+                    .addValue("historyLocationsJson", "[]")
                     .addValue("preferredDifficulty", "MODERATE", Types.VARCHAR)
-                    .addValue("maxDifficultyRank", 2, Types.INTEGER)
-                    .addValue("usePreferences", true, Types.BOOLEAN);
+                    .addValue("progressionDifficulty", null, Types.VARCHAR)
+                    .addValue("maxDifficultyRank", 2, Types.INTEGER);
             List<Map<String, Object>> recommendationRows = namedJdbc.queryForList(
                     recommendationsAnnotation.value(), recommendationParams);
             assertEquals(1, recommendationRows.size());
