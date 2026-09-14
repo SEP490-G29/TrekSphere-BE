@@ -40,6 +40,9 @@ public class MatchingGroup extends BaseEntity {
     @Column(nullable = false, length = 255)
     private String groupName;
 
+    @Column(name = "cover_image_url", length = 500)
+    private String coverImageUrl;
+
     @Column(columnDefinition = "TEXT")
     private String description;
 

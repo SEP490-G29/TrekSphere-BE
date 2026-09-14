@@ -27,6 +27,10 @@ public class MatchingGroupUpdateRequest {
     @Schema(description = "Mô tả chi tiết nhóm ghép", example = "Tìm thêm 2 bạn đồng hành cùng trek Lảo Thẩn")
     private String description;
 
+    @Size(max = 500, message = MessageConstant.MATCHING_GROUP_COVER_IMAGE_MAX_LENGTH)
+    @Schema(description = "Ảnh bìa của nhóm ghép", example = "https://res.cloudinary.com/.../group-cover.jpg")
+    private String coverImageUrl;
+
     @Min(value = 2, message = MessageConstant.MATCHING_GROUP_MAX_SIZE_MIN)
     @Max(value = 100, message = MessageConstant.MATCHING_GROUP_MAX_SIZE_MAX)
     @Schema(description = "Số lượng thành viên tối đa", example = "8")

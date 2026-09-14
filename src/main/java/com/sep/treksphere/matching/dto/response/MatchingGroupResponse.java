@@ -45,6 +45,7 @@ public class MatchingGroupResponse {
     private String ownerAvatarUrl;
     private String groupName;
     private String description;
+    private String coverImageUrl;
     private Integer maxSize;
     private Integer currentSize;
     private LocalDate targetDate;
