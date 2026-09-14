@@ -155,6 +155,26 @@ class MatchingGroupCreateServiceTest {
     }
 
     @Test
+    @DisplayName("[P2-S3] Tạo nhóm có kèm ảnh bìa coverImageUrl lưu thành công")
+    void createGroup_WithCoverImageUrl_SavesCoverImage() {
+        MatchingGroupCreateRequest request = customJourneyRequest();
+        request.setCoverImageUrl("https://res.cloudinary.com/demo/image/upload/sample.jpg");
+        stubGroupSave();
+        when(matchingGroupRepository
+                .existsByOwnerAndTourIsNullAndGroupNameIgnoreCaseAndTargetDateAndIsDeletedFalse(
+                        owner, "Ha Giang Explorers", request.getTargetDate()))
+                .thenReturn(false);
+
+        matchingGroupService.createMatchingGroup(request, owner.getUserId());
+
+        ArgumentCaptor<MatchingGroup> groupCaptor = ArgumentCaptor.forClass(MatchingGroup.class);
+        verify(matchingGroupRepository).save(groupCaptor.capture());
+
+        MatchingGroup createdGroup = groupCaptor.getValue();
+        assertThat(createdGroup.getCoverImageUrl()).isEqualTo("https://res.cloudinary.com/demo/image/upload/sample.jpg");
+    }
+
+    @Test
     @DisplayName("[P2-S3] Từ chối request có Tour và Custom Journey cùng lúc")
     void createGroup_WithConflictingSources_IsRejected() {
         MatchingGroupCreateRequest request = tourRequest();

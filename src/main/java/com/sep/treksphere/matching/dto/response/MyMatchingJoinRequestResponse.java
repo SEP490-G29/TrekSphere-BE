@@ -18,6 +18,7 @@ public class MyMatchingJoinRequestResponse {
     private UUID matchingGroupId;
     private String groupName;
     private MatchingGroupStatus groupStatus;
+    private String coverImageUrl;
     private MatchingGroupSourceType sourceType;
     private UUID tourId;
     private String tourName;
