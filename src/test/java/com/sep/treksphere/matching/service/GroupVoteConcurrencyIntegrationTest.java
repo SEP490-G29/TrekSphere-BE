@@ -108,6 +108,46 @@ class GroupVoteConcurrencyIntegrationTest {
     }
 
     @Test
+    @DisplayName("[P5-S4 regression] GET /votes?voteType=OTHER lọc đúng trên DB thật: không lẫn LEADER_ELECTION/GROUP_DISSOLUTION của cùng group")
+    void getVotes_FilterByVoteTypeOther_OnRealDatabase_ReturnsOnlyOtherVotes() {
+        User leader = createUser("leader-filter-regression");
+        MatchingGroup group = createGroup(leader);
+        MatchingMember leaderMember = createMember(group, leader, MatchingRole.LEADER);
+
+        GroupVote otherVote = new GroupVote();
+        otherVote.setMatchingGroup(group);
+        otherVote.setVoteType(VoteType.OTHER);
+        otherVote.setTitle("Chọn quán ăn tối nay");
+        otherVote.setReason("Test filter regression");
+        otherVote.setCreatedByMember(leaderMember);
+        otherVote.setStatus(VoteStatus.OPEN);
+        otherVote.setOpensAt(LocalDateTime.now());
+        otherVote.setClosesAt(LocalDateTime.now().plusDays(1));
+        otherVote.setEligibleVoterCount(1);
+        GroupVote savedOtherVote = groupVoteRepository.saveAndFlush(otherVote);
+
+        GroupVote electionVote = new GroupVote();
+        electionVote.setMatchingGroup(group);
+        electionVote.setVoteType(VoteType.LEADER_ELECTION);
+        electionVote.setTitle("Bầu Trưởng nhóm mới");
+        electionVote.setReason("Test filter regression");
+        electionVote.setCreatedByMember(leaderMember);
+        electionVote.setStatus(VoteStatus.OPEN);
+        electionVote.setOpensAt(LocalDateTime.now());
+        electionVote.setClosesAt(LocalDateTime.now().plusDays(1));
+        electionVote.setEligibleVoterCount(1);
+        groupVoteRepository.saveAndFlush(electionVote);
+
+        org.springframework.data.domain.Page<GroupVoteResponse> result = groupVoteService.getVotes(
+                group.getMatchingGroupId(), VoteType.OTHER, null,
+                org.springframework.data.domain.PageRequest.of(0, 10), leader.getUserId());
+
+        assertThat(result.getContent()).hasSize(1);
+        assertThat(result.getContent().get(0).getGroupVoteId()).isEqualTo(savedOtherVote.getGroupVoteId());
+        assertThat(result.getContent().get(0).getVoteType()).isEqualTo(VoteType.OTHER);
+    }
+
+    @Test
     @DisplayName("Concurrent last ballots: 2 thread cùng cast phiếu cuối -> vote chỉ tự đóng đúng 1 lần, không mất phiếu")
     void castBallot_ConcurrentLastBallots_ClosesExactlyOnceWithCorrectTally() throws InterruptedException {
         User leader = createUser("leader-vote-concurrent");

@@ -867,4 +867,88 @@ class GroupVoteServiceImplTest {
         assertThat(vote.getEligibleVoterCount()).isEqualTo(2);
         verify(matchingMemberRepository, never()).countActiveMembersByGroupIdAndStatus(any(), any());
     }
+
+    @Test
+    @DisplayName("[P5-S4 regression] castBallot trên poll OTHER: outsider (không phải member) -> NOT_ACCEPTED_MATCHING_MEMBER")
+    void castBallot_OtherPoll_OutsiderNotMember_ThrowsError() {
+        UUID outsiderUserId = UUID.randomUUID();
+        GroupVote vote = newOpenVote(3, LocalDateTime.now().plusDays(1));
+
+        when(matchingMemberRepository.findByGroupIdAndUserId(groupId, outsiderUserId))
+                .thenReturn(Optional.empty());
+
+        CastBallotRequest request = CastBallotRequest.builder().optionId(UUID.randomUUID()).build();
+
+        assertThatThrownBy(() -> groupVoteService.castBallot(groupId, vote.getGroupVoteId(), request, outsiderUserId))
+                .isInstanceOf(AppException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.NOT_ACCEPTED_MATCHING_MEMBER);
+
+        verify(groupVoteRepository, never()).findByIdForUpdate(any());
+        verify(groupVoteBallotRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("[P5-S4 regression] closeVote/cancelVote trên poll OTHER: outsider (không phải member) bị chặn")
+    void closeVoteAndCancelVote_OtherPoll_OutsiderNotMember_ThrowsError() {
+        UUID outsiderUserId = UUID.randomUUID();
+        GroupVote vote = newOpenVote(3, LocalDateTime.now().plusDays(1));
+
+        when(matchingMemberRepository.findByGroupIdAndUserId(groupId, outsiderUserId))
+                .thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> groupVoteService.closeVote(groupId, vote.getGroupVoteId(), outsiderUserId))
+                .isInstanceOf(AppException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.NOT_ACCEPTED_MATCHING_MEMBER);
+        assertThatThrownBy(() -> groupVoteService.cancelVote(groupId, vote.getGroupVoteId(), outsiderUserId))
+                .isInstanceOf(AppException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.NOT_ACCEPTED_MATCHING_MEMBER);
+
+        verify(groupVoteRepository, never()).findByIdForUpdate(any());
+        verify(groupVoteRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("[P5-S4 regression] closeVote trên poll OTHER có winner: không bao giờ đổi Leader hay huỷ nhóm (side effect chỉ dành cho LEADER_ELECTION/GROUP_DISSOLUTION)")
+    void closeVote_OtherPollWithWinner_NeverAppliesElectionOrDissolutionSideEffect() {
+        GroupVote vote = newOpenVote(2, LocalDateTime.now().minusMinutes(1));
+        // VoteType.OTHER (mặc định của newOpenVote) — không phải LEADER_ELECTION/GROUP_DISSOLUTION.
+        GroupVoteOption optionA = newOption(vote, 1, "Quán A");
+        GroupVoteOption optionB = newOption(vote, 2, "Quán B");
+
+        when(matchingMemberRepository.findByGroupIdAndUserId(groupId, leaderUser.getUserId()))
+                .thenReturn(Optional.of(leaderMember));
+        when(groupVoteRepository.findByIdForUpdate(vote.getGroupVoteId())).thenReturn(Optional.of(vote));
+        when(groupVoteBallotRepository.countByGroupVote(vote)).thenReturn(2L);
+        when(groupVoteOptionRepository.findByGroupVote_GroupVoteIdAndIsDeletedFalseOrderByOptionOrderAsc(vote.getGroupVoteId()))
+                .thenReturn(List.of(optionA, optionB));
+        when(groupVoteBallotRepository.countByGroupVoteAndGroupVoteOption(vote, optionA)).thenReturn(2L);
+        when(groupVoteBallotRepository.countByGroupVoteAndGroupVoteOption(vote, optionB)).thenReturn(0L);
+        when(groupVoteRepository.save(vote)).thenReturn(vote);
+        when(matchingMemberRepository.findActiveMembers(groupId, JoinStatus.ACCEPTED))
+                .thenReturn(List.of(leaderMember, memberEntity));
+
+        GroupVoteResponse response = groupVoteService.closeVote(groupId, vote.getGroupVoteId(), leaderUser.getUserId());
+
+        assertThat(vote.getVoteType()).isEqualTo(VoteType.OTHER);
+        assertThat(response.getWinningOptionId()).isEqualTo(optionA.getGroupVoteOptionId());
+        assertThat(leaderMember.getRole()).isEqualTo(MatchingRole.LEADER);
+        assertThat(group.getStatus()).isNotEqualTo(MatchingGroupStatus.CANCELLED);
+        verify(matchingGroupRepository, never()).save(any());
+        verify(matchingMemberRepository, never()).save(any());
+        verify(groupTripRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("[P5-S4 regression] getVotes(voteType=OTHER): uỷ quyền đúng filter xuống repository, không tự lọc lại ở service")
+    void getVotes_FilterByVoteTypeOther_DelegatesToRepositoryWithSameFilter() {
+        org.springframework.data.domain.Pageable pageable = org.springframework.data.domain.PageRequest.of(0, 10);
+        when(matchingMemberRepository.findByGroupIdAndUserId(groupId, leaderUser.getUserId()))
+                .thenReturn(Optional.of(leaderMember));
+        when(groupVoteRepository.findByGroupWithFilters(groupId, VoteType.OTHER, null, pageable))
+                .thenReturn(org.springframework.data.domain.Page.empty());
+
+        groupVoteService.getVotes(groupId, VoteType.OTHER, null, pageable, leaderUser.getUserId());
+
+        verify(groupVoteRepository).findByGroupWithFilters(groupId, VoteType.OTHER, null, pageable);
+    }
 }
