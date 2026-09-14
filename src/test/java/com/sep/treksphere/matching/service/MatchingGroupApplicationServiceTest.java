@@ -83,6 +83,9 @@ class MatchingGroupApplicationServiceTest {
     @Mock
     private NotificationService notificationService;
 
+    @Mock
+    private GroupVoteService groupVoteService;
+
     @Spy
     private MatchingGroupMapper matchingGroupMapper = Mappers.getMapper(MatchingGroupMapper.class);
 

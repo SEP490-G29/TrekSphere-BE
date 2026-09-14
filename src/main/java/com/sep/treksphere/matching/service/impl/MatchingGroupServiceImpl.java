@@ -17,6 +17,7 @@ import com.sep.treksphere.matching.repository.GroupJoinApplicationRepository;
 import com.sep.treksphere.matching.repository.GroupTripRepository;
 import com.sep.treksphere.matching.repository.MatchingGroupRepository;
 import com.sep.treksphere.matching.repository.MatchingMemberRepository;
+import com.sep.treksphere.matching.service.GroupVoteService;
 import com.sep.treksphere.matching.service.MatchingGroupService;
 import com.sep.treksphere.notification.NotificationEventType;
 import com.sep.treksphere.notification.NotificationService;
@@ -56,6 +57,7 @@ public class MatchingGroupServiceImpl implements MatchingGroupService {
     private final MatchingGroupMapper matchingGroupMapper;
     private final ApplicationEventPublisher eventPublisher;
     private final NotificationService notificationService;
+    private final GroupVoteService groupVoteService;
 
     @Override
     @Transactional(readOnly = true)
@@ -717,6 +719,7 @@ public class MatchingGroupServiceImpl implements MatchingGroupService {
         matchingGroupRepository.save(matchingGroup);
 
         MatchingMember savedMember = matchingMemberRepository.save(member);
+        groupVoteService.handleMemberEligibilityLoss(savedMember);
 
         List<UUID> recipientIds = matchingMemberRepository.findActiveMembers(groupId, JoinStatus.ACCEPTED)
                 .stream()
@@ -770,6 +773,7 @@ public class MatchingGroupServiceImpl implements MatchingGroupService {
         matchingGroupRepository.save(matchingGroup);
 
         MatchingMember savedTarget = matchingMemberRepository.save(target);
+        groupVoteService.handleMemberEligibilityLoss(savedTarget);
 
         notificationService.notify(
                 savedTarget.getUser().getUserId(),

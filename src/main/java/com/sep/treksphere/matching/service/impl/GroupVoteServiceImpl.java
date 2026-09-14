@@ -343,6 +343,31 @@ public class GroupVoteServiceImpl implements GroupVoteService {
         return response;
     }
 
+    @Override
+    @Transactional
+    public void handleMemberEligibilityLoss(MatchingMember member) {
+        List<GroupVoteBallot> ballots = groupVoteBallotRepository
+                .findByVoterMatchingMemberAndGroupVote_StatusAndGroupVote_IsDeletedFalse(member, VoteStatus.OPEN);
+
+        for (GroupVoteBallot ballot : ballots) {
+            GroupVote vote = groupVoteRepository.findByIdForUpdate(ballot.getGroupVote().getGroupVoteId())
+                    .orElse(null);
+            if (vote == null || vote.getStatus() != VoteStatus.OPEN) {
+                // Đã đóng bởi request khác trong lúc chờ lock — bỏ qua, không còn gì để sửa.
+                continue;
+            }
+
+            groupVoteBallotRepository.deleteByGroupVoteAndVoterMatchingMember(vote, member);
+            vote.setEligibleVoterCount(vote.getEligibleVoterCount() - 1);
+            groupVoteRepository.save(vote);
+
+            long remainingBallotCount = groupVoteBallotRepository.countByGroupVote(vote);
+            if (isDeadlineReached(vote) || remainingBallotCount >= vote.getEligibleVoterCount()) {
+                doClose(vote, null);
+            }
+        }
+    }
+
     /**
      * Tally phiếu, xác định winner (plurality, tie/no-ballot = null), áp side effect theo
      * voteType nếu có winner, lưu + notify + broadcast. Dùng chung cho auto-close (đủ phiếu/

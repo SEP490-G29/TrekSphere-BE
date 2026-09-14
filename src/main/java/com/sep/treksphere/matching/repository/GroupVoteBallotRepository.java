@@ -4,6 +4,7 @@ import com.sep.treksphere.matching.entity.GroupVote;
 import com.sep.treksphere.matching.entity.GroupVoteBallot;
 import com.sep.treksphere.matching.entity.GroupVoteOption;
 import com.sep.treksphere.matching.entity.MatchingMember;
+import com.sep.treksphere.matching.enums.VoteStatus;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
@@ -28,4 +29,8 @@ public interface GroupVoteBallotRepository extends JpaRepository<GroupVoteBallot
 
     /** Dùng ở P4-S5: xoá ballot khi member rời/bị xoá trong lúc vote còn OPEN. */
     void deleteByGroupVoteAndVoterMatchingMember(GroupVote groupVote, MatchingMember voterMatchingMember);
+
+    /** P4-S5: tìm mọi ballot của member này trong các vote đang OPEN (thuộc đúng group của member). */
+    List<GroupVoteBallot> findByVoterMatchingMemberAndGroupVote_StatusAndGroupVote_IsDeletedFalse(
+            MatchingMember voterMatchingMember, VoteStatus status);
 }

@@ -5,6 +5,7 @@ import com.sep.treksphere.matching.dto.request.CreateGroupVoteRequest;
 import com.sep.treksphere.matching.dto.request.OpenDissolutionVoteRequest;
 import com.sep.treksphere.matching.dto.request.OpenLeaderElectionRequest;
 import com.sep.treksphere.matching.dto.response.GroupVoteResponse;
+import com.sep.treksphere.matching.entity.MatchingMember;
 import com.sep.treksphere.matching.enums.VoteStatus;
 import com.sep.treksphere.matching.enums.VoteType;
 import org.springframework.data.domain.Page;
@@ -42,4 +43,13 @@ public interface GroupVoteService {
 
     /** Đóng sớm bởi người mở vote hoặc Leader, không tính kết quả, không side effect. */
     GroupVoteResponse cancelVote(UUID groupId, UUID voteId, UUID currentUserId);
+
+    /**
+     * P4-S5: gọi trong cùng transaction ngay sau khi {@code member} chuyển LEFT/REMOVED (từ
+     * {@code leaveMatchingGroup}/{@code removeMember}). Với mọi vote đang OPEN mà member này đã
+     * có ballot: xoá ballot và giảm {@code eligibleVoterCount} 1 đơn vị (member không voted thì
+     * không đổi gì — vẫn tính vào mẫu số, chỉ đóng được qua deadline), sau đó re-check điều kiện
+     * đóng (đến hạn hoặc đủ phiếu) để trigger close ngay nếu cần.
+     */
+    void handleMemberEligibilityLoss(MatchingMember member);
 }

@@ -753,4 +753,118 @@ class GroupVoteServiceImplTest {
         assertThat(group.getStatus()).isEqualTo(MatchingGroupStatus.OPEN);
         verify(matchingGroupRepository, never()).save(any());
     }
+
+    private GroupVoteBallot newBallot(GroupVote vote, GroupVoteOption option, MatchingMember voter) {
+        GroupVoteBallot ballot = new GroupVoteBallot();
+        ballot.setGroupVote(vote);
+        ballot.setGroupVoteOption(option);
+        ballot.setVoterMatchingMember(voter);
+        return ballot;
+    }
+
+    @Test
+    @DisplayName("handleMemberEligibilityLoss: member không có ballot ở vote OPEN nào -> không đụng tới vote nào")
+    void handleMemberEligibilityLoss_NoBallots_NoOp() {
+        when(groupVoteBallotRepository.findByVoterMatchingMemberAndGroupVote_StatusAndGroupVote_IsDeletedFalse(
+                memberEntity, VoteStatus.OPEN)).thenReturn(List.of());
+
+        groupVoteService.handleMemberEligibilityLoss(memberEntity);
+
+        verify(groupVoteRepository, never()).findByIdForUpdate(any());
+        verify(groupVoteBallotRepository, never()).deleteByGroupVoteAndVoterMatchingMember(any(), any());
+        verify(groupVoteRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("handleMemberEligibilityLoss: member có ballot, vote chưa đủ điều kiện đóng -> xoá ballot, giảm eligibleVoterCount, vote vẫn OPEN")
+    void handleMemberEligibilityLoss_HasBallot_NotReadyToClose_DecrementsOnly() {
+        GroupVote vote = newOpenVote(3, LocalDateTime.now().plusDays(1));
+        GroupVoteOption optionA = newOption(vote, 1, "Quán A");
+        GroupVoteBallot ballot = newBallot(vote, optionA, memberEntity);
+
+        when(groupVoteBallotRepository.findByVoterMatchingMemberAndGroupVote_StatusAndGroupVote_IsDeletedFalse(
+                memberEntity, VoteStatus.OPEN)).thenReturn(List.of(ballot));
+        when(groupVoteRepository.findByIdForUpdate(vote.getGroupVoteId())).thenReturn(Optional.of(vote));
+        when(groupVoteRepository.save(vote)).thenReturn(vote);
+        // Sau khi xoá ballot của member này, chỉ còn 0 phiếu trong khi eligibleVoterCount giảm còn 2 -> chưa đủ.
+        when(groupVoteBallotRepository.countByGroupVote(vote)).thenReturn(0L);
+
+        groupVoteService.handleMemberEligibilityLoss(memberEntity);
+
+        verify(groupVoteBallotRepository).deleteByGroupVoteAndVoterMatchingMember(vote, memberEntity);
+        assertThat(vote.getEligibleVoterCount()).isEqualTo(2);
+        assertThat(vote.getStatus()).isEqualTo(VoteStatus.OPEN);
+    }
+
+    @Test
+    @DisplayName("handleMemberEligibilityLoss: sau khi giảm, phiếu còn lại đã đủ eligibleVoterCount mới -> tự đóng ngay")
+    void handleMemberEligibilityLoss_HasBallot_RemainingAllVoted_AutoCloses() {
+        GroupVote vote = newOpenVote(2, LocalDateTime.now().plusDays(1));
+        GroupVoteOption optionA = newOption(vote, 1, "Quán A");
+        GroupVoteOption optionB = newOption(vote, 2, "Quán B");
+        GroupVoteBallot ballot = newBallot(vote, optionA, otherMemberEntity);
+
+        when(groupVoteBallotRepository.findByVoterMatchingMemberAndGroupVote_StatusAndGroupVote_IsDeletedFalse(
+                otherMemberEntity, VoteStatus.OPEN)).thenReturn(List.of(ballot));
+        when(groupVoteRepository.findByIdForUpdate(vote.getGroupVoteId())).thenReturn(Optional.of(vote));
+        when(groupVoteRepository.save(vote)).thenReturn(vote);
+        // eligibleVoterCount giảm 2 -> 1; 1 phiếu còn lại (memberEntity) vẫn đủ -> tự đóng.
+        when(groupVoteBallotRepository.countByGroupVote(vote)).thenReturn(1L);
+        when(groupVoteOptionRepository.findByGroupVote_GroupVoteIdAndIsDeletedFalseOrderByOptionOrderAsc(vote.getGroupVoteId()))
+                .thenReturn(List.of(optionA, optionB));
+        when(groupVoteBallotRepository.countByGroupVoteAndGroupVoteOption(vote, optionA)).thenReturn(1L);
+        when(groupVoteBallotRepository.countByGroupVoteAndGroupVoteOption(vote, optionB)).thenReturn(0L);
+        when(matchingMemberRepository.findActiveMembers(groupId, JoinStatus.ACCEPTED))
+                .thenReturn(List.of(leaderMember, memberEntity));
+
+        groupVoteService.handleMemberEligibilityLoss(otherMemberEntity);
+
+        assertThat(vote.getEligibleVoterCount()).isEqualTo(1);
+        assertThat(vote.getStatus()).isEqualTo(VoteStatus.CLOSED);
+        assertThat(vote.getWinningOption()).isEqualTo(optionA);
+    }
+
+    @Test
+    @DisplayName("handleMemberEligibilityLoss: vote đã bị đóng bởi request khác trong lúc chờ lock -> bỏ qua, không lỗi")
+    void handleMemberEligibilityLoss_VoteAlreadyClosedByRace_SkipsSafely() {
+        GroupVote vote = newOpenVote(3, LocalDateTime.now().plusDays(1));
+        GroupVoteOption optionA = newOption(vote, 1, "Quán A");
+        GroupVoteBallot ballot = newBallot(vote, optionA, memberEntity);
+        GroupVote lockedVote = newOpenVote(3, LocalDateTime.now().plusDays(1));
+        lockedVote.setGroupVoteId(vote.getGroupVoteId());
+        lockedVote.setStatus(VoteStatus.CLOSED);
+
+        when(groupVoteBallotRepository.findByVoterMatchingMemberAndGroupVote_StatusAndGroupVote_IsDeletedFalse(
+                memberEntity, VoteStatus.OPEN)).thenReturn(List.of(ballot));
+        when(groupVoteRepository.findByIdForUpdate(vote.getGroupVoteId())).thenReturn(Optional.of(lockedVote));
+
+        groupVoteService.handleMemberEligibilityLoss(memberEntity);
+
+        verify(groupVoteBallotRepository, never()).deleteByGroupVoteAndVoterMatchingMember(any(), any());
+        verify(groupVoteRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("Xác nhận: eligibleVoterCount là snapshot tại thời điểm mở vote — castBallot/closeVote không tính lại theo số member ACCEPTED hiện tại")
+    void eligibleVoterCount_IsSnapshotAtOpenTime_NotRecalculatedOnCastOrClose() {
+        GroupVote vote = newOpenVote(2, LocalDateTime.now().plusDays(1));
+        GroupVoteOption optionA = newOption(vote, 1, "Quán A");
+        GroupVoteOption optionB = newOption(vote, 2, "Quán B");
+
+        // Group thực tế đã có 3 member ACCEPTED (1 người mới join sau khi vote mở) nhưng
+        // eligibleVoterCount trên vote vẫn giữ nguyên = 2 vì là snapshot lúc mở.
+        when(matchingMemberRepository.findByGroupIdAndUserId(groupId, memberUser.getUserId()))
+                .thenReturn(Optional.of(memberEntity));
+        when(groupVoteRepository.findByIdForUpdate(vote.getGroupVoteId())).thenReturn(Optional.of(vote));
+        when(groupVoteBallotRepository.existsByGroupVoteAndVoterMatchingMember(vote, memberEntity)).thenReturn(false);
+        when(groupVoteOptionRepository.findByGroupVoteOptionIdAndGroupVote_GroupVoteIdAndIsDeletedFalse(
+                optionA.getGroupVoteOptionId(), vote.getGroupVoteId())).thenReturn(Optional.of(optionA));
+        when(groupVoteBallotRepository.countByGroupVote(vote)).thenReturn(1L);
+
+        CastBallotRequest request = CastBallotRequest.builder().optionId(optionA.getGroupVoteOptionId()).build();
+        groupVoteService.castBallot(groupId, vote.getGroupVoteId(), request, memberUser.getUserId());
+
+        assertThat(vote.getEligibleVoterCount()).isEqualTo(2);
+        verify(matchingMemberRepository, never()).countActiveMembersByGroupIdAndStatus(any(), any());
+    }
 }
