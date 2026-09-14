@@ -17,6 +17,7 @@ import com.sep.treksphere.matching.repository.GroupJoinApplicationRepository;
 import com.sep.treksphere.matching.repository.GroupTripRepository;
 import com.sep.treksphere.matching.repository.MatchingGroupRepository;
 import com.sep.treksphere.matching.repository.MatchingMemberRepository;
+import com.sep.treksphere.matching.service.GroupVoteService;
 import com.sep.treksphere.matching.service.MatchingGroupService;
 import com.sep.treksphere.notification.NotificationEventType;
 import com.sep.treksphere.notification.NotificationService;
@@ -56,6 +57,7 @@ public class MatchingGroupServiceImpl implements MatchingGroupService {
     private final MatchingGroupMapper matchingGroupMapper;
     private final ApplicationEventPublisher eventPublisher;
     private final NotificationService notificationService;
+    private final GroupVoteService groupVoteService;
 
     @Override
     @Transactional(readOnly = true)
@@ -693,47 +695,41 @@ public class MatchingGroupServiceImpl implements MatchingGroupService {
         MatchingGroup matchingGroup = matchingGroupRepository.findByIdForUpdate(groupId)
                 .orElseThrow(() -> new AppException(ErrorCode.MATCHING_GROUP_NOT_FOUND));
 
-        if (matchingGroup.getOwner().getUserId().equals(currentUser.getUserId())) {
-            throw new AppException(ErrorCode.OWNER_CANNOT_LEAVE);
-        }
-
         MatchingMember member = matchingMemberRepository.findByMatchingGroupAndUser(matchingGroup, currentUser)
                 .orElseThrow(() -> new AppException(ErrorCode.NOT_A_MEMBER));
 
-        if (Boolean.TRUE.equals(member.getIsDeleted())
-                || member.getRole() != MatchingRole.MEMBER
-                || member.getStatus() != JoinStatus.ACCEPTED) {
+        if (Boolean.TRUE.equals(member.getIsDeleted()) || member.getStatus() != JoinStatus.ACCEPTED) {
             throw new AppException(ErrorCode.NOT_ACCEPTED_MATCHING_MEMBER);
+        }
+
+
+        if (member.getRole() == MatchingRole.LEADER) {
+            throw new AppException(ErrorCode.OWNER_CANNOT_LEAVE);
         }
 
         long acceptedCount = matchingMemberRepository
                 .countActiveMembersByGroupIdAndStatus(groupId, JoinStatus.ACCEPTED);
 
         member.setStatus(JoinStatus.LEFT);
+        member.setLeftAt(LocalDateTime.now());
 
         int newSize = Math.max(Math.toIntExact(acceptedCount) - 1, 1);
         matchingGroup.setCurrentSize(newSize);
-
-        Tour tour = matchingGroup.getTour();
-        boolean canReopen = matchingGroup.getStatus() == MatchingGroupStatus.FULL
-                && newSize < matchingGroup.getMaxSize()
-                && matchingGroup.getMatchingDeadline().isAfter(LocalDateTime.now())
-                && matchingGroup.getTargetDate().isAfter(LocalDate.now())
-                && !Boolean.TRUE.equals(tour.getIsDeleted())
-                && tour.getStatus() == TourStatus.PUBLISHED
-                && tour.getVendor().getStatus() == com.sep.treksphere.vendor.VendorStatus.ACTIVE;
-
-        if (canReopen) {
-            matchingGroup.setStatus(MatchingGroupStatus.OPEN);
-            log.info("Matching group is reopened (OPEN) because a member left: groupId={}", groupId);
-        }
+        reevaluateGroupStatusAfterMemberLoss(matchingGroup, newSize);
 
         matchingGroupRepository.save(matchingGroup);
 
         MatchingMember savedMember = matchingMemberRepository.save(member);
+        groupVoteService.handleMemberEligibilityLoss(savedMember);
+
+        List<UUID> recipientIds = matchingMemberRepository.findActiveMembers(groupId, JoinStatus.ACCEPTED)
+                .stream()
+                .map(m -> m.getUser().getUserId())
+                .filter(id -> !id.equals(currentUser.getUserId()))
+                .toList();
 
         notificationService.notify(
-                matchingGroup.getOwner().getUserId(),
+                recipientIds,
                 NotificationEventType.GROUP_MEMBER_LEFT,
                 ReferenceType.MATCHING_GROUP, matchingGroup.getMatchingGroupId(),
                 "/trekker/my-groups/" + matchingGroup.getMatchingGroupId(),
@@ -744,53 +740,70 @@ public class MatchingGroupServiceImpl implements MatchingGroupService {
 
     @Override
     @Transactional
-    public void disbandMatchingGroup(UUID groupId, CustomUserDetails userDetails) {
+    public MatchingMemberResponse removeMember(UUID groupId, UUID memberId, CustomUserDetails userDetails) {
         User currentUser = userDetails.getUser();
-        log.info("Request to disband matching group: groupId={}, userId={}", groupId, currentUser.getUserId());
+        log.info("Request to remove member from matching group: groupId={}, memberId={}, actorUserId={}",
+                groupId, memberId, currentUser.getUserId());
 
         MatchingGroup matchingGroup = matchingGroupRepository.findByIdForUpdate(groupId)
                 .orElseThrow(() -> new AppException(ErrorCode.MATCHING_GROUP_NOT_FOUND));
 
-        validateGroupOwner(matchingGroup, currentUser, ErrorCode.UNAUTHORIZED_DISBAND_GROUP);
+        validateGroupLeader(matchingGroup, currentUser.getUserId());
 
-        if (matchingGroup.getStatus() != MatchingGroupStatus.OPEN
-                && matchingGroup.getStatus() != MatchingGroupStatus.FULL) {
-            throw new AppException(ErrorCode.MATCHING_GROUP_CANNOT_BE_DISBANDED);
+        MatchingMember target = matchingMemberRepository.findMemberByIdAndGroupId(memberId, groupId)
+                .orElseThrow(() -> new AppException(ErrorCode.MATCHING_MEMBER_NOT_FOUND));
+
+        if (Boolean.TRUE.equals(target.getIsDeleted()) || target.getStatus() != JoinStatus.ACCEPTED) {
+            throw new AppException(ErrorCode.NOT_ACCEPTED_MATCHING_MEMBER);
         }
 
-        List<UUID> memberIdsToNotify = matchingGroup.getMembers() == null
-                ? List.of()
-                : matchingGroup.getMembers().stream()
-                        .filter(member -> member.getStatus() == JoinStatus.ACCEPTED
-                                && !Boolean.TRUE.equals(member.getIsDeleted())
-                                && !member.getUser().getUserId().equals(currentUser.getUserId()))
-                        .map(member -> member.getUser().getUserId())
-                        .toList();
-
-        LocalDateTime deletedAt = LocalDateTime.now();
-        String deletedBy = currentUser.getUserId().toString();
-        matchingGroup.setIsDeleted(true);
-        matchingGroup.setStatus(MatchingGroupStatus.CLOSED);
-        matchingGroup.setDeletedAt(deletedAt);
-        matchingGroup.setDeletedBy(deletedBy);
-
-        if (matchingGroup.getMembers() != null) {
-            matchingGroup.getMembers().forEach(member -> {
-                member.setIsDeleted(true);
-                member.setDeletedAt(deletedAt);
-                member.setDeletedBy(deletedBy);
-            });
+        if (target.getRole() == MatchingRole.LEADER) {
+            throw new AppException(ErrorCode.MATCHING_MEMBER_CANNOT_REMOVE_LEADER);
         }
+
+        long acceptedCount = matchingMemberRepository
+                .countActiveMembersByGroupIdAndStatus(groupId, JoinStatus.ACCEPTED);
+
+        target.setStatus(JoinStatus.REMOVED);
+        target.setLeftAt(LocalDateTime.now());
+
+        int newSize = Math.max(Math.toIntExact(acceptedCount) - 1, 1);
+        matchingGroup.setCurrentSize(newSize);
+        reevaluateGroupStatusAfterMemberLoss(matchingGroup, newSize);
 
         matchingGroupRepository.save(matchingGroup);
-        log.info("Matching group disbanded successfully: groupId={}", groupId);
+
+        MatchingMember savedTarget = matchingMemberRepository.save(target);
+        groupVoteService.handleMemberEligibilityLoss(savedTarget);
 
         notificationService.notify(
-                memberIdsToNotify,
-                NotificationEventType.GROUP_DISBANDED,
+                savedTarget.getUser().getUserId(),
+                NotificationEventType.GROUP_MEMBER_REMOVED,
                 ReferenceType.MATCHING_GROUP, matchingGroup.getMatchingGroupId(),
                 "/trekker/my-groups",
                 matchingGroup.getGroupName());
+
+        return matchingGroupMapper.toMemberResponse(savedTarget);
+    }
+
+
+    private void reevaluateGroupStatusAfterMemberLoss(MatchingGroup matchingGroup, int newSize) {
+        if (matchingGroup.getStatus() != MatchingGroupStatus.FULL) {
+            return;
+        }
+
+        Tour tour = matchingGroup.getTour();
+        boolean canReopen = newSize < matchingGroup.getMaxSize()
+                && matchingGroup.getMatchingDeadline().isAfter(LocalDateTime.now())
+                && matchingGroup.getTargetDate().isAfter(LocalDate.now())
+                && (tour == null
+                        || (!Boolean.TRUE.equals(tour.getIsDeleted())
+                                && tour.getStatus() == TourStatus.PUBLISHED
+                                && tour.getVendor().getStatus() == com.sep.treksphere.vendor.VendorStatus.ACTIVE));
+
+        matchingGroup.setStatus(canReopen ? MatchingGroupStatus.OPEN : MatchingGroupStatus.CLOSED);
+        log.info("Matching group {} status re-evaluated after member loss: groupId={}",
+                canReopen ? "reopened (OPEN)" : "closed (CLOSED)", matchingGroup.getMatchingGroupId());
     }
 
     private void validateGroupOpenAndActive(MatchingGroup matchingGroup) {
@@ -813,12 +826,6 @@ public class MatchingGroupServiceImpl implements MatchingGroupService {
 
         if (!matchingGroup.getTargetDate().isAfter(LocalDate.now())) {
             throw new AppException(ErrorCode.MATCHING_TARGET_DATE_PASSED);
-        }
-    }
-
-    private void validateGroupOwner(MatchingGroup matchingGroup, User currentUser, ErrorCode errorCode) {
-        if (!matchingGroup.getOwner().getUserId().equals(currentUser.getUserId())) {
-            throw new AppException(errorCode);
         }
     }
 
