@@ -307,6 +307,8 @@ public class MessageConstant {
     public static final String MATCHING_MEMBER_LEFT_SUCCESS = "Rời khỏi nhóm ghép bạn đồng hành thành công";
     public static final String NO_PENDING_JOIN_REQUEST = "Bạn không có yêu cầu tham gia đang chờ duyệt trong nhóm này";
     public static final String NOT_ACCEPTED_MATCHING_MEMBER = "Bạn chưa phải là thành viên đã được duyệt của nhóm ghép này";
+    public static final String MATCHING_MEMBER_CANNOT_REMOVE_LEADER = "Không thể xoá Trưởng nhóm bằng chức năng xoá thành viên";
+    public static final String MATCHING_MEMBER_REMOVED_SUCCESS = "Xoá thành viên khỏi nhóm ghép thành công";
     public static final String UNAUTHORIZED_DISBAND_GROUP = "Bạn không có quyền giải tán nhóm ghép này";
     public static final String MATCHING_GROUP_DISBANDED_SUCCESS = "Giải tán nhóm ghép bạn đồng hành thành công";
     public static final String MATCHING_GROUP_CANNOT_BE_DISBANDED = "Chỉ có thể giải tán nhóm ghép đang OPEN hoặc FULL";

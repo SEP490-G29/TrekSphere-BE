@@ -56,6 +56,8 @@ public interface MatchingGroupService {
 
     MatchingMemberResponse leaveMatchingGroup(UUID groupId, CustomUserDetails userDetails);
 
+    MatchingMemberResponse removeMember(UUID groupId, UUID memberId, CustomUserDetails userDetails);
+
     void disbandMatchingGroup(UUID groupId, CustomUserDetails userDetails);
 
     MatchingGroupDetailResponse updateMatchingGroup(

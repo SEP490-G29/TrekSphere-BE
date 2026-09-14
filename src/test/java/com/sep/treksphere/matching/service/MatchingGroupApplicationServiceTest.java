@@ -942,4 +942,189 @@ class MatchingGroupApplicationServiceTest {
                     .satisfies(ex -> assertThat(((AppException) ex).getErrorCode()).isEqualTo(ErrorCode.NOT_ACCEPTED_MATCHING_MEMBER));
         }
     }
+
+    @Nested
+    @DisplayName("P4-S1: Membership Management Tests")
+    class MembershipManagementTests {
+
+        private MatchingMember leaderMember;
+        private MatchingMember memberEntity;
+
+        @BeforeEach
+        void setUpMembership() {
+            leaderMember = new MatchingMember();
+            leaderMember.setMatchingMemberId(UUID.randomUUID());
+            leaderMember.setMatchingGroup(openTourGroup);
+            leaderMember.setUser(leaderUser);
+            leaderMember.setRole(MatchingRole.LEADER);
+            leaderMember.setStatus(JoinStatus.ACCEPTED);
+            leaderMember.setIsDeleted(false);
+
+            memberEntity = new MatchingMember();
+            memberEntity.setMatchingMemberId(UUID.randomUUID());
+            memberEntity.setMatchingGroup(openTourGroup);
+            memberEntity.setUser(applicantUser);
+            memberEntity.setRole(MatchingRole.MEMBER);
+            memberEntity.setStatus(JoinStatus.ACCEPTED);
+            memberEntity.setIsDeleted(false);
+        }
+
+        @Test
+        @DisplayName("Leader cannot leave via leaveMatchingGroup, based on real member role (not owner_id)")
+        void leave_Leader_ThrowsOwnerCannotLeave() {
+            UUID groupId = openTourGroup.getMatchingGroupId();
+
+            when(matchingGroupRepository.findByIdForUpdate(groupId)).thenReturn(Optional.of(openTourGroup));
+            when(matchingMemberRepository.findByMatchingGroupAndUser(openTourGroup, leaderUser))
+                    .thenReturn(Optional.of(leaderMember));
+
+            assertThatThrownBy(() -> matchingGroupService.leaveMatchingGroup(groupId, leaderDetails))
+                    .isInstanceOf(AppException.class)
+                    .satisfies(ex -> assertThat(((AppException) ex).getErrorCode()).isEqualTo(ErrorCode.OWNER_CANNOT_LEAVE));
+        }
+
+        @Test
+        @DisplayName("Member leave: decrements capacity and notifies remaining accepted members, excluding the leaver")
+        void leave_Member_Success_DecrementsCapacityAndNotifiesRemainingMembers() {
+            UUID groupId = openTourGroup.getMatchingGroupId();
+            openTourGroup.setCurrentSize(2);
+            openTourGroup.setStatus(MatchingGroupStatus.OPEN);
+
+            when(matchingGroupRepository.findByIdForUpdate(groupId)).thenReturn(Optional.of(openTourGroup));
+            when(matchingMemberRepository.findByMatchingGroupAndUser(openTourGroup, applicantUser))
+                    .thenReturn(Optional.of(memberEntity));
+            when(matchingMemberRepository.countActiveMembersByGroupIdAndStatus(groupId, JoinStatus.ACCEPTED))
+                    .thenReturn(2L);
+            when(matchingMemberRepository.findActiveMembers(groupId, JoinStatus.ACCEPTED))
+                    .thenReturn(List.of(leaderMember));
+            when(matchingMemberRepository.save(memberEntity)).thenReturn(memberEntity);
+
+            MatchingMemberResponse response = matchingGroupService.leaveMatchingGroup(groupId, applicantDetails);
+
+            assertThat(response).isNotNull();
+            assertThat(memberEntity.getStatus()).isEqualTo(JoinStatus.LEFT);
+            assertThat(memberEntity.getLeftAt()).isNotNull();
+            assertThat(openTourGroup.getCurrentSize()).isEqualTo(1);
+
+            org.mockito.Mockito.verify(notificationService).notify(
+                    eq(List.of(leaderUser.getUserId())),
+                    eq(com.sep.treksphere.notification.NotificationEventType.GROUP_MEMBER_LEFT),
+                    eq(com.sep.treksphere.notification.ReferenceType.MATCHING_GROUP),
+                    eq(groupId),
+                    anyString(),
+                    any(), any());
+        }
+
+        @Test
+        @DisplayName("Member leave from FULL group that can no longer reopen (deadline passed) transitions to CLOSED")
+        void leave_FullGroup_CannotReopen_TransitionsToClosed() {
+            UUID groupId = openTourGroup.getMatchingGroupId();
+            openTourGroup.setStatus(MatchingGroupStatus.FULL);
+            openTourGroup.setCurrentSize(5);
+            openTourGroup.setMaxSize(5);
+            openTourGroup.setMatchingDeadline(LocalDateTime.now().minusDays(1));
+
+            when(matchingGroupRepository.findByIdForUpdate(groupId)).thenReturn(Optional.of(openTourGroup));
+            when(matchingMemberRepository.findByMatchingGroupAndUser(openTourGroup, applicantUser))
+                    .thenReturn(Optional.of(memberEntity));
+            when(matchingMemberRepository.countActiveMembersByGroupIdAndStatus(groupId, JoinStatus.ACCEPTED))
+                    .thenReturn(5L);
+            when(matchingMemberRepository.findActiveMembers(groupId, JoinStatus.ACCEPTED))
+                    .thenReturn(List.of(leaderMember));
+            when(matchingMemberRepository.save(memberEntity)).thenReturn(memberEntity);
+
+            matchingGroupService.leaveMatchingGroup(groupId, applicantDetails);
+
+            assertThat(openTourGroup.getStatus()).isEqualTo(MatchingGroupStatus.CLOSED);
+        }
+
+        @Test
+        @DisplayName("Non-Leader actor cannot remove another member")
+        void removeMember_NonLeaderActor_ThrowsUnauthorizedManage() {
+            UUID groupId = openTourGroup.getMatchingGroupId();
+            UUID targetId = UUID.randomUUID();
+
+            when(matchingGroupRepository.findByIdForUpdate(groupId)).thenReturn(Optional.of(openTourGroup));
+            when(userRepository.getReferenceById(applicantUser.getUserId())).thenReturn(applicantUser);
+            when(matchingMemberRepository.findByMatchingGroupAndUser(openTourGroup, applicantUser))
+                    .thenReturn(Optional.of(memberEntity));
+
+            assertThatThrownBy(() -> matchingGroupService.removeMember(groupId, targetId, applicantDetails))
+                    .isInstanceOf(AppException.class)
+                    .satisfies(ex -> assertThat(((AppException) ex).getErrorCode())
+                            .isEqualTo(ErrorCode.MATCHING_GROUP_UNAUTHORIZED_MANAGE));
+        }
+
+        @Test
+        @DisplayName("Leader cannot remove the Leader (self or otherwise) via removeMember")
+        void removeMember_TargetIsLeader_ThrowsCannotRemoveLeader() {
+            UUID groupId = openTourGroup.getMatchingGroupId();
+
+            when(matchingGroupRepository.findByIdForUpdate(groupId)).thenReturn(Optional.of(openTourGroup));
+            when(userRepository.getReferenceById(leaderUser.getUserId())).thenReturn(leaderUser);
+            when(matchingMemberRepository.findByMatchingGroupAndUser(openTourGroup, leaderUser))
+                    .thenReturn(Optional.of(leaderMember));
+            when(matchingMemberRepository.findMemberByIdAndGroupId(leaderMember.getMatchingMemberId(), groupId))
+                    .thenReturn(Optional.of(leaderMember));
+
+            assertThatThrownBy(() -> matchingGroupService.removeMember(
+                    groupId, leaderMember.getMatchingMemberId(), leaderDetails))
+                    .isInstanceOf(AppException.class)
+                    .satisfies(ex -> assertThat(((AppException) ex).getErrorCode())
+                            .isEqualTo(ErrorCode.MATCHING_MEMBER_CANNOT_REMOVE_LEADER));
+        }
+
+        @Test
+        @DisplayName("Target member not found in this group (also covers cross-Group memberId injection)")
+        void removeMember_TargetNotFoundInGroup_ThrowsMatchingMemberNotFound() {
+            UUID groupId = openTourGroup.getMatchingGroupId();
+            UUID foreignMemberId = UUID.randomUUID();
+
+            when(matchingGroupRepository.findByIdForUpdate(groupId)).thenReturn(Optional.of(openTourGroup));
+            when(userRepository.getReferenceById(leaderUser.getUserId())).thenReturn(leaderUser);
+            when(matchingMemberRepository.findByMatchingGroupAndUser(openTourGroup, leaderUser))
+                    .thenReturn(Optional.of(leaderMember));
+            when(matchingMemberRepository.findMemberByIdAndGroupId(foreignMemberId, groupId))
+                    .thenReturn(Optional.empty());
+
+            assertThatThrownBy(() -> matchingGroupService.removeMember(groupId, foreignMemberId, leaderDetails))
+                    .isInstanceOf(AppException.class)
+                    .satisfies(ex -> assertThat(((AppException) ex).getErrorCode())
+                            .isEqualTo(ErrorCode.MATCHING_MEMBER_NOT_FOUND));
+        }
+
+        @Test
+        @DisplayName("Leader removes a Member: sets REMOVED, decrements capacity, notifies removed user only")
+        void removeMember_Success_SetsRemovedAndNotifiesTarget() {
+            UUID groupId = openTourGroup.getMatchingGroupId();
+            openTourGroup.setCurrentSize(2);
+            openTourGroup.setStatus(MatchingGroupStatus.OPEN);
+
+            when(matchingGroupRepository.findByIdForUpdate(groupId)).thenReturn(Optional.of(openTourGroup));
+            when(userRepository.getReferenceById(leaderUser.getUserId())).thenReturn(leaderUser);
+            when(matchingMemberRepository.findByMatchingGroupAndUser(openTourGroup, leaderUser))
+                    .thenReturn(Optional.of(leaderMember));
+            when(matchingMemberRepository.findMemberByIdAndGroupId(memberEntity.getMatchingMemberId(), groupId))
+                    .thenReturn(Optional.of(memberEntity));
+            when(matchingMemberRepository.countActiveMembersByGroupIdAndStatus(groupId, JoinStatus.ACCEPTED))
+                    .thenReturn(2L);
+            when(matchingMemberRepository.save(memberEntity)).thenReturn(memberEntity);
+
+            MatchingMemberResponse response = matchingGroupService.removeMember(
+                    groupId, memberEntity.getMatchingMemberId(), leaderDetails);
+
+            assertThat(response).isNotNull();
+            assertThat(memberEntity.getStatus()).isEqualTo(JoinStatus.REMOVED);
+            assertThat(memberEntity.getLeftAt()).isNotNull();
+            assertThat(openTourGroup.getCurrentSize()).isEqualTo(1);
+
+            org.mockito.Mockito.verify(notificationService).notify(
+                    eq(applicantUser.getUserId()),
+                    eq(com.sep.treksphere.notification.NotificationEventType.GROUP_MEMBER_REMOVED),
+                    eq(com.sep.treksphere.notification.ReferenceType.MATCHING_GROUP),
+                    eq(groupId),
+                    anyString(),
+                    any());
+        }
+    }
 }

@@ -692,53 +692,113 @@ public class MatchingGroupServiceImpl implements MatchingGroupService {
         MatchingGroup matchingGroup = matchingGroupRepository.findByIdForUpdate(groupId)
                 .orElseThrow(() -> new AppException(ErrorCode.MATCHING_GROUP_NOT_FOUND));
 
-        if (matchingGroup.getOwner().getUserId().equals(currentUser.getUserId())) {
-            throw new AppException(ErrorCode.OWNER_CANNOT_LEAVE);
-        }
-
         MatchingMember member = matchingMemberRepository.findByMatchingGroupAndUser(matchingGroup, currentUser)
                 .orElseThrow(() -> new AppException(ErrorCode.NOT_A_MEMBER));
 
-        if (Boolean.TRUE.equals(member.getIsDeleted())
-                || member.getRole() != MatchingRole.MEMBER
-                || member.getStatus() != JoinStatus.ACCEPTED) {
+        if (Boolean.TRUE.equals(member.getIsDeleted()) || member.getStatus() != JoinStatus.ACCEPTED) {
             throw new AppException(ErrorCode.NOT_ACCEPTED_MATCHING_MEMBER);
+        }
+
+
+        if (member.getRole() == MatchingRole.LEADER) {
+            throw new AppException(ErrorCode.OWNER_CANNOT_LEAVE);
         }
 
         long acceptedCount = matchingMemberRepository
                 .countActiveMembersByGroupIdAndStatus(groupId, JoinStatus.ACCEPTED);
 
         member.setStatus(JoinStatus.LEFT);
+        member.setLeftAt(LocalDateTime.now());
 
         int newSize = Math.max(Math.toIntExact(acceptedCount) - 1, 1);
         matchingGroup.setCurrentSize(newSize);
-
-        Tour tour = matchingGroup.getTour();
-        boolean canReopen = matchingGroup.getStatus() == MatchingGroupStatus.FULL
-                && newSize < matchingGroup.getMaxSize()
-                && matchingGroup.getMatchingDeadline().isAfter(LocalDateTime.now())
-                && matchingGroup.getTargetDate().isAfter(LocalDate.now())
-                && !Boolean.TRUE.equals(tour.getIsDeleted())
-                && tour.getStatus() == TourStatus.PUBLISHED
-                && tour.getVendor().getStatus() == com.sep.treksphere.vendor.VendorStatus.ACTIVE;
-
-        if (canReopen) {
-            matchingGroup.setStatus(MatchingGroupStatus.OPEN);
-            log.info("Matching group is reopened (OPEN) because a member left: groupId={}", groupId);
-        }
+        reevaluateGroupStatusAfterMemberLoss(matchingGroup, newSize);
 
         matchingGroupRepository.save(matchingGroup);
 
         MatchingMember savedMember = matchingMemberRepository.save(member);
 
+        List<UUID> recipientIds = matchingMemberRepository.findActiveMembers(groupId, JoinStatus.ACCEPTED)
+                .stream()
+                .map(m -> m.getUser().getUserId())
+                .filter(id -> !id.equals(currentUser.getUserId()))
+                .toList();
+
         notificationService.notify(
-                matchingGroup.getOwner().getUserId(),
+                recipientIds,
                 NotificationEventType.GROUP_MEMBER_LEFT,
                 ReferenceType.MATCHING_GROUP, matchingGroup.getMatchingGroupId(),
                 "/trekker/my-groups/" + matchingGroup.getMatchingGroupId(),
                 currentUser.getFullName(), matchingGroup.getGroupName());
 
         return matchingGroupMapper.toMemberResponse(savedMember);
+    }
+
+    @Override
+    @Transactional
+    public MatchingMemberResponse removeMember(UUID groupId, UUID memberId, CustomUserDetails userDetails) {
+        User currentUser = userDetails.getUser();
+        log.info("Request to remove member from matching group: groupId={}, memberId={}, actorUserId={}",
+                groupId, memberId, currentUser.getUserId());
+
+        MatchingGroup matchingGroup = matchingGroupRepository.findByIdForUpdate(groupId)
+                .orElseThrow(() -> new AppException(ErrorCode.MATCHING_GROUP_NOT_FOUND));
+
+        validateGroupLeader(matchingGroup, currentUser.getUserId());
+
+        MatchingMember target = matchingMemberRepository.findMemberByIdAndGroupId(memberId, groupId)
+                .orElseThrow(() -> new AppException(ErrorCode.MATCHING_MEMBER_NOT_FOUND));
+
+        if (Boolean.TRUE.equals(target.getIsDeleted()) || target.getStatus() != JoinStatus.ACCEPTED) {
+            throw new AppException(ErrorCode.NOT_ACCEPTED_MATCHING_MEMBER);
+        }
+
+        if (target.getRole() == MatchingRole.LEADER) {
+            throw new AppException(ErrorCode.MATCHING_MEMBER_CANNOT_REMOVE_LEADER);
+        }
+
+        long acceptedCount = matchingMemberRepository
+                .countActiveMembersByGroupIdAndStatus(groupId, JoinStatus.ACCEPTED);
+
+        target.setStatus(JoinStatus.REMOVED);
+        target.setLeftAt(LocalDateTime.now());
+
+        int newSize = Math.max(Math.toIntExact(acceptedCount) - 1, 1);
+        matchingGroup.setCurrentSize(newSize);
+        reevaluateGroupStatusAfterMemberLoss(matchingGroup, newSize);
+
+        matchingGroupRepository.save(matchingGroup);
+
+        MatchingMember savedTarget = matchingMemberRepository.save(target);
+
+        notificationService.notify(
+                savedTarget.getUser().getUserId(),
+                NotificationEventType.GROUP_MEMBER_REMOVED,
+                ReferenceType.MATCHING_GROUP, matchingGroup.getMatchingGroupId(),
+                "/trekker/my-groups",
+                matchingGroup.getGroupName());
+
+        return matchingGroupMapper.toMemberResponse(savedTarget);
+    }
+
+
+    private void reevaluateGroupStatusAfterMemberLoss(MatchingGroup matchingGroup, int newSize) {
+        if (matchingGroup.getStatus() != MatchingGroupStatus.FULL) {
+            return;
+        }
+
+        Tour tour = matchingGroup.getTour();
+        boolean canReopen = newSize < matchingGroup.getMaxSize()
+                && matchingGroup.getMatchingDeadline().isAfter(LocalDateTime.now())
+                && matchingGroup.getTargetDate().isAfter(LocalDate.now())
+                && (tour == null
+                        || (!Boolean.TRUE.equals(tour.getIsDeleted())
+                                && tour.getStatus() == TourStatus.PUBLISHED
+                                && tour.getVendor().getStatus() == com.sep.treksphere.vendor.VendorStatus.ACTIVE));
+
+        matchingGroup.setStatus(canReopen ? MatchingGroupStatus.OPEN : MatchingGroupStatus.CLOSED);
+        log.info("Matching group {} status re-evaluated after member loss: groupId={}",
+                canReopen ? "reopened (OPEN)" : "closed (CLOSED)", matchingGroup.getMatchingGroupId());
     }
 
     @Override
