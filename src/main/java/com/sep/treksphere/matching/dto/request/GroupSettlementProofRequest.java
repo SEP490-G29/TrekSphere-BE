@@ -1,5 +1,7 @@
 package com.sep.treksphere.matching.dto.request;
 
+import com.sep.treksphere.common.constant.MessageConstant;
+import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 import lombok.AllArgsConstructor;
@@ -11,9 +13,11 @@ import lombok.NoArgsConstructor;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
+@Schema(description = "Request gửi bằng chứng thanh toán quyết toán nợ")
 public class GroupSettlementProofRequest {
 
-    @NotBlank(message = "Đường dẫn ảnh chứng từ chuyển tiền không được để trống")
-    @Size(max = 500, message = "Đường dẫn ảnh chứng từ không được vượt quá 500 ký tự")
+    @NotBlank(message = MessageConstant.SETTLEMENT_PROOF_IMAGE_REQUIRED)
+    @Size(max = 500, message = MessageConstant.SETTLEMENT_PROOF_IMAGE_MAX_LENGTH)
+    @Schema(description = "Đường dẫn ảnh chứng từ chuyển tiền", example = "https://res.cloudinary.com/.../proof.jpg")
     private String proofUrl;
 }

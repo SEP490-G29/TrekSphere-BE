@@ -42,6 +42,7 @@ public interface MatchingGroupMapper {
     @Mapping(target = "difficulty", expression = "java(deriveDifficulty(matchingGroup))")
     @Mapping(target = "location", expression = "java(deriveLocation(matchingGroup))")
     @Mapping(target = "estimatedCost", expression = "java(deriveEstimatedCost(matchingGroup))")
+    @Mapping(target = "coverImageUrl", expression = "java(deriveCoverImageUrl(matchingGroup))")
     @Mapping(target = "ownerId", source = "owner.userId")
     @Mapping(target = "ownerName", source = "owner.fullName")
     @Mapping(target = "ownerAvatarUrl", source = "owner.avatarUrl")
@@ -63,6 +64,7 @@ public interface MatchingGroupMapper {
     @Mapping(target = "difficulty", expression = "java(deriveDifficulty(matchingGroup))")
     @Mapping(target = "location", expression = "java(deriveLocation(matchingGroup))")
     @Mapping(target = "estimatedCost", expression = "java(deriveEstimatedCost(matchingGroup))")
+    @Mapping(target = "coverImageUrl", expression = "java(deriveCoverImageUrl(matchingGroup))")
     @Mapping(target = "ownerId", source = "owner.userId")
     @Mapping(target = "ownerName", source = "owner.fullName")
     @Mapping(target = "ownerAvatarUrl", source = "owner.avatarUrl")
@@ -99,6 +101,7 @@ public interface MatchingGroupMapper {
     @Mapping(target = "matchingGroupId", source = "matchingGroup.matchingGroupId")
     @Mapping(target = "groupName", source = "matchingGroup.groupName")
     @Mapping(target = "groupStatus", source = "matchingGroup.status")
+    @Mapping(target = "coverImageUrl", expression = "java(deriveCoverImageUrl(matchingMember.getMatchingGroup()))")
     @Mapping(target = "sourceType", expression = "java(deriveSourceType(matchingMember.getMatchingGroup()))")
     @Mapping(target = "tourId", source = "matchingGroup.tour.tourId")
     @Mapping(target = "tourName", source = "matchingGroup.tour.tourName")
@@ -122,6 +125,7 @@ public interface MatchingGroupMapper {
     @Mapping(target = "matchingGroupId", source = "matchingGroup.matchingGroupId")
     @Mapping(target = "groupName", source = "matchingGroup.groupName")
     @Mapping(target = "groupStatus", source = "matchingGroup.status")
+    @Mapping(target = "coverImageUrl", expression = "java(deriveCoverImageUrl(application.getMatchingGroup()))")
     @Mapping(target = "sourceType", expression = "java(deriveSourceType(application.getMatchingGroup()))")
     @Mapping(target = "tourId", source = "matchingGroup.tour.tourId")
     @Mapping(target = "tourName", source = "matchingGroup.tour.tourName")
@@ -153,6 +157,17 @@ public interface MatchingGroupMapper {
             case REJECTED -> JoinStatus.REJECTED;
             case WITHDRAWN -> JoinStatus.WITHDRAWN;
         };
+    }
+
+    default String deriveCoverImageUrl(MatchingGroup mg) {
+        if (mg == null) return null;
+        if (mg.getCoverImageUrl() != null && !mg.getCoverImageUrl().isBlank()) {
+            return mg.getCoverImageUrl();
+        }
+        if (mg.getTour() != null) {
+            return mg.getTour().getCoverImageUrl();
+        }
+        return null;
     }
 
     default MatchingGroupSourceType deriveSourceType(MatchingGroup mg) {
