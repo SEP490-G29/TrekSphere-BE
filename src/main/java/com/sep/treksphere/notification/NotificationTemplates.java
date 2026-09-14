@@ -130,6 +130,19 @@ public final class NotificationTemplates {
         TEMPLATES.put(NotificationEventType.SOS_ALERT_RESOLVED, new TemplatePair(
                 "Tín hiệu SOS đã được xử lý",
                 "%s đã đóng tín hiệu SOS. Sự cố đã được xử lý, mọi người có thể yên tâm."));
+
+        TEMPLATES.put(NotificationEventType.GROUP_VOTE_OPENED, new TemplatePair(
+                "Có bình chọn mới trong nhóm",
+                "%s vừa mở bình chọn \"%s\". Hãy vào bỏ phiếu nhé!"));
+        TEMPLATES.put(NotificationEventType.GROUP_VOTE_CLOSED, new TemplatePair(
+                "Bình chọn đã kết thúc",
+                "Bình chọn \"%s\" đã có kết quả."));
+        TEMPLATES.put(NotificationEventType.GROUP_LEADER_CHANGED, new TemplatePair(
+                "Nhóm đã có Trưởng nhóm mới",
+                "%s đã trở thành Trưởng nhóm mới sau cuộc bầu cử."));
+        TEMPLATES.put(NotificationEventType.MATCHING_GROUP_CANCELLED, new TemplatePair(
+                "Nhóm ghép đã giải tán",
+                "Nhóm \"%s\" đã bị giải tán theo kết quả biểu quyết của các thành viên."));
     }
 
     private NotificationTemplates() {

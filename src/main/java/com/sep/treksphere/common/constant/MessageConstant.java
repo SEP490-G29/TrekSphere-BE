@@ -309,6 +309,28 @@ public class MessageConstant {
     public static final String NOT_ACCEPTED_MATCHING_MEMBER = "Bạn chưa phải là thành viên đã được duyệt của nhóm ghép này";
     public static final String MATCHING_MEMBER_CANNOT_REMOVE_LEADER = "Không thể xoá Trưởng nhóm bằng chức năng xoá thành viên";
     public static final String MATCHING_MEMBER_REMOVED_SUCCESS = "Xoá thành viên khỏi nhóm ghép thành công";
+
+    // Group Vote (P4-S2)
+    public static final String GROUP_VOTE_TITLE_REQUIRED = "Tiêu đề bình chọn không được để trống";
+    public static final String GROUP_VOTE_TITLE_TOO_LONG = "Tiêu đề bình chọn tối đa 200 ký tự";
+    public static final String GROUP_VOTE_REASON_REQUIRED = "Lý do mở bình chọn không được để trống";
+    public static final String GROUP_VOTE_CLOSES_AT_REQUIRED = "Thời hạn kết thúc bình chọn không được để trống";
+    public static final String GROUP_VOTE_CLOSES_AT_MUST_BE_FUTURE = "Thời hạn kết thúc bình chọn phải ở tương lai";
+    public static final String GROUP_VOTE_OPTIONS_MIN_COUNT = "Bình chọn cần tối thiểu 2 lựa chọn";
+    public static final String GROUP_VOTE_OPTION_REQUIRED = "Vui lòng chọn một lựa chọn để bỏ phiếu";
+    public static final String GROUP_VOTE_NOT_FOUND = "Bình chọn không tồn tại trong nhóm ghép này";
+    public static final String GROUP_VOTE_CLOSED = "Bình chọn này đã đóng, không thể thao tác thêm";
+    public static final String GROUP_VOTE_ALREADY_VOTED = "Bạn đã bỏ phiếu cho bình chọn này rồi";
+    public static final String GROUP_VOTE_INVALID_OPTION = "Lựa chọn không thuộc bình chọn này";
+    public static final String GROUP_VOTE_INVALID_CANDIDATE = "Ứng viên không hợp lệ cho cuộc bầu Trưởng nhóm này";
+    public static final String GROUP_VOTE_DUPLICATE_OPEN_TYPE = "Nhóm đang có một bình chọn cùng loại đang mở, hãy đóng bình chọn đó trước";
+    public static final String GROUP_VOTE_INVALID_OPTION_COUNT = "Số lượng lựa chọn không hợp lệ";
+    public static final String GROUP_VOTE_NOT_READY_TO_CLOSE = "Bình chọn chưa đến hạn đóng và chưa đủ số phiếu bắt buộc";
+    public static final String GROUP_VOTE_CREATED_SUCCESS = "Mở bình chọn thành công";
+    public static final String GROUP_VOTE_BALLOT_CAST_SUCCESS = "Gửi phiếu bầu thành công";
+    public static final String GROUP_VOTE_CLOSED_SUCCESS = "Đóng bình chọn thành công";
+    public static final String GROUP_VOTE_CANCELLED_SUCCESS = "Huỷ bình chọn thành công";
+    public static final String GROUP_VOTES_FETCHED = "Lấy danh sách bình chọn thành công";
     public static final String UNAUTHORIZED_DISBAND_GROUP = "Bạn không có quyền giải tán nhóm ghép này";
     public static final String MATCHING_GROUP_DISBANDED_SUCCESS = "Giải tán nhóm ghép bạn đồng hành thành công";
     public static final String MATCHING_GROUP_CANNOT_BE_DISBANDED = "Chỉ có thể giải tán nhóm ghép đang OPEN hoặc FULL";
