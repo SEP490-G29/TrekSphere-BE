@@ -4,6 +4,7 @@ import com.sep.treksphere.common.exception.AppException;
 import com.sep.treksphere.common.exception.ErrorCode;
 import com.sep.treksphere.matching.dto.request.CastBallotRequest;
 import com.sep.treksphere.matching.dto.request.CreateGroupVoteRequest;
+import com.sep.treksphere.matching.dto.request.OpenLeaderElectionRequest;
 import com.sep.treksphere.matching.dto.response.GroupVoteOptionResponse;
 import com.sep.treksphere.matching.dto.response.GroupVoteResponse;
 import com.sep.treksphere.matching.entity.GroupVote;
@@ -95,6 +96,74 @@ public class GroupVoteServiceImpl implements GroupVoteService {
                 ReferenceType.GROUP_VOTE, savedVote.getGroupVoteId(),
                 "/trekker/my-groups/" + groupId,
                 creator.getUser().getFullName(), savedVote.getTitle());
+
+        GroupVoteResponse response = toResponse(savedVote, options, currentUserId);
+        broadcastAfterCommit(groupId, response);
+        return response;
+    }
+
+    @Override
+    @Transactional
+    public GroupVoteResponse openLeaderElectionVote(
+            UUID groupId, OpenLeaderElectionRequest request, UUID currentUserId) {
+        MatchingMember opener = requireActiveMember(groupId, currentUserId);
+
+        if (groupVoteRepository.existsByMatchingGroup_MatchingGroupIdAndVoteTypeAndStatusAndIsDeletedFalse(
+                groupId, VoteType.LEADER_ELECTION, VoteStatus.OPEN)) {
+            throw new AppException(ErrorCode.GROUP_VOTE_DUPLICATE_OPEN_TYPE);
+        }
+
+        List<UUID> distinctCandidateIds = request.getCandidateMemberIds().stream().distinct().toList();
+        if (distinctCandidateIds.size() < 2) {
+            throw new AppException(ErrorCode.GROUP_VOTE_INVALID_OPTION_COUNT);
+        }
+
+        List<MatchingMember> candidates = new ArrayList<>();
+        for (UUID candidateId : distinctCandidateIds) {
+            MatchingMember candidate = matchingMemberRepository.findMemberByIdAndGroupId(candidateId, groupId)
+                    .filter(m -> m.getStatus() == JoinStatus.ACCEPTED)
+                    .orElseThrow(() -> new AppException(ErrorCode.GROUP_VOTE_INVALID_CANDIDATE));
+            if (candidate.getRole() == MatchingRole.LEADER) {
+                throw new AppException(ErrorCode.GROUP_VOTE_INVALID_CANDIDATE);
+            }
+            candidates.add(candidate);
+        }
+
+        GroupVote vote = new GroupVote();
+        vote.setMatchingGroup(opener.getMatchingGroup());
+        vote.setVoteType(VoteType.LEADER_ELECTION);
+        vote.setTitle("Bầu Trưởng nhóm mới");
+        vote.setReason(request.getReason());
+        vote.setCreatedByMember(opener);
+        vote.setStatus(VoteStatus.OPEN);
+        vote.setOpensAt(LocalDateTime.now());
+        vote.setClosesAt(request.getClosesAt());
+        vote.setEligibleVoterCount(Math.toIntExact(
+                matchingMemberRepository.countActiveMembersByGroupIdAndStatus(groupId, JoinStatus.ACCEPTED)));
+
+        GroupVote savedVote;
+        try {
+            savedVote = groupVoteRepository.save(vote);
+        } catch (DataIntegrityViolationException e) {
+            throw new AppException(ErrorCode.GROUP_VOTE_DUPLICATE_OPEN_TYPE);
+        }
+
+        List<GroupVoteOption> options = new ArrayList<>();
+        int order = 1;
+        for (MatchingMember candidate : candidates) {
+            GroupVoteOption option = new GroupVoteOption();
+            option.setGroupVote(savedVote);
+            option.setOptionOrder(order++);
+            option.setOptionLabel(candidate.getUser().getFullName());
+            option.setCandidateMatchingMember(candidate);
+            options.add(groupVoteOptionRepository.save(option));
+        }
+
+        notificationService.notify(activeMemberUserIdsExcept(groupId, currentUserId),
+                NotificationEventType.GROUP_VOTE_OPENED,
+                ReferenceType.GROUP_VOTE, savedVote.getGroupVoteId(),
+                "/trekker/my-groups/" + groupId,
+                opener.getUser().getFullName(), savedVote.getTitle());
 
         GroupVoteResponse response = toResponse(savedVote, options, currentUserId);
         broadcastAfterCommit(groupId, response);
@@ -236,6 +305,14 @@ public class GroupVoteServiceImpl implements GroupVoteService {
                 ReferenceType.GROUP_VOTE, savedVote.getGroupVoteId(),
                 "/trekker/my-groups/" + groupId, savedVote.getTitle());
 
+        if (winner != null && savedVote.getVoteType() == VoteType.LEADER_ELECTION) {
+            notificationService.notify(activeMemberUserIdsExcept(groupId, null),
+                    NotificationEventType.GROUP_LEADER_CHANGED,
+                    ReferenceType.GROUP_VOTE, savedVote.getGroupVoteId(),
+                    "/trekker/my-groups/" + groupId,
+                    winner.getCandidateMatchingMember().getUser().getFullName());
+        }
+
         GroupVoteResponse response = toResponse(savedVote, options, actorUserId);
         broadcastAfterCommit(groupId, response);
         return response;
@@ -253,16 +330,40 @@ public class GroupVoteServiceImpl implements GroupVoteService {
     }
 
     /**
-     * OTHER không có side effect (chỉ lưu kết quả — đúng phạm vi P5-S4). LEADER_ELECTION và
-     * GROUP_DISSOLUTION được cài đặt ở P4-S3/P4-S4; không thể tới nhánh đó ở P4-S2 vì chỉ
-     * {@link #createGeneralPoll} (voteType=OTHER) tồn tại cho đến lúc đó.
+     * OTHER không có side effect (chỉ lưu kết quả — đúng phạm vi P5-S4). LEADER_ELECTION đổi
+     * Leader atomic (P4-S3). GROUP_DISSOLUTION được cài đặt ở P4-S4; không thể tới nhánh đó
+     * trước khi {@code openDissolutionVote} tồn tại.
      */
     private void applyWinnerSideEffect(GroupVote vote, GroupVoteOption winner) {
-        if (vote.getVoteType() == VoteType.OTHER) {
-            return;
+        switch (vote.getVoteType()) {
+            case OTHER -> {
+                // không side effect
+            }
+            case LEADER_ELECTION -> applyLeaderElectionSideEffect(vote, winner);
+            case GROUP_DISSOLUTION -> throw new IllegalStateException(
+                    "Side effect cho GROUP_DISSOLUTION chưa được cài đặt (xem P4-S4)");
         }
-        throw new IllegalStateException(
-                "Side effect cho voteType " + vote.getVoteType() + " chưa được cài đặt (xem P4-S3/P4-S4)");
+    }
+
+    /**
+     * Đổi Leader cũ -> MEMBER và winner -> LEADER trong cùng transaction đang lock `vote`;
+     * partial UQ `uq_group_active_leader` là lưới an toàn DB-level đảm bảo không có 2 Leader
+     * active cùng lúc. Không đổi `matchingGroup.owner_id` (chỉ là người tạo nhóm).
+     */
+    private void applyLeaderElectionSideEffect(GroupVote vote, GroupVoteOption winner) {
+        MatchingMember newLeader = winner.getCandidateMatchingMember();
+        UUID groupId = vote.getMatchingGroup().getMatchingGroupId();
+
+        matchingMemberRepository.findActiveMembers(groupId, JoinStatus.ACCEPTED).stream()
+                .filter(m -> m.getRole() == MatchingRole.LEADER)
+                .filter(m -> !m.getMatchingMemberId().equals(newLeader.getMatchingMemberId()))
+                .forEach(oldLeader -> {
+                    oldLeader.setRole(MatchingRole.MEMBER);
+                    matchingMemberRepository.save(oldLeader);
+                });
+
+        newLeader.setRole(MatchingRole.LEADER);
+        matchingMemberRepository.save(newLeader);
     }
 
     private boolean isDeadlineReached(GroupVote vote) {

@@ -6,6 +6,7 @@ import com.sep.treksphere.common.dto.PaginationResponse;
 import com.sep.treksphere.common.security.CustomUserDetails;
 import com.sep.treksphere.matching.dto.request.CastBallotRequest;
 import com.sep.treksphere.matching.dto.request.CreateGroupVoteRequest;
+import com.sep.treksphere.matching.dto.request.OpenLeaderElectionRequest;
 import com.sep.treksphere.matching.dto.response.GroupVoteResponse;
 import com.sep.treksphere.matching.enums.VoteStatus;
 import com.sep.treksphere.matching.enums.VoteType;
@@ -43,6 +44,19 @@ public class GroupVoteController {
             @AuthenticationPrincipal CustomUserDetails userDetails) {
         UUID currentUserId = userDetails.getUser().getUserId();
         GroupVoteResponse response = groupVoteService.createGeneralPoll(groupId, request, currentUserId);
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(ApiResponse.success(HttpStatus.CREATED, response, MessageConstant.GROUP_VOTE_CREATED_SUCCESS));
+    }
+
+    @PostMapping("/leader-election")
+    @PreAuthorize("hasAuthority('MATCHING_GROUP_VOTE')")
+    @Operation(summary = "Mở cuộc bầu Trưởng nhóm mới (voteType = LEADER_ELECTION)")
+    public ResponseEntity<ApiResponse<GroupVoteResponse>> openLeaderElectionVote(
+            @PathVariable UUID groupId,
+            @Valid @RequestBody OpenLeaderElectionRequest request,
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+        UUID currentUserId = userDetails.getUser().getUserId();
+        GroupVoteResponse response = groupVoteService.openLeaderElectionVote(groupId, request, currentUserId);
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(ApiResponse.success(HttpStatus.CREATED, response, MessageConstant.GROUP_VOTE_CREATED_SUCCESS));
     }

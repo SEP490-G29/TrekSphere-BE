@@ -5,6 +5,7 @@ import com.sep.treksphere.common.exception.AppException;
 import com.sep.treksphere.matching.dto.request.CastBallotRequest;
 import com.sep.treksphere.matching.dto.response.GroupVoteResponse;
 import com.sep.treksphere.matching.entity.GroupVote;
+import com.sep.treksphere.matching.entity.GroupVoteBallot;
 import com.sep.treksphere.matching.entity.GroupVoteOption;
 import com.sep.treksphere.matching.entity.MatchingGroup;
 import com.sep.treksphere.matching.entity.MatchingMember;
@@ -181,6 +182,86 @@ class GroupVoteConcurrencyIntegrationTest {
 
         long ballotCount = groupVoteBallotRepository.countByGroupVote(finalVote);
         assertThat(ballotCount).isEqualTo(2);
+    }
+
+    @Test
+    @DisplayName("Concurrent closeVote trên LEADER_ELECTION: 2 request đóng đồng thời -> không có thời điểm nào 2 Leader active")
+    void closeVote_ConcurrentCallsOnLeaderElection_NeverCreatesTwoActiveLeaders() throws InterruptedException {
+        User leader = createUser("leader-election-concurrent");
+        User candidate = createUser("candidate-election-concurrent");
+        User otherMember = createUser("other-election-concurrent");
+        MatchingGroup group = createGroup(leader);
+        MatchingMember leaderMember = createMember(group, leader, MatchingRole.LEADER);
+        MatchingMember candidateMember = createMember(group, candidate, MatchingRole.MEMBER);
+        createMember(group, otherMember, MatchingRole.MEMBER);
+
+        GroupVote vote = new GroupVote();
+        vote.setMatchingGroup(group);
+        vote.setVoteType(VoteType.LEADER_ELECTION);
+        vote.setTitle("Bầu Trưởng nhóm mới");
+        vote.setReason("Test concurrency election");
+        vote.setCreatedByMember(leaderMember);
+        vote.setStatus(VoteStatus.OPEN);
+        vote.setOpensAt(LocalDateTime.now());
+        vote.setClosesAt(LocalDateTime.now().minusMinutes(1)); // đã quá hạn -> đủ điều kiện close
+        vote.setEligibleVoterCount(3);
+        GroupVote savedVote = groupVoteRepository.saveAndFlush(vote);
+
+        GroupVoteOption candidateOption = new GroupVoteOption();
+        candidateOption.setGroupVote(savedVote);
+        candidateOption.setOptionOrder(1);
+        candidateOption.setOptionLabel(candidate.getFullName());
+        candidateOption.setCandidateMatchingMember(candidateMember);
+        GroupVoteOption savedOption = groupVoteOptionRepository.saveAndFlush(candidateOption);
+
+        GroupVoteBallot ballot = new GroupVoteBallot();
+        ballot.setGroupVote(savedVote);
+        ballot.setGroupVoteOption(savedOption);
+        ballot.setVoterMatchingMember(leaderMember);
+        groupVoteBallotRepository.saveAndFlush(ballot);
+
+        int threadCount = 2;
+        ExecutorService executor = Executors.newFixedThreadPool(threadCount);
+        CountDownLatch readyLatch = new CountDownLatch(threadCount);
+        CountDownLatch startLatch = new CountDownLatch(1);
+        AtomicInteger successCount = new AtomicInteger();
+        AtomicInteger failureCount = new AtomicInteger();
+
+        Runnable closeTask = () -> {
+            readyLatch.countDown();
+            try {
+                startLatch.await();
+                groupVoteService.closeVote(group.getMatchingGroupId(), savedVote.getGroupVoteId(), leader.getUserId());
+                successCount.incrementAndGet();
+            } catch (AppException | InterruptedException ex) {
+                failureCount.incrementAndGet();
+            }
+        };
+
+        executor.submit(closeTask);
+        executor.submit(closeTask);
+        readyLatch.await(5, TimeUnit.SECONDS);
+        startLatch.countDown();
+        executor.shutdown();
+        executor.awaitTermination(10, TimeUnit.SECONDS);
+
+        // closeVote là idempotent (retry trên vote đã CLOSED không lỗi) nên cả 2 request đều
+        // có thể trả về thành công — điều thực sự cần chứng minh là bất biến ở DB bên dưới.
+        assertThat(successCount.get() + failureCount.get()).isEqualTo(2);
+
+        GroupVote finalVote = groupVoteRepository.findById(savedVote.getGroupVoteId()).orElseThrow();
+        assertThat(finalVote.getStatus()).isEqualTo(VoteStatus.CLOSED);
+        assertThat(finalVote.getWinningOption()).isNotNull();
+
+        long activeLeaderCount = matchingMemberRepository.findActiveMembers(group.getMatchingGroupId(), JoinStatus.ACCEPTED)
+                .stream()
+                .filter(m -> m.getRole() == MatchingRole.LEADER)
+                .count();
+        assertThat(activeLeaderCount).isEqualTo(1);
+
+        MatchingMember refreshedCandidate = matchingMemberRepository.findById(candidateMember.getMatchingMemberId())
+                .orElseThrow();
+        assertThat(refreshedCandidate.getRole()).isEqualTo(MatchingRole.LEADER);
     }
 
     private User createUser(String label) {

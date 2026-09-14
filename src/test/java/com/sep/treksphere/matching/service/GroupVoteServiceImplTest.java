@@ -4,6 +4,7 @@ import com.sep.treksphere.common.exception.AppException;
 import com.sep.treksphere.common.exception.ErrorCode;
 import com.sep.treksphere.matching.dto.request.CastBallotRequest;
 import com.sep.treksphere.matching.dto.request.CreateGroupVoteRequest;
+import com.sep.treksphere.matching.dto.request.OpenLeaderElectionRequest;
 import com.sep.treksphere.matching.dto.response.GroupVoteResponse;
 import com.sep.treksphere.matching.entity.GroupVote;
 import com.sep.treksphere.matching.entity.GroupVoteBallot;
@@ -426,5 +427,171 @@ class GroupVoteServiceImplTest {
 
         assertThat(response.getStatus()).isEqualTo(VoteStatus.CLOSED);
         assertThat(response.getWinningOptionId()).isNull();
+    }
+
+    private OpenLeaderElectionRequest sampleElectionRequest(UUID... candidateIds) {
+        return OpenLeaderElectionRequest.builder()
+                .reason("Trưởng nhóm cũ bận, cần người thay thế")
+                .closesAt(LocalDateTime.now().plusDays(1))
+                .candidateMemberIds(List.of(candidateIds))
+                .build();
+    }
+
+    @Test
+    @DisplayName("openLeaderElectionVote: happy path tạo vote LEADER_ELECTION với option gắn candidate")
+    void openLeaderElectionVote_HappyPath_CreatesOptionsWithCandidates() {
+        when(matchingMemberRepository.findByGroupIdAndUserId(groupId, memberUser.getUserId()))
+                .thenReturn(Optional.of(memberEntity));
+        when(groupVoteRepository.existsByMatchingGroup_MatchingGroupIdAndVoteTypeAndStatusAndIsDeletedFalse(
+                groupId, VoteType.LEADER_ELECTION, VoteStatus.OPEN)).thenReturn(false);
+        when(matchingMemberRepository.findMemberByIdAndGroupId(memberEntity.getMatchingMemberId(), groupId))
+                .thenReturn(Optional.of(memberEntity));
+        when(matchingMemberRepository.findMemberByIdAndGroupId(otherMemberEntity.getMatchingMemberId(), groupId))
+                .thenReturn(Optional.of(otherMemberEntity));
+        when(matchingMemberRepository.countActiveMembersByGroupIdAndStatus(groupId, JoinStatus.ACCEPTED))
+                .thenReturn(3L);
+
+        GroupVote savedVote = newOpenVote(3, LocalDateTime.now().plusDays(1));
+        savedVote.setVoteType(VoteType.LEADER_ELECTION);
+        when(groupVoteRepository.save(any(GroupVote.class))).thenReturn(savedVote);
+        when(groupVoteOptionRepository.save(any(GroupVoteOption.class)))
+                .thenAnswer(inv -> {
+                    GroupVoteOption option = inv.getArgument(0);
+                    option.setGroupVoteOptionId(UUID.randomUUID());
+                    return option;
+                });
+        when(matchingMemberRepository.findActiveMembers(groupId, JoinStatus.ACCEPTED))
+                .thenReturn(List.of(leaderMember, memberEntity, otherMemberEntity));
+
+        OpenLeaderElectionRequest request = sampleElectionRequest(
+                memberEntity.getMatchingMemberId(), otherMemberEntity.getMatchingMemberId());
+        GroupVoteResponse response = groupVoteService.openLeaderElectionVote(groupId, request, memberUser.getUserId());
+
+        assertThat(response.getVoteType()).isEqualTo(VoteType.LEADER_ELECTION);
+        assertThat(response.getOptions()).hasSize(2);
+        assertThat(response.getOptions().get(0).getCandidateMemberId()).isEqualTo(memberEntity.getMatchingMemberId());
+        assertThat(response.getOptions().get(1).getCandidateMemberId()).isEqualTo(otherMemberEntity.getMatchingMemberId());
+    }
+
+    @Test
+    @DisplayName("openLeaderElectionVote: chỉ 1 candidate -> GROUP_VOTE_INVALID_OPTION_COUNT")
+    void openLeaderElectionVote_LessThanTwoCandidates_ThrowsError() {
+        when(matchingMemberRepository.findByGroupIdAndUserId(groupId, memberUser.getUserId()))
+                .thenReturn(Optional.of(memberEntity));
+        when(groupVoteRepository.existsByMatchingGroup_MatchingGroupIdAndVoteTypeAndStatusAndIsDeletedFalse(
+                groupId, VoteType.LEADER_ELECTION, VoteStatus.OPEN)).thenReturn(false);
+
+        OpenLeaderElectionRequest request = sampleElectionRequest(memberEntity.getMatchingMemberId());
+
+        assertThatThrownBy(() -> groupVoteService.openLeaderElectionVote(groupId, request, memberUser.getUserId()))
+                .isInstanceOf(AppException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.GROUP_VOTE_INVALID_OPTION_COUNT);
+
+        verify(groupVoteRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("openLeaderElectionVote: candidate đang là Leader -> GROUP_VOTE_INVALID_CANDIDATE")
+    void openLeaderElectionVote_CandidateAlreadyLeader_ThrowsError() {
+        when(matchingMemberRepository.findByGroupIdAndUserId(groupId, memberUser.getUserId()))
+                .thenReturn(Optional.of(memberEntity));
+        when(groupVoteRepository.existsByMatchingGroup_MatchingGroupIdAndVoteTypeAndStatusAndIsDeletedFalse(
+                groupId, VoteType.LEADER_ELECTION, VoteStatus.OPEN)).thenReturn(false);
+        when(matchingMemberRepository.findMemberByIdAndGroupId(memberEntity.getMatchingMemberId(), groupId))
+                .thenReturn(Optional.of(memberEntity));
+        when(matchingMemberRepository.findMemberByIdAndGroupId(leaderMember.getMatchingMemberId(), groupId))
+                .thenReturn(Optional.of(leaderMember));
+
+        OpenLeaderElectionRequest request = sampleElectionRequest(
+                memberEntity.getMatchingMemberId(), leaderMember.getMatchingMemberId());
+
+        assertThatThrownBy(() -> groupVoteService.openLeaderElectionVote(groupId, request, memberUser.getUserId()))
+                .isInstanceOf(AppException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.GROUP_VOTE_INVALID_CANDIDATE);
+
+        verify(groupVoteRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("openLeaderElectionVote: candidate không thuộc group -> GROUP_VOTE_INVALID_CANDIDATE")
+    void openLeaderElectionVote_CandidateNotInGroup_ThrowsError() {
+        UUID foreignCandidateId = UUID.randomUUID();
+
+        when(matchingMemberRepository.findByGroupIdAndUserId(groupId, memberUser.getUserId()))
+                .thenReturn(Optional.of(memberEntity));
+        when(groupVoteRepository.existsByMatchingGroup_MatchingGroupIdAndVoteTypeAndStatusAndIsDeletedFalse(
+                groupId, VoteType.LEADER_ELECTION, VoteStatus.OPEN)).thenReturn(false);
+        when(matchingMemberRepository.findMemberByIdAndGroupId(memberEntity.getMatchingMemberId(), groupId))
+                .thenReturn(Optional.of(memberEntity));
+        when(matchingMemberRepository.findMemberByIdAndGroupId(foreignCandidateId, groupId))
+                .thenReturn(Optional.empty());
+
+        OpenLeaderElectionRequest request = sampleElectionRequest(
+                memberEntity.getMatchingMemberId(), foreignCandidateId);
+
+        assertThatThrownBy(() -> groupVoteService.openLeaderElectionVote(groupId, request, memberUser.getUserId()))
+                .isInstanceOf(AppException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.GROUP_VOTE_INVALID_CANDIDATE);
+    }
+
+    @Test
+    @DisplayName("closeVote trên LEADER_ELECTION có winner: đổi Leader cũ -> MEMBER, winner -> LEADER atomically")
+    void closeVote_ElectionWithWinner_SwapsLeaderAtomically() {
+        GroupVote vote = newOpenVote(3, LocalDateTime.now().minusMinutes(1));
+        vote.setVoteType(VoteType.LEADER_ELECTION);
+        GroupVoteOption winnerOption = newOption(vote, 1, memberEntity.getUser().getFullName());
+        winnerOption.setCandidateMatchingMember(memberEntity);
+        GroupVoteOption loserOption = newOption(vote, 2, otherMemberEntity.getUser().getFullName());
+        loserOption.setCandidateMatchingMember(otherMemberEntity);
+
+        when(matchingMemberRepository.findByGroupIdAndUserId(groupId, leaderUser.getUserId()))
+                .thenReturn(Optional.of(leaderMember));
+        when(groupVoteRepository.findByIdForUpdate(vote.getGroupVoteId())).thenReturn(Optional.of(vote));
+        when(groupVoteBallotRepository.countByGroupVote(vote)).thenReturn(2L);
+        when(groupVoteOptionRepository.findByGroupVote_GroupVoteIdAndIsDeletedFalseOrderByOptionOrderAsc(vote.getGroupVoteId()))
+                .thenReturn(List.of(winnerOption, loserOption));
+        when(groupVoteBallotRepository.countByGroupVoteAndGroupVoteOption(vote, winnerOption)).thenReturn(2L);
+        when(groupVoteBallotRepository.countByGroupVoteAndGroupVoteOption(vote, loserOption)).thenReturn(0L);
+        when(groupVoteRepository.save(vote)).thenReturn(vote);
+        when(matchingMemberRepository.findActiveMembers(groupId, JoinStatus.ACCEPTED))
+                .thenReturn(List.of(leaderMember, memberEntity, otherMemberEntity));
+
+        GroupVoteResponse response = groupVoteService.closeVote(groupId, vote.getGroupVoteId(), leaderUser.getUserId());
+
+        assertThat(response.getWinningOptionId()).isEqualTo(winnerOption.getGroupVoteOptionId());
+        assertThat(memberEntity.getRole()).isEqualTo(MatchingRole.LEADER);
+        assertThat(leaderMember.getRole()).isEqualTo(MatchingRole.MEMBER);
+        verify(matchingMemberRepository).save(leaderMember);
+        verify(matchingMemberRepository).save(memberEntity);
+    }
+
+    @Test
+    @DisplayName("closeVote trên LEADER_ELECTION đồng hạng: không đổi Leader")
+    void closeVote_ElectionTie_NoLeaderChange() {
+        GroupVote vote = newOpenVote(2, LocalDateTime.now().minusMinutes(1));
+        vote.setVoteType(VoteType.LEADER_ELECTION);
+        GroupVoteOption optionA = newOption(vote, 1, memberEntity.getUser().getFullName());
+        optionA.setCandidateMatchingMember(memberEntity);
+        GroupVoteOption optionB = newOption(vote, 2, otherMemberEntity.getUser().getFullName());
+        optionB.setCandidateMatchingMember(otherMemberEntity);
+
+        when(matchingMemberRepository.findByGroupIdAndUserId(groupId, leaderUser.getUserId()))
+                .thenReturn(Optional.of(leaderMember));
+        when(groupVoteRepository.findByIdForUpdate(vote.getGroupVoteId())).thenReturn(Optional.of(vote));
+        when(groupVoteBallotRepository.countByGroupVote(vote)).thenReturn(2L);
+        when(groupVoteOptionRepository.findByGroupVote_GroupVoteIdAndIsDeletedFalseOrderByOptionOrderAsc(vote.getGroupVoteId()))
+                .thenReturn(List.of(optionA, optionB));
+        when(groupVoteBallotRepository.countByGroupVoteAndGroupVoteOption(vote, optionA)).thenReturn(1L);
+        when(groupVoteBallotRepository.countByGroupVoteAndGroupVoteOption(vote, optionB)).thenReturn(1L);
+        when(groupVoteRepository.save(vote)).thenReturn(vote);
+        when(matchingMemberRepository.findActiveMembers(groupId, JoinStatus.ACCEPTED))
+                .thenReturn(List.of(leaderMember, memberEntity, otherMemberEntity));
+
+        GroupVoteResponse response = groupVoteService.closeVote(groupId, vote.getGroupVoteId(), leaderUser.getUserId());
+
+        assertThat(response.getWinningOptionId()).isNull();
+        assertThat(leaderMember.getRole()).isEqualTo(MatchingRole.LEADER);
+        assertThat(memberEntity.getRole()).isEqualTo(MatchingRole.MEMBER);
+        verify(matchingMemberRepository, never()).save(memberEntity);
     }
 }
