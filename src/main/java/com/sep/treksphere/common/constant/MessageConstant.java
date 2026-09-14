@@ -301,7 +301,7 @@ public class MessageConstant {
     public static final String UNAUTHORIZED_REJECT_MEMBER = "Bạn không có quyền từ chối thành viên cho nhóm ghép này";
     public static final String MEMBER_ALREADY_REJECTED = "Thành viên này đã bị từ chối trước đó";
     public static final String MATCHING_MEMBER_REJECTED_SUCCESS = "Từ chối thành viên tham gia nhóm ghép thành công";
-    public static final String OWNER_CANNOT_LEAVE = "Trưởng nhóm không thể rời nhóm ghép, hãy sử dụng tính năng giải tán nhóm";
+    public static final String OWNER_CANNOT_LEAVE = "Trưởng nhóm không thể rời nhóm ghép — hãy mở bầu Trưởng nhóm mới để chuyển giao, hoặc mở biểu quyết giải tán nhóm";
     public static final String NOT_A_MEMBER = "Bạn không phải là thành viên hoạt động của nhóm ghép này";
     public static final String MATCHING_JOIN_REQUEST_CANCELLED_SUCCESS = "Hủy yêu cầu tham gia nhóm ghép thành công";
     public static final String MATCHING_MEMBER_LEFT_SUCCESS = "Rời khỏi nhóm ghép bạn đồng hành thành công";
