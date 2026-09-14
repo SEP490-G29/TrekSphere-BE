@@ -1,5 +1,7 @@
 package com.sep.treksphere.matching.dto.response;
 
+import com.sep.treksphere.matching.entity.SosAlert;
+import com.sep.treksphere.matching.enums.IncidentType;
 import com.sep.treksphere.matching.enums.SosAlertStatus;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -10,6 +12,7 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.UUID;
 
+
 @Data
 @Builder
 @NoArgsConstructor
@@ -17,16 +20,36 @@ import java.util.UUID;
 public class SosAlertResponse {
 
     private UUID sosAlertId;
-    private UUID tourSessionId;
-    private String tourName;
+    private UUID groupTripId;
+    private UUID matchingGroupId;
     private UUID senderId;
     private String senderName;
-    private String senderRole;
+    private IncidentType incidentTypeCode;
     private BigDecimal latitude;
     private BigDecimal longitude;
     private String message;
     private SosAlertStatus status;
-    private LocalDateTime createdAt;
     private UUID resolvedById;
     private String resolvedByName;
+    private LocalDateTime createdAt;
+    private LocalDateTime updatedAt;
+
+    public static SosAlertResponse from(SosAlert alert) {
+        return SosAlertResponse.builder()
+                .sosAlertId(alert.getSosAlertId())
+                .groupTripId(alert.getGroupTrip().getGroupTripId())
+                .matchingGroupId(alert.getGroupTrip().getMatchingGroup().getMatchingGroupId())
+                .senderId(alert.getSender().getUserId())
+                .senderName(alert.getSender().getFullName())
+                .incidentTypeCode(alert.getIncidentTypeCode())
+                .latitude(alert.getLatitude())
+                .longitude(alert.getLongitude())
+                .message(alert.getMessage())
+                .status(alert.getStatus())
+                .resolvedById(alert.getResolvedBy() != null ? alert.getResolvedBy().getUserId() : null)
+                .resolvedByName(alert.getResolvedBy() != null ? alert.getResolvedBy().getFullName() : null)
+                .createdAt(alert.getCreatedAt())
+                .updatedAt(alert.getUpdatedAt())
+                .build();
+    }
 }
