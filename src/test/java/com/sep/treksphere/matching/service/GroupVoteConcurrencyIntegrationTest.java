@@ -4,16 +4,19 @@ import com.sep.treksphere.common.config.AuditConfig;
 import com.sep.treksphere.common.exception.AppException;
 import com.sep.treksphere.matching.dto.request.CastBallotRequest;
 import com.sep.treksphere.matching.dto.response.GroupVoteResponse;
+import com.sep.treksphere.matching.entity.GroupTrip;
 import com.sep.treksphere.matching.entity.GroupVote;
 import com.sep.treksphere.matching.entity.GroupVoteBallot;
 import com.sep.treksphere.matching.entity.GroupVoteOption;
 import com.sep.treksphere.matching.entity.MatchingGroup;
 import com.sep.treksphere.matching.entity.MatchingMember;
+import com.sep.treksphere.matching.enums.GroupTripStatus;
 import com.sep.treksphere.matching.enums.JoinStatus;
 import com.sep.treksphere.matching.enums.MatchingGroupStatus;
 import com.sep.treksphere.matching.enums.MatchingRole;
 import com.sep.treksphere.matching.enums.VoteStatus;
 import com.sep.treksphere.matching.enums.VoteType;
+import com.sep.treksphere.matching.repository.GroupTripRepository;
 import com.sep.treksphere.matching.repository.GroupVoteBallotRepository;
 import com.sep.treksphere.matching.repository.GroupVoteOptionRepository;
 import com.sep.treksphere.matching.repository.GroupVoteRepository;
@@ -74,6 +77,9 @@ class GroupVoteConcurrencyIntegrationTest {
 
     @Autowired
     private MatchingGroupRepository matchingGroupRepository;
+
+    @Autowired
+    private GroupTripRepository groupTripRepository;
 
     @Autowired
     private MatchingMemberRepository matchingMemberRepository;
@@ -262,6 +268,98 @@ class GroupVoteConcurrencyIntegrationTest {
         MatchingMember refreshedCandidate = matchingMemberRepository.findById(candidateMember.getMatchingMemberId())
                 .orElseThrow();
         assertThat(refreshedCandidate.getRole()).isEqualTo(MatchingRole.LEADER);
+    }
+
+    @Test
+    @DisplayName("Concurrent closeVote trên GROUP_DISSOLUTION (\"Đồng ý\" thắng): 2 request đóng đồng thời -> group chỉ CANCELLED đúng 1 lần, trip PLANNED bị huỷ theo")
+    void closeVote_ConcurrentCallsOnDissolutionAgreeWins_CancelsGroupExactlyOnce() throws InterruptedException {
+        User leader = createUser("leader-dissolution-concurrent");
+        User member = createUser("member-dissolution-concurrent");
+        MatchingGroup group = createGroup(leader);
+        MatchingMember leaderMember = createMember(group, leader, MatchingRole.LEADER);
+        MatchingMember memberEntity = createMember(group, member, MatchingRole.MEMBER);
+
+        GroupTrip trip = new GroupTrip();
+        trip.setMatchingGroup(group);
+        trip.setStatus(GroupTripStatus.PLANNED);
+        trip.setScheduledStartAt(LocalDateTime.now().plusDays(3));
+        GroupTrip savedTrip = groupTripRepository.saveAndFlush(trip);
+
+        GroupVote vote = new GroupVote();
+        vote.setMatchingGroup(group);
+        vote.setVoteType(VoteType.GROUP_DISSOLUTION);
+        vote.setTitle("Biểu quyết giải tán nhóm");
+        vote.setReason("Test concurrency dissolution");
+        vote.setCreatedByMember(leaderMember);
+        vote.setStatus(VoteStatus.OPEN);
+        vote.setOpensAt(LocalDateTime.now());
+        vote.setClosesAt(LocalDateTime.now().minusMinutes(1)); // đã quá hạn -> đủ điều kiện close
+        vote.setEligibleVoterCount(2);
+        GroupVote savedVote = groupVoteRepository.saveAndFlush(vote);
+
+        GroupVoteOption agreeOption = new GroupVoteOption();
+        agreeOption.setGroupVote(savedVote);
+        agreeOption.setOptionOrder(1);
+        agreeOption.setOptionLabel("Đồng ý");
+        GroupVoteOption savedAgree = groupVoteOptionRepository.saveAndFlush(agreeOption);
+
+        GroupVoteOption disagreeOption = new GroupVoteOption();
+        disagreeOption.setGroupVote(savedVote);
+        disagreeOption.setOptionOrder(2);
+        disagreeOption.setOptionLabel("Không đồng ý");
+        groupVoteOptionRepository.saveAndFlush(disagreeOption);
+
+        GroupVoteBallot leaderBallot = new GroupVoteBallot();
+        leaderBallot.setGroupVote(savedVote);
+        leaderBallot.setGroupVoteOption(savedAgree);
+        leaderBallot.setVoterMatchingMember(leaderMember);
+        groupVoteBallotRepository.saveAndFlush(leaderBallot);
+
+        GroupVoteBallot memberBallot = new GroupVoteBallot();
+        memberBallot.setGroupVote(savedVote);
+        memberBallot.setGroupVoteOption(savedAgree);
+        memberBallot.setVoterMatchingMember(memberEntity);
+        groupVoteBallotRepository.saveAndFlush(memberBallot);
+
+        int threadCount = 2;
+        ExecutorService executor = Executors.newFixedThreadPool(threadCount);
+        CountDownLatch readyLatch = new CountDownLatch(threadCount);
+        CountDownLatch startLatch = new CountDownLatch(1);
+        AtomicInteger successCount = new AtomicInteger();
+        AtomicInteger failureCount = new AtomicInteger();
+
+        Runnable closeTask = () -> {
+            readyLatch.countDown();
+            try {
+                startLatch.await();
+                groupVoteService.closeVote(group.getMatchingGroupId(), savedVote.getGroupVoteId(), leader.getUserId());
+                successCount.incrementAndGet();
+            } catch (AppException | InterruptedException ex) {
+                failureCount.incrementAndGet();
+            }
+        };
+
+        executor.submit(closeTask);
+        executor.submit(closeTask);
+        readyLatch.await(5, TimeUnit.SECONDS);
+        startLatch.countDown();
+        executor.shutdown();
+        executor.awaitTermination(10, TimeUnit.SECONDS);
+
+        // closeVote là idempotent nên cả 2 request đều có thể "thành công" — bất biến thực sự
+        // cần chứng minh là trạng thái DB bên dưới chỉ bị áp side effect đúng 1 lần.
+        assertThat(successCount.get() + failureCount.get()).isEqualTo(2);
+
+        GroupVote finalVote = groupVoteRepository.findById(savedVote.getGroupVoteId()).orElseThrow();
+        assertThat(finalVote.getStatus()).isEqualTo(VoteStatus.CLOSED);
+        assertThat(finalVote.getWinningOption()).isNotNull();
+        assertThat(finalVote.getWinningOption().getGroupVoteOptionId()).isEqualTo(savedAgree.getGroupVoteOptionId());
+
+        MatchingGroup finalGroup = matchingGroupRepository.findById(group.getMatchingGroupId()).orElseThrow();
+        assertThat(finalGroup.getStatus()).isEqualTo(MatchingGroupStatus.CANCELLED);
+
+        GroupTrip finalTrip = groupTripRepository.findById(savedTrip.getGroupTripId()).orElseThrow();
+        assertThat(finalTrip.getStatus()).isEqualTo(GroupTripStatus.CANCELLED);
     }
 
     private User createUser(String label) {

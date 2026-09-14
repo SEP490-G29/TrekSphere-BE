@@ -58,8 +58,6 @@ public interface MatchingGroupService {
 
     MatchingMemberResponse removeMember(UUID groupId, UUID memberId, CustomUserDetails userDetails);
 
-    void disbandMatchingGroup(UUID groupId, CustomUserDetails userDetails);
-
     MatchingGroupDetailResponse updateMatchingGroup(
             UUID groupId,
             MatchingGroupUpdateRequest request,

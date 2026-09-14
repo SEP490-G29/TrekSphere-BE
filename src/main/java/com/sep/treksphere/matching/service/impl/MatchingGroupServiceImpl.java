@@ -801,57 +801,6 @@ public class MatchingGroupServiceImpl implements MatchingGroupService {
                 canReopen ? "reopened (OPEN)" : "closed (CLOSED)", matchingGroup.getMatchingGroupId());
     }
 
-    @Override
-    @Transactional
-    public void disbandMatchingGroup(UUID groupId, CustomUserDetails userDetails) {
-        User currentUser = userDetails.getUser();
-        log.info("Request to disband matching group: groupId={}, userId={}", groupId, currentUser.getUserId());
-
-        MatchingGroup matchingGroup = matchingGroupRepository.findByIdForUpdate(groupId)
-                .orElseThrow(() -> new AppException(ErrorCode.MATCHING_GROUP_NOT_FOUND));
-
-        validateGroupOwner(matchingGroup, currentUser, ErrorCode.UNAUTHORIZED_DISBAND_GROUP);
-
-        if (matchingGroup.getStatus() != MatchingGroupStatus.OPEN
-                && matchingGroup.getStatus() != MatchingGroupStatus.FULL) {
-            throw new AppException(ErrorCode.MATCHING_GROUP_CANNOT_BE_DISBANDED);
-        }
-
-        List<UUID> memberIdsToNotify = matchingGroup.getMembers() == null
-                ? List.of()
-                : matchingGroup.getMembers().stream()
-                        .filter(member -> member.getStatus() == JoinStatus.ACCEPTED
-                                && !Boolean.TRUE.equals(member.getIsDeleted())
-                                && !member.getUser().getUserId().equals(currentUser.getUserId()))
-                        .map(member -> member.getUser().getUserId())
-                        .toList();
-
-        LocalDateTime deletedAt = LocalDateTime.now();
-        String deletedBy = currentUser.getUserId().toString();
-        matchingGroup.setIsDeleted(true);
-        matchingGroup.setStatus(MatchingGroupStatus.CLOSED);
-        matchingGroup.setDeletedAt(deletedAt);
-        matchingGroup.setDeletedBy(deletedBy);
-
-        if (matchingGroup.getMembers() != null) {
-            matchingGroup.getMembers().forEach(member -> {
-                member.setIsDeleted(true);
-                member.setDeletedAt(deletedAt);
-                member.setDeletedBy(deletedBy);
-            });
-        }
-
-        matchingGroupRepository.save(matchingGroup);
-        log.info("Matching group disbanded successfully: groupId={}", groupId);
-
-        notificationService.notify(
-                memberIdsToNotify,
-                NotificationEventType.GROUP_DISBANDED,
-                ReferenceType.MATCHING_GROUP, matchingGroup.getMatchingGroupId(),
-                "/trekker/my-groups",
-                matchingGroup.getGroupName());
-    }
-
     private void validateGroupOpenAndActive(MatchingGroup matchingGroup) {
         Tour tour = matchingGroup.getTour();
         if (tour != null && (Boolean.TRUE.equals(tour.getIsDeleted())
@@ -872,12 +821,6 @@ public class MatchingGroupServiceImpl implements MatchingGroupService {
 
         if (!matchingGroup.getTargetDate().isAfter(LocalDate.now())) {
             throw new AppException(ErrorCode.MATCHING_TARGET_DATE_PASSED);
-        }
-    }
-
-    private void validateGroupOwner(MatchingGroup matchingGroup, User currentUser, ErrorCode errorCode) {
-        if (!matchingGroup.getOwner().getUserId().equals(currentUser.getUserId())) {
-            throw new AppException(errorCode);
         }
     }
 

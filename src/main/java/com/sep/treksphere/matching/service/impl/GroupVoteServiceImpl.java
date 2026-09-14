@@ -4,20 +4,27 @@ import com.sep.treksphere.common.exception.AppException;
 import com.sep.treksphere.common.exception.ErrorCode;
 import com.sep.treksphere.matching.dto.request.CastBallotRequest;
 import com.sep.treksphere.matching.dto.request.CreateGroupVoteRequest;
+import com.sep.treksphere.matching.dto.request.OpenDissolutionVoteRequest;
 import com.sep.treksphere.matching.dto.request.OpenLeaderElectionRequest;
 import com.sep.treksphere.matching.dto.response.GroupVoteOptionResponse;
 import com.sep.treksphere.matching.dto.response.GroupVoteResponse;
+import com.sep.treksphere.matching.entity.GroupTrip;
 import com.sep.treksphere.matching.entity.GroupVote;
 import com.sep.treksphere.matching.entity.GroupVoteBallot;
 import com.sep.treksphere.matching.entity.GroupVoteOption;
+import com.sep.treksphere.matching.entity.MatchingGroup;
 import com.sep.treksphere.matching.entity.MatchingMember;
+import com.sep.treksphere.matching.enums.GroupTripStatus;
 import com.sep.treksphere.matching.enums.JoinStatus;
+import com.sep.treksphere.matching.enums.MatchingGroupStatus;
 import com.sep.treksphere.matching.enums.MatchingRole;
 import com.sep.treksphere.matching.enums.VoteStatus;
 import com.sep.treksphere.matching.enums.VoteType;
+import com.sep.treksphere.matching.repository.GroupTripRepository;
 import com.sep.treksphere.matching.repository.GroupVoteBallotRepository;
 import com.sep.treksphere.matching.repository.GroupVoteOptionRepository;
 import com.sep.treksphere.matching.repository.GroupVoteRepository;
+import com.sep.treksphere.matching.repository.MatchingGroupRepository;
 import com.sep.treksphere.matching.repository.MatchingMemberRepository;
 import com.sep.treksphere.matching.service.GroupVoteService;
 import com.sep.treksphere.notification.NotificationEventType;
@@ -49,8 +56,14 @@ public class GroupVoteServiceImpl implements GroupVoteService {
     private final GroupVoteOptionRepository groupVoteOptionRepository;
     private final GroupVoteBallotRepository groupVoteBallotRepository;
     private final MatchingMemberRepository matchingMemberRepository;
+    private final MatchingGroupRepository matchingGroupRepository;
+    private final GroupTripRepository groupTripRepository;
     private final NotificationService notificationService;
     private final SimpMessagingTemplate messagingTemplate;
+
+    private static final String DISSOLUTION_AGREE_LABEL = "Đồng ý";
+    private static final String DISSOLUTION_DISAGREE_LABEL = "Không đồng ý";
+    private static final int DISSOLUTION_AGREE_ORDER = 1;
 
     @Override
     @Transactional
@@ -158,6 +171,61 @@ public class GroupVoteServiceImpl implements GroupVoteService {
             option.setCandidateMatchingMember(candidate);
             options.add(groupVoteOptionRepository.save(option));
         }
+
+        notificationService.notify(activeMemberUserIdsExcept(groupId, currentUserId),
+                NotificationEventType.GROUP_VOTE_OPENED,
+                ReferenceType.GROUP_VOTE, savedVote.getGroupVoteId(),
+                "/trekker/my-groups/" + groupId,
+                opener.getUser().getFullName(), savedVote.getTitle());
+
+        GroupVoteResponse response = toResponse(savedVote, options, currentUserId);
+        broadcastAfterCommit(groupId, response);
+        return response;
+    }
+
+    @Override
+    @Transactional
+    public GroupVoteResponse openDissolutionVote(
+            UUID groupId, OpenDissolutionVoteRequest request, UUID currentUserId) {
+        MatchingMember opener = requireActiveMember(groupId, currentUserId);
+
+        if (groupVoteRepository.existsByMatchingGroup_MatchingGroupIdAndVoteTypeAndStatusAndIsDeletedFalse(
+                groupId, VoteType.GROUP_DISSOLUTION, VoteStatus.OPEN)) {
+            throw new AppException(ErrorCode.GROUP_VOTE_DUPLICATE_OPEN_TYPE);
+        }
+
+        GroupVote vote = new GroupVote();
+        vote.setMatchingGroup(opener.getMatchingGroup());
+        vote.setVoteType(VoteType.GROUP_DISSOLUTION);
+        vote.setTitle("Biểu quyết giải tán nhóm");
+        vote.setReason(request.getReason());
+        vote.setCreatedByMember(opener);
+        vote.setStatus(VoteStatus.OPEN);
+        vote.setOpensAt(LocalDateTime.now());
+        vote.setClosesAt(request.getClosesAt());
+        vote.setEligibleVoterCount(Math.toIntExact(
+                matchingMemberRepository.countActiveMembersByGroupIdAndStatus(groupId, JoinStatus.ACCEPTED)));
+
+        GroupVote savedVote;
+        try {
+            savedVote = groupVoteRepository.save(vote);
+        } catch (DataIntegrityViolationException e) {
+            throw new AppException(ErrorCode.GROUP_VOTE_DUPLICATE_OPEN_TYPE);
+        }
+
+        GroupVoteOption agreeOption = new GroupVoteOption();
+        agreeOption.setGroupVote(savedVote);
+        agreeOption.setOptionOrder(DISSOLUTION_AGREE_ORDER);
+        agreeOption.setOptionLabel(DISSOLUTION_AGREE_LABEL);
+        GroupVoteOption savedAgree = groupVoteOptionRepository.save(agreeOption);
+
+        GroupVoteOption disagreeOption = new GroupVoteOption();
+        disagreeOption.setGroupVote(savedVote);
+        disagreeOption.setOptionOrder(DISSOLUTION_AGREE_ORDER + 1);
+        disagreeOption.setOptionLabel(DISSOLUTION_DISAGREE_LABEL);
+        GroupVoteOption savedDisagree = groupVoteOptionRepository.save(disagreeOption);
+
+        List<GroupVoteOption> options = List.of(savedAgree, savedDisagree);
 
         notificationService.notify(activeMemberUserIdsExcept(groupId, currentUserId),
                 NotificationEventType.GROUP_VOTE_OPENED,
@@ -313,6 +381,15 @@ public class GroupVoteServiceImpl implements GroupVoteService {
                     winner.getCandidateMatchingMember().getUser().getFullName());
         }
 
+        if (winner != null && savedVote.getVoteType() == VoteType.GROUP_DISSOLUTION
+                && winner.getOptionOrder() == DISSOLUTION_AGREE_ORDER) {
+            notificationService.notify(activeMemberUserIdsExcept(groupId, null),
+                    NotificationEventType.MATCHING_GROUP_CANCELLED,
+                    ReferenceType.MATCHING_GROUP, groupId,
+                    "/trekker/my-groups/" + groupId,
+                    savedVote.getMatchingGroup().getGroupName());
+        }
+
         GroupVoteResponse response = toResponse(savedVote, options, actorUserId);
         broadcastAfterCommit(groupId, response);
         return response;
@@ -331,8 +408,8 @@ public class GroupVoteServiceImpl implements GroupVoteService {
 
     /**
      * OTHER không có side effect (chỉ lưu kết quả — đúng phạm vi P5-S4). LEADER_ELECTION đổi
-     * Leader atomic (P4-S3). GROUP_DISSOLUTION được cài đặt ở P4-S4; không thể tới nhánh đó
-     * trước khi {@code openDissolutionVote} tồn tại.
+     * Leader atomic (P4-S3). GROUP_DISSOLUTION huỷ nhóm + trip PLANNED atomic khi "Đồng ý"
+     * thắng (P4-S4); nếu "Không đồng ý" thắng thì không side effect, nhóm hoạt động bình thường.
      */
     private void applyWinnerSideEffect(GroupVote vote, GroupVoteOption winner) {
         switch (vote.getVoteType()) {
@@ -340,8 +417,7 @@ public class GroupVoteServiceImpl implements GroupVoteService {
                 // không side effect
             }
             case LEADER_ELECTION -> applyLeaderElectionSideEffect(vote, winner);
-            case GROUP_DISSOLUTION -> throw new IllegalStateException(
-                    "Side effect cho GROUP_DISSOLUTION chưa được cài đặt (xem P4-S4)");
+            case GROUP_DISSOLUTION -> applyDissolutionSideEffect(vote, winner);
         }
     }
 
@@ -364,6 +440,29 @@ public class GroupVoteServiceImpl implements GroupVoteService {
 
         newLeader.setRole(MatchingRole.LEADER);
         matchingMemberRepository.save(newLeader);
+    }
+
+    /**
+     * Chỉ áp dụng khi option order 1 ("Đồng ý") thắng — theo đúng thứ tự cố định do
+     * {@code openDissolutionVote} tự dựng, không so label. Chuyển group sang CANCELLED và
+     * huỷ GroupTrip đang PLANNED (nếu có) trong cùng transaction đang lock `vote`. "Không đồng
+     * ý" thắng hoặc tie/no-ballot đều không side effect (nhóm tiếp tục hoạt động bình thường).
+     */
+    private void applyDissolutionSideEffect(GroupVote vote, GroupVoteOption winner) {
+        if (winner.getOptionOrder() != DISSOLUTION_AGREE_ORDER) {
+            return;
+        }
+
+        MatchingGroup matchingGroup = vote.getMatchingGroup();
+        matchingGroup.setStatus(MatchingGroupStatus.CANCELLED);
+        matchingGroupRepository.save(matchingGroup);
+
+        groupTripRepository.findByMatchingGroup_MatchingGroupId(matchingGroup.getMatchingGroupId())
+                .filter(trip -> trip.getStatus() == GroupTripStatus.PLANNED)
+                .ifPresent(trip -> {
+                    trip.setStatus(GroupTripStatus.CANCELLED);
+                    groupTripRepository.save(trip);
+                });
     }
 
     private boolean isDeadlineReached(GroupVote vote) {

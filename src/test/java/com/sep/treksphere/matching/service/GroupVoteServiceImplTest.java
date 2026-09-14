@@ -4,20 +4,26 @@ import com.sep.treksphere.common.exception.AppException;
 import com.sep.treksphere.common.exception.ErrorCode;
 import com.sep.treksphere.matching.dto.request.CastBallotRequest;
 import com.sep.treksphere.matching.dto.request.CreateGroupVoteRequest;
+import com.sep.treksphere.matching.dto.request.OpenDissolutionVoteRequest;
 import com.sep.treksphere.matching.dto.request.OpenLeaderElectionRequest;
 import com.sep.treksphere.matching.dto.response.GroupVoteResponse;
+import com.sep.treksphere.matching.entity.GroupTrip;
 import com.sep.treksphere.matching.entity.GroupVote;
 import com.sep.treksphere.matching.entity.GroupVoteBallot;
 import com.sep.treksphere.matching.entity.GroupVoteOption;
 import com.sep.treksphere.matching.entity.MatchingGroup;
 import com.sep.treksphere.matching.entity.MatchingMember;
+import com.sep.treksphere.matching.enums.GroupTripStatus;
 import com.sep.treksphere.matching.enums.JoinStatus;
+import com.sep.treksphere.matching.enums.MatchingGroupStatus;
 import com.sep.treksphere.matching.enums.MatchingRole;
 import com.sep.treksphere.matching.enums.VoteStatus;
 import com.sep.treksphere.matching.enums.VoteType;
+import com.sep.treksphere.matching.repository.GroupTripRepository;
 import com.sep.treksphere.matching.repository.GroupVoteBallotRepository;
 import com.sep.treksphere.matching.repository.GroupVoteOptionRepository;
 import com.sep.treksphere.matching.repository.GroupVoteRepository;
+import com.sep.treksphere.matching.repository.MatchingGroupRepository;
 import com.sep.treksphere.matching.repository.MatchingMemberRepository;
 import com.sep.treksphere.matching.service.impl.GroupVoteServiceImpl;
 import com.sep.treksphere.notification.NotificationService;
@@ -59,6 +65,12 @@ class GroupVoteServiceImplTest {
 
     @Mock
     private MatchingMemberRepository matchingMemberRepository;
+
+    @Mock
+    private MatchingGroupRepository matchingGroupRepository;
+
+    @Mock
+    private GroupTripRepository groupTripRepository;
 
     @Mock
     private NotificationService notificationService;
@@ -593,5 +605,152 @@ class GroupVoteServiceImplTest {
         assertThat(leaderMember.getRole()).isEqualTo(MatchingRole.LEADER);
         assertThat(memberEntity.getRole()).isEqualTo(MatchingRole.MEMBER);
         verify(matchingMemberRepository, never()).save(memberEntity);
+    }
+
+    private OpenDissolutionVoteRequest sampleDissolutionRequest() {
+        return OpenDissolutionVoteRequest.builder()
+                .reason("Nhóm không còn đủ người để tiếp tục chuyến đi")
+                .closesAt(LocalDateTime.now().plusDays(1))
+                .build();
+    }
+
+    @Test
+    @DisplayName("openDissolutionVote: happy path tạo vote GROUP_DISSOLUTION với đúng 2 option cố định thứ tự")
+    void openDissolutionVote_HappyPath_CreatesFixedTwoOptions() {
+        when(matchingMemberRepository.findByGroupIdAndUserId(groupId, leaderUser.getUserId()))
+                .thenReturn(Optional.of(leaderMember));
+        when(groupVoteRepository.existsByMatchingGroup_MatchingGroupIdAndVoteTypeAndStatusAndIsDeletedFalse(
+                groupId, VoteType.GROUP_DISSOLUTION, VoteStatus.OPEN)).thenReturn(false);
+        when(matchingMemberRepository.countActiveMembersByGroupIdAndStatus(groupId, JoinStatus.ACCEPTED))
+                .thenReturn(3L);
+
+        GroupVote savedVote = newOpenVote(3, LocalDateTime.now().plusDays(1));
+        savedVote.setVoteType(VoteType.GROUP_DISSOLUTION);
+        when(groupVoteRepository.save(any(GroupVote.class))).thenReturn(savedVote);
+        when(groupVoteOptionRepository.save(any(GroupVoteOption.class)))
+                .thenAnswer(inv -> {
+                    GroupVoteOption option = inv.getArgument(0);
+                    option.setGroupVoteOptionId(UUID.randomUUID());
+                    return option;
+                });
+        when(matchingMemberRepository.findActiveMembers(groupId, JoinStatus.ACCEPTED))
+                .thenReturn(List.of(leaderMember, memberEntity, otherMemberEntity));
+
+        GroupVoteResponse response =
+                groupVoteService.openDissolutionVote(groupId, sampleDissolutionRequest(), leaderUser.getUserId());
+
+        assertThat(response.getVoteType()).isEqualTo(VoteType.GROUP_DISSOLUTION);
+        assertThat(response.getOptions()).hasSize(2);
+        assertThat(response.getOptions().get(0).getOptionOrder()).isEqualTo(1);
+        assertThat(response.getOptions().get(0).getOptionLabel()).isEqualTo("Đồng ý");
+        assertThat(response.getOptions().get(1).getOptionOrder()).isEqualTo(2);
+        assertThat(response.getOptions().get(1).getOptionLabel()).isEqualTo("Không đồng ý");
+    }
+
+    @Test
+    @DisplayName("openDissolutionVote: đã có vote GROUP_DISSOLUTION đang OPEN -> GROUP_VOTE_DUPLICATE_OPEN_TYPE")
+    void openDissolutionVote_DuplicateOpenType_ThrowsError() {
+        when(matchingMemberRepository.findByGroupIdAndUserId(groupId, leaderUser.getUserId()))
+                .thenReturn(Optional.of(leaderMember));
+        when(groupVoteRepository.existsByMatchingGroup_MatchingGroupIdAndVoteTypeAndStatusAndIsDeletedFalse(
+                groupId, VoteType.GROUP_DISSOLUTION, VoteStatus.OPEN)).thenReturn(true);
+
+        assertThatThrownBy(() -> groupVoteService.openDissolutionVote(groupId, sampleDissolutionRequest(), leaderUser.getUserId()))
+                .isInstanceOf(AppException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.GROUP_VOTE_DUPLICATE_OPEN_TYPE);
+
+        verify(groupVoteRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("closeVote trên GROUP_DISSOLUTION: \"Đồng ý\" thắng -> group CANCELLED, trip PLANNED bị huỷ")
+    void closeVote_DissolutionAgreeWins_CancelsGroupAndPlannedTrip() {
+        GroupVote vote = newOpenVote(2, LocalDateTime.now().minusMinutes(1));
+        vote.setVoteType(VoteType.GROUP_DISSOLUTION);
+        GroupVoteOption agreeOption = newOption(vote, 1, "Đồng ý");
+        GroupVoteOption disagreeOption = newOption(vote, 2, "Không đồng ý");
+
+        GroupTrip trip = new GroupTrip();
+        trip.setStatus(GroupTripStatus.PLANNED);
+
+        when(matchingMemberRepository.findByGroupIdAndUserId(groupId, leaderUser.getUserId()))
+                .thenReturn(Optional.of(leaderMember));
+        when(groupVoteRepository.findByIdForUpdate(vote.getGroupVoteId())).thenReturn(Optional.of(vote));
+        when(groupVoteBallotRepository.countByGroupVote(vote)).thenReturn(2L);
+        when(groupVoteOptionRepository.findByGroupVote_GroupVoteIdAndIsDeletedFalseOrderByOptionOrderAsc(vote.getGroupVoteId()))
+                .thenReturn(List.of(agreeOption, disagreeOption));
+        when(groupVoteBallotRepository.countByGroupVoteAndGroupVoteOption(vote, agreeOption)).thenReturn(2L);
+        when(groupVoteBallotRepository.countByGroupVoteAndGroupVoteOption(vote, disagreeOption)).thenReturn(0L);
+        when(groupVoteRepository.save(vote)).thenReturn(vote);
+        when(matchingGroupRepository.save(group)).thenReturn(group);
+        when(groupTripRepository.findByMatchingGroup_MatchingGroupId(groupId)).thenReturn(Optional.of(trip));
+        when(groupTripRepository.save(trip)).thenReturn(trip);
+        when(matchingMemberRepository.findActiveMembers(groupId, JoinStatus.ACCEPTED))
+                .thenReturn(List.of(leaderMember, memberEntity));
+
+        GroupVoteResponse response = groupVoteService.closeVote(groupId, vote.getGroupVoteId(), leaderUser.getUserId());
+
+        assertThat(response.getWinningOptionId()).isEqualTo(agreeOption.getGroupVoteOptionId());
+        assertThat(group.getStatus()).isEqualTo(MatchingGroupStatus.CANCELLED);
+        assertThat(trip.getStatus()).isEqualTo(GroupTripStatus.CANCELLED);
+        verify(matchingGroupRepository).save(group);
+        verify(groupTripRepository).save(trip);
+    }
+
+    @Test
+    @DisplayName("closeVote trên GROUP_DISSOLUTION: \"Không đồng ý\" thắng -> group không đổi, không side effect")
+    void closeVote_DissolutionDisagreeWins_NoSideEffect() {
+        GroupVote vote = newOpenVote(2, LocalDateTime.now().minusMinutes(1));
+        vote.setVoteType(VoteType.GROUP_DISSOLUTION);
+        group.setStatus(MatchingGroupStatus.OPEN);
+        GroupVoteOption agreeOption = newOption(vote, 1, "Đồng ý");
+        GroupVoteOption disagreeOption = newOption(vote, 2, "Không đồng ý");
+
+        when(matchingMemberRepository.findByGroupIdAndUserId(groupId, leaderUser.getUserId()))
+                .thenReturn(Optional.of(leaderMember));
+        when(groupVoteRepository.findByIdForUpdate(vote.getGroupVoteId())).thenReturn(Optional.of(vote));
+        when(groupVoteBallotRepository.countByGroupVote(vote)).thenReturn(2L);
+        when(groupVoteOptionRepository.findByGroupVote_GroupVoteIdAndIsDeletedFalseOrderByOptionOrderAsc(vote.getGroupVoteId()))
+                .thenReturn(List.of(agreeOption, disagreeOption));
+        when(groupVoteBallotRepository.countByGroupVoteAndGroupVoteOption(vote, agreeOption)).thenReturn(0L);
+        when(groupVoteBallotRepository.countByGroupVoteAndGroupVoteOption(vote, disagreeOption)).thenReturn(2L);
+        when(groupVoteRepository.save(vote)).thenReturn(vote);
+        when(matchingMemberRepository.findActiveMembers(groupId, JoinStatus.ACCEPTED))
+                .thenReturn(List.of(leaderMember, memberEntity));
+
+        GroupVoteResponse response = groupVoteService.closeVote(groupId, vote.getGroupVoteId(), leaderUser.getUserId());
+
+        assertThat(response.getWinningOptionId()).isEqualTo(disagreeOption.getGroupVoteOptionId());
+        assertThat(group.getStatus()).isEqualTo(MatchingGroupStatus.OPEN);
+        verify(matchingGroupRepository, never()).save(any());
+        verify(groupTripRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("closeVote trên GROUP_DISSOLUTION: đồng hạng -> không side effect, group không đổi")
+    void closeVote_DissolutionTie_NoSideEffect() {
+        GroupVote vote = newOpenVote(2, LocalDateTime.now().minusMinutes(1));
+        vote.setVoteType(VoteType.GROUP_DISSOLUTION);
+        group.setStatus(MatchingGroupStatus.OPEN);
+        GroupVoteOption agreeOption = newOption(vote, 1, "Đồng ý");
+        GroupVoteOption disagreeOption = newOption(vote, 2, "Không đồng ý");
+
+        when(matchingMemberRepository.findByGroupIdAndUserId(groupId, leaderUser.getUserId()))
+                .thenReturn(Optional.of(leaderMember));
+        when(groupVoteRepository.findByIdForUpdate(vote.getGroupVoteId())).thenReturn(Optional.of(vote));
+        when(groupVoteBallotRepository.countByGroupVote(vote)).thenReturn(2L);
+        when(groupVoteOptionRepository.findByGroupVote_GroupVoteIdAndIsDeletedFalseOrderByOptionOrderAsc(vote.getGroupVoteId()))
+                .thenReturn(List.of(agreeOption, disagreeOption));
+        when(groupVoteBallotRepository.countByGroupVoteAndGroupVoteOption(vote, agreeOption)).thenReturn(1L);
+        when(groupVoteBallotRepository.countByGroupVoteAndGroupVoteOption(vote, disagreeOption)).thenReturn(1L);
+        when(groupVoteRepository.save(vote)).thenReturn(vote);
+        when(matchingMemberRepository.findActiveMembers(groupId, JoinStatus.ACCEPTED))
+                .thenReturn(List.of(leaderMember, memberEntity));
+
+        GroupVoteResponse response = groupVoteService.closeVote(groupId, vote.getGroupVoteId(), leaderUser.getUserId());
+
+        assertThat(response.getWinningOptionId()).isNull();
+        assertThat(group.getStatus()).isEqualTo(MatchingGroupStatus.OPEN);
+        verify(matchingGroupRepository, never()).save(any());
     }
 }

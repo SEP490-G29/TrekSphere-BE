@@ -2,6 +2,7 @@ package com.sep.treksphere.matching.service;
 
 import com.sep.treksphere.matching.dto.request.CastBallotRequest;
 import com.sep.treksphere.matching.dto.request.CreateGroupVoteRequest;
+import com.sep.treksphere.matching.dto.request.OpenDissolutionVoteRequest;
 import com.sep.treksphere.matching.dto.request.OpenLeaderElectionRequest;
 import com.sep.treksphere.matching.dto.response.GroupVoteResponse;
 import com.sep.treksphere.matching.enums.VoteStatus;
@@ -21,6 +22,13 @@ public interface GroupVoteService {
      * effect atomic đổi Leader cũ -> MEMBER và winner -> LEADER; không đổi owner_id.
      */
     GroupVoteResponse openLeaderElectionVote(UUID groupId, OpenLeaderElectionRequest request, UUID currentUserId);
+
+    /**
+     * Mở biểu quyết giải tán nhóm (voteType = GROUP_DISSOLUTION), luôn tạo đúng 2 option cố
+     * định ("Đồng ý" order 1, "Không đồng ý" order 2). Khi đóng có winner là "Đồng ý", side
+     * effect atomic chuyển group sang CANCELLED và huỷ GroupTrip đang PLANNED (nếu có).
+     */
+    GroupVoteResponse openDissolutionVote(UUID groupId, OpenDissolutionVoteRequest request, UUID currentUserId);
 
     Page<GroupVoteResponse> getVotes(
             UUID groupId, VoteType voteType, VoteStatus status, Pageable pageable, UUID currentUserId);

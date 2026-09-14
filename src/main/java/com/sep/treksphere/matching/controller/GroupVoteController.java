@@ -6,6 +6,7 @@ import com.sep.treksphere.common.dto.PaginationResponse;
 import com.sep.treksphere.common.security.CustomUserDetails;
 import com.sep.treksphere.matching.dto.request.CastBallotRequest;
 import com.sep.treksphere.matching.dto.request.CreateGroupVoteRequest;
+import com.sep.treksphere.matching.dto.request.OpenDissolutionVoteRequest;
 import com.sep.treksphere.matching.dto.request.OpenLeaderElectionRequest;
 import com.sep.treksphere.matching.dto.response.GroupVoteResponse;
 import com.sep.treksphere.matching.enums.VoteStatus;
@@ -57,6 +58,19 @@ public class GroupVoteController {
             @AuthenticationPrincipal CustomUserDetails userDetails) {
         UUID currentUserId = userDetails.getUser().getUserId();
         GroupVoteResponse response = groupVoteService.openLeaderElectionVote(groupId, request, currentUserId);
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(ApiResponse.success(HttpStatus.CREATED, response, MessageConstant.GROUP_VOTE_CREATED_SUCCESS));
+    }
+
+    @PostMapping("/dissolution")
+    @PreAuthorize("hasAuthority('MATCHING_GROUP_VOTE')")
+    @Operation(summary = "Mở biểu quyết giải tán nhóm (voteType = GROUP_DISSOLUTION)")
+    public ResponseEntity<ApiResponse<GroupVoteResponse>> openDissolutionVote(
+            @PathVariable UUID groupId,
+            @Valid @RequestBody OpenDissolutionVoteRequest request,
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+        UUID currentUserId = userDetails.getUser().getUserId();
+        GroupVoteResponse response = groupVoteService.openDissolutionVote(groupId, request, currentUserId);
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(ApiResponse.success(HttpStatus.CREATED, response, MessageConstant.GROUP_VOTE_CREATED_SUCCESS));
     }

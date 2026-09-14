@@ -331,9 +331,6 @@ public class MessageConstant {
     public static final String GROUP_VOTE_CLOSED_SUCCESS = "Đóng bình chọn thành công";
     public static final String GROUP_VOTE_CANCELLED_SUCCESS = "Huỷ bình chọn thành công";
     public static final String GROUP_VOTES_FETCHED = "Lấy danh sách bình chọn thành công";
-    public static final String UNAUTHORIZED_DISBAND_GROUP = "Bạn không có quyền giải tán nhóm ghép này";
-    public static final String MATCHING_GROUP_DISBANDED_SUCCESS = "Giải tán nhóm ghép bạn đồng hành thành công";
-    public static final String MATCHING_GROUP_CANNOT_BE_DISBANDED = "Chỉ có thể giải tán nhóm ghép đang OPEN hoặc FULL";
     public static final String MATCHING_GROUP_TRIP_STARTED_SUCCESS = "Bắt đầu chuyến đi thành công";
     public static final String MATCHING_GROUP_TRIP_COMPLETED_SUCCESS = "Hoàn thành chuyến đi thành công";
 
