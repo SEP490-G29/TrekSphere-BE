@@ -761,10 +761,6 @@ public class MatchingGroupServiceImpl implements MatchingGroupService {
             throw new AppException(ErrorCode.MATCHING_GROUP_INVALID_STATE);
         }
 
-        if (matchingGroup.getOwner().getUserId().equals(currentUser.getUserId())) {
-            throw new AppException(ErrorCode.OWNER_CANNOT_LEAVE);
-        }
-
         MatchingMember member = matchingMemberRepository.findByMatchingGroupAndUser(matchingGroup, currentUser)
                 .orElseThrow(() -> new AppException(ErrorCode.NOT_A_MEMBER));
 
@@ -772,8 +768,8 @@ public class MatchingGroupServiceImpl implements MatchingGroupService {
             throw new AppException(ErrorCode.NOT_ACCEPTED_MATCHING_MEMBER);
         }
 
-
-        if (member.getRole() == MatchingRole.LEADER) {
+        if (member.getRole() == MatchingRole.LEADER
+                || (matchingGroup.getOwner() != null && matchingGroup.getOwner().getUserId().equals(currentUser.getUserId()))) {
             throw new AppException(ErrorCode.OWNER_CANNOT_LEAVE);
         }
 
@@ -785,24 +781,6 @@ public class MatchingGroupServiceImpl implements MatchingGroupService {
 
         int newSize = Math.max(Math.toIntExact(acceptedCount) - 1, 1);
         matchingGroup.setCurrentSize(newSize);
-
-        Tour tour = matchingGroup.getTour();
-        boolean isTourValid = tour == null || (!Boolean.TRUE.equals(tour.getIsDeleted())
-                && tour.getStatus() == TourStatus.PUBLISHED
-                && tour.getVendor() != null
-                && tour.getVendor().getStatus() == com.sep.treksphere.vendor.VendorStatus.ACTIVE
-                && !Boolean.TRUE.equals(tour.getVendor().getIsDeleted()));
-
-        boolean canReopen = matchingGroup.getStatus() == MatchingGroupStatus.FULL
-                && newSize < matchingGroup.getMaxSize()
-                && matchingGroup.getMatchingDeadline().isAfter(LocalDateTime.now())
-                && matchingGroup.getTargetDate().isAfter(LocalDate.now())
-                && isTourValid;
-
-        if (canReopen) {
-            matchingGroup.setStatus(MatchingGroupStatus.OPEN);
-            log.info("Matching group is reopened (OPEN) because a member left: groupId={}", groupId);
-        }
         reevaluateGroupStatusAfterMemberLoss(matchingGroup, newSize);
 
         matchingGroupRepository.save(matchingGroup);
@@ -887,7 +865,9 @@ public class MatchingGroupServiceImpl implements MatchingGroupService {
                 && (tour == null
                         || (!Boolean.TRUE.equals(tour.getIsDeleted())
                                 && tour.getStatus() == TourStatus.PUBLISHED
-                                && tour.getVendor().getStatus() == com.sep.treksphere.vendor.VendorStatus.ACTIVE));
+                                && tour.getVendor() != null
+                                && tour.getVendor().getStatus() == com.sep.treksphere.vendor.VendorStatus.ACTIVE
+                                && !Boolean.TRUE.equals(tour.getVendor().getIsDeleted())));
 
         matchingGroup.setStatus(canReopen ? MatchingGroupStatus.OPEN : MatchingGroupStatus.CLOSED);
         log.info("Matching group {} status re-evaluated after member loss: groupId={}",

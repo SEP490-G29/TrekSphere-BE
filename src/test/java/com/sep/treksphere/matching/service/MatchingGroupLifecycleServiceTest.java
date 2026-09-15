@@ -74,6 +74,9 @@ class MatchingGroupLifecycleServiceTest {
     @Mock
     private com.sep.treksphere.notification.NotificationService notificationService;
 
+    @Mock
+    private com.sep.treksphere.matching.service.GroupVoteService groupVoteService;
+
     @InjectMocks
     private MatchingGroupServiceImpl matchingGroupService;
 
