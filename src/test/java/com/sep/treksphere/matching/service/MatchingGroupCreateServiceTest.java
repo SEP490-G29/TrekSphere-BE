@@ -21,6 +21,8 @@ import com.sep.treksphere.user.UserRepository;
 import com.sep.treksphere.user.UserStatus;
 import com.sep.treksphere.vendor.Vendor;
 import com.sep.treksphere.vendor.VendorStatus;
+import com.sep.treksphere.tour.checkpoint.TourCheckpoint;
+import com.sep.treksphere.tour.checkpoint.TourCheckpointRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -34,6 +36,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -59,6 +62,9 @@ class MatchingGroupCreateServiceTest {
 
     @Mock
     private TourRepository tourRepository;
+
+    @Mock
+    private TourCheckpointRepository tourCheckpointRepository;
 
     @Mock
     private UserRepository userRepository;
@@ -98,7 +104,7 @@ class MatchingGroupCreateServiceTest {
     }
 
     @Test
-    @DisplayName("[P2-S3] Tạo Tour-backed Group kèm đúng một Leader và GroupTrip PLANNED")
+    @DisplayName("[P2-S3] Tạo Tour-backed Group kèm đúng một Leader, GroupTrip PLANNED và auto-cloned CustomJourney")
     void createTourGroup_CreatesCompleteAggregate() {
         MatchingGroupCreateRequest request = tourRequest();
         stubGroupSave();
@@ -107,6 +113,12 @@ class MatchingGroupCreateServiceTest {
                 .existsByOwnerAndTourAndStatusInAndMatchingDeadlineAfterAndTargetDateAfterAndIsDeletedFalse(
                         eq(owner), eq(tour), anyCollection(), any(LocalDateTime.class), any(LocalDate.class)))
                 .thenReturn(false);
+
+        TourCheckpoint tcp = new TourCheckpoint();
+        tcp.setCheckpointName("Fansipan Summit");
+        tcp.setCheckpointOrder(1);
+        when(tourCheckpointRepository.findByTourAndIsDeletedFalseOrderByCheckpointOrderAsc(tour))
+                .thenReturn(List.of(tcp));
 
         matchingGroupService.createMatchingGroup(request, owner.getUserId());
 
@@ -117,7 +129,9 @@ class MatchingGroupCreateServiceTest {
 
         MatchingGroup createdGroup = groupCaptor.getValue();
         assertThat(createdGroup.getTour()).isSameAs(tour);
-        assertThat(createdGroup.getCustomJourney()).isNull();
+        assertThat(createdGroup.getCustomJourney()).isNotNull();
+        assertThat(createdGroup.getCustomJourney().getTitle()).isEqualTo(request.getGroupName());
+        assertThat(createdGroup.getCustomJourney().getCheckpoints()).hasSize(1);
         assertThat(createdGroup.getStatus()).isEqualTo(MatchingGroupStatus.OPEN);
         assertThat(createdGroup.getCurrentSize()).isEqualTo(1);
         assertThat(createdGroup.getMembers()).singleElement().satisfies(this::assertInitialLeader);
