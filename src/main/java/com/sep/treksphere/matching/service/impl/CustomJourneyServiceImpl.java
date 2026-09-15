@@ -5,6 +5,8 @@ import com.sep.treksphere.common.exception.ErrorCode;
 import com.sep.treksphere.matching.dto.request.*;
 import com.sep.treksphere.matching.dto.response.*;
 import com.sep.treksphere.matching.entity.*;
+import com.sep.treksphere.matching.enums.CheckpointProgressAction;
+import com.sep.treksphere.matching.enums.CheckpointProgressStatus;
 import com.sep.treksphere.matching.enums.GroupTripStatus;
 import com.sep.treksphere.matching.enums.JoinStatus;
 import com.sep.treksphere.matching.enums.MatchingGroupStatus;
@@ -197,24 +199,29 @@ public class CustomJourneyServiceImpl implements CustomJourneyService {
 
     @Override
     @Transactional
-    public CustomJourneyCheckpointResponse checkInCheckpoint(UUID groupId, UUID checkpointId, UUID currentUserId) {
+    public CustomJourneyCheckpointResponse updateCheckpointProgress(
+            UUID groupId, UUID checkpointId, UpdateCheckpointProgressRequest request, UUID currentUserId) {
         MatchingGroup group = getGroupOrThrow(groupId);
         validateLeaderPermission(group, currentUserId);
         validateTripInProgress(groupId);
 
         CustomJourneyCheckpoint checkpoint = lockCheckpointInGroupOrThrow(groupId, checkpointId);
-        if (Boolean.TRUE.equals(checkpoint.getIsCheckedIn())) {
-            throw new AppException(ErrorCode.CUSTOM_JOURNEY_CHECKPOINT_ALREADY_CHECKED_IN);
+        if (checkpoint.getStatus() != CheckpointProgressStatus.PENDING) {
+            throw new AppException(ErrorCode.CUSTOM_JOURNEY_CHECKPOINT_PROGRESS_ALREADY_SET);
         }
 
         MatchingMember leaderMember = matchingMemberRepository.findByGroupIdAndUserId(groupId, currentUserId)
                 .orElseThrow(() -> new AppException(ErrorCode.MATCHING_GROUP_UNAUTHORIZED_MANAGE));
 
-        checkpoint.setIsCheckedIn(true);
-        checkpoint.setCheckedInAt(LocalDateTime.now());
-        checkpoint.setCheckedInBy(leaderMember);
+        CheckpointProgressStatus newStatus = request.getStatus() == CheckpointProgressAction.CHECKED_IN
+                ? CheckpointProgressStatus.CHECKED_IN
+                : CheckpointProgressStatus.SKIPPED;
+
+        checkpoint.setStatus(newStatus);
+        checkpoint.setProgressUpdatedAt(LocalDateTime.now());
+        checkpoint.setProgressUpdatedBy(leaderMember);
         CustomJourneyCheckpoint saved = checkpointRepository.save(checkpoint);
-        log.info("Checked in checkpoint {} in group {}", checkpointId, groupId);
+        log.info("Updated checkpoint {} progress to {} in group {}", checkpointId, newStatus, groupId);
 
         List<UUID> recipientIds = matchingMemberRepository.findActiveMembers(groupId, JoinStatus.ACCEPTED)
                 .stream()
@@ -222,7 +229,10 @@ public class CustomJourneyServiceImpl implements CustomJourneyService {
                 .filter(id -> !id.equals(currentUserId))
                 .toList();
         String actionUrl = "/trekker/my-groups/" + groupId;
-        notificationService.notify(recipientIds, NotificationEventType.GROUP_CHECKPOINT_CHECKED_IN,
+        NotificationEventType eventType = newStatus == CheckpointProgressStatus.CHECKED_IN
+                ? NotificationEventType.GROUP_CHECKPOINT_CHECKED_IN
+                : NotificationEventType.GROUP_CHECKPOINT_SKIPPED;
+        notificationService.notify(recipientIds, eventType,
                 ReferenceType.MATCHING_GROUP, groupId, actionUrl, saved.getTitle());
 
         return customJourneyMapper.toCheckpointResponse(saved);
@@ -230,21 +240,21 @@ public class CustomJourneyServiceImpl implements CustomJourneyService {
 
     @Override
     @Transactional
-    public CustomJourneyCheckpointResponse undoCheckInCheckpoint(UUID groupId, UUID checkpointId, UUID currentUserId) {
+    public CustomJourneyCheckpointResponse resetCheckpointProgress(UUID groupId, UUID checkpointId, UUID currentUserId) {
         MatchingGroup group = getGroupOrThrow(groupId);
         validateLeaderPermission(group, currentUserId);
         validateTripInProgress(groupId);
 
         CustomJourneyCheckpoint checkpoint = lockCheckpointInGroupOrThrow(groupId, checkpointId);
-        if (!Boolean.TRUE.equals(checkpoint.getIsCheckedIn())) {
-            throw new AppException(ErrorCode.CUSTOM_JOURNEY_CHECKPOINT_NOT_CHECKED_IN);
+        if (checkpoint.getStatus() == CheckpointProgressStatus.PENDING) {
+            throw new AppException(ErrorCode.CUSTOM_JOURNEY_CHECKPOINT_PROGRESS_NOT_SET);
         }
 
-        checkpoint.setIsCheckedIn(false);
-        checkpoint.setCheckedInAt(null);
-        checkpoint.setCheckedInBy(null);
+        checkpoint.setStatus(CheckpointProgressStatus.PENDING);
+        checkpoint.setProgressUpdatedAt(null);
+        checkpoint.setProgressUpdatedBy(null);
         CustomJourneyCheckpoint saved = checkpointRepository.save(checkpoint);
-        log.info("Undo check-in checkpoint {} in group {}", checkpointId, groupId);
+        log.info("Reset checkpoint {} progress in group {}", checkpointId, groupId);
 
         return customJourneyMapper.toCheckpointResponse(saved);
     }
@@ -520,7 +530,7 @@ public class CustomJourneyServiceImpl implements CustomJourneyService {
         GroupTrip trip = groupTripRepository.findByMatchingGroup_MatchingGroupId(groupId)
                 .orElseThrow(() -> new AppException(ErrorCode.GROUP_TRIP_NOT_FOUND));
         if (trip.getStatus() != GroupTripStatus.IN_PROGRESS) {
-            throw new AppException(ErrorCode.CUSTOM_JOURNEY_CHECKIN_TRIP_NOT_ACTIVE);
+            throw new AppException(ErrorCode.CUSTOM_JOURNEY_PROGRESS_TRIP_NOT_ACTIVE);
         }
     }
 

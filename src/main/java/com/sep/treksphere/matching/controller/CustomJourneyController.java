@@ -99,28 +99,29 @@ public class CustomJourneyController {
         return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, null, MessageConstant.CHECKPOINT_DELETED_SUCCESS));
     }
 
-    @Operation(summary = "Leader check-in 1 điểm dừng đã đến (chỉ khi chuyến đi đang diễn ra)")
-    @PostMapping("/checkpoints/{checkpointId}/checkin")
+    @Operation(summary = "Leader cập nhật tiến độ 1 checkpoint: đã đến hoặc bỏ qua (chỉ khi chuyến đi đang diễn ra)")
+    @PatchMapping("/checkpoints/{checkpointId}/progress")
     @PreAuthorize("isAuthenticated()")
-    public ResponseEntity<ApiResponse<CustomJourneyCheckpointResponse>> checkInCheckpoint(
+    public ResponseEntity<ApiResponse<CustomJourneyCheckpointResponse>> updateCheckpointProgress(
             @Parameter(description = "ID nhóm ghép") @PathVariable UUID groupId,
             @Parameter(description = "ID điểm dừng checkpoint") @PathVariable UUID checkpointId,
+            @Valid @RequestBody UpdateCheckpointProgressRequest request,
             @AuthenticationPrincipal CustomUserDetails userDetails) {
-        CustomJourneyCheckpointResponse response = customJourneyService.checkInCheckpoint(
-                groupId, checkpointId, userDetails.getUser().getUserId());
-        return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, response, MessageConstant.CHECKPOINT_CHECKED_IN_SUCCESS));
+        CustomJourneyCheckpointResponse response = customJourneyService.updateCheckpointProgress(
+                groupId, checkpointId, request, userDetails.getUser().getUserId());
+        return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, response, MessageConstant.CHECKPOINT_PROGRESS_UPDATED_SUCCESS));
     }
 
-    @Operation(summary = "Leader gỡ check-in điểm dừng (sửa nhầm)")
-    @DeleteMapping("/checkpoints/{checkpointId}/checkin")
+    @Operation(summary = "Leader gỡ tiến độ checkpoint về chưa cập nhật (sửa nhầm)")
+    @DeleteMapping("/checkpoints/{checkpointId}/progress")
     @PreAuthorize("isAuthenticated()")
-    public ResponseEntity<ApiResponse<CustomJourneyCheckpointResponse>> undoCheckInCheckpoint(
+    public ResponseEntity<ApiResponse<CustomJourneyCheckpointResponse>> resetCheckpointProgress(
             @Parameter(description = "ID nhóm ghép") @PathVariable UUID groupId,
             @Parameter(description = "ID điểm dừng checkpoint") @PathVariable UUID checkpointId,
             @AuthenticationPrincipal CustomUserDetails userDetails) {
-        CustomJourneyCheckpointResponse response = customJourneyService.undoCheckInCheckpoint(
+        CustomJourneyCheckpointResponse response = customJourneyService.resetCheckpointProgress(
                 groupId, checkpointId, userDetails.getUser().getUserId());
-        return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, response, MessageConstant.CHECKPOINT_CHECKIN_UNDONE_SUCCESS));
+        return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, response, MessageConstant.CHECKPOINT_PROGRESS_RESET_SUCCESS));
     }
 
     @Operation(summary = "Lấy danh sách các hoạt động trong thời khóa biểu hành trình")

@@ -326,9 +326,9 @@ public class MessageConstant {
     public static final String GROUP_VOTE_DUPLICATE_OPEN_TYPE = "Nhóm đang có một bình chọn cùng loại đang mở, hãy đóng bình chọn đó trước";
     public static final String GROUP_VOTE_INVALID_OPTION_COUNT = "Số lượng lựa chọn không hợp lệ";
     public static final String GROUP_VOTE_NOT_READY_TO_CLOSE = "Bình chọn chưa đến hạn đóng và chưa đủ số phiếu bắt buộc";
-    public static final String CUSTOM_JOURNEY_CHECKPOINT_ALREADY_CHECKED_IN = "Điểm dừng này đã được đánh dấu hoàn thành trước đó";
-    public static final String CUSTOM_JOURNEY_CHECKPOINT_NOT_CHECKED_IN = "Điểm dừng này chưa được check-in nên không thể gỡ";
-    public static final String CUSTOM_JOURNEY_CHECKIN_TRIP_NOT_ACTIVE = "Chuyến đi chưa hoặc không còn đang diễn ra nên không thể check-in điểm dừng";
+    public static final String CUSTOM_JOURNEY_CHECKPOINT_PROGRESS_ALREADY_SET = "Điểm dừng này đã được cập nhật tiến độ trước đó";
+    public static final String CUSTOM_JOURNEY_CHECKPOINT_PROGRESS_NOT_SET = "Điểm dừng này chưa được cập nhật tiến độ nên không thể gỡ";
+    public static final String CUSTOM_JOURNEY_PROGRESS_TRIP_NOT_ACTIVE = "Chuyến đi chưa hoặc không còn đang diễn ra nên không thể cập nhật tiến độ điểm dừng";
     public static final String GROUP_VOTE_CREATED_SUCCESS = "Mở bình chọn thành công";
     public static final String GROUP_VOTE_BALLOT_CAST_SUCCESS = "Gửi phiếu bầu thành công";
     public static final String GROUP_VOTE_CLOSED_SUCCESS = "Đóng bình chọn thành công";
@@ -395,8 +395,8 @@ public class MessageConstant {
     public static final String CHECKPOINT_CREATED_SUCCESS = "Thêm điểm dừng hành trình thành công";
     public static final String CHECKPOINT_UPDATED_SUCCESS = "Cập nhật điểm dừng hành trình thành công";
     public static final String CHECKPOINT_DELETED_SUCCESS = "Xoá điểm dừng hành trình thành công";
-    public static final String CHECKPOINT_CHECKED_IN_SUCCESS = "Đã đánh dấu đến điểm dừng thành công";
-    public static final String CHECKPOINT_CHECKIN_UNDONE_SUCCESS = "Đã gỡ check-in điểm dừng thành công";
+    public static final String CHECKPOINT_PROGRESS_UPDATED_SUCCESS = "Đã cập nhật tiến độ điểm dừng thành công";
+    public static final String CHECKPOINT_PROGRESS_RESET_SUCCESS = "Đã gỡ tiến độ điểm dừng thành công";
     public static final String CUSTOM_JOURNEY_ACTIVITY_NOT_FOUND = "Hoạt động trong thời khóa biểu hành trình không tồn tại";
     public static final String ACTIVITY_ORDER_DUPLICATED = "Thứ tự hoạt động đã tồn tại trong buổi này";
     public static final String ACTIVITY_DAY_OUT_OF_RANGE = "Ngày diễn ra hoạt động vượt quá tổng số ngày của hành trình";

@@ -5,6 +5,7 @@ import com.sep.treksphere.common.exception.ErrorCode;
 import com.sep.treksphere.matching.dto.request.CustomJourneyCheckpointCreateRequest;
 import com.sep.treksphere.matching.dto.request.CustomJourneyCheckpointUpdateRequest;
 import com.sep.treksphere.matching.dto.request.CustomJourneyUpdateRequest;
+import com.sep.treksphere.matching.dto.request.UpdateCheckpointProgressRequest;
 import com.sep.treksphere.matching.dto.response.CustomJourneyCheckpointResponse;
 import com.sep.treksphere.matching.dto.response.CustomJourneyDetailResponse;
 import com.sep.treksphere.matching.entity.CustomJourney;
@@ -12,6 +13,8 @@ import com.sep.treksphere.matching.entity.CustomJourneyCheckpoint;
 import com.sep.treksphere.matching.entity.GroupTrip;
 import com.sep.treksphere.matching.entity.MatchingGroup;
 import com.sep.treksphere.matching.entity.MatchingMember;
+import com.sep.treksphere.matching.enums.CheckpointProgressAction;
+import com.sep.treksphere.matching.enums.CheckpointProgressStatus;
 import com.sep.treksphere.matching.enums.GroupTripStatus;
 import com.sep.treksphere.matching.enums.JoinStatus;
 import com.sep.treksphere.matching.enums.JourneyDifficulty;
@@ -50,6 +53,7 @@ import java.util.UUID;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -586,9 +590,12 @@ class CustomJourneyServiceTest {
     }
 
     @Test
-    @DisplayName("checkInCheckpoint - Leader check-in thành công, notify các member khác trừ chính mình")
-    void checkInCheckpoint_Success() {
+    @DisplayName("updateCheckpointProgress - Leader đánh dấu CHECKED_IN thành công, notify các member khác trừ chính mình")
+    void updateCheckpointProgress_CheckedIn_Success() {
         UUID cpId = checkpoint.getCustomJourneyCheckpointId();
+        UpdateCheckpointProgressRequest request = UpdateCheckpointProgressRequest.builder()
+                .status(CheckpointProgressAction.CHECKED_IN)
+                .build();
 
         when(matchingGroupRepository.findById(groupId)).thenReturn(Optional.of(group));
         when(matchingMemberRepository.findActiveMembers(groupId, JoinStatus.ACCEPTED))
@@ -598,12 +605,13 @@ class CustomJourneyServiceTest {
         when(matchingMemberRepository.findByGroupIdAndUserId(groupId, leaderId)).thenReturn(Optional.of(leaderMember));
         when(checkpointRepository.save(any(CustomJourneyCheckpoint.class))).thenAnswer(inv -> inv.getArgument(0));
 
-        CustomJourneyCheckpointResponse response = customJourneyService.checkInCheckpoint(groupId, cpId, leaderId);
+        CustomJourneyCheckpointResponse response =
+                customJourneyService.updateCheckpointProgress(groupId, cpId, request, leaderId);
 
-        assertThat(response.getIsCheckedIn()).isTrue();
-        assertThat(checkpoint.getIsCheckedIn()).isTrue();
-        assertThat(checkpoint.getCheckedInAt()).isNotNull();
-        assertThat(checkpoint.getCheckedInBy()).isEqualTo(leaderMember);
+        assertThat(response.getStatus()).isEqualTo(CheckpointProgressStatus.CHECKED_IN);
+        assertThat(checkpoint.getStatus()).isEqualTo(CheckpointProgressStatus.CHECKED_IN);
+        assertThat(checkpoint.getProgressUpdatedAt()).isNotNull();
+        assertThat(checkpoint.getProgressUpdatedBy()).isEqualTo(leaderMember);
 
         @SuppressWarnings("unchecked")
         ArgumentCaptor<List<UUID>> recipientsCaptor = ArgumentCaptor.forClass(List.class);
@@ -613,49 +621,86 @@ class CustomJourneyServiceTest {
     }
 
     @Test
-    @DisplayName("checkInCheckpoint - ném lỗi khi người thao tác không phải Leader")
-    void checkInCheckpoint_ForbiddenWhenNotLeader() {
+    @DisplayName("updateCheckpointProgress - Leader đánh dấu SKIPPED thành công, notify đúng event")
+    void updateCheckpointProgress_Skipped_Success() {
+        UUID cpId = checkpoint.getCustomJourneyCheckpointId();
+        UpdateCheckpointProgressRequest request = UpdateCheckpointProgressRequest.builder()
+                .status(CheckpointProgressAction.SKIPPED)
+                .build();
+
+        when(matchingGroupRepository.findById(groupId)).thenReturn(Optional.of(group));
+        when(matchingMemberRepository.findActiveMembers(groupId, JoinStatus.ACCEPTED))
+                .thenReturn(List.of(leaderMember, normalMember));
+        when(groupTripRepository.findByMatchingGroup_MatchingGroupId(groupId)).thenReturn(Optional.of(trip));
+        when(checkpointRepository.findByIdForUpdate(cpId)).thenReturn(Optional.of(checkpoint));
+        when(matchingMemberRepository.findByGroupIdAndUserId(groupId, leaderId)).thenReturn(Optional.of(leaderMember));
+        when(checkpointRepository.save(any(CustomJourneyCheckpoint.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        CustomJourneyCheckpointResponse response =
+                customJourneyService.updateCheckpointProgress(groupId, cpId, request, leaderId);
+
+        assertThat(response.getStatus()).isEqualTo(CheckpointProgressStatus.SKIPPED);
+        assertThat(checkpoint.getStatus()).isEqualTo(CheckpointProgressStatus.SKIPPED);
+        verify(notificationService).notify(anyList(), eq(NotificationEventType.GROUP_CHECKPOINT_SKIPPED),
+                eq(ReferenceType.MATCHING_GROUP), eq(groupId), any(String.class), any());
+    }
+
+    @Test
+    @DisplayName("updateCheckpointProgress - ném lỗi khi người thao tác không phải Leader")
+    void updateCheckpointProgress_ForbiddenWhenNotLeader() {
+        UpdateCheckpointProgressRequest request = UpdateCheckpointProgressRequest.builder()
+                .status(CheckpointProgressAction.CHECKED_IN)
+                .build();
+
         when(matchingGroupRepository.findById(groupId)).thenReturn(Optional.of(group));
         when(matchingMemberRepository.findActiveMembers(groupId, JoinStatus.ACCEPTED)).thenReturn(List.of(leaderMember));
 
-        assertThatThrownBy(() -> customJourneyService.checkInCheckpoint(groupId, checkpoint.getCustomJourneyCheckpointId(), memberId))
+        assertThatThrownBy(() -> customJourneyService.updateCheckpointProgress(
+                        groupId, checkpoint.getCustomJourneyCheckpointId(), request, memberId))
                 .isInstanceOf(AppException.class)
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.MATCHING_GROUP_UNAUTHORIZED_MANAGE);
     }
 
     @Test
-    @DisplayName("checkInCheckpoint - ném lỗi khi chuyến đi chưa/không còn đang diễn ra")
-    void checkInCheckpoint_TripNotInProgress() {
+    @DisplayName("updateCheckpointProgress - ném lỗi khi chuyến đi chưa/không còn đang diễn ra")
+    void updateCheckpointProgress_TripNotInProgress() {
         trip.setStatus(GroupTripStatus.PLANNED);
+        UpdateCheckpointProgressRequest request = UpdateCheckpointProgressRequest.builder()
+                .status(CheckpointProgressAction.CHECKED_IN)
+                .build();
 
         when(matchingGroupRepository.findById(groupId)).thenReturn(Optional.of(group));
         when(matchingMemberRepository.findActiveMembers(groupId, JoinStatus.ACCEPTED)).thenReturn(List.of(leaderMember));
         when(groupTripRepository.findByMatchingGroup_MatchingGroupId(groupId)).thenReturn(Optional.of(trip));
 
-        assertThatThrownBy(() -> customJourneyService.checkInCheckpoint(groupId, checkpoint.getCustomJourneyCheckpointId(), leaderId))
+        assertThatThrownBy(() -> customJourneyService.updateCheckpointProgress(
+                        groupId, checkpoint.getCustomJourneyCheckpointId(), request, leaderId))
                 .isInstanceOf(AppException.class)
-                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.CUSTOM_JOURNEY_CHECKIN_TRIP_NOT_ACTIVE);
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.CUSTOM_JOURNEY_PROGRESS_TRIP_NOT_ACTIVE);
     }
 
     @Test
-    @DisplayName("checkInCheckpoint - ném lỗi khi checkpoint đã được check-in trước đó")
-    void checkInCheckpoint_AlreadyCheckedIn() {
-        checkpoint.setIsCheckedIn(true);
+    @DisplayName("updateCheckpointProgress - ném lỗi khi checkpoint đã được cập nhật tiến độ trước đó")
+    void updateCheckpointProgress_AlreadySet() {
+        checkpoint.setStatus(CheckpointProgressStatus.CHECKED_IN);
         UUID cpId = checkpoint.getCustomJourneyCheckpointId();
+        UpdateCheckpointProgressRequest request = UpdateCheckpointProgressRequest.builder()
+                .status(CheckpointProgressAction.SKIPPED)
+                .build();
 
         when(matchingGroupRepository.findById(groupId)).thenReturn(Optional.of(group));
         when(matchingMemberRepository.findActiveMembers(groupId, JoinStatus.ACCEPTED)).thenReturn(List.of(leaderMember));
         when(groupTripRepository.findByMatchingGroup_MatchingGroupId(groupId)).thenReturn(Optional.of(trip));
         when(checkpointRepository.findByIdForUpdate(cpId)).thenReturn(Optional.of(checkpoint));
 
-        assertThatThrownBy(() -> customJourneyService.checkInCheckpoint(groupId, cpId, leaderId))
+        assertThatThrownBy(() -> customJourneyService.updateCheckpointProgress(groupId, cpId, request, leaderId))
                 .isInstanceOf(AppException.class)
-                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.CUSTOM_JOURNEY_CHECKPOINT_ALREADY_CHECKED_IN);
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.CUSTOM_JOURNEY_CHECKPOINT_PROGRESS_ALREADY_SET);
     }
 
     @Test
-    @DisplayName("checkInCheckpoint - ném lỗi khi checkpoint không thuộc nhóm này")
-    void checkInCheckpoint_CheckpointFromAnotherGroup() {
+    @DisplayName("updateCheckpointProgress - ném lỗi khi checkpoint không thuộc nhóm này")
+    void updateCheckpointProgress_CheckpointFromAnotherGroup() {
         MatchingGroup otherGroup = new MatchingGroup();
         otherGroup.setMatchingGroupId(UUID.randomUUID());
         CustomJourney otherJourney = new CustomJourney();
@@ -663,23 +708,26 @@ class CustomJourneyServiceTest {
         otherJourney.setMatchingGroup(otherGroup);
         checkpoint.setCustomJourney(otherJourney);
         UUID cpId = checkpoint.getCustomJourneyCheckpointId();
+        UpdateCheckpointProgressRequest request = UpdateCheckpointProgressRequest.builder()
+                .status(CheckpointProgressAction.CHECKED_IN)
+                .build();
 
         when(matchingGroupRepository.findById(groupId)).thenReturn(Optional.of(group));
         when(matchingMemberRepository.findActiveMembers(groupId, JoinStatus.ACCEPTED)).thenReturn(List.of(leaderMember));
         when(groupTripRepository.findByMatchingGroup_MatchingGroupId(groupId)).thenReturn(Optional.of(trip));
         when(checkpointRepository.findByIdForUpdate(cpId)).thenReturn(Optional.of(checkpoint));
 
-        assertThatThrownBy(() -> customJourneyService.checkInCheckpoint(groupId, cpId, leaderId))
+        assertThatThrownBy(() -> customJourneyService.updateCheckpointProgress(groupId, cpId, request, leaderId))
                 .isInstanceOf(AppException.class)
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.CUSTOM_JOURNEY_CHECKPOINT_NOT_FOUND);
     }
 
     @Test
-    @DisplayName("undoCheckInCheckpoint - Leader gỡ check-in thành công")
-    void undoCheckInCheckpoint_Success() {
-        checkpoint.setIsCheckedIn(true);
-        checkpoint.setCheckedInAt(LocalDateTime.now());
-        checkpoint.setCheckedInBy(leaderMember);
+    @DisplayName("resetCheckpointProgress - Leader gỡ tiến độ thành công")
+    void resetCheckpointProgress_Success() {
+        checkpoint.setStatus(CheckpointProgressStatus.CHECKED_IN);
+        checkpoint.setProgressUpdatedAt(LocalDateTime.now());
+        checkpoint.setProgressUpdatedBy(leaderMember);
         UUID cpId = checkpoint.getCustomJourneyCheckpointId();
 
         when(matchingGroupRepository.findById(groupId)).thenReturn(Optional.of(group));
@@ -688,16 +736,16 @@ class CustomJourneyServiceTest {
         when(checkpointRepository.findByIdForUpdate(cpId)).thenReturn(Optional.of(checkpoint));
         when(checkpointRepository.save(any(CustomJourneyCheckpoint.class))).thenAnswer(inv -> inv.getArgument(0));
 
-        CustomJourneyCheckpointResponse response = customJourneyService.undoCheckInCheckpoint(groupId, cpId, leaderId);
+        CustomJourneyCheckpointResponse response = customJourneyService.resetCheckpointProgress(groupId, cpId, leaderId);
 
-        assertThat(response.getIsCheckedIn()).isFalse();
-        assertThat(checkpoint.getCheckedInAt()).isNull();
-        assertThat(checkpoint.getCheckedInBy()).isNull();
+        assertThat(response.getStatus()).isEqualTo(CheckpointProgressStatus.PENDING);
+        assertThat(checkpoint.getProgressUpdatedAt()).isNull();
+        assertThat(checkpoint.getProgressUpdatedBy()).isNull();
     }
 
     @Test
-    @DisplayName("undoCheckInCheckpoint - ném lỗi khi checkpoint chưa được check-in")
-    void undoCheckInCheckpoint_NotCheckedIn() {
+    @DisplayName("resetCheckpointProgress - ném lỗi khi checkpoint chưa được cập nhật tiến độ")
+    void resetCheckpointProgress_NotSet() {
         UUID cpId = checkpoint.getCustomJourneyCheckpointId();
 
         when(matchingGroupRepository.findById(groupId)).thenReturn(Optional.of(group));
@@ -705,8 +753,8 @@ class CustomJourneyServiceTest {
         when(groupTripRepository.findByMatchingGroup_MatchingGroupId(groupId)).thenReturn(Optional.of(trip));
         when(checkpointRepository.findByIdForUpdate(cpId)).thenReturn(Optional.of(checkpoint));
 
-        assertThatThrownBy(() -> customJourneyService.undoCheckInCheckpoint(groupId, cpId, leaderId))
+        assertThatThrownBy(() -> customJourneyService.resetCheckpointProgress(groupId, cpId, leaderId))
                 .isInstanceOf(AppException.class)
-                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.CUSTOM_JOURNEY_CHECKPOINT_NOT_CHECKED_IN);
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.CUSTOM_JOURNEY_CHECKPOINT_PROGRESS_NOT_SET);
     }
 }

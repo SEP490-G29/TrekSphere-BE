@@ -146,6 +146,9 @@ public final class NotificationTemplates {
         TEMPLATES.put(NotificationEventType.GROUP_CHECKPOINT_CHECKED_IN, new TemplatePair(
                 "Cập nhật tiến độ hành trình",
                 "Trưởng nhóm vừa xác nhận đã đến điểm dừng \"%s\"."));
+        TEMPLATES.put(NotificationEventType.GROUP_CHECKPOINT_SKIPPED, new TemplatePair(
+                "Cập nhật tiến độ hành trình",
+                "Trưởng nhóm vừa đánh dấu bỏ qua điểm dừng \"%s\"."));
     }
 
     private NotificationTemplates() {

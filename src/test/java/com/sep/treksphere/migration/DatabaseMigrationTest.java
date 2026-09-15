@@ -31,7 +31,7 @@ class DatabaseMigrationTest {
                     .dataSource(postgres.getPostgresDatabase())
                     .locations("classpath:db/migration")
                     .load();
-            assertEquals(21, flyway.migrate().migrationsExecuted);
+            assertEquals(22, flyway.migrate().migrationsExecuted);
 
             try (Connection connection = postgres.getPostgresDatabase().getConnection()) {
                 assertTrue(hasColumn(connection, "tour", "published_at"));
@@ -43,7 +43,7 @@ class DatabaseMigrationTest {
                 assertTrue(hasColumn(connection, "custom_journey_activity", "custom_journey_activity_id"));
                 assertTrue(hasColumn(connection, "matching_group", "cover_image_url"));
                 assertTrue(hasColumn(connection, "tour_behavior_event", "event_type"));
-                assertTrue(hasColumn(connection, "custom_journey_checkpoint", "is_checked_in"));
+                assertTrue(hasColumn(connection, "custom_journey_checkpoint", "status"));
 
 
                 try (PreparedStatement statement = connection.prepareStatement("""

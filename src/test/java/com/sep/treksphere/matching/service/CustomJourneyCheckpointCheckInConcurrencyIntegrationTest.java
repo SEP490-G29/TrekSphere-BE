@@ -3,12 +3,15 @@ package com.sep.treksphere.matching.service;
 import com.sep.treksphere.common.config.AuditConfig;
 import com.sep.treksphere.common.exception.AppException;
 import com.sep.treksphere.common.exception.ErrorCode;
+import com.sep.treksphere.matching.dto.request.UpdateCheckpointProgressRequest;
 import com.sep.treksphere.matching.dto.response.CustomJourneyCheckpointResponse;
 import com.sep.treksphere.matching.entity.CustomJourney;
 import com.sep.treksphere.matching.entity.CustomJourneyCheckpoint;
 import com.sep.treksphere.matching.entity.GroupTrip;
 import com.sep.treksphere.matching.entity.MatchingGroup;
 import com.sep.treksphere.matching.entity.MatchingMember;
+import com.sep.treksphere.matching.enums.CheckpointProgressAction;
+import com.sep.treksphere.matching.enums.CheckpointProgressStatus;
 import com.sep.treksphere.matching.enums.GroupTripStatus;
 import com.sep.treksphere.matching.enums.JoinStatus;
 import com.sep.treksphere.matching.enums.JourneyDifficulty;
@@ -100,7 +103,7 @@ class CustomJourneyCheckpointCheckInConcurrencyIntegrationTest {
 
     @Test
     @DisplayName("Concurrent check-in cùng 1 checkpoint: chỉ 1 request thành công nhờ pessimistic lock, không mất dữ liệu")
-    void checkInCheckpoint_ConcurrentRequests_OnlyOneSucceeds() throws InterruptedException {
+    void updateCheckpointProgress_ConcurrentRequests_OnlyOneSucceeds() throws InterruptedException {
         User leader = createUser("leader-checkin-concurrent");
         MatchingGroup group = createGroup(leader);
         createMember(group, leader, MatchingRole.LEADER);
@@ -132,18 +135,21 @@ class CustomJourneyCheckpointCheckInConcurrencyIntegrationTest {
         CountDownLatch readyLatch = new CountDownLatch(threadCount);
         CountDownLatch startLatch = new CountDownLatch(1);
         AtomicInteger successCount = new AtomicInteger();
-        AtomicInteger alreadyCheckedInCount = new AtomicInteger();
+        AtomicInteger alreadySetCount = new AtomicInteger();
+        UpdateCheckpointProgressRequest request = UpdateCheckpointProgressRequest.builder()
+                .status(CheckpointProgressAction.CHECKED_IN)
+                .build();
 
         Runnable checkInTask = () -> {
             readyLatch.countDown();
             try {
                 startLatch.await();
-                customJourneyService.checkInCheckpoint(
-                        group.getMatchingGroupId(), savedCheckpoint.getCustomJourneyCheckpointId(), leader.getUserId());
+                customJourneyService.updateCheckpointProgress(
+                        group.getMatchingGroupId(), savedCheckpoint.getCustomJourneyCheckpointId(), request, leader.getUserId());
                 successCount.incrementAndGet();
             } catch (AppException ex) {
-                if (ex.getErrorCode() == ErrorCode.CUSTOM_JOURNEY_CHECKPOINT_ALREADY_CHECKED_IN) {
-                    alreadyCheckedInCount.incrementAndGet();
+                if (ex.getErrorCode() == ErrorCode.CUSTOM_JOURNEY_CHECKPOINT_PROGRESS_ALREADY_SET) {
+                    alreadySetCount.incrementAndGet();
                 }
             } catch (InterruptedException ex) {
                 Thread.currentThread().interrupt();
@@ -158,18 +164,18 @@ class CustomJourneyCheckpointCheckInConcurrencyIntegrationTest {
         executor.awaitTermination(10, TimeUnit.SECONDS);
 
         assertThat(successCount.get()).isEqualTo(1);
-        assertThat(alreadyCheckedInCount.get()).isEqualTo(1);
+        assertThat(alreadySetCount.get()).isEqualTo(1);
 
         CustomJourneyCheckpoint finalCheckpoint = checkpointRepository.findById(savedCheckpoint.getCustomJourneyCheckpointId())
                 .orElseThrow();
-        assertThat(finalCheckpoint.getIsCheckedIn()).isTrue();
-        assertThat(finalCheckpoint.getCheckedInAt()).isNotNull();
-        assertThat(finalCheckpoint.getCheckedInBy()).isNotNull();
+        assertThat(finalCheckpoint.getStatus()).isEqualTo(CheckpointProgressStatus.CHECKED_IN);
+        assertThat(finalCheckpoint.getProgressUpdatedAt()).isNotNull();
+        assertThat(finalCheckpoint.getProgressUpdatedBy()).isNotNull();
     }
 
     @Test
-    @DisplayName("checkInCheckpoint - ném lỗi trên DB thật khi chuyến đi chưa IN_PROGRESS")
-    void checkInCheckpoint_TripNotInProgress_OnRealDatabase() {
+    @DisplayName("updateCheckpointProgress - ném lỗi trên DB thật khi chuyến đi chưa IN_PROGRESS")
+    void updateCheckpointProgress_TripNotInProgress_OnRealDatabase() {
         User leader = createUser("leader-checkin-not-active");
         MatchingGroup group = createGroup(leader);
         createMember(group, leader, MatchingRole.LEADER);
@@ -199,15 +205,18 @@ class CustomJourneyCheckpointCheckInConcurrencyIntegrationTest {
         UUID groupId = group.getMatchingGroupId();
         UUID checkpointId = savedCheckpoint.getCustomJourneyCheckpointId();
         UUID leaderId = leader.getUserId();
+        UpdateCheckpointProgressRequest request = UpdateCheckpointProgressRequest.builder()
+                .status(CheckpointProgressAction.CHECKED_IN)
+                .build();
 
         org.assertj.core.api.Assertions.assertThatThrownBy(
-                        () -> customJourneyService.checkInCheckpoint(groupId, checkpointId, leaderId))
+                        () -> customJourneyService.updateCheckpointProgress(groupId, checkpointId, request, leaderId))
                 .isInstanceOf(AppException.class)
-                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.CUSTOM_JOURNEY_CHECKIN_TRIP_NOT_ACTIVE);
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.CUSTOM_JOURNEY_PROGRESS_TRIP_NOT_ACTIVE);
 
         CustomJourneyCheckpointResponse checkpoints = customJourneyService
                 .getCheckpoints(groupId, leaderId).stream().findFirst().orElseThrow();
-        assertThat(checkpoints.getIsCheckedIn()).isFalse();
+        assertThat(checkpoints.getStatus()).isEqualTo(CheckpointProgressStatus.PENDING);
     }
 
     private User createUser(String label) {

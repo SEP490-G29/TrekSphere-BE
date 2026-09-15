@@ -1,6 +1,7 @@
 package com.sep.treksphere.matching.entity;
 
 import com.sep.treksphere.common.entity.BaseEntity;
+import com.sep.treksphere.matching.enums.CheckpointProgressStatus;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -54,12 +55,13 @@ public class CustomJourneyCheckpoint extends BaseEntity {
     @Column(length = 500)
     private String imageUrl;
 
-    @Column(nullable = false)
-    private Boolean isCheckedIn = false;
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 20)
+    private CheckpointProgressStatus status = CheckpointProgressStatus.PENDING;
 
-    private LocalDateTime checkedInAt;
+    private LocalDateTime progressUpdatedAt;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "checked_in_by_member_id")
-    private MatchingMember checkedInBy;
+    @JoinColumn(name = "progress_updated_by_member_id")
+    private MatchingMember progressUpdatedBy;
 }

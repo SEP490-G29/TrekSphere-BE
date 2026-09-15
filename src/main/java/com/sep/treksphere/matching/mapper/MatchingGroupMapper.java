@@ -94,7 +94,7 @@ public interface MatchingGroupMapper {
     @Mapping(target = "withdrawnAt", source = "withdrawnAt")
     MatchingMemberResponse toMemberResponse(com.sep.treksphere.matching.entity.GroupJoinApplication application);
 
-    @Mapping(target = "checkedInByName", source = "checkedInBy.user.fullName")
+    @Mapping(target = "progressUpdatedByName", source = "progressUpdatedBy.user.fullName")
     CustomJourneyCheckpointResponse toCheckpointResponse(CustomJourneyCheckpoint checkpoint);
 
     CustomJourneyCostItemResponse toCostItemResponse(CustomJourneyCostItem costItem);
