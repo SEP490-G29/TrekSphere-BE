@@ -47,23 +47,46 @@ public class GroupChecklistServiceImpl implements GroupChecklistService {
         List<GroupChecklistItem> allItems = checklistItemRepository
                 .findByMatchingGroup_MatchingGroupIdAndIsDeletedFalseOrderByCreatedAtAsc(groupId);
 
-        int total = allItems.size();
-        int completed = (int) allItems.stream().filter(i -> i.getStatus() == ChecklistItemStatus.DONE).count();
-        int shared = (int) allItems.stream().filter(i -> i.getItemScope() == ChecklistItemScope.SHARED).count();
-        int personal = (int) allItems.stream().filter(i -> i.getItemScope() == ChecklistItemScope.PERSONAL).count();
+        // Đồ cá nhân (PERSONAL): chỉ trả về cho chính chủ nhân, kể cả Leader cũng không xem được của người khác
+        List<GroupChecklistItem> visibleItems = allItems.stream()
+                .filter(item -> {
+                    if (item.getItemScope() == ChecklistItemScope.SHARED) {
+                        return true;
+                    }
+                    if (currentUserId == null) return false;
+                    return item.getAssigneeMatchingMember() != null &&
+                            currentUserId.equals(item.getAssigneeMatchingMember().getUser().getUserId());
+                })
+                .toList();
+
+        int total = visibleItems.size();
+        int completed = (int) visibleItems.stream().filter(i -> i.getStatus() == ChecklistItemStatus.DONE).count();
+        int shared = (int) visibleItems.stream().filter(i -> i.getItemScope() == ChecklistItemScope.SHARED).count();
+        int personal = (int) visibleItems.stream().filter(i -> i.getItemScope() == ChecklistItemScope.PERSONAL).count();
 
         List<GroupChecklistItem> filteredItems;
         if (filter != null && hasAnyFilter(filter)) {
-            filteredItems = checklistItemRepository.findWithFilters(
-                    groupId,
-                    filter.getItemScope(),
-                    filter.getStatus(),
-                    filter.getAssigneeMatchingMemberId(),
-                    filter.getIsRequired(),
-                    filter.getKeyword()
-            );
+            filteredItems = visibleItems.stream()
+                    .filter(item -> {
+                        if (filter.getItemScope() != null && item.getItemScope() != filter.getItemScope()) return false;
+                        if (filter.getStatus() != null && item.getStatus() != filter.getStatus()) return false;
+                        if (filter.getAssigneeMatchingMemberId() != null &&
+                                (item.getAssigneeMatchingMember() == null ||
+                                        !filter.getAssigneeMatchingMemberId().equals(item.getAssigneeMatchingMember().getMatchingMemberId()))) {
+                            return false;
+                        }
+                        if (filter.getIsRequired() != null && !Objects.equals(item.getIsRequired(), filter.getIsRequired())) return false;
+                        if (filter.getKeyword() != null && !filter.getKeyword().isBlank()) {
+                            String kw = filter.getKeyword().toLowerCase();
+                            String title = item.getTitle() != null ? item.getTitle().toLowerCase() : "";
+                            String note = item.getNote() != null ? item.getNote().toLowerCase() : "";
+                            return title.contains(kw) || note.contains(kw);
+                        }
+                        return true;
+                    })
+                    .toList();
         } else {
-            filteredItems = allItems;
+            filteredItems = visibleItems;
         }
 
         List<GroupChecklistItemResponse> itemResponses = checklistMapper.toResponseList(filteredItems);
@@ -91,11 +114,12 @@ public class GroupChecklistServiceImpl implements GroupChecklistService {
             item.setIsRequired(false);
         }
 
-        if (request.getAssigneeMatchingMemberId() != null) {
+        if (request.getItemScope() == ChecklistItemScope.PERSONAL) {
+            // Đồ cá nhân luôn luôn gắn cho chính người tạo
+            item.setAssigneeMatchingMember(callerMember);
+        } else if (request.getAssigneeMatchingMemberId() != null) {
             MatchingMember assignee = validateAndGetAssignee(groupId, request.getAssigneeMatchingMemberId(), callerMember);
             item.setAssigneeMatchingMember(assignee);
-        } else if (request.getItemScope() == ChecklistItemScope.PERSONAL) {
-            item.setAssigneeMatchingMember(callerMember);
         }
 
         GroupChecklistItem saved = checklistItemRepository.save(item);
@@ -118,7 +142,9 @@ public class GroupChecklistServiceImpl implements GroupChecklistService {
 
         checklistMapper.updateEntityFromRequest(request, item);
 
-        if (request.getAssigneeMatchingMemberId() != null) {
+        if (item.getItemScope() == ChecklistItemScope.PERSONAL) {
+            item.setAssigneeMatchingMember(callerMember);
+        } else if (request.getAssigneeMatchingMemberId() != null) {
             MatchingMember assignee = validateAndGetAssignee(groupId, request.getAssigneeMatchingMemberId(), callerMember);
             item.setAssigneeMatchingMember(assignee);
         }
@@ -201,31 +227,45 @@ public class GroupChecklistServiceImpl implements GroupChecklistService {
     }
 
     private void validateItemModifyPermission(GroupChecklistItem item, MatchingMember caller) {
-        if (caller.getRole() == MatchingRole.LEADER) {
-            return;
-        }
+        // Đồ cá nhân: CHỈ chính chủ nhân mới được sửa/xóa (kể cả Leader cũng không được sửa/xóa đồ cá nhân của người khác)
         if (item.getItemScope() == ChecklistItemScope.PERSONAL) {
             if (item.getAssigneeMatchingMember() != null &&
                     Objects.equals(item.getAssigneeMatchingMember().getMatchingMemberId(), caller.getMatchingMemberId())) {
                 return;
             }
+            throw new AppException(ErrorCode.UNAUTHORIZED_CHECKLIST_ACTION);
+        }
+
+        // Đồ dùng chung: chỉ LEADER mới được sửa/xóa
+        if (caller.getRole() == MatchingRole.LEADER) {
+            return;
         }
         throw new AppException(ErrorCode.UNAUTHORIZED_CHECKLIST_ACTION);
     }
 
     private void validateItemStatusUpdatePermission(GroupChecklistItem item, MatchingMember caller) {
-        if (caller.getRole() == MatchingRole.LEADER) {
-            return;
-        }
-        if (item.getItemScope() == ChecklistItemScope.SHARED) {
-            return;
-        }
+        // 1. Đồ cá nhân (PERSONAL): CHỈ chính người được assign (chủ nhân) mới có quyền đánh dấu (kể cả Leader cũng không được)
         if (item.getItemScope() == ChecklistItemScope.PERSONAL) {
             if (item.getAssigneeMatchingMember() != null &&
                     Objects.equals(item.getAssigneeMatchingMember().getMatchingMemberId(), caller.getMatchingMemberId())) {
                 return;
             }
+            throw new AppException(ErrorCode.UNAUTHORIZED_CHECKLIST_ACTION);
         }
+
+        // 2. Đồ dùng chung (SHARED):
+        // - Leader luôn có quyền đánh dấu vật dụng chung
+        if (caller.getRole() == MatchingRole.LEADER) {
+            return;
+        }
+
+        // - Người được assign vật dụng chung này có quyền đánh dấu
+        if (item.getAssigneeMatchingMember() != null &&
+                Objects.equals(item.getAssigneeMatchingMember().getMatchingMemberId(), caller.getMatchingMemberId())) {
+            return;
+        }
+
+        // - Nếu đồ chung chưa được assign cho ai cụ thể thì chỉ Leader được đánh dấu
         throw new AppException(ErrorCode.UNAUTHORIZED_CHECKLIST_ACTION);
     }
 

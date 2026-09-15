@@ -151,7 +151,7 @@ class GroupChecklistServiceTest {
         when(checklistItemRepository.findByMatchingGroup_MatchingGroupIdAndIsDeletedFalseOrderByCreatedAtAsc(groupId))
                 .thenReturn(List.of(sharedItem, personalItem1));
 
-        GroupChecklistSummaryResponse response = checklistService.getChecklistSummary(groupId, null, outsiderId);
+        GroupChecklistSummaryResponse response = checklistService.getChecklistSummary(groupId, null, member1Id);
 
         assertThat(response).isNotNull();
         assertThat(response.getTotalItems()).isEqualTo(2);
@@ -171,10 +171,8 @@ class GroupChecklistServiceTest {
         when(matchingGroupRepository.findById(groupId)).thenReturn(Optional.of(group));
         when(checklistItemRepository.findByMatchingGroup_MatchingGroupIdAndIsDeletedFalseOrderByCreatedAtAsc(groupId))
                 .thenReturn(List.of(sharedItem, personalItem1));
-        when(checklistItemRepository.findWithFilters(eq(groupId), eq(ChecklistItemScope.SHARED), any(), any(), any(), any()))
-                .thenReturn(List.of(sharedItem));
 
-        GroupChecklistSummaryResponse response = checklistService.getChecklistSummary(groupId, filter, outsiderId);
+        GroupChecklistSummaryResponse response = checklistService.getChecklistSummary(groupId, filter, member1Id);
 
         assertThat(response.getTotalItems()).isEqualTo(2);
         assertThat(response.getItems()).hasSize(1);
@@ -224,7 +222,7 @@ class GroupChecklistServiceTest {
     void createChecklistItem_MemberCannotAssignToOtherMember() {
         GroupChecklistItemCreateRequest request = GroupChecklistItemCreateRequest.builder()
                 .title("Lều cá nhân")
-                .itemScope(ChecklistItemScope.PERSONAL)
+                .itemScope(ChecklistItemScope.SHARED)
                 .assigneeMatchingMemberId(member2.getMatchingMemberId())
                 .build();
 
@@ -335,6 +333,7 @@ class GroupChecklistServiceTest {
     @Test
     @DisplayName("updateItemStatus - Thành viên bất kỳ có thể đánh dấu DONE mục SHARED")
     void updateItemStatus_SharedItem_AnyMemberCanUpdateStatus() {
+        sharedItem.setAssigneeMatchingMember(member1);
         UUID itemId = sharedItem.getGroupChecklistItemId();
         GroupChecklistItemStatusUpdateRequest request = GroupChecklistItemStatusUpdateRequest.builder()
                 .status(ChecklistItemStatus.DONE)
@@ -356,6 +355,7 @@ class GroupChecklistServiceTest {
     @Test
     @DisplayName("updateItemStatus - Đổi trạng thái từ DONE về IN_PROGRESS xóa thông tin completedAt và completedBy")
     void updateItemStatus_ResetFromDone_ClearsCompletedAtAndBy() {
+        sharedItem.setAssigneeMatchingMember(member1);
         sharedItem.setStatus(ChecklistItemStatus.DONE);
         sharedItem.setCompletedBy(member1);
         UUID itemId = sharedItem.getGroupChecklistItemId();

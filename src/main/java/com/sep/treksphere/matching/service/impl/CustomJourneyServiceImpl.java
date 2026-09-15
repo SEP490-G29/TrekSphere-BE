@@ -28,6 +28,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 @Slf4j
@@ -523,6 +524,20 @@ public class CustomJourneyServiceImpl implements CustomJourneyService {
     private void validateJourneyNotLocked(CustomJourney journey) {
         if (Boolean.TRUE.equals(journey.getIsLocked())) {
             throw new AppException(ErrorCode.JOURNEY_LOCKED);
+        }
+        MatchingGroup group = journey.getMatchingGroup();
+        if (group != null) {
+            if (group.getStatus() == MatchingGroupStatus.IN_PROGRESS
+                    || group.getStatus() == MatchingGroupStatus.COMPLETED
+                    || group.getStatus() == MatchingGroupStatus.CANCELLED) {
+                throw new AppException(ErrorCode.MATCHING_GROUP_INVALID_STATE);
+            }
+            if (groupTripRepository != null) {
+                Optional<GroupTrip> tripOpt = groupTripRepository.findByMatchingGroup(group);
+                if (tripOpt.isPresent() && tripOpt.get().getStatus() != GroupTripStatus.PLANNED) {
+                    throw new AppException(ErrorCode.JOURNEY_LOCKED);
+                }
+            }
         }
     }
 

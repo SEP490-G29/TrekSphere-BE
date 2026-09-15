@@ -351,7 +351,7 @@ public class MessageConstant {
     public static final String MATCHING_SCHEDULED_START_REQUIRED = "Thời điểm khởi hành dự kiến không được để trống";
     public static final String MATCHING_SCHEDULED_START_FUTURE = "Thời điểm khởi hành dự kiến phải ở tương lai";
     public static final String MATCHING_TOUR_NOT_APPROVED = "Chỉ có thể tạo nhóm ghép cho Tour đang công khai";
-    public static final String MATCHING_GROUP_SIZE_EXCEEDS_TOUR_CAPACITY = "Quy mô nhóm phải nằm trong khoảng sức chứa tối thiểu và tối đa của Tour";
+    public static final String MATCHING_GROUP_SIZE_EXCEEDS_TOUR_CAPACITY = "Quy mô nhóm không được vượt quá sức chứa tối đa của Tour";
     public static final String MATCHING_TOUR_NOT_AVAILABLE = "Tour của nhóm ghép không còn công khai";
     public static final String MATCHING_OWNER_CANNOT_JOIN = "Trưởng nhóm không thể gửi yêu cầu tham gia nhóm của chính mình";
     public static final String MATCHING_TARGET_DATE_PASSED = "Ngày dự kiến đi của nhóm đã đến hoặc đã qua";
