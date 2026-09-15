@@ -99,6 +99,30 @@ public class CustomJourneyController {
         return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, null, MessageConstant.CHECKPOINT_DELETED_SUCCESS));
     }
 
+    @Operation(summary = "Leader check-in 1 điểm dừng đã đến (chỉ khi chuyến đi đang diễn ra)")
+    @PostMapping("/checkpoints/{checkpointId}/checkin")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<ApiResponse<CustomJourneyCheckpointResponse>> checkInCheckpoint(
+            @Parameter(description = "ID nhóm ghép") @PathVariable UUID groupId,
+            @Parameter(description = "ID điểm dừng checkpoint") @PathVariable UUID checkpointId,
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+        CustomJourneyCheckpointResponse response = customJourneyService.checkInCheckpoint(
+                groupId, checkpointId, userDetails.getUser().getUserId());
+        return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, response, MessageConstant.CHECKPOINT_CHECKED_IN_SUCCESS));
+    }
+
+    @Operation(summary = "Leader gỡ check-in điểm dừng (sửa nhầm)")
+    @DeleteMapping("/checkpoints/{checkpointId}/checkin")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<ApiResponse<CustomJourneyCheckpointResponse>> undoCheckInCheckpoint(
+            @Parameter(description = "ID nhóm ghép") @PathVariable UUID groupId,
+            @Parameter(description = "ID điểm dừng checkpoint") @PathVariable UUID checkpointId,
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+        CustomJourneyCheckpointResponse response = customJourneyService.undoCheckInCheckpoint(
+                groupId, checkpointId, userDetails.getUser().getUserId());
+        return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, response, MessageConstant.CHECKPOINT_CHECKIN_UNDONE_SUCCESS));
+    }
+
     @Operation(summary = "Lấy danh sách các hoạt động trong thời khóa biểu hành trình")
     @GetMapping("/activities")
     public ResponseEntity<ApiResponse<List<CustomJourneyActivityResponse>>> getActivities(

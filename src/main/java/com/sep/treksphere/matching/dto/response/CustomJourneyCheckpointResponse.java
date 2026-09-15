@@ -25,4 +25,7 @@ public class CustomJourneyCheckpointResponse {
     private LocalDateTime plannedStartAt;
     private LocalDateTime plannedEndAt;
     private String imageUrl;
+    private Boolean isCheckedIn;
+    private LocalDateTime checkedInAt;
+    private String checkedInByName;
 }

@@ -20,6 +20,10 @@ public interface CustomJourneyService {
 
     void deleteCheckpoint(UUID groupId, UUID checkpointId, UUID currentUserId);
 
+    CustomJourneyCheckpointResponse checkInCheckpoint(UUID groupId, UUID checkpointId, UUID currentUserId);
+
+    CustomJourneyCheckpointResponse undoCheckInCheckpoint(UUID groupId, UUID checkpointId, UUID currentUserId);
+
     List<CustomJourneyActivityResponse> getActivities(UUID groupId, UUID currentUserId);
 
     CustomJourneyActivityResponse createActivity(

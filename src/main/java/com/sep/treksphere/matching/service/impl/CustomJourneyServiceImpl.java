@@ -5,12 +5,16 @@ import com.sep.treksphere.common.exception.ErrorCode;
 import com.sep.treksphere.matching.dto.request.*;
 import com.sep.treksphere.matching.dto.response.*;
 import com.sep.treksphere.matching.entity.*;
+import com.sep.treksphere.matching.enums.GroupTripStatus;
 import com.sep.treksphere.matching.enums.JoinStatus;
 import com.sep.treksphere.matching.enums.MatchingGroupStatus;
 import com.sep.treksphere.matching.enums.MatchingRole;
 import com.sep.treksphere.matching.mapper.CustomJourneyMapper;
 import com.sep.treksphere.matching.repository.*;
 import com.sep.treksphere.matching.service.CustomJourneyService;
+import com.sep.treksphere.notification.NotificationEventType;
+import com.sep.treksphere.notification.NotificationService;
+import com.sep.treksphere.notification.ReferenceType;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -19,6 +23,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.UUID;
@@ -34,6 +39,8 @@ public class CustomJourneyServiceImpl implements CustomJourneyService {
     private final CustomJourneyCostItemRepository costItemRepository;
     private final MatchingGroupRepository matchingGroupRepository;
     private final MatchingMemberRepository matchingMemberRepository;
+    private final GroupTripRepository groupTripRepository;
+    private final NotificationService notificationService;
     private final CustomJourneyMapper customJourneyMapper;
 
     @Override
@@ -186,6 +193,60 @@ public class CustomJourneyServiceImpl implements CustomJourneyService {
         checkpoint.setDeletedAt(java.time.LocalDateTime.now());
         checkpointRepository.save(checkpoint);
         log.info("Deleted checkpoint {} in custom journey {}", checkpointId, journey.getCustomJourneyId());
+    }
+
+    @Override
+    @Transactional
+    public CustomJourneyCheckpointResponse checkInCheckpoint(UUID groupId, UUID checkpointId, UUID currentUserId) {
+        MatchingGroup group = getGroupOrThrow(groupId);
+        validateLeaderPermission(group, currentUserId);
+        validateTripInProgress(groupId);
+
+        CustomJourneyCheckpoint checkpoint = lockCheckpointInGroupOrThrow(groupId, checkpointId);
+        if (Boolean.TRUE.equals(checkpoint.getIsCheckedIn())) {
+            throw new AppException(ErrorCode.CUSTOM_JOURNEY_CHECKPOINT_ALREADY_CHECKED_IN);
+        }
+
+        MatchingMember leaderMember = matchingMemberRepository.findByGroupIdAndUserId(groupId, currentUserId)
+                .orElseThrow(() -> new AppException(ErrorCode.MATCHING_GROUP_UNAUTHORIZED_MANAGE));
+
+        checkpoint.setIsCheckedIn(true);
+        checkpoint.setCheckedInAt(LocalDateTime.now());
+        checkpoint.setCheckedInBy(leaderMember);
+        CustomJourneyCheckpoint saved = checkpointRepository.save(checkpoint);
+        log.info("Checked in checkpoint {} in group {}", checkpointId, groupId);
+
+        List<UUID> recipientIds = matchingMemberRepository.findActiveMembers(groupId, JoinStatus.ACCEPTED)
+                .stream()
+                .map(m -> m.getUser().getUserId())
+                .filter(id -> !id.equals(currentUserId))
+                .toList();
+        String actionUrl = "/trekker/my-groups/" + groupId;
+        notificationService.notify(recipientIds, NotificationEventType.GROUP_CHECKPOINT_CHECKED_IN,
+                ReferenceType.MATCHING_GROUP, groupId, actionUrl, saved.getTitle());
+
+        return customJourneyMapper.toCheckpointResponse(saved);
+    }
+
+    @Override
+    @Transactional
+    public CustomJourneyCheckpointResponse undoCheckInCheckpoint(UUID groupId, UUID checkpointId, UUID currentUserId) {
+        MatchingGroup group = getGroupOrThrow(groupId);
+        validateLeaderPermission(group, currentUserId);
+        validateTripInProgress(groupId);
+
+        CustomJourneyCheckpoint checkpoint = lockCheckpointInGroupOrThrow(groupId, checkpointId);
+        if (!Boolean.TRUE.equals(checkpoint.getIsCheckedIn())) {
+            throw new AppException(ErrorCode.CUSTOM_JOURNEY_CHECKPOINT_NOT_CHECKED_IN);
+        }
+
+        checkpoint.setIsCheckedIn(false);
+        checkpoint.setCheckedInAt(null);
+        checkpoint.setCheckedInBy(null);
+        CustomJourneyCheckpoint saved = checkpointRepository.save(checkpoint);
+        log.info("Undo check-in checkpoint {} in group {}", checkpointId, groupId);
+
+        return customJourneyMapper.toCheckpointResponse(saved);
     }
 
     @Override
@@ -453,6 +514,25 @@ public class CustomJourneyServiceImpl implements CustomJourneyService {
         if (Boolean.TRUE.equals(journey.getIsLocked())) {
             throw new AppException(ErrorCode.JOURNEY_LOCKED);
         }
+    }
+
+    private void validateTripInProgress(UUID groupId) {
+        GroupTrip trip = groupTripRepository.findByMatchingGroup_MatchingGroupId(groupId)
+                .orElseThrow(() -> new AppException(ErrorCode.GROUP_TRIP_NOT_FOUND));
+        if (trip.getStatus() != GroupTripStatus.IN_PROGRESS) {
+            throw new AppException(ErrorCode.CUSTOM_JOURNEY_CHECKIN_TRIP_NOT_ACTIVE);
+        }
+    }
+
+    private CustomJourneyCheckpoint lockCheckpointInGroupOrThrow(UUID groupId, UUID checkpointId) {
+        CustomJourneyCheckpoint checkpoint = checkpointRepository.findByIdForUpdate(checkpointId)
+                .orElseThrow(() -> new AppException(ErrorCode.CUSTOM_JOURNEY_CHECKPOINT_NOT_FOUND));
+        CustomJourney journey = checkpoint.getCustomJourney();
+        if (journey == null || journey.getMatchingGroup() == null
+                || !journey.getMatchingGroup().getMatchingGroupId().equals(groupId)) {
+            throw new AppException(ErrorCode.CUSTOM_JOURNEY_CHECKPOINT_NOT_FOUND);
+        }
+        return checkpoint;
     }
 
     private void validateLeaderPermission(MatchingGroup group, UUID currentUserId) {

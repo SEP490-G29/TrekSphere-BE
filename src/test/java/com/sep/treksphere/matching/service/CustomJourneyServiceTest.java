@@ -9,8 +9,10 @@ import com.sep.treksphere.matching.dto.response.CustomJourneyCheckpointResponse;
 import com.sep.treksphere.matching.dto.response.CustomJourneyDetailResponse;
 import com.sep.treksphere.matching.entity.CustomJourney;
 import com.sep.treksphere.matching.entity.CustomJourneyCheckpoint;
+import com.sep.treksphere.matching.entity.GroupTrip;
 import com.sep.treksphere.matching.entity.MatchingGroup;
 import com.sep.treksphere.matching.entity.MatchingMember;
+import com.sep.treksphere.matching.enums.GroupTripStatus;
 import com.sep.treksphere.matching.enums.JoinStatus;
 import com.sep.treksphere.matching.enums.JourneyDifficulty;
 import com.sep.treksphere.matching.enums.MatchingGroupStatus;
@@ -18,15 +20,20 @@ import com.sep.treksphere.matching.enums.MatchingRole;
 import com.sep.treksphere.matching.mapper.CustomJourneyMapper;
 import com.sep.treksphere.matching.repository.CustomJourneyCheckpointRepository;
 import com.sep.treksphere.matching.repository.CustomJourneyRepository;
+import com.sep.treksphere.matching.repository.GroupTripRepository;
 import com.sep.treksphere.matching.repository.MatchingGroupRepository;
 import com.sep.treksphere.matching.repository.MatchingMemberRepository;
 import com.sep.treksphere.matching.service.impl.CustomJourneyServiceImpl;
+import com.sep.treksphere.notification.NotificationEventType;
+import com.sep.treksphere.notification.NotificationService;
+import com.sep.treksphere.notification.ReferenceType;
 import com.sep.treksphere.user.User;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mapstruct.factory.Mappers;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.Spy;
@@ -43,6 +50,7 @@ import java.util.UUID;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -67,6 +75,12 @@ class CustomJourneyServiceTest {
     @Mock
     private MatchingMemberRepository matchingMemberRepository;
 
+    @Mock
+    private GroupTripRepository groupTripRepository;
+
+    @Mock
+    private NotificationService notificationService;
+
     @Spy
     private CustomJourneyMapper customJourneyMapper = Mappers.getMapper(CustomJourneyMapper.class);
 
@@ -81,6 +95,8 @@ class CustomJourneyServiceTest {
     private CustomJourney journey;
     private CustomJourneyCheckpoint checkpoint;
     private MatchingMember leaderMember;
+    private MatchingMember normalMember;
+    private GroupTrip trip;
 
     @BeforeEach
     void setUp() {
@@ -130,6 +146,22 @@ class CustomJourneyServiceTest {
         checkpoint.setLatitude(new BigDecimal("22.1234567"));
         checkpoint.setLongitude(new BigDecimal("103.1234567"));
         checkpoint.setIsDeleted(false);
+
+        User memberUser = new User();
+        memberUser.setUserId(memberId);
+        memberUser.setFullName("Normal Member");
+
+        normalMember = new MatchingMember();
+        normalMember.setMatchingMemberId(UUID.randomUUID());
+        normalMember.setMatchingGroup(group);
+        normalMember.setUser(memberUser);
+        normalMember.setRole(MatchingRole.MEMBER);
+        normalMember.setStatus(JoinStatus.ACCEPTED);
+        normalMember.setIsDeleted(false);
+
+        trip = new GroupTrip();
+        trip.setMatchingGroup(group);
+        trip.setStatus(GroupTripStatus.IN_PROGRESS);
     }
 
     @Test
@@ -551,5 +583,130 @@ class CustomJourneyServiceTest {
         assertThat(summary.getActiveMemberCount()).isEqualTo(1);
         assertThat(summary.getMaxSize()).isEqualTo(10);
         assertThat(summary.getCostItems()).hasSize(2);
+    }
+
+    @Test
+    @DisplayName("checkInCheckpoint - Leader check-in thành công, notify các member khác trừ chính mình")
+    void checkInCheckpoint_Success() {
+        UUID cpId = checkpoint.getCustomJourneyCheckpointId();
+
+        when(matchingGroupRepository.findById(groupId)).thenReturn(Optional.of(group));
+        when(matchingMemberRepository.findActiveMembers(groupId, JoinStatus.ACCEPTED))
+                .thenReturn(List.of(leaderMember, normalMember));
+        when(groupTripRepository.findByMatchingGroup_MatchingGroupId(groupId)).thenReturn(Optional.of(trip));
+        when(checkpointRepository.findByIdForUpdate(cpId)).thenReturn(Optional.of(checkpoint));
+        when(matchingMemberRepository.findByGroupIdAndUserId(groupId, leaderId)).thenReturn(Optional.of(leaderMember));
+        when(checkpointRepository.save(any(CustomJourneyCheckpoint.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        CustomJourneyCheckpointResponse response = customJourneyService.checkInCheckpoint(groupId, cpId, leaderId);
+
+        assertThat(response.getIsCheckedIn()).isTrue();
+        assertThat(checkpoint.getIsCheckedIn()).isTrue();
+        assertThat(checkpoint.getCheckedInAt()).isNotNull();
+        assertThat(checkpoint.getCheckedInBy()).isEqualTo(leaderMember);
+
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<List<UUID>> recipientsCaptor = ArgumentCaptor.forClass(List.class);
+        verify(notificationService).notify(recipientsCaptor.capture(), eq(NotificationEventType.GROUP_CHECKPOINT_CHECKED_IN),
+                eq(ReferenceType.MATCHING_GROUP), eq(groupId), any(String.class), any());
+        assertThat(recipientsCaptor.getValue()).containsExactly(memberId);
+    }
+
+    @Test
+    @DisplayName("checkInCheckpoint - ném lỗi khi người thao tác không phải Leader")
+    void checkInCheckpoint_ForbiddenWhenNotLeader() {
+        when(matchingGroupRepository.findById(groupId)).thenReturn(Optional.of(group));
+        when(matchingMemberRepository.findActiveMembers(groupId, JoinStatus.ACCEPTED)).thenReturn(List.of(leaderMember));
+
+        assertThatThrownBy(() -> customJourneyService.checkInCheckpoint(groupId, checkpoint.getCustomJourneyCheckpointId(), memberId))
+                .isInstanceOf(AppException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.MATCHING_GROUP_UNAUTHORIZED_MANAGE);
+    }
+
+    @Test
+    @DisplayName("checkInCheckpoint - ném lỗi khi chuyến đi chưa/không còn đang diễn ra")
+    void checkInCheckpoint_TripNotInProgress() {
+        trip.setStatus(GroupTripStatus.PLANNED);
+
+        when(matchingGroupRepository.findById(groupId)).thenReturn(Optional.of(group));
+        when(matchingMemberRepository.findActiveMembers(groupId, JoinStatus.ACCEPTED)).thenReturn(List.of(leaderMember));
+        when(groupTripRepository.findByMatchingGroup_MatchingGroupId(groupId)).thenReturn(Optional.of(trip));
+
+        assertThatThrownBy(() -> customJourneyService.checkInCheckpoint(groupId, checkpoint.getCustomJourneyCheckpointId(), leaderId))
+                .isInstanceOf(AppException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.CUSTOM_JOURNEY_CHECKIN_TRIP_NOT_ACTIVE);
+    }
+
+    @Test
+    @DisplayName("checkInCheckpoint - ném lỗi khi checkpoint đã được check-in trước đó")
+    void checkInCheckpoint_AlreadyCheckedIn() {
+        checkpoint.setIsCheckedIn(true);
+        UUID cpId = checkpoint.getCustomJourneyCheckpointId();
+
+        when(matchingGroupRepository.findById(groupId)).thenReturn(Optional.of(group));
+        when(matchingMemberRepository.findActiveMembers(groupId, JoinStatus.ACCEPTED)).thenReturn(List.of(leaderMember));
+        when(groupTripRepository.findByMatchingGroup_MatchingGroupId(groupId)).thenReturn(Optional.of(trip));
+        when(checkpointRepository.findByIdForUpdate(cpId)).thenReturn(Optional.of(checkpoint));
+
+        assertThatThrownBy(() -> customJourneyService.checkInCheckpoint(groupId, cpId, leaderId))
+                .isInstanceOf(AppException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.CUSTOM_JOURNEY_CHECKPOINT_ALREADY_CHECKED_IN);
+    }
+
+    @Test
+    @DisplayName("checkInCheckpoint - ném lỗi khi checkpoint không thuộc nhóm này")
+    void checkInCheckpoint_CheckpointFromAnotherGroup() {
+        MatchingGroup otherGroup = new MatchingGroup();
+        otherGroup.setMatchingGroupId(UUID.randomUUID());
+        CustomJourney otherJourney = new CustomJourney();
+        otherJourney.setCustomJourneyId(UUID.randomUUID());
+        otherJourney.setMatchingGroup(otherGroup);
+        checkpoint.setCustomJourney(otherJourney);
+        UUID cpId = checkpoint.getCustomJourneyCheckpointId();
+
+        when(matchingGroupRepository.findById(groupId)).thenReturn(Optional.of(group));
+        when(matchingMemberRepository.findActiveMembers(groupId, JoinStatus.ACCEPTED)).thenReturn(List.of(leaderMember));
+        when(groupTripRepository.findByMatchingGroup_MatchingGroupId(groupId)).thenReturn(Optional.of(trip));
+        when(checkpointRepository.findByIdForUpdate(cpId)).thenReturn(Optional.of(checkpoint));
+
+        assertThatThrownBy(() -> customJourneyService.checkInCheckpoint(groupId, cpId, leaderId))
+                .isInstanceOf(AppException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.CUSTOM_JOURNEY_CHECKPOINT_NOT_FOUND);
+    }
+
+    @Test
+    @DisplayName("undoCheckInCheckpoint - Leader gỡ check-in thành công")
+    void undoCheckInCheckpoint_Success() {
+        checkpoint.setIsCheckedIn(true);
+        checkpoint.setCheckedInAt(LocalDateTime.now());
+        checkpoint.setCheckedInBy(leaderMember);
+        UUID cpId = checkpoint.getCustomJourneyCheckpointId();
+
+        when(matchingGroupRepository.findById(groupId)).thenReturn(Optional.of(group));
+        when(matchingMemberRepository.findActiveMembers(groupId, JoinStatus.ACCEPTED)).thenReturn(List.of(leaderMember));
+        when(groupTripRepository.findByMatchingGroup_MatchingGroupId(groupId)).thenReturn(Optional.of(trip));
+        when(checkpointRepository.findByIdForUpdate(cpId)).thenReturn(Optional.of(checkpoint));
+        when(checkpointRepository.save(any(CustomJourneyCheckpoint.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        CustomJourneyCheckpointResponse response = customJourneyService.undoCheckInCheckpoint(groupId, cpId, leaderId);
+
+        assertThat(response.getIsCheckedIn()).isFalse();
+        assertThat(checkpoint.getCheckedInAt()).isNull();
+        assertThat(checkpoint.getCheckedInBy()).isNull();
+    }
+
+    @Test
+    @DisplayName("undoCheckInCheckpoint - ném lỗi khi checkpoint chưa được check-in")
+    void undoCheckInCheckpoint_NotCheckedIn() {
+        UUID cpId = checkpoint.getCustomJourneyCheckpointId();
+
+        when(matchingGroupRepository.findById(groupId)).thenReturn(Optional.of(group));
+        when(matchingMemberRepository.findActiveMembers(groupId, JoinStatus.ACCEPTED)).thenReturn(List.of(leaderMember));
+        when(groupTripRepository.findByMatchingGroup_MatchingGroupId(groupId)).thenReturn(Optional.of(trip));
+        when(checkpointRepository.findByIdForUpdate(cpId)).thenReturn(Optional.of(checkpoint));
+
+        assertThatThrownBy(() -> customJourneyService.undoCheckInCheckpoint(groupId, cpId, leaderId))
+                .isInstanceOf(AppException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.CUSTOM_JOURNEY_CHECKPOINT_NOT_CHECKED_IN);
     }
 }

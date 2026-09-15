@@ -53,4 +53,13 @@ public class CustomJourneyCheckpoint extends BaseEntity {
 
     @Column(length = 500)
     private String imageUrl;
+
+    @Column(nullable = false)
+    private Boolean isCheckedIn = false;
+
+    private LocalDateTime checkedInAt;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "checked_in_by_member_id")
+    private MatchingMember checkedInBy;
 }
