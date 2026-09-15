@@ -168,7 +168,7 @@ class GroupSettlementServiceTest {
         when(groupTripRepository.findByMatchingGroup(group)).thenReturn(Optional.of(groupTrip));
         when(matchingMemberRepository.findActiveMembers(groupId, JoinStatus.ACCEPTED))
                 .thenReturn(List.of(leaderMember, member1, member2));
-        when(groupExpenseRepository.findByGroupTrip_MatchingGroup_MatchingGroupId(groupId))
+        when(groupExpenseRepository.findByGroupTrip_MatchingGroup_MatchingGroupIdAndIsDeletedFalse(groupId))
                 .thenReturn(List.of(expense));
         when(groupSettlementRepository.findByGroupTrip_MatchingGroup_MatchingGroupIdAndIsDeletedFalseOrderByCreatedAtAsc(groupId))
                 .thenReturn(Collections.emptyList());
@@ -232,7 +232,7 @@ class GroupSettlementServiceTest {
         when(matchingMemberRepository.findActiveMembers(groupId, JoinStatus.ACCEPTED))
                 .thenReturn(List.of(leaderMember, member1));
 
-        when(groupExpenseRepository.findByGroupTrip_MatchingGroup_MatchingGroupId(groupId))
+        when(groupExpenseRepository.findByGroupTrip_MatchingGroup_MatchingGroupIdAndIsDeletedFalse(groupId))
                 .thenReturn(List.of(expense));
         when(groupSettlementRepository.findByGroupTrip_MatchingGroup_MatchingGroupIdAndIsDeletedFalseOrderByCreatedAtAsc(groupId))
                 .thenReturn(Collections.emptyList());
@@ -422,4 +422,108 @@ class GroupSettlementServiceTest {
         assertThat(response.getRejectReason()).isEqualTo("Chưa nhận được tiền vào tài khoản ngân hàng");
     }
 
+    @Test
+    @DisplayName("TC-SETTLE-10: Khấu trừ các lệnh quyết toán đã CONFIRMED vào số dư ròng khi phát sinh chi phí mới")
+    void getSettlementSummary_ShouldDeductConfirmedSettlementsFromBalances() {
+        // Given: Leader chi 400k (Leader 200k, Member1 200k).
+        // Đã có 1 settlement CONFIRMED: Member1 -> Leader 100k.
+        // Net balance mong đợi:
+        // Leader: paid 400k - share 200k - receivedIn 100k = +100k.
+        // Member1: paid 0k - share 200k + paidOut 100k = -100k.
+        GroupExpense expense = new GroupExpense();
+        expense.setAmount(new BigDecimal("400000"));
+        expense.setPaidBy(leaderMember);
+        expense.setIsDeleted(false);
+
+        GroupExpenseShare sLeader = new GroupExpenseShare();
+        sLeader.setMatchingMember(leaderMember);
+        sLeader.setShareAmount(new BigDecimal("200000"));
+        sLeader.setIsDeleted(false);
+
+        GroupExpenseShare sMember1 = new GroupExpenseShare();
+        sMember1.setMatchingMember(member1);
+        sMember1.setShareAmount(new BigDecimal("200000"));
+        sMember1.setIsDeleted(false);
+
+        expense.setShares(List.of(sLeader, sMember1));
+
+        GroupSettlement confirmedSettlement = new GroupSettlement();
+        confirmedSettlement.setGroupSettlementId(UUID.randomUUID());
+        confirmedSettlement.setFromMatchingMember(member1);
+        confirmedSettlement.setToMatchingMember(leaderMember);
+        confirmedSettlement.setAmount(new BigDecimal("100000"));
+        confirmedSettlement.setStatus(SettlementStatus.CONFIRMED);
+        confirmedSettlement.setIsDeleted(false);
+
+        when(matchingGroupRepository.findById(groupId)).thenReturn(Optional.of(group));
+        when(userRepository.findByEmail(leaderUser.getEmail())).thenReturn(Optional.of(leaderUser));
+        when(matchingMemberRepository.findByMatchingGroupAndUserAndIsDeletedFalse(group, leaderUser))
+                .thenReturn(Optional.of(leaderMember));
+        when(groupTripRepository.findByMatchingGroup(group)).thenReturn(Optional.of(groupTrip));
+        when(matchingMemberRepository.findActiveMembers(groupId, JoinStatus.ACCEPTED))
+                .thenReturn(List.of(leaderMember, member1));
+        when(groupExpenseRepository.findByGroupTrip_MatchingGroup_MatchingGroupIdAndIsDeletedFalse(groupId))
+                .thenReturn(List.of(expense));
+        when(groupSettlementRepository.findByGroupTrip_MatchingGroup_MatchingGroupIdAndIsDeletedFalseOrderByCreatedAtAsc(groupId))
+                .thenReturn(List.of(confirmedSettlement));
+
+        // When
+        GroupSettlementSummaryResponse response = groupSettlementService.getSettlementSummary(groupId, leaderUser.getEmail());
+
+        // Then
+        assertThat(response).isNotNull();
+        assertThat(response.getSuggestions()).hasSize(1);
+        assertThat(response.getSuggestions().get(0).getAmount()).isEqualByComparingTo(new BigDecimal("100000"));
+        assertThat(response.getSuggestions().get(0).getFromMember().getMatchingMemberId()).isEqualTo(member1.getMatchingMemberId());
+        assertThat(response.getSuggestions().get(0).getToMember().getMatchingMemberId()).isEqualTo(leaderMember.getMatchingMemberId());
+    }
+
+    @Test
+    @DisplayName("TC-SETTLE-11: Bỏ qua khoản chi phí và phần chia đã bị xóa mềm (isDeleted = true)")
+    void getSettlementSummary_ShouldIgnoreSoftDeletedExpensesAndShares() {
+        // Given: 1 expense hoạt động 200k và 1 expense đã bị xóa 500k
+        GroupExpense activeExpense = new GroupExpense();
+        activeExpense.setAmount(new BigDecimal("200000"));
+        activeExpense.setPaidBy(leaderMember);
+        activeExpense.setIsDeleted(false);
+
+        GroupExpenseShare sLeader = new GroupExpenseShare();
+        sLeader.setMatchingMember(leaderMember);
+        sLeader.setShareAmount(new BigDecimal("100000"));
+        sLeader.setIsDeleted(false);
+
+        GroupExpenseShare sMember1 = new GroupExpenseShare();
+        sMember1.setMatchingMember(member1);
+        sMember1.setShareAmount(new BigDecimal("100000"));
+        sMember1.setIsDeleted(false);
+
+        activeExpense.setShares(List.of(sLeader, sMember1));
+
+        GroupExpense deletedExpense = new GroupExpense();
+        deletedExpense.setAmount(new BigDecimal("500000"));
+        deletedExpense.setPaidBy(leaderMember);
+        deletedExpense.setIsDeleted(true);
+
+        when(matchingGroupRepository.findById(groupId)).thenReturn(Optional.of(group));
+        when(userRepository.findByEmail(leaderUser.getEmail())).thenReturn(Optional.of(leaderUser));
+        when(matchingMemberRepository.findByMatchingGroupAndUserAndIsDeletedFalse(group, leaderUser))
+                .thenReturn(Optional.of(leaderMember));
+        when(groupTripRepository.findByMatchingGroup(group)).thenReturn(Optional.of(groupTrip));
+        when(matchingMemberRepository.findActiveMembers(groupId, JoinStatus.ACCEPTED))
+                .thenReturn(List.of(leaderMember, member1));
+        when(groupExpenseRepository.findByGroupTrip_MatchingGroup_MatchingGroupIdAndIsDeletedFalse(groupId))
+                .thenReturn(List.of(activeExpense, deletedExpense));
+        when(groupSettlementRepository.findByGroupTrip_MatchingGroup_MatchingGroupIdAndIsDeletedFalseOrderByCreatedAtAsc(groupId))
+                .thenReturn(Collections.emptyList());
+
+        // When
+        GroupSettlementSummaryResponse response = groupSettlementService.getSettlementSummary(groupId, leaderUser.getEmail());
+
+        // Then
+        assertThat(response).isNotNull();
+        // Tổng tiền chỉ tính activeExpense (200k), không bị cộng thêm deletedExpense (500k)
+        assertThat(response.getTotalGroupExpense()).isEqualByComparingTo(new BigDecimal("200000"));
+        assertThat(response.getSuggestions()).hasSize(1);
+        assertThat(response.getSuggestions().get(0).getAmount()).isEqualByComparingTo(new BigDecimal("100000"));
+    }
 }

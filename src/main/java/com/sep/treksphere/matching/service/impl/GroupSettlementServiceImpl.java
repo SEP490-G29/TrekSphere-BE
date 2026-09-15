@@ -56,18 +56,18 @@ public class GroupSettlementServiceImpl implements GroupSettlementService {
         List<MatchingMember> activeMembers = matchingMemberRepository
                 .findActiveMembers(groupId, JoinStatus.ACCEPTED);
 
-        List<GroupExpense> expenses = groupExpenseRepository.findByGroupTrip_MatchingGroup_MatchingGroupId(groupId);
-
+        List<GroupExpense> expenses = groupExpenseRepository.findByGroupTrip_MatchingGroup_MatchingGroupIdAndIsDeletedFalse(groupId);
 
         BigDecimal totalGroupExpense = expenses.stream()
+                .filter(e -> !Boolean.TRUE.equals(e.getIsDeleted()))
                 .map(GroupExpense::getAmount)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
 
-        List<MemberBalanceResponse> memberBalances = calculateMemberBalances(activeMembers, expenses);
-        List<SettlementSuggestionResponse> suggestions = calculateGreedySettlementSuggestions(activeMembers, memberBalances);
-
         List<GroupSettlement> existingSettlements = groupSettlementRepository
                 .findByGroupTrip_MatchingGroup_MatchingGroupIdAndIsDeletedFalseOrderByCreatedAtAsc(groupId);
+
+        List<MemberBalanceResponse> memberBalances = calculateMemberBalances(activeMembers, expenses, existingSettlements);
+        List<SettlementSuggestionResponse> suggestions = calculateGreedySettlementSuggestions(activeMembers, memberBalances);
 
         boolean isFullySettled = !existingSettlements.isEmpty() && existingSettlements.stream()
                 .allMatch(s -> s.getStatus() == SettlementStatus.CONFIRMED);
@@ -106,10 +106,11 @@ public class GroupSettlementServiceImpl implements GroupSettlementService {
         GroupTrip groupTrip = resolveGroupTrip(group);
         List<MatchingMember> activeMembers = matchingMemberRepository
                 .findActiveMembers(groupId, JoinStatus.ACCEPTED);
-        List<GroupExpense> expenses = groupExpenseRepository.findByGroupTrip_MatchingGroup_MatchingGroupId(groupId);
+        List<GroupExpense> expenses = groupExpenseRepository.findByGroupTrip_MatchingGroup_MatchingGroupIdAndIsDeletedFalse(groupId);
+        List<GroupSettlement> existingSettlements = groupSettlementRepository
+                .findByGroupTrip_MatchingGroup_MatchingGroupIdAndIsDeletedFalseOrderByCreatedAtAsc(groupId);
 
-
-        List<MemberBalanceResponse> balances = calculateMemberBalances(activeMembers, expenses);
+        List<MemberBalanceResponse> balances = calculateMemberBalances(activeMembers, expenses, existingSettlements);
         List<SettlementSuggestionResponse> suggestions = calculateGreedySettlementSuggestions(activeMembers, balances);
 
         if (suggestions.isEmpty()) {
@@ -121,8 +122,6 @@ public class GroupSettlementServiceImpl implements GroupSettlementService {
                 .collect(Collectors.toMap(MatchingMember::getMatchingMemberId, m -> m));
 
         // Soft delete old unconfirmed settlements (PENDING or REJECTED)
-        List<GroupSettlement> existingSettlements = groupSettlementRepository
-                .findByGroupTrip_MatchingGroup_MatchingGroupIdAndIsDeletedFalseOrderByCreatedAtAsc(groupId);
         for (GroupSettlement s : existingSettlements) {
             if (s.getStatus() != SettlementStatus.CONFIRMED) {
                 s.setIsDeleted(true);
@@ -296,19 +295,30 @@ public class GroupSettlementServiceImpl implements GroupSettlementService {
     }
 
 
-    private List<MemberBalanceResponse> calculateMemberBalances(List<MatchingMember> activeMembers, List<GroupExpense> expenses) {
+    private List<MemberBalanceResponse> calculateMemberBalances(
+            List<MatchingMember> activeMembers,
+            List<GroupExpense> expenses,
+            List<GroupSettlement> existingSettlements) {
+
         List<MemberBalanceResponse> responses = new ArrayList<>();
+        List<GroupSettlement> confirmedSettlements = existingSettlements != null
+                ? existingSettlements.stream()
+                        .filter(s -> !Boolean.TRUE.equals(s.getIsDeleted()) && s.getStatus() == SettlementStatus.CONFIRMED)
+                        .toList()
+                : Collections.emptyList();
 
         for (MatchingMember member : activeMembers) {
             UUID memberId = member.getMatchingMemberId();
 
             BigDecimal totalPaid = expenses.stream()
+                    .filter(e -> !Boolean.TRUE.equals(e.getIsDeleted()))
                     .filter(e -> e.getPaidBy() != null && memberId.equals(e.getPaidBy().getMatchingMemberId()))
                     .map(GroupExpense::getAmount)
                     .reduce(BigDecimal.ZERO, BigDecimal::add)
                     .setScale(2, RoundingMode.HALF_UP);
 
             BigDecimal totalShare = expenses.stream()
+                    .filter(e -> !Boolean.TRUE.equals(e.getIsDeleted()))
                     .flatMap(e -> e.getShares().stream())
                     .filter(s -> !Boolean.TRUE.equals(s.getIsDeleted()))
                     .filter(s -> s.getMatchingMember() != null && memberId.equals(s.getMatchingMember().getMatchingMemberId()))
@@ -316,7 +326,22 @@ public class GroupSettlementServiceImpl implements GroupSettlementService {
                     .reduce(BigDecimal.ZERO, BigDecimal::add)
                     .setScale(2, RoundingMode.HALF_UP);
 
-            BigDecimal netBalance = totalPaid.subtract(totalShare).setScale(2, RoundingMode.HALF_UP);
+            BigDecimal confirmedPaidOut = confirmedSettlements.stream()
+                    .filter(s -> s.getFromMatchingMember() != null && memberId.equals(s.getFromMatchingMember().getMatchingMemberId()))
+                    .map(GroupSettlement::getAmount)
+                    .reduce(BigDecimal.ZERO, BigDecimal::add)
+                    .setScale(2, RoundingMode.HALF_UP);
+
+            BigDecimal confirmedReceivedIn = confirmedSettlements.stream()
+                    .filter(s -> s.getToMatchingMember() != null && memberId.equals(s.getToMatchingMember().getMatchingMemberId()))
+                    .map(GroupSettlement::getAmount)
+                    .reduce(BigDecimal.ZERO, BigDecimal::add)
+                    .setScale(2, RoundingMode.HALF_UP);
+
+            BigDecimal netBalance = totalPaid.subtract(totalShare)
+                    .add(confirmedPaidOut)
+                    .subtract(confirmedReceivedIn)
+                    .setScale(2, RoundingMode.HALF_UP);
 
             String balanceType;
             if (netBalance.compareTo(EPSILON) > 0) {
