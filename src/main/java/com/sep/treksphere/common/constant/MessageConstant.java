@@ -272,6 +272,7 @@ public class MessageConstant {
     public static final String SOS_ALERT_RESOLVED_SUCCESS = "Đóng tín hiệu SOS thành công";
     public static final String SOS_ALERT_NOT_FOUND = "Tín hiệu SOS không tồn tại";
     public static final String SOS_ALERT_ALREADY_RESOLVED = "Tín hiệu SOS này đã được xử lý xong, không thể thao tác thêm";
+    public static final String SOS_ALERT_SENDER_HAS_ACTIVE_ALERT = "Bạn đang có 1 tín hiệu SOS chưa được xử lý, không thể phát thêm cho đến khi tín hiệu đó được đóng";
     public static final String UNAUTHORIZED_RESOLVE_SOS = "Chỉ Trekker đã phát tín hiệu này hoặc Trưởng nhóm mới có quyền đóng tín hiệu SOS này";
     public static final String SOS_INCIDENT_TYPE_REQUIRED = "Loại sự cố không được để trống";
     public static final String SOS_MESSAGE_TOO_LONG = "Ghi chú tối đa 2000 ký tự";
@@ -329,6 +330,7 @@ public class MessageConstant {
     public static final String CUSTOM_JOURNEY_CHECKPOINT_PROGRESS_ALREADY_SET = "Điểm dừng này đã được cập nhật tiến độ trước đó";
     public static final String CUSTOM_JOURNEY_CHECKPOINT_PROGRESS_NOT_SET = "Điểm dừng này chưa được cập nhật tiến độ nên không thể gỡ";
     public static final String CUSTOM_JOURNEY_PROGRESS_TRIP_NOT_ACTIVE = "Chuyến đi chưa hoặc không còn đang diễn ra nên không thể cập nhật tiến độ điểm dừng";
+    public static final String GROUP_DISSOLUTION_TRIP_ALREADY_STARTED = "Chuyến đi đã bắt đầu nên không thể mở biểu quyết giải tán nhóm";
     public static final String GROUP_VOTE_CREATED_SUCCESS = "Mở bình chọn thành công";
     public static final String GROUP_VOTE_BALLOT_CAST_SUCCESS = "Gửi phiếu bầu thành công";
     public static final String GROUP_VOTE_CLOSED_SUCCESS = "Đóng bình chọn thành công";

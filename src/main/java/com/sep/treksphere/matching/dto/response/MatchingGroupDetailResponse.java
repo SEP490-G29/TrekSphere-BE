@@ -3,6 +3,7 @@ package com.sep.treksphere.matching.dto.response;
 import com.sep.treksphere.matching.enums.JoinStatus;
 import com.sep.treksphere.matching.enums.MatchingGroupSourceType;
 import com.sep.treksphere.matching.enums.MatchingGroupStatus;
+import com.sep.treksphere.matching.enums.MatchingRole;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -62,6 +63,8 @@ public class MatchingGroupDetailResponse {
 
     // Viewer context
     private Boolean isOwner;
+    /** Role thật của viewer trong nhóm (LEADER/MEMBER) — khác với isOwner (chỉ là người tạo nhóm, cố định). */
+    private MatchingRole myRole;
     private JoinStatus myMembershipStatus;
     private Boolean canJoin;
     private Boolean canLeave;

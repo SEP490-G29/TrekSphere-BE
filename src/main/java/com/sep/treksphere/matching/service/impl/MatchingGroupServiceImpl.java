@@ -39,6 +39,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.*;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -104,7 +105,9 @@ public class MatchingGroupServiceImpl implements MatchingGroupService {
                 filter.getPageable()
         );
 
-        return PaginationUtils.toPaginationResponse(groups.map(matchingGroupMapper::toResponse));
+        Page<MatchingGroupResponse> responsePage = groups.map(matchingGroupMapper::toResponse);
+        applyCurrentLeaders(responsePage.getContent());
+        return PaginationUtils.toPaginationResponse(responsePage);
     }
 
     @Override
@@ -131,13 +134,23 @@ public class MatchingGroupServiceImpl implements MatchingGroupService {
                 filter.getPageable()
         );
 
-        return PaginationUtils.toPaginationResponse(groups.map(group -> {
+        Page<MatchingGroupResponse> responsePage = groups.map(group -> {
             MatchingGroupResponse response = matchingGroupMapper.toResponse(group);
             boolean isOwner = group.getOwner() != null && userId.equals(group.getOwner().getUserId());
             response.setIsOwner(isOwner);
-            response.setMyRole(isOwner ? MatchingRole.LEADER : MatchingRole.MEMBER);
+            MatchingMember myMembership = group.getMembers() == null
+                    ? null
+                    : group.getMembers().stream()
+                            .filter(member -> member.getUser().getUserId().equals(userId)
+                                    && member.getStatus() == JoinStatus.ACCEPTED
+                                    && !Boolean.TRUE.equals(member.getIsDeleted()))
+                            .findFirst()
+                            .orElse(null);
+            response.setMyRole(myMembership != null ? myMembership.getRole() : null);
             return response;
-        }));
+        });
+        applyCurrentLeaders(responsePage.getContent());
+        return PaginationUtils.toPaginationResponse(responsePage);
     }
 
     @Override
@@ -215,10 +228,13 @@ public class MatchingGroupServiceImpl implements MatchingGroupService {
                 && matchingGroup.getMatchingDeadline().isAfter(LocalDateTime.now())
                 && matchingGroup.getTargetDate().isAfter(LocalDate.now());
 
+        boolean isCurrentLeader = viewerMembership != null && viewerMembership.getRole() == MatchingRole.LEADER;
+
         response.setIsOwner(isOwner);
+        response.setMyRole(viewerMembership != null ? viewerMembership.getRole() : null);
         response.setMyMembershipStatus(membershipStatus);
         response.setCanJoin(viewerId != null && !isOwner && !hasActiveMembership && groupIsJoinable);
-        response.setCanLeave(viewerId != null && !isOwner && hasActiveMembership);
+        response.setCanLeave(viewerId != null && !isCurrentLeader && hasActiveMembership);
         
         boolean isInConversation = false;
         if (viewerId != null && matchingGroup.getConversation() != null && !Boolean.TRUE.equals(matchingGroup.getConversation().getIsDeleted())) {
@@ -309,6 +325,34 @@ public class MatchingGroupServiceImpl implements MatchingGroupService {
         response.setIsInConversation(false);
 
         return response;
+    }
+
+    /**
+     * Điền `leaderName`/`leaderAvatarUrl` (Trưởng nhóm HIỆN TẠI, có thể khác owner sau khi bầu
+     * Trưởng nhóm mới) cho danh sách response, gộp thành 1 query cho cả trang thay vì N+1.
+     * Fallback về owner nếu vì lý do gì đó không tìm thấy accepted LEADER member (không nên xảy
+     * ra bình thường vì mỗi nhóm luôn có đúng 1 leader).
+     */
+    private void applyCurrentLeaders(List<MatchingGroupResponse> responses) {
+        if (responses.isEmpty()) {
+            return;
+        }
+        List<UUID> groupIds = responses.stream().map(MatchingGroupResponse::getMatchingGroupId).toList();
+        Map<UUID, MatchingMember> leadersByGroupId = matchingMemberRepository
+                .findByGroupIdsAndRoleAndStatus(groupIds, MatchingRole.LEADER, JoinStatus.ACCEPTED)
+                .stream()
+                .collect(Collectors.toMap(m -> m.getMatchingGroup().getMatchingGroupId(), m -> m));
+
+        for (MatchingGroupResponse response : responses) {
+            MatchingMember leader = leadersByGroupId.get(response.getMatchingGroupId());
+            if (leader != null) {
+                response.setLeaderName(leader.getUser().getFullName());
+                response.setLeaderAvatarUrl(leader.getUser().getAvatarUrl());
+            } else {
+                response.setLeaderName(response.getOwnerName());
+                response.setLeaderAvatarUrl(response.getOwnerAvatarUrl());
+            }
+        }
     }
 
     private void validateSource(MatchingGroupCreateRequest request) {
@@ -466,8 +510,15 @@ public class MatchingGroupServiceImpl implements MatchingGroupService {
 
         GroupJoinApplication savedApp = groupJoinApplicationRepository.save(application);
 
+        UUID currentLeaderUserId = matchingMemberRepository.findActiveMembers(groupId, JoinStatus.ACCEPTED)
+                .stream()
+                .filter(m -> m.getRole() == MatchingRole.LEADER)
+                .map(m -> m.getUser().getUserId())
+                .findFirst()
+                .orElse(matchingGroup.getOwner().getUserId());
+
         notificationService.notify(
-                matchingGroup.getOwner().getUserId(),
+                currentLeaderUserId,
                 NotificationEventType.GROUP_JOIN_REQUEST,
                 ReferenceType.MATCHING_GROUP, matchingGroup.getMatchingGroupId(),
                 "/trekker/my-groups/" + matchingGroup.getMatchingGroupId(),

@@ -263,6 +263,44 @@ class SosAlertServiceImplTest {
     }
 
     @Test
+    @DisplayName("createAlert khi sender đang có alert OPEN khác -> SOS_ALERT_SENDER_HAS_ACTIVE_ALERT")
+    void createAlert_SenderHasActiveAlert_ThrowsError() {
+        when(matchingMemberRepository.findByGroupIdAndUserId(groupId, sender.getUserId()))
+                .thenReturn(Optional.of(senderMember));
+        when(groupTripRepository.findByMatchingGroup_MatchingGroupId(groupId)).thenReturn(Optional.of(trip));
+        when(sosAlertRepository.findByGroupTrip_GroupTripIdAndSender_UserIdAndIdempotencyKeyAndIsDeletedFalse(
+                tripId, sender.getUserId(), "key-2")).thenReturn(Optional.empty());
+        when(sosAlertRepository.existsByGroupTrip_GroupTripIdAndSender_UserIdAndStatusAndIsDeletedFalse(
+                tripId, sender.getUserId(), SosAlertStatus.OPEN)).thenReturn(true);
+
+        assertThatThrownBy(() -> sosAlertService.createAlert(groupId, sampleRequest("key-2"), sender.getUserId()))
+                .isInstanceOf(AppException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.SOS_ALERT_SENDER_HAS_ACTIVE_ALERT);
+
+        verify(sosAlertRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("createAlert khi sender KHÔNG còn alert OPEN nào (đã resolve hết) -> tạo mới bình thường")
+    void createAlert_SenderHasNoActiveAlert_Succeeds() {
+        when(matchingMemberRepository.findByGroupIdAndUserId(groupId, sender.getUserId()))
+                .thenReturn(Optional.of(senderMember));
+        when(groupTripRepository.findByMatchingGroup_MatchingGroupId(groupId)).thenReturn(Optional.of(trip));
+        when(sosAlertRepository.findByGroupTrip_GroupTripIdAndSender_UserIdAndIdempotencyKeyAndIsDeletedFalse(
+                tripId, sender.getUserId(), "key-2")).thenReturn(Optional.empty());
+        when(sosAlertRepository.existsByGroupTrip_GroupTripIdAndSender_UserIdAndStatusAndIsDeletedFalse(
+                tripId, sender.getUserId(), SosAlertStatus.OPEN)).thenReturn(false);
+        when(matchingMemberRepository.findActiveMembers(groupId, JoinStatus.ACCEPTED))
+                .thenReturn(List.of(senderMember, leaderMember));
+        when(sosAlertRepository.save(any(SosAlert.class))).thenReturn(newOpenAlert("key-2"));
+
+        SosAlertResponse response = sosAlertService.createAlert(groupId, sampleRequest("key-2"), sender.getUserId());
+
+        assertThat(response.getStatus()).isEqualTo(SosAlertStatus.OPEN);
+        verify(sosAlertRepository).save(any(SosAlert.class));
+    }
+
+    @Test
     @DisplayName("resolve bởi member khác (không phải Sender, không phải Leader) -> UNAUTHORIZED_RESOLVE_SOS, alert giữ nguyên OPEN")
     void resolve_ByUnrelatedMember_ThrowsError() {
         SosAlert alert = newOpenAlert("key-1");

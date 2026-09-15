@@ -239,7 +239,6 @@ class GroupVoteServiceImplTest {
         when(matchingMemberRepository.findByGroupIdAndUserId(groupId, memberUser.getUserId()))
                 .thenReturn(Optional.of(memberEntity));
         when(groupVoteRepository.findByIdForUpdate(vote.getGroupVoteId())).thenReturn(Optional.of(vote));
-        when(groupVoteBallotRepository.existsByGroupVoteAndVoterMatchingMember(vote, memberEntity)).thenReturn(false);
         when(groupVoteOptionRepository.findByGroupVoteOptionIdAndGroupVote_GroupVoteIdAndIsDeletedFalse(
                 foreignOptionId, vote.getGroupVoteId())).thenReturn(Optional.empty());
 
@@ -253,20 +252,55 @@ class GroupVoteServiceImplTest {
     }
 
     @Test
-    @DisplayName("castBallot: đã bỏ phiếu rồi -> GROUP_VOTE_ALREADY_VOTED")
-    void castBallot_AlreadyVoted_ThrowsError() {
+    @DisplayName("castBallot: đã bỏ phiếu rồi, chọn option KHÁC -> cập nhật ballot cũ sang option mới (đổi phiếu)")
+    void castBallot_AlreadyVoted_DifferentOption_UpdatesExistingBallot() {
         GroupVote vote = newOpenVote(3, LocalDateTime.now().plusDays(1));
+        GroupVoteOption optionA = newOption(vote, 1, "Quán A");
+        GroupVoteOption optionB = newOption(vote, 2, "Quán B");
+
+        GroupVoteBallot existingBallot = new GroupVoteBallot();
+        existingBallot.setGroupVote(vote);
+        existingBallot.setGroupVoteOption(optionA);
+        existingBallot.setVoterMatchingMember(memberEntity);
 
         when(matchingMemberRepository.findByGroupIdAndUserId(groupId, memberUser.getUserId()))
                 .thenReturn(Optional.of(memberEntity));
         when(groupVoteRepository.findByIdForUpdate(vote.getGroupVoteId())).thenReturn(Optional.of(vote));
-        when(groupVoteBallotRepository.existsByGroupVoteAndVoterMatchingMember(vote, memberEntity)).thenReturn(true);
+        when(groupVoteOptionRepository.findByGroupVoteOptionIdAndGroupVote_GroupVoteIdAndIsDeletedFalse(
+                optionB.getGroupVoteOptionId(), vote.getGroupVoteId())).thenReturn(Optional.of(optionB));
+        when(groupVoteBallotRepository.findByGroupVoteAndVoterMatchingMember(vote, memberEntity))
+                .thenReturn(Optional.of(existingBallot));
+        when(groupVoteBallotRepository.countByGroupVote(vote)).thenReturn(1L);
 
-        CastBallotRequest request = CastBallotRequest.builder().optionId(UUID.randomUUID()).build();
+        CastBallotRequest request = CastBallotRequest.builder().optionId(optionB.getGroupVoteOptionId()).build();
+        groupVoteService.castBallot(groupId, vote.getGroupVoteId(), request, memberUser.getUserId());
 
-        assertThatThrownBy(() -> groupVoteService.castBallot(groupId, vote.getGroupVoteId(), request, memberUser.getUserId()))
-                .isInstanceOf(AppException.class)
-                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.GROUP_VOTE_ALREADY_VOTED);
+        assertThat(existingBallot.getGroupVoteOption()).isEqualTo(optionB);
+        verify(groupVoteBallotRepository).save(existingBallot);
+    }
+
+    @Test
+    @DisplayName("castBallot: đã bỏ phiếu rồi, chọn LẠI đúng option cũ -> no-op, không save lại")
+    void castBallot_AlreadyVoted_SameOption_NoOp() {
+        GroupVote vote = newOpenVote(3, LocalDateTime.now().plusDays(1));
+        GroupVoteOption optionA = newOption(vote, 1, "Quán A");
+
+        GroupVoteBallot existingBallot = new GroupVoteBallot();
+        existingBallot.setGroupVote(vote);
+        existingBallot.setGroupVoteOption(optionA);
+        existingBallot.setVoterMatchingMember(memberEntity);
+
+        when(matchingMemberRepository.findByGroupIdAndUserId(groupId, memberUser.getUserId()))
+                .thenReturn(Optional.of(memberEntity));
+        when(groupVoteRepository.findByIdForUpdate(vote.getGroupVoteId())).thenReturn(Optional.of(vote));
+        when(groupVoteOptionRepository.findByGroupVoteOptionIdAndGroupVote_GroupVoteIdAndIsDeletedFalse(
+                optionA.getGroupVoteOptionId(), vote.getGroupVoteId())).thenReturn(Optional.of(optionA));
+        when(groupVoteBallotRepository.findByGroupVoteAndVoterMatchingMember(vote, memberEntity))
+                .thenReturn(Optional.of(existingBallot));
+        when(groupVoteBallotRepository.countByGroupVote(vote)).thenReturn(1L);
+
+        CastBallotRequest request = CastBallotRequest.builder().optionId(optionA.getGroupVoteOptionId()).build();
+        groupVoteService.castBallot(groupId, vote.getGroupVoteId(), request, memberUser.getUserId());
 
         verify(groupVoteBallotRepository, never()).save(any());
     }
@@ -324,7 +358,6 @@ class GroupVoteServiceImplTest {
         when(matchingMemberRepository.findByGroupIdAndUserId(groupId, otherMemberUser.getUserId()))
                 .thenReturn(Optional.of(otherMemberEntity));
         when(groupVoteRepository.findByIdForUpdate(vote.getGroupVoteId())).thenReturn(Optional.of(vote));
-        when(groupVoteBallotRepository.existsByGroupVoteAndVoterMatchingMember(vote, otherMemberEntity)).thenReturn(false);
         when(groupVoteOptionRepository.findByGroupVoteOptionIdAndGroupVote_GroupVoteIdAndIsDeletedFalse(
                 optionA.getGroupVoteOptionId(), vote.getGroupVoteId())).thenReturn(Optional.of(optionA));
         // Trước ballot cuối: đã có 2/3 phiếu (A=2). Sau khi lưu ballot thứ 3 (A) -> count = 3 = eligible -> auto-close.
@@ -663,6 +696,57 @@ class GroupVoteServiceImplTest {
     }
 
     @Test
+    @DisplayName("openDissolutionVote: trip đã IN_PROGRESS -> GROUP_DISSOLUTION_TRIP_ALREADY_STARTED")
+    void openDissolutionVote_TripAlreadyInProgress_ThrowsError() {
+        GroupTrip trip = new GroupTrip();
+        trip.setStatus(GroupTripStatus.IN_PROGRESS);
+
+        when(matchingMemberRepository.findByGroupIdAndUserId(groupId, leaderUser.getUserId()))
+                .thenReturn(Optional.of(leaderMember));
+        when(groupVoteRepository.existsByMatchingGroup_MatchingGroupIdAndVoteTypeAndStatusAndIsDeletedFalse(
+                groupId, VoteType.GROUP_DISSOLUTION, VoteStatus.OPEN)).thenReturn(false);
+        when(groupTripRepository.findByMatchingGroup_MatchingGroupId(groupId)).thenReturn(Optional.of(trip));
+
+        assertThatThrownBy(() -> groupVoteService.openDissolutionVote(groupId, sampleDissolutionRequest(), leaderUser.getUserId()))
+                .isInstanceOf(AppException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.GROUP_DISSOLUTION_TRIP_ALREADY_STARTED);
+
+        verify(groupVoteRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("openDissolutionVote: trip còn PLANNED -> mở được bình thường")
+    void openDissolutionVote_TripStillPlanned_Succeeds() {
+        GroupTrip trip = new GroupTrip();
+        trip.setStatus(GroupTripStatus.PLANNED);
+
+        when(matchingMemberRepository.findByGroupIdAndUserId(groupId, leaderUser.getUserId()))
+                .thenReturn(Optional.of(leaderMember));
+        when(groupVoteRepository.existsByMatchingGroup_MatchingGroupIdAndVoteTypeAndStatusAndIsDeletedFalse(
+                groupId, VoteType.GROUP_DISSOLUTION, VoteStatus.OPEN)).thenReturn(false);
+        when(groupTripRepository.findByMatchingGroup_MatchingGroupId(groupId)).thenReturn(Optional.of(trip));
+        when(matchingMemberRepository.countActiveMembersByGroupIdAndStatus(groupId, JoinStatus.ACCEPTED))
+                .thenReturn(3L);
+
+        GroupVote savedVote = newOpenVote(3, LocalDateTime.now().plusDays(1));
+        savedVote.setVoteType(VoteType.GROUP_DISSOLUTION);
+        when(groupVoteRepository.save(any(GroupVote.class))).thenReturn(savedVote);
+        when(groupVoteOptionRepository.save(any(GroupVoteOption.class)))
+                .thenAnswer(inv -> {
+                    GroupVoteOption option = inv.getArgument(0);
+                    option.setGroupVoteOptionId(UUID.randomUUID());
+                    return option;
+                });
+        when(matchingMemberRepository.findActiveMembers(groupId, JoinStatus.ACCEPTED))
+                .thenReturn(List.of(leaderMember, memberEntity, otherMemberEntity));
+
+        GroupVoteResponse response =
+                groupVoteService.openDissolutionVote(groupId, sampleDissolutionRequest(), leaderUser.getUserId());
+
+        assertThat(response.getVoteType()).isEqualTo(VoteType.GROUP_DISSOLUTION);
+    }
+
+    @Test
     @DisplayName("closeVote trên GROUP_DISSOLUTION: \"Đồng ý\" thắng -> group CANCELLED, trip PLANNED bị huỷ")
     void closeVote_DissolutionAgreeWins_CancelsGroupAndPlannedTrip() {
         GroupVote vote = newOpenVote(2, LocalDateTime.now().minusMinutes(1));
@@ -856,7 +940,6 @@ class GroupVoteServiceImplTest {
         when(matchingMemberRepository.findByGroupIdAndUserId(groupId, memberUser.getUserId()))
                 .thenReturn(Optional.of(memberEntity));
         when(groupVoteRepository.findByIdForUpdate(vote.getGroupVoteId())).thenReturn(Optional.of(vote));
-        when(groupVoteBallotRepository.existsByGroupVoteAndVoterMatchingMember(vote, memberEntity)).thenReturn(false);
         when(groupVoteOptionRepository.findByGroupVoteOptionIdAndGroupVote_GroupVoteIdAndIsDeletedFalse(
                 optionA.getGroupVoteOptionId(), vote.getGroupVoteId())).thenReturn(Optional.of(optionA));
         when(groupVoteBallotRepository.countByGroupVote(vote)).thenReturn(1L);

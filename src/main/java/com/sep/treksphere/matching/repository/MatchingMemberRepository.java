@@ -3,6 +3,7 @@ package com.sep.treksphere.matching.repository;
 import com.sep.treksphere.matching.entity.MatchingGroup;
 import com.sep.treksphere.matching.entity.MatchingMember;
 import com.sep.treksphere.matching.enums.JoinStatus;
+import com.sep.treksphere.matching.enums.MatchingRole;
 import com.sep.treksphere.user.User;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -12,6 +13,7 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.time.LocalDate;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -129,6 +131,25 @@ public interface MatchingMemberRepository extends JpaRepository<MatchingMember, 
     List<UUID> findAcceptedMemberUserIdsByTourAndTargetDate(
             @Param("tourId") UUID tourId,
             @Param("targetDate") LocalDate targetDate,
+            @Param("status") JoinStatus status
+    );
+
+    /**
+     * Batch-lookup Trưởng nhóm HIỆN TẠI (role có thể đổi qua bầu cử) cho nhiều nhóm cùng lúc —
+     * dùng để hiển thị đúng leader trên các danh sách/card nhóm (khác với owner/người tạo nhóm,
+     * vốn không đổi khi bầu Trưởng nhóm mới). 1 query cho cả trang thay vì N+1.
+     */
+    @Query("""
+        SELECT mm FROM MatchingMember mm
+        JOIN FETCH mm.user u
+        WHERE mm.matchingGroup.matchingGroupId IN :groupIds
+          AND mm.role = :role
+          AND mm.status = :status
+          AND mm.isDeleted = false
+    """)
+    List<MatchingMember> findByGroupIdsAndRoleAndStatus(
+            @Param("groupIds") Collection<UUID> groupIds,
+            @Param("role") MatchingRole role,
             @Param("status") JoinStatus status
     );
 }

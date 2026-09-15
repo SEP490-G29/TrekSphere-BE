@@ -56,6 +56,11 @@ public class SosAlertServiceImpl implements SosAlertService {
             return SosAlertResponse.from(existing.get());
         }
 
+        if (sosAlertRepository.existsByGroupTrip_GroupTripIdAndSender_UserIdAndStatusAndIsDeletedFalse(
+                trip.getGroupTripId(), currentUserId, SosAlertStatus.OPEN)) {
+            throw new AppException(ErrorCode.SOS_ALERT_SENDER_HAS_ACTIVE_ALERT);
+        }
+
         User sender = callerMember.getUser();
 
         SosAlert alert = new SosAlert();

@@ -63,12 +63,18 @@ public interface MatchingGroupRepository extends JpaRepository<MatchingGroup, UU
                       SELECT 1 FROM MatchingMember mm
                       WHERE mm.matchingGroup = mg
                         AND mm.user.userId = :userId
-                        AND mm.role = :memberRole
                         AND mm.status = :acceptedStatus
                         AND mm.isDeleted = false
                   )
               ))
-              OR (CAST(:role AS string) = 'LEADER' AND o.userId = :userId)
+              OR (CAST(:role AS string) = 'LEADER' AND EXISTS (
+                  SELECT 1 FROM MatchingMember mm
+                  WHERE mm.matchingGroup = mg
+                    AND mm.user.userId = :userId
+                    AND mm.role = :role
+                    AND mm.status = :acceptedStatus
+                    AND mm.isDeleted = false
+              ))
               OR (CAST(:role AS string) = 'MEMBER' AND EXISTS (
                   SELECT 1 FROM MatchingMember mm
                   WHERE mm.matchingGroup = mg
@@ -97,12 +103,18 @@ public interface MatchingGroupRepository extends JpaRepository<MatchingGroup, UU
                       SELECT 1 FROM MatchingMember mm
                       WHERE mm.matchingGroup = mg
                         AND mm.user.userId = :userId
-                        AND mm.role = :memberRole
                         AND mm.status = :acceptedStatus
                         AND mm.isDeleted = false
                   )
               ))
-              OR (CAST(:role AS string) = 'LEADER' AND mg.owner.userId = :userId)
+              OR (CAST(:role AS string) = 'LEADER' AND EXISTS (
+                  SELECT 1 FROM MatchingMember mm
+                  WHERE mm.matchingGroup = mg
+                    AND mm.user.userId = :userId
+                    AND mm.role = :role
+                    AND mm.status = :acceptedStatus
+                    AND mm.isDeleted = false
+              ))
               OR (CAST(:role AS string) = 'MEMBER' AND EXISTS (
                   SELECT 1 FROM MatchingMember mm
                   WHERE mm.matchingGroup = mg
