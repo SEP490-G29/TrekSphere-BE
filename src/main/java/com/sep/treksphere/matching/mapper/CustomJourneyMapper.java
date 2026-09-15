@@ -25,6 +25,7 @@ public interface CustomJourneyMapper {
     @Mapping(target = "costItems", expression = "java(mapCostItems(customJourney.getCostItems()))")
     CustomJourneyDetailResponse toDetailResponse(CustomJourney customJourney);
 
+    @Mapping(target = "progressUpdatedByName", source = "progressUpdatedBy.user.fullName")
     CustomJourneyCheckpointResponse toCheckpointResponse(CustomJourneyCheckpoint checkpoint);
 
     @Mapping(target = "customJourneyId", source = "customJourney.customJourneyId")

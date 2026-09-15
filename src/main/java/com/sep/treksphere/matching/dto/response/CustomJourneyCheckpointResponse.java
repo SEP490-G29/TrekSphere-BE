@@ -1,5 +1,6 @@
 package com.sep.treksphere.matching.dto.response;
 
+import com.sep.treksphere.matching.enums.CheckpointProgressStatus;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -25,4 +26,7 @@ public class CustomJourneyCheckpointResponse {
     private LocalDateTime plannedStartAt;
     private LocalDateTime plannedEndAt;
     private String imageUrl;
+    private CheckpointProgressStatus status;
+    private LocalDateTime progressUpdatedAt;
+    private String progressUpdatedByName;
 }
