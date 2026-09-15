@@ -21,6 +21,9 @@ public interface SosAlertRepository extends JpaRepository<SosAlert, UUID> {
     Optional<SosAlert> findByGroupTrip_GroupTripIdAndSender_UserIdAndIdempotencyKeyAndIsDeletedFalse(
             UUID groupTripId, UUID senderId, String idempotencyKey);
 
+    boolean existsByGroupTrip_GroupTripIdAndSender_UserIdAndStatusAndIsDeletedFalse(
+            UUID groupTripId, UUID senderId, SosAlertStatus status);
+
     List<SosAlert> findByGroupTrip_GroupTripIdAndStatusAndIsDeletedFalseOrderByCreatedAtDesc(
             UUID groupTripId, SosAlertStatus status);
 

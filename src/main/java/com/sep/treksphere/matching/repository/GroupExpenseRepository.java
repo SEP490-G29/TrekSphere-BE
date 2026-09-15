@@ -17,6 +17,9 @@ import java.util.UUID;
 @Repository
 public interface GroupExpenseRepository extends JpaRepository<GroupExpense, UUID> {
 
+    Optional<GroupExpense> findByGroupExpenseIdAndGroupTrip_MatchingGroup_MatchingGroupIdAndIsDeletedFalse(
+            UUID groupExpenseId, UUID matchingGroupId);
+
     Optional<GroupExpense> findByGroupExpenseIdAndGroupTrip_MatchingGroup_MatchingGroupId(
             UUID groupExpenseId, UUID matchingGroupId);
 
@@ -25,6 +28,7 @@ public interface GroupExpenseRepository extends JpaRepository<GroupExpense, UUID
 
     @Query("SELECT e FROM GroupExpense e " +
            "WHERE e.groupTrip.matchingGroup.matchingGroupId = :groupId " +
+           "AND e.isDeleted = false " +
            "AND (CAST(:keyword AS string) IS NULL OR LOWER(e.title) LIKE LOWER(CONCAT('%', CAST(:keyword AS string), '%')) OR LOWER(e.note) LIKE LOWER(CONCAT('%', CAST(:keyword AS string), '%'))) " +
            "AND (:paidByMemberId IS NULL OR e.paidBy.matchingMemberId = :paidByMemberId) " +
            "AND (:scope IS NULL OR e.beneficiaryScope = :scope)")
@@ -35,14 +39,19 @@ public interface GroupExpenseRepository extends JpaRepository<GroupExpense, UUID
             @Param("scope") BeneficiaryScope scope,
             Pageable pageable);
 
+    List<GroupExpense> findByGroupTrip_MatchingGroup_MatchingGroupIdAndIsDeletedFalse(
+            UUID matchingGroupId);
+
     List<GroupExpense> findByGroupTrip_MatchingGroup_MatchingGroupId(
             UUID matchingGroupId);
 
     @Query("SELECT COALESCE(SUM(e.amount), 0) FROM GroupExpense e " +
-           "WHERE e.groupTrip.matchingGroup.matchingGroupId = :groupId")
+           "WHERE e.groupTrip.matchingGroup.matchingGroupId = :groupId " +
+           "AND e.isDeleted = false")
     BigDecimal sumAmountByMatchingGroupId(@Param("groupId") UUID groupId);
 
     @Query("SELECT COUNT(e) FROM GroupExpense e " +
-           "WHERE e.groupTrip.matchingGroup.matchingGroupId = :groupId")
+           "WHERE e.groupTrip.matchingGroup.matchingGroupId = :groupId " +
+           "AND e.isDeleted = false")
     long countByMatchingGroupId(@Param("groupId") UUID groupId);
 }

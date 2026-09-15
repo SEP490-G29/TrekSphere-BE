@@ -43,6 +43,9 @@ public class MatchingGroupResponse {
     private UUID ownerId;
     private String ownerName;
     private String ownerAvatarUrl;
+    /** Trưởng nhóm HIỆN TẠI (role có thể đổi qua bầu cử) — khác owner (người tạo nhóm, cố định). */
+    private String leaderName;
+    private String leaderAvatarUrl;
     private String groupName;
     private String description;
     private String coverImageUrl;

@@ -8,6 +8,8 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.time.LocalDate;
+import java.util.Collection;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -61,6 +63,17 @@ public interface TourRepository extends JpaRepository<Tour, UUID> {
                """)
      Optional<Tour> findPublishedDetailById(@Param("tourId") UUID tourId);
 
+     @Query("""
+               SELECT t FROM Tour t
+               JOIN FETCH t.vendor v
+               WHERE t.tourId IN :tourIds
+                 AND t.isDeleted = false
+                 AND t.status = com.sep.treksphere.tour.TourStatus.PUBLISHED
+                 AND v.status = com.sep.treksphere.vendor.VendorStatus.ACTIVE
+                 AND v.isDeleted = false
+               """)
+     List<Tour> findPublishedByIds(@Param("tourIds") Collection<UUID> tourIds);
+
      long countByVendorVendorIdAndStatusAndIsDeletedFalse(UUID vendorId, TourStatus status);
 
      @Query("""
@@ -102,74 +115,5 @@ public interface TourRepository extends JpaRepository<Tour, UUID> {
                @Param("keyword") String keyword,
                Pageable pageable);
 
-     @Query(value = """
-               SELECT t.*
-               FROM tour t
-               JOIN vendor v ON v.vendor_id = t.vendor_id
-               WHERE t.is_deleted = FALSE
-                 AND t.status = 'PUBLISHED'
-                 AND v.is_deleted = FALSE
-                 AND v.status = 'ACTIVE'
-                 AND EXISTS (
-                     SELECT 1 FROM tour_schedule ts
-                     WHERE ts.tour_id = t.tour_id
-                       AND ts.is_deleted = FALSE
-                       AND ts.status = 'OPEN'
-                       AND ts.departure_date > CURRENT_DATE
-                 )
-                 AND (
-                     CAST(:maxDifficultyRank AS integer) IS NULL
-                     OR CASE t.difficulty
-                          WHEN 'EASY' THEN 0 WHEN 'MODERATE' THEN 1
-                          WHEN 'HARD' THEN 2 WHEN 'EXPERT' THEN 3
-                        END <= :maxDifficultyRank
-                 )
-               ORDER BY (
-                   CASE WHEN :usePreferences = TRUE AND EXISTS (
-                       SELECT 1
-                       FROM jsonb_array_elements_text(CAST(:areasJson AS jsonb)) area
-                       WHERE LOWER(t.location) LIKE CONCAT('%', LOWER(area), '%')
-                   ) THEN 60 ELSE 0 END
-                   + CASE WHEN CAST(:preferredDifficulty AS varchar) IS NOT NULL
-                               AND t.difficulty = :preferredDifficulty THEN 30 ELSE 0 END
-                   + CASE WHEN CAST(:maxDifficultyRank AS integer) IS NOT NULL THEN 10 ELSE 0 END
-               ) DESC,
-               (SELECT COUNT(*) FROM matching_group mg
-                 WHERE mg.tour_id = t.tour_id
-                   AND mg.is_deleted = FALSE
-                   AND mg.status IN ('OPEN','FULL','CLOSED','IN_PROGRESS','COMPLETED')) DESC,
-               t.published_at DESC NULLS LAST,
-               t.tour_id
-               """,
-               countQuery = """
-               SELECT COUNT(*)
-               FROM tour t
-               JOIN vendor v ON v.vendor_id = t.vendor_id
-               WHERE t.is_deleted = FALSE
-                 AND t.status = 'PUBLISHED'
-                 AND v.is_deleted = FALSE
-                 AND v.status = 'ACTIVE'
-                 AND EXISTS (
-                     SELECT 1 FROM tour_schedule ts
-                     WHERE ts.tour_id = t.tour_id
-                       AND ts.is_deleted = FALSE
-                       AND ts.status = 'OPEN'
-                       AND ts.departure_date > CURRENT_DATE
-                 )
-                 AND (
-                     CAST(:maxDifficultyRank AS integer) IS NULL
-                     OR CASE t.difficulty
-                          WHEN 'EASY' THEN 0 WHEN 'MODERATE' THEN 1
-                          WHEN 'HARD' THEN 2 WHEN 'EXPERT' THEN 3
-                        END <= :maxDifficultyRank
-                 )
-               """,
-               nativeQuery = true)
-     Page<Tour> findRecommendedTours(
-               @Param("areasJson") String areasJson,
-               @Param("preferredDifficulty") String preferredDifficulty,
-               @Param("maxDifficultyRank") Integer maxDifficultyRank,
-               @Param("usePreferences") boolean usePreferences,
-               Pageable pageable);
 }
 

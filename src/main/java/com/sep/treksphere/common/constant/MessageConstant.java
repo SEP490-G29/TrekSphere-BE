@@ -272,6 +272,7 @@ public class MessageConstant {
     public static final String SOS_ALERT_RESOLVED_SUCCESS = "Đóng tín hiệu SOS thành công";
     public static final String SOS_ALERT_NOT_FOUND = "Tín hiệu SOS không tồn tại";
     public static final String SOS_ALERT_ALREADY_RESOLVED = "Tín hiệu SOS này đã được xử lý xong, không thể thao tác thêm";
+    public static final String SOS_ALERT_SENDER_HAS_ACTIVE_ALERT = "Bạn đang có 1 tín hiệu SOS chưa được xử lý, không thể phát thêm cho đến khi tín hiệu đó được đóng";
     public static final String UNAUTHORIZED_RESOLVE_SOS = "Chỉ Trekker đã phát tín hiệu này hoặc Trưởng nhóm mới có quyền đóng tín hiệu SOS này";
     public static final String SOS_INCIDENT_TYPE_REQUIRED = "Loại sự cố không được để trống";
     public static final String SOS_MESSAGE_TOO_LONG = "Ghi chú tối đa 2000 ký tự";
@@ -326,6 +327,10 @@ public class MessageConstant {
     public static final String GROUP_VOTE_DUPLICATE_OPEN_TYPE = "Nhóm đang có một bình chọn cùng loại đang mở, hãy đóng bình chọn đó trước";
     public static final String GROUP_VOTE_INVALID_OPTION_COUNT = "Số lượng lựa chọn không hợp lệ";
     public static final String GROUP_VOTE_NOT_READY_TO_CLOSE = "Bình chọn chưa đến hạn đóng và chưa đủ số phiếu bắt buộc";
+    public static final String CUSTOM_JOURNEY_CHECKPOINT_PROGRESS_ALREADY_SET = "Điểm dừng này đã được cập nhật tiến độ trước đó";
+    public static final String CUSTOM_JOURNEY_CHECKPOINT_PROGRESS_NOT_SET = "Điểm dừng này chưa được cập nhật tiến độ nên không thể gỡ";
+    public static final String CUSTOM_JOURNEY_PROGRESS_TRIP_NOT_ACTIVE = "Chuyến đi chưa hoặc không còn đang diễn ra nên không thể cập nhật tiến độ điểm dừng";
+    public static final String GROUP_DISSOLUTION_TRIP_ALREADY_STARTED = "Chuyến đi đã bắt đầu nên không thể mở biểu quyết giải tán nhóm";
     public static final String GROUP_VOTE_CREATED_SUCCESS = "Mở bình chọn thành công";
     public static final String GROUP_VOTE_BALLOT_CAST_SUCCESS = "Gửi phiếu bầu thành công";
     public static final String GROUP_VOTE_CLOSED_SUCCESS = "Đóng bình chọn thành công";
@@ -348,7 +353,7 @@ public class MessageConstant {
     public static final String MATCHING_SCHEDULED_START_REQUIRED = "Thời điểm khởi hành dự kiến không được để trống";
     public static final String MATCHING_SCHEDULED_START_FUTURE = "Thời điểm khởi hành dự kiến phải ở tương lai";
     public static final String MATCHING_TOUR_NOT_APPROVED = "Chỉ có thể tạo nhóm ghép cho Tour đang công khai";
-    public static final String MATCHING_GROUP_SIZE_EXCEEDS_TOUR_CAPACITY = "Quy mô nhóm phải nằm trong khoảng sức chứa tối thiểu và tối đa của Tour";
+    public static final String MATCHING_GROUP_SIZE_EXCEEDS_TOUR_CAPACITY = "Quy mô nhóm không được vượt quá sức chứa tối đa của Tour";
     public static final String MATCHING_TOUR_NOT_AVAILABLE = "Tour của nhóm ghép không còn công khai";
     public static final String MATCHING_OWNER_CANNOT_JOIN = "Trưởng nhóm không thể gửi yêu cầu tham gia nhóm của chính mình";
     public static final String MATCHING_TARGET_DATE_PASSED = "Ngày dự kiến đi của nhóm đã đến hoặc đã qua";
@@ -392,6 +397,8 @@ public class MessageConstant {
     public static final String CHECKPOINT_CREATED_SUCCESS = "Thêm điểm dừng hành trình thành công";
     public static final String CHECKPOINT_UPDATED_SUCCESS = "Cập nhật điểm dừng hành trình thành công";
     public static final String CHECKPOINT_DELETED_SUCCESS = "Xoá điểm dừng hành trình thành công";
+    public static final String CHECKPOINT_PROGRESS_UPDATED_SUCCESS = "Đã cập nhật tiến độ điểm dừng thành công";
+    public static final String CHECKPOINT_PROGRESS_RESET_SUCCESS = "Đã gỡ tiến độ điểm dừng thành công";
     public static final String CUSTOM_JOURNEY_ACTIVITY_NOT_FOUND = "Hoạt động trong thời khóa biểu hành trình không tồn tại";
     public static final String ACTIVITY_ORDER_DUPLICATED = "Thứ tự hoạt động đã tồn tại trong buổi này";
     public static final String ACTIVITY_DAY_OUT_OF_RANGE = "Ngày diễn ra hoạt động vượt quá tổng số ngày của hành trình";

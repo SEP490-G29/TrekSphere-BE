@@ -194,6 +194,12 @@ public class GroupVoteServiceImpl implements GroupVoteService {
             throw new AppException(ErrorCode.GROUP_VOTE_DUPLICATE_OPEN_TYPE);
         }
 
+        groupTripRepository.findByMatchingGroup_MatchingGroupId(groupId)
+                .filter(trip -> trip.getStatus() != GroupTripStatus.PLANNED)
+                .ifPresent(trip -> {
+                    throw new AppException(ErrorCode.GROUP_DISSOLUTION_TRIP_ALREADY_STARTED);
+                });
+
         GroupVote vote = new GroupVote();
         vote.setMatchingGroup(opener.getMatchingGroup());
         vote.setVoteType(VoteType.GROUP_DISSOLUTION);
@@ -268,19 +274,26 @@ public class GroupVoteServiceImpl implements GroupVoteService {
         if (isDeadlineReached(vote)) {
             return doClose(vote, currentUserId);
         }
-        if (groupVoteBallotRepository.existsByGroupVoteAndVoterMatchingMember(vote, voter)) {
-            throw new AppException(ErrorCode.GROUP_VOTE_ALREADY_VOTED);
-        }
 
         GroupVoteOption option = groupVoteOptionRepository
                 .findByGroupVoteOptionIdAndGroupVote_GroupVoteIdAndIsDeletedFalse(request.getOptionId(), voteId)
                 .orElseThrow(() -> new AppException(ErrorCode.GROUP_VOTE_INVALID_OPTION));
 
-        GroupVoteBallot ballot = new GroupVoteBallot();
-        ballot.setGroupVote(vote);
-        ballot.setGroupVoteOption(option);
-        ballot.setVoterMatchingMember(voter);
-        groupVoteBallotRepository.save(ballot);
+        Optional<GroupVoteBallot> existingBallot =
+                groupVoteBallotRepository.findByGroupVoteAndVoterMatchingMember(vote, voter);
+        if (existingBallot.isPresent()) {
+            GroupVoteBallot ballot = existingBallot.get();
+            if (!ballot.getGroupVoteOption().getGroupVoteOptionId().equals(option.getGroupVoteOptionId())) {
+                ballot.setGroupVoteOption(option);
+                groupVoteBallotRepository.save(ballot);
+            }
+        } else {
+            GroupVoteBallot ballot = new GroupVoteBallot();
+            ballot.setGroupVote(vote);
+            ballot.setGroupVoteOption(option);
+            ballot.setVoterMatchingMember(voter);
+            groupVoteBallotRepository.save(ballot);
+        }
 
         long ballotCount = groupVoteBallotRepository.countByGroupVote(vote);
         if (ballotCount >= vote.getEligibleVoterCount()) {

@@ -183,6 +183,17 @@ class MatchingGroupServiceTest {
 
         tourGroup.getMembers().add(leaderMember);
         tourGroup.getMembers().add(normalMember);
+
+        // Members for customJourneyGroup: owner tham gia với tư cách MEMBER (nhóm này do memberUser
+        // làm chủ trong test getMyMatchingGroups_Success) — cần có row thật để myRole tra đúng theo
+        // MatchingMember thay vì suy diễn từ isOwner.
+        MatchingMember ownerAsMemberInCustomJourneyGroup = new MatchingMember();
+        ownerAsMemberInCustomJourneyGroup.setMatchingMemberId(UUID.randomUUID());
+        ownerAsMemberInCustomJourneyGroup.setMatchingGroup(customJourneyGroup);
+        ownerAsMemberInCustomJourneyGroup.setUser(owner);
+        ownerAsMemberInCustomJourneyGroup.setRole(MatchingRole.MEMBER);
+        ownerAsMemberInCustomJourneyGroup.setStatus(JoinStatus.ACCEPTED);
+        customJourneyGroup.getMembers().add(ownerAsMemberInCustomJourneyGroup);
     }
 
     @Test
@@ -290,6 +301,31 @@ class MatchingGroupServiceTest {
         assertThat(detail).isNotNull();
         assertThat(detail.getIsOwner()).isTrue();
         assertThat(detail.getMembers()).hasSize(2);
+        assertThat(detail.getMyRole()).isEqualTo(MatchingRole.LEADER);
+    }
+
+    @Test
+    @DisplayName("Sau khi bầu Trưởng nhóm mới: owner (người tạo nhóm) bị demote xuống MEMBER trong DB -- "
+            + "isOwner vẫn true (không đổi ý nghĩa gốc) nhưng myRole phải là MEMBER và canLeave phải true "
+            + "(owner không còn là leader thì được rời nhóm bình thường)")
+    void getMatchingGroupById_OwnerDemotedToMemberAfterElection_MyRoleAndCanLeaveReflectActualRole() {
+        // Giả lập trạng thái SAU bầu cử: owner (người tạo nhóm, isOwner luôn true) đã bị demote —
+        // đổi role của leaderMember (owner) trong tourGroup từ LEADER sang MEMBER.
+        tourGroup.getMembers().stream()
+                .filter(m -> m.getUser().getUserId().equals(owner.getUserId()))
+                .findFirst()
+                .orElseThrow()
+                .setRole(MatchingRole.MEMBER);
+
+        CustomUserDetails userDetails = new CustomUserDetails(owner);
+        when(matchingGroupRepository.findDetailById(eq(tourGroup.getMatchingGroupId())))
+                .thenReturn(Optional.of(tourGroup));
+
+        MatchingGroupDetailResponse detail = matchingGroupService.getMatchingGroupById(tourGroup.getMatchingGroupId(), userDetails);
+
+        assertThat(detail.getIsOwner()).isTrue();
+        assertThat(detail.getMyRole()).isEqualTo(MatchingRole.MEMBER);
+        assertThat(detail.getCanLeave()).isTrue();
     }
 
     @Test
@@ -326,5 +362,62 @@ class MatchingGroupServiceTest {
         assertThat(group2.getMatchingGroupId()).isEqualTo(customJourneyGroup.getMatchingGroupId());
         assertThat(group2.getIsOwner()).isFalse();
         assertThat(group2.getMyRole()).isEqualTo(MatchingRole.MEMBER);
+    }
+
+    @Test
+    @DisplayName("getMyMatchingGroups: sau khi bầu Trưởng nhóm mới, leaderName/leaderAvatarUrl phải là "
+            + "người đang giữ role LEADER thật (không phải ownerName/người tạo nhóm)")
+    void getMyMatchingGroups_AfterLeaderElection_LeaderNameReflectsActualLeaderNotOwner() {
+        CustomUserDetails userDetails = new CustomUserDetails(owner);
+        MyMatchingGroupFilterRequest filter = new MyMatchingGroupFilterRequest();
+        filter.setPage(0);
+        filter.setSize(10);
+
+        Page<MatchingGroup> page = new PageImpl<>(List.of(tourGroup), PageRequest.of(0, 10), 1);
+        when(matchingGroupRepository.findOwnedOrJoinedGroups(
+                eq(owner.getUserId()), eq(MatchingRole.MEMBER), eq(JoinStatus.ACCEPTED), isNull(), isNull(), anyString(), any()
+        )).thenReturn(page);
+
+        // Trưởng nhóm mới sau bầu cử: memberUser (không phải owner/người tạo nhóm).
+        MatchingMember newLeaderMember = new MatchingMember();
+        newLeaderMember.setMatchingMemberId(UUID.randomUUID());
+        newLeaderMember.setMatchingGroup(tourGroup);
+        newLeaderMember.setUser(memberUser);
+        newLeaderMember.setRole(MatchingRole.LEADER);
+        newLeaderMember.setStatus(JoinStatus.ACCEPTED);
+        when(matchingMemberRepository.findByGroupIdsAndRoleAndStatus(
+                List.of(tourGroup.getMatchingGroupId()), MatchingRole.LEADER, JoinStatus.ACCEPTED
+        )).thenReturn(List.of(newLeaderMember));
+
+        PaginationResponse<MatchingGroupResponse> response = matchingGroupService.getMyMatchingGroups(filter, userDetails);
+
+        MatchingGroupResponse group = response.getContent().get(0);
+        assertThat(group.getOwnerName()).isEqualTo(owner.getFullName());
+        assertThat(group.getLeaderName()).isEqualTo(memberUser.getFullName());
+        assertThat(group.getLeaderAvatarUrl()).isEqualTo(memberUser.getAvatarUrl());
+    }
+
+    @Test
+    @DisplayName("getMyMatchingGroups: nếu không tìm thấy accepted LEADER member (edge case) -> "
+            + "leaderName fallback về ownerName thay vì để trống")
+    void getMyMatchingGroups_NoLeaderMemberFound_FallsBackToOwnerName() {
+        CustomUserDetails userDetails = new CustomUserDetails(owner);
+        MyMatchingGroupFilterRequest filter = new MyMatchingGroupFilterRequest();
+        filter.setPage(0);
+        filter.setSize(10);
+
+        Page<MatchingGroup> page = new PageImpl<>(List.of(tourGroup), PageRequest.of(0, 10), 1);
+        when(matchingGroupRepository.findOwnedOrJoinedGroups(
+                eq(owner.getUserId()), eq(MatchingRole.MEMBER), eq(JoinStatus.ACCEPTED), isNull(), isNull(), anyString(), any()
+        )).thenReturn(page);
+        when(matchingMemberRepository.findByGroupIdsAndRoleAndStatus(
+                List.of(tourGroup.getMatchingGroupId()), MatchingRole.LEADER, JoinStatus.ACCEPTED
+        )).thenReturn(List.of());
+
+        PaginationResponse<MatchingGroupResponse> response = matchingGroupService.getMyMatchingGroups(filter, userDetails);
+
+        MatchingGroupResponse group = response.getContent().get(0);
+        assertThat(group.getLeaderName()).isEqualTo(group.getOwnerName());
+        assertThat(group.getLeaderAvatarUrl()).isEqualTo(group.getOwnerAvatarUrl());
     }
 }

@@ -143,6 +143,12 @@ public final class NotificationTemplates {
         TEMPLATES.put(NotificationEventType.MATCHING_GROUP_CANCELLED, new TemplatePair(
                 "Nhóm ghép đã giải tán",
                 "Nhóm \"%s\" đã bị giải tán theo kết quả biểu quyết của các thành viên."));
+        TEMPLATES.put(NotificationEventType.GROUP_CHECKPOINT_CHECKED_IN, new TemplatePair(
+                "Cập nhật tiến độ hành trình",
+                "Trưởng nhóm vừa xác nhận đã đến điểm dừng \"%s\"."));
+        TEMPLATES.put(NotificationEventType.GROUP_CHECKPOINT_SKIPPED, new TemplatePair(
+                "Cập nhật tiến độ hành trình",
+                "Trưởng nhóm vừa đánh dấu bỏ qua điểm dừng \"%s\"."));
     }
 
     private NotificationTemplates() {
