@@ -9,6 +9,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
@@ -26,11 +27,12 @@ public class NotificationService {
 
     @Transactional(readOnly = true)
     public PaginationResponse<NotificationResponse> list(UUID userId, int page, int size, Boolean isRead) {
+        Sort sort = Sort.by(Sort.Direction.DESC, "createdAt");
         Page<Notification> notificationPage = isRead == null
                 ? notificationRepository.findByRecipient_UserIdAndIsDeletedFalse(
-                        userId, PageRequest.of(page - 1, size))
+                        userId, PageRequest.of(page - 1, size, sort))
                 : notificationRepository.findByRecipient_UserIdAndIsReadAndIsDeletedFalse(
-                        userId, isRead, PageRequest.of(page - 1, size));
+                        userId, isRead, PageRequest.of(page - 1, size, sort));
 
         return PaginationResponse.<NotificationResponse>builder()
                 .content(notificationPage.getContent().stream().map(NotificationResponse::from).toList())
