@@ -5,6 +5,7 @@ import com.sep.treksphere.common.exception.ErrorCode;
 import com.sep.treksphere.matching.dto.request.*;
 import com.sep.treksphere.matching.dto.response.*;
 import com.sep.treksphere.matching.entity.*;
+import com.sep.treksphere.matching.enums.GroupTripStatus;
 import com.sep.treksphere.matching.enums.JoinStatus;
 import com.sep.treksphere.matching.enums.MatchingGroupStatus;
 import com.sep.treksphere.matching.enums.MatchingRole;
@@ -21,6 +22,7 @@ import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 @Slf4j
@@ -34,6 +36,7 @@ public class CustomJourneyServiceImpl implements CustomJourneyService {
     private final CustomJourneyCostItemRepository costItemRepository;
     private final MatchingGroupRepository matchingGroupRepository;
     private final MatchingMemberRepository matchingMemberRepository;
+    private final GroupTripRepository groupTripRepository;
     private final CustomJourneyMapper customJourneyMapper;
 
     @Override
@@ -452,6 +455,20 @@ public class CustomJourneyServiceImpl implements CustomJourneyService {
     private void validateJourneyNotLocked(CustomJourney journey) {
         if (Boolean.TRUE.equals(journey.getIsLocked())) {
             throw new AppException(ErrorCode.JOURNEY_LOCKED);
+        }
+        MatchingGroup group = journey.getMatchingGroup();
+        if (group != null) {
+            if (group.getStatus() == MatchingGroupStatus.IN_PROGRESS
+                    || group.getStatus() == MatchingGroupStatus.COMPLETED
+                    || group.getStatus() == MatchingGroupStatus.CANCELLED) {
+                throw new AppException(ErrorCode.MATCHING_GROUP_INVALID_STATE);
+            }
+            if (groupTripRepository != null) {
+                Optional<GroupTrip> tripOpt = groupTripRepository.findByMatchingGroup(group);
+                if (tripOpt.isPresent() && tripOpt.get().getStatus() != GroupTripStatus.PLANNED) {
+                    throw new AppException(ErrorCode.JOURNEY_LOCKED);
+                }
+            }
         }
     }
 

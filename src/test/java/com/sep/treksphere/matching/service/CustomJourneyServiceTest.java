@@ -18,6 +18,7 @@ import com.sep.treksphere.matching.enums.MatchingRole;
 import com.sep.treksphere.matching.mapper.CustomJourneyMapper;
 import com.sep.treksphere.matching.repository.CustomJourneyCheckpointRepository;
 import com.sep.treksphere.matching.repository.CustomJourneyRepository;
+import com.sep.treksphere.matching.repository.GroupTripRepository;
 import com.sep.treksphere.matching.repository.MatchingGroupRepository;
 import com.sep.treksphere.matching.repository.MatchingMemberRepository;
 import com.sep.treksphere.matching.service.impl.CustomJourneyServiceImpl;
@@ -66,6 +67,9 @@ class CustomJourneyServiceTest {
 
     @Mock
     private MatchingMemberRepository matchingMemberRepository;
+
+    @Mock
+    private GroupTripRepository groupTripRepository;
 
     @Spy
     private CustomJourneyMapper customJourneyMapper = Mappers.getMapper(CustomJourneyMapper.class);

@@ -693,6 +693,15 @@ public class MatchingGroupServiceImpl implements MatchingGroupService {
         MatchingGroup matchingGroup = matchingGroupRepository.findByIdForUpdate(groupId)
                 .orElseThrow(() -> new AppException(ErrorCode.MATCHING_GROUP_NOT_FOUND));
 
+        if (matchingGroup.getStatus() == MatchingGroupStatus.IN_PROGRESS) {
+            throw new AppException(ErrorCode.MATCHING_GROUP_INVALID_STATE);
+        }
+
+        Optional<GroupTrip> tripOpt = groupTripRepository.findByMatchingGroup(matchingGroup);
+        if (tripOpt.isPresent() && tripOpt.get().getStatus() == GroupTripStatus.IN_PROGRESS) {
+            throw new AppException(ErrorCode.MATCHING_GROUP_INVALID_STATE);
+        }
+
         if (matchingGroup.getOwner().getUserId().equals(currentUser.getUserId())) {
             throw new AppException(ErrorCode.OWNER_CANNOT_LEAVE);
         }
@@ -715,13 +724,17 @@ public class MatchingGroupServiceImpl implements MatchingGroupService {
         matchingGroup.setCurrentSize(newSize);
 
         Tour tour = matchingGroup.getTour();
+        boolean isTourValid = tour == null || (!Boolean.TRUE.equals(tour.getIsDeleted())
+                && tour.getStatus() == TourStatus.PUBLISHED
+                && tour.getVendor() != null
+                && tour.getVendor().getStatus() == com.sep.treksphere.vendor.VendorStatus.ACTIVE
+                && !Boolean.TRUE.equals(tour.getVendor().getIsDeleted()));
+
         boolean canReopen = matchingGroup.getStatus() == MatchingGroupStatus.FULL
                 && newSize < matchingGroup.getMaxSize()
                 && matchingGroup.getMatchingDeadline().isAfter(LocalDateTime.now())
                 && matchingGroup.getTargetDate().isAfter(LocalDate.now())
-                && !Boolean.TRUE.equals(tour.getIsDeleted())
-                && tour.getStatus() == TourStatus.PUBLISHED
-                && tour.getVendor().getStatus() == com.sep.treksphere.vendor.VendorStatus.ACTIVE;
+                && isTourValid;
 
         if (canReopen) {
             matchingGroup.setStatus(MatchingGroupStatus.OPEN);

@@ -645,4 +645,60 @@ class MatchingGroupLifecycleServiceTest {
                 .isInstanceOf(AppException.class)
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.MATCHING_GROUP_INVALID_STATE);
     }
+
+    @Test
+    @DisplayName("TC-P2-S4-21: Thành viên không thể rời nhóm khi nhóm đang đi (IN_PROGRESS)")
+    void leaveMatchingGroup_WhenGroupInProgress_ThrowsInvalidState() {
+        UUID groupId = tourGroup.getMatchingGroupId();
+        tourGroup.setStatus(MatchingGroupStatus.IN_PROGRESS);
+
+        when(matchingGroupRepository.findByIdForUpdate(groupId)).thenReturn(Optional.of(tourGroup));
+
+        assertThatThrownBy(() -> matchingGroupService.leaveMatchingGroup(groupId, otherUserDetails))
+                .isInstanceOf(AppException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.MATCHING_GROUP_INVALID_STATE);
+    }
+
+    @Test
+    @DisplayName("TC-P2-S4-22: Thành viên không thể rời nhóm khi chuyến đi đã bắt đầu (GroupTrip IN_PROGRESS)")
+    void leaveMatchingGroup_WhenTripInProgress_ThrowsInvalidState() {
+        UUID groupId = tourGroup.getMatchingGroupId();
+        tourGroup.setStatus(MatchingGroupStatus.CLOSED);
+        sampleTrip.setStatus(GroupTripStatus.IN_PROGRESS);
+
+        when(matchingGroupRepository.findByIdForUpdate(groupId)).thenReturn(Optional.of(tourGroup));
+        when(groupTripRepository.findByMatchingGroup(tourGroup)).thenReturn(Optional.of(sampleTrip));
+
+        assertThatThrownBy(() -> matchingGroupService.leaveMatchingGroup(groupId, otherUserDetails))
+                .isInstanceOf(AppException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.MATCHING_GROUP_INVALID_STATE);
+    }
+
+    @Test
+    @DisplayName("TC-P2-S4-23: Thành viên có thể rời nhóm khi chuyến đi đã hoàn thành (COMPLETED)")
+    void leaveMatchingGroup_WhenGroupCompleted_Success() {
+        UUID groupId = tourGroup.getMatchingGroupId();
+        tourGroup.setStatus(MatchingGroupStatus.COMPLETED);
+        sampleTrip.setStatus(GroupTripStatus.ENDED);
+
+        MatchingMember activeMember = new MatchingMember();
+        activeMember.setMatchingMemberId(UUID.randomUUID());
+        activeMember.setMatchingGroup(tourGroup);
+        activeMember.setUser(otherUser);
+        activeMember.setRole(MatchingRole.MEMBER);
+        activeMember.setStatus(JoinStatus.ACCEPTED);
+        activeMember.setIsDeleted(false);
+
+        when(matchingGroupRepository.findByIdForUpdate(groupId)).thenReturn(Optional.of(tourGroup));
+        when(groupTripRepository.findByMatchingGroup(tourGroup)).thenReturn(Optional.of(sampleTrip));
+        when(matchingMemberRepository.findByMatchingGroupAndUser(tourGroup, otherUser)).thenReturn(Optional.of(activeMember));
+        when(matchingMemberRepository.countActiveMembersByGroupIdAndStatus(groupId, JoinStatus.ACCEPTED)).thenReturn(5L);
+        when(matchingMemberRepository.save(any(MatchingMember.class))).thenAnswer(i -> i.getArgument(0));
+        when(matchingGroupRepository.save(any(MatchingGroup.class))).thenAnswer(i -> i.getArgument(0));
+
+        var response = matchingGroupService.leaveMatchingGroup(groupId, otherUserDetails);
+
+        assertThat(activeMember.getStatus()).isEqualTo(JoinStatus.LEFT);
+        assertThat(tourGroup.getStatus()).isEqualTo(MatchingGroupStatus.COMPLETED);
+    }
 }
