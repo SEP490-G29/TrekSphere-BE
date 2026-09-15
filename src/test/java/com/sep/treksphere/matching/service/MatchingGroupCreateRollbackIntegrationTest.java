@@ -85,6 +85,9 @@ class MatchingGroupCreateRollbackIntegrationTest {
     @MockitoBean
     private NotificationService notificationService;
 
+    @MockitoBean
+    private GroupVoteService groupVoteService;
+
     @DynamicPropertySource
     static void configureDatabase(DynamicPropertyRegistry registry) {
         registry.add("spring.datasource.url", () -> POSTGRES.getJdbcUrl("postgres", "postgres"));
