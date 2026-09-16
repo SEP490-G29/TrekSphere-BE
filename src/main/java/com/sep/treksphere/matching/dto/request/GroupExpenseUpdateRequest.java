@@ -5,6 +5,7 @@ import com.sep.treksphere.matching.enums.BeneficiaryScope;
 import com.sep.treksphere.matching.enums.SplitMethod;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.DecimalMin;
+import jakarta.validation.constraints.PastOrPresent;
 import jakarta.validation.constraints.Size;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -46,6 +47,7 @@ public class GroupExpenseUpdateRequest {
     @Schema(description = "Chi tiết phân bổ số tiền nếu chia tùy chỉnh")
     private List<GroupExpenseCustomShareRequest> customShares;
 
+    @PastOrPresent(message = MessageConstant.EXPENSE_SPENT_AT_FUTURE)
     @Schema(description = "Thời điểm phát sinh chi tiêu")
     private LocalDateTime spentAt;
 

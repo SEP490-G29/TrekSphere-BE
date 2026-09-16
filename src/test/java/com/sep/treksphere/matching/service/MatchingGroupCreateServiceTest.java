@@ -13,9 +13,11 @@ import com.sep.treksphere.matching.repository.GroupTripRepository;
 import com.sep.treksphere.matching.repository.MatchingGroupRepository;
 import com.sep.treksphere.matching.repository.MatchingMemberRepository;
 import com.sep.treksphere.matching.service.impl.MatchingGroupServiceImpl;
+import com.sep.treksphere.tour.DifficultyLevel;
 import com.sep.treksphere.tour.Tour;
 import com.sep.treksphere.tour.TourRepository;
 import com.sep.treksphere.tour.TourStatus;
+import com.sep.treksphere.user.ExperienceLevel;
 import com.sep.treksphere.user.User;
 import com.sep.treksphere.user.UserRepository;
 import com.sep.treksphere.user.UserStatus;
@@ -85,6 +87,10 @@ class MatchingGroupCreateServiceTest {
         owner = new User();
         owner.setUserId(UUID.randomUUID());
         owner.setFullName("P2-S3 Leader");
+        owner.setPhone("0987654321");
+        owner.setDateOfBirth(LocalDate.of(1995, 5, 20));
+        owner.setExperienceLevel(ExperienceLevel.INTERMEDIATE);
+        owner.setPreferredDifficulty(DifficultyLevel.MODERATE);
         owner.setStatus(UserStatus.ACTIVE);
 
         vendor = new Vendor();
@@ -394,6 +400,17 @@ class MatchingGroupCreateServiceTest {
         assertThatThrownBy(() -> matchingGroupService.createMatchingGroup(request, owner.getUserId()))
                 .isInstanceOfSatisfying(AppException.class,
                         exception -> assertThat(exception.getErrorCode()).isEqualTo(expectedErrorCode));
+    }
+
+    @Test
+    @DisplayName("Tạo nhóm thất bại khi hồ sơ người dùng chưa đầy đủ thông tin bắt buộc")
+    void createGroup_FailsWhenProfileIncomplete() {
+        owner.setExperienceLevel(null);
+        MatchingGroupCreateRequest request = tourRequest();
+
+        assertThatThrownBy(() -> matchingGroupService.createMatchingGroup(request, owner.getUserId()))
+                .isInstanceOfSatisfying(AppException.class,
+                        exception -> assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.VALIDATION_ERROR));
     }
 
     private void stubGroupSave() {

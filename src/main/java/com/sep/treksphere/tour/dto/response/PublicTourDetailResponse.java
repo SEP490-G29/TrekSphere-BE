@@ -34,10 +34,13 @@ public class PublicTourDetailResponse {
     private String coverImageUrl;
     private LocalDateTime publishedAt;
     private String vendorId;
+    private String vendorManagerId;
     private String vendorName;
     private String vendorLogoUrl;
     private String vendorContactEmail;
     private String vendorContactPhone;
+    private String creatorId;
+    private String creatorName;
     private List<TourImageResponse> images;
     private List<TourCheckpointResponse> checkpoints;
     private List<TourScheduleResponse> schedules;

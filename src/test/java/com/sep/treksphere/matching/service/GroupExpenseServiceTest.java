@@ -582,4 +582,38 @@ class GroupExpenseServiceTest {
         assertThat(existing.getShares()).extracting("shareAmount")
                 .containsExactlyInAnyOrder(new BigDecimal("150000.00"), new BigDecimal("250000.00"));
     }
+
+    @Test
+    void createExpense_ThrowsException_WhenSpentAtInFuture() {
+        GroupExpenseCreateRequest request = GroupExpenseCreateRequest.builder()
+                .title("Future Expense")
+                .amount(new BigDecimal("100000"))
+                .spentAt(java.time.LocalDateTime.now().plusHours(2))
+                .build();
+
+        assertThatThrownBy(() -> groupExpenseService.createExpense(groupId, request, leaderUserId))
+                .isInstanceOf(AppException.class)
+                .satisfies(ex -> {
+                    AppException appEx = (AppException) ex;
+                    assertThat(appEx.getErrorCode()).isEqualTo(ErrorCode.VALIDATION_ERROR);
+                    assertThat(appEx.getMessage()).isEqualTo(com.sep.treksphere.common.constant.MessageConstant.EXPENSE_SPENT_AT_FUTURE);
+                });
+    }
+
+    @Test
+    void updateExpense_ThrowsException_WhenSpentAtInFuture() {
+        UUID expenseId = UUID.randomUUID();
+        GroupExpenseUpdateRequest request = GroupExpenseUpdateRequest.builder()
+                .title("Future Expense Update")
+                .spentAt(java.time.LocalDateTime.now().plusHours(2))
+                .build();
+
+        assertThatThrownBy(() -> groupExpenseService.updateExpense(groupId, expenseId, request, leaderUserId))
+                .isInstanceOf(AppException.class)
+                .satisfies(ex -> {
+                    AppException appEx = (AppException) ex;
+                    assertThat(appEx.getErrorCode()).isEqualTo(ErrorCode.VALIDATION_ERROR);
+                    assertThat(appEx.getMessage()).isEqualTo(com.sep.treksphere.common.constant.MessageConstant.EXPENSE_SPENT_AT_FUTURE);
+                });
+    }
 }
