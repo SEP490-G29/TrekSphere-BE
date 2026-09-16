@@ -57,7 +57,7 @@ public interface MatchingGroupRepository extends JpaRepository<MatchingGroup, UU
         LEFT JOIN FETCH mg.customJourney cj
         JOIN FETCH mg.owner o
         WHERE (
-              (CAST(:role AS string) IS NULL AND (
+              (:role IS NULL AND (
                   o.userId = :userId
                   OR EXISTS (
                       SELECT 1 FROM MatchingMember mm
@@ -79,13 +79,15 @@ public interface MatchingGroupRepository extends JpaRepository<MatchingGroup, UU
                   SELECT 1 FROM MatchingMember mm
                   WHERE mm.matchingGroup = mg
                     AND mm.user.userId = :userId
-                    AND mm.role = :memberRole
+                    AND mm.role = :role
                     AND mm.status = :acceptedStatus
                     AND mm.isDeleted = false
               ))
           )
           AND mg.isDeleted = false
-          AND (CAST(:status AS string) IS NULL OR mg.status = :status)
+          AND (:status IS NULL OR mg.status = :status)
+          AND (CAST(:tourId AS uuid) IS NULL OR (t IS NOT NULL AND t.tourId = :tourId))
+          AND (CAST(:targetDate AS date) IS NULL OR mg.targetDate = :targetDate)
           AND (
               CAST(:keyword AS string) = ''
               OR LOWER(mg.groupName) LIKE LOWER(CONCAT('%', CAST(:keyword AS string), '%'))
@@ -97,7 +99,7 @@ public interface MatchingGroupRepository extends JpaRepository<MatchingGroup, UU
         LEFT JOIN mg.tour t
         LEFT JOIN mg.customJourney cj
         WHERE (
-              (CAST(:role AS string) IS NULL AND (
+              (:role IS NULL AND (
                   mg.owner.userId = :userId
                   OR EXISTS (
                       SELECT 1 FROM MatchingMember mm
@@ -119,13 +121,15 @@ public interface MatchingGroupRepository extends JpaRepository<MatchingGroup, UU
                   SELECT 1 FROM MatchingMember mm
                   WHERE mm.matchingGroup = mg
                     AND mm.user.userId = :userId
-                    AND mm.role = :memberRole
+                    AND mm.role = :role
                     AND mm.status = :acceptedStatus
                     AND mm.isDeleted = false
               ))
           )
           AND mg.isDeleted = false
-          AND (CAST(:status AS string) IS NULL OR mg.status = :status)
+          AND (:status IS NULL OR mg.status = :status)
+          AND (CAST(:tourId AS uuid) IS NULL OR (t IS NOT NULL AND t.tourId = :tourId))
+          AND (CAST(:targetDate AS date) IS NULL OR mg.targetDate = :targetDate)
           AND (
               CAST(:keyword AS string) = ''
               OR LOWER(mg.groupName) LIKE LOWER(CONCAT('%', CAST(:keyword AS string), '%'))
@@ -135,10 +139,13 @@ public interface MatchingGroupRepository extends JpaRepository<MatchingGroup, UU
     """)
     Page<MatchingGroup> findOwnedOrJoinedGroups(
             @Param("userId") UUID userId,
+            @Param("leaderRole") MatchingRole leaderRole,
             @Param("memberRole") MatchingRole memberRole,
             @Param("acceptedStatus") JoinStatus acceptedStatus,
             @Param("role") MatchingRole role,
             @Param("status") MatchingGroupStatus status,
+            @Param("tourId") UUID tourId,
+            @Param("targetDate") LocalDate targetDate,
             @Param("keyword") String keyword,
             Pageable pageable
     );

@@ -35,7 +35,7 @@ public class UserController {
 
     @Operation(summary = "Xem thông tin cá nhân", description = "Trả về thông tin profile của người dùng đang đăng nhập")
     @SecurityRequirement(name = "bearerAuth")
-    @PreAuthorize("hasAuthority('USER_PROFILE_MANAGE')")
+    @PreAuthorize("isAuthenticated()")
     @GetMapping("/me")
     public ResponseEntity<ApiResponse<UserProfileResponse>> getMyProfile(
             @AuthenticationPrincipal CustomUserDetails userDetails) {
@@ -50,7 +50,7 @@ public class UserController {
 
     @Operation(summary = "Cập nhật thông tin cá nhân", description = "Cập nhật họ tên, số điện thoại và ảnh đại diện")
     @SecurityRequirement(name = "bearerAuth")
-    @PreAuthorize("hasAuthority('USER_PROFILE_MANAGE')")
+    @PreAuthorize("isAuthenticated()")
     @PutMapping(value = "/me", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<ApiResponse<UserProfileResponse>> updateMyProfile(
             @AuthenticationPrincipal CustomUserDetails userDetails,

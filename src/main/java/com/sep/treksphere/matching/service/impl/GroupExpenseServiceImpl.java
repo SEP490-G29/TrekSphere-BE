@@ -1,5 +1,6 @@
 package com.sep.treksphere.matching.service.impl;
 
+import com.sep.treksphere.common.constant.MessageConstant;
 import com.sep.treksphere.common.dto.PaginationResponse;
 import com.sep.treksphere.common.exception.AppException;
 import com.sep.treksphere.common.exception.ErrorCode;
@@ -49,6 +50,10 @@ public class GroupExpenseServiceImpl implements GroupExpenseService {
     @Transactional
     public GroupExpenseResponse createExpense(UUID groupId, GroupExpenseCreateRequest request, UUID currentUserId) {
         log.info("Creating group expense for group: {}, userId: {}", groupId, currentUserId);
+
+        if (request.getSpentAt() != null && request.getSpentAt().isAfter(LocalDateTime.now().plusMinutes(1))) {
+            throw new AppException(ErrorCode.VALIDATION_ERROR, MessageConstant.EXPENSE_SPENT_AT_FUTURE);
+        }
 
         MatchingGroup group = getMatchingGroup(groupId);
         MatchingMember callerMember = getActiveMember(groupId, currentUserId);
@@ -102,6 +107,10 @@ public class GroupExpenseServiceImpl implements GroupExpenseService {
     @Transactional
     public GroupExpenseResponse updateExpense(UUID groupId, UUID expenseId, GroupExpenseUpdateRequest request, UUID currentUserId) {
         log.info("Updating group expense: {} for group: {}, userId: {}", expenseId, groupId, currentUserId);
+
+        if (request.getSpentAt() != null && request.getSpentAt().isAfter(LocalDateTime.now().plusMinutes(1))) {
+            throw new AppException(ErrorCode.VALIDATION_ERROR, MessageConstant.EXPENSE_SPENT_AT_FUTURE);
+        }
 
         MatchingGroup group = getMatchingGroup(groupId);
         MatchingMember callerMember = getActiveMember(groupId, currentUserId);

@@ -700,6 +700,7 @@ public class MessageConstant {
     public static final String GROUP_EXPENSE_SUMMARY_FETCHED_SUCCESS = "Lấy tổng kết chi tiêu thành công";
     public static final String INVALID_EXPENSE_CUSTOM_SPLIT_SUM = "Tổng số tiền chia tùy chỉnh phải bằng chính xác tổng số tiền của khoản chi";
     public static final String INVALID_EXPENSE_CUSTOM_SPLIT_MEMBERS = "Danh sách thành viên chia tiền tùy chỉnh không hợp lệ hoặc không khớp với người thụ hưởng";
+    public static final String EXPENSE_SPENT_AT_FUTURE = "Thời điểm chi thực tế không được vượt quá thời điểm hiện tại";
 
     // Settlement Messages
     public static final String GROUP_SETTLEMENT_NOT_FOUND = "Lệnh quyết toán không tồn tại";
