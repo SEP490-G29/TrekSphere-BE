@@ -150,10 +150,6 @@ public class UserService {
 
     @Transactional
     public void changeUserStatus(String userId, UserStatus status) {
-        if (status == UserStatus.LOCKED) {
-            throw new AppException(ErrorCode.VALIDATION_ERROR, MessageConstant.LOCKED_STATUS_NOT_SUPPORTED);
-        }
-
         User user = userRepository.findById(UUID.fromString(userId))
                 .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
 
@@ -165,6 +161,10 @@ public class UserService {
                 NotificationEventType.USER_STATUS_CHANGED,
                 ReferenceType.USER, user.getUserId(),
                 "/profile",
-                status == UserStatus.ACTIVE ? "được kích hoạt lại" : "bị vô hiệu hoá");
+                switch (status) {
+                    case ACTIVE -> "được kích hoạt lại";
+                    case LOCKED -> "bị khóa";
+                    case DEACTIVATED -> "bị vô hiệu hoá";
+                });
     }
 }

@@ -15,7 +15,7 @@ import com.sep.treksphere.notification.NotificationService;
 import com.sep.treksphere.notification.ReferenceType;
 import com.sep.treksphere.tour.Tour;
 import com.sep.treksphere.tour.TourRepository;
-import com.sep.treksphere.tour.TourStatus;
+import com.sep.treksphere.tour.TourService;
 import com.sep.treksphere.user.User;
 import com.sep.treksphere.user.UserRepository;
 import lombok.RequiredArgsConstructor;
@@ -38,6 +38,7 @@ public class ReportService {
     private final BlogRepository blogRepository;
     private final BlogCommentRepository blogCommentRepository;
     private final TourRepository tourRepository;
+    private final TourService tourService;
     private final ReportMapper reportMapper;
     private final NotificationService notificationService;
 
@@ -140,17 +141,7 @@ public class ReportService {
                 blogCommentRepository.save(comment);
             } else if (report.getTour() != null) {
                 Tour tour = report.getTour();
-                tour.setStatus(TourStatus.HIDDEN);
-                tour.setHiddenReason(request.getResolutionNotes());
-                tour.setHiddenAt(java.time.LocalDateTime.now());
-                tour.setHiddenBy(admin);
-                tourRepository.save(tour);
-                notificationService.notify(
-                        tour.getVendor().getManager().getUserId(),
-                        NotificationEventType.TOUR_HIDDEN_VIOLATION,
-                        ReferenceType.TOUR, tour.getTourId(),
-                        "/vendor/tours/" + tour.getTourId(),
-                        tour.getTourName(), contentOwnerReason);
+                tourService.hideTourForViolation(admin.getUserId(), tour.getTourId(), contentOwnerReason);
             }
         }
 

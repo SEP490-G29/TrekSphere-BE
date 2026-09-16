@@ -42,7 +42,6 @@ public class MessageConstant {
     public static final String SYSTEM_ERROR_UNKNOWN = "Lỗi hệ thống không xác định";
     public static final String INVALID_MESSAGE_KEY = "Mã tin nhắn không hợp lệ";
     public static final String VALIDATION_ERROR_MSG = "Dữ liệu đầu vào không hợp lệ";
-    public static final String LOCKED_STATUS_NOT_SUPPORTED = "Chức năng khoá vĩnh viễn chưa được hỗ trợ";
 
     // Auth Error Messages
     public static final String UNAUTHORIZED_ACTION = "Bạn cần đăng nhập để thực hiện chức năng này";
