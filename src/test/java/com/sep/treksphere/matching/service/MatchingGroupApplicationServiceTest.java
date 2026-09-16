@@ -25,6 +25,7 @@ import com.sep.treksphere.tour.DifficultyLevel;
 import com.sep.treksphere.tour.Tour;
 import com.sep.treksphere.tour.TourRepository;
 import com.sep.treksphere.tour.TourStatus;
+import com.sep.treksphere.user.ExperienceLevel;
 import com.sep.treksphere.user.User;
 import com.sep.treksphere.user.UserRepository;
 import com.sep.treksphere.user.UserStatus;
@@ -107,11 +108,19 @@ class MatchingGroupApplicationServiceTest {
         leaderUser = new User();
         leaderUser.setUserId(UUID.randomUUID());
         leaderUser.setFullName("Leader Nguyen");
+        leaderUser.setPhone("0987654321");
+        leaderUser.setDateOfBirth(LocalDate.of(1995, 5, 20));
+        leaderUser.setExperienceLevel(ExperienceLevel.INTERMEDIATE);
+        leaderUser.setPreferredDifficulty(DifficultyLevel.MODERATE);
         leaderUser.setStatus(UserStatus.ACTIVE);
 
         applicantUser = new User();
         applicantUser.setUserId(UUID.randomUUID());
         applicantUser.setFullName("Applicant Tran");
+        applicantUser.setPhone("0912345678");
+        applicantUser.setDateOfBirth(LocalDate.of(1998, 8, 15));
+        applicantUser.setExperienceLevel(ExperienceLevel.INTERMEDIATE);
+        applicantUser.setPreferredDifficulty(DifficultyLevel.MODERATE);
         applicantUser.setStatus(UserStatus.ACTIVE);
 
         applicantDetails = new CustomUserDetails(applicantUser);
@@ -249,6 +258,17 @@ class MatchingGroupApplicationServiceTest {
             assertThatThrownBy(() -> matchingGroupService.submitApplication(openTourGroup.getMatchingGroupId(), null, applicantDetails))
                     .isInstanceOf(AppException.class)
                     .satisfies(ex -> assertThat(((AppException) ex).getErrorCode()).isEqualTo(ErrorCode.USER_NOT_ACTIVE));
+        }
+
+        @Test
+        @DisplayName("Should throw VALIDATION_ERROR when applicant profile is incomplete")
+        void submitApplication_fail_profileIncomplete() {
+            applicantUser.setPhone(null);
+            when(userRepository.findByIdForUpdate(applicantUser.getUserId())).thenReturn(Optional.of(applicantUser));
+
+            assertThatThrownBy(() -> matchingGroupService.submitApplication(openTourGroup.getMatchingGroupId(), null, applicantDetails))
+                    .isInstanceOf(AppException.class)
+                    .satisfies(ex -> assertThat(((AppException) ex).getErrorCode()).isEqualTo(ErrorCode.VALIDATION_ERROR));
         }
 
         @Test

@@ -129,10 +129,13 @@ public class MatchingGroupServiceImpl implements MatchingGroupService {
 
         Page<MatchingGroup> groups = matchingGroupRepository.findOwnedOrJoinedGroups(
                 userId,
+                MatchingRole.LEADER,
                 MatchingRole.MEMBER,
                 JoinStatus.ACCEPTED,
                 filter.getRole(),
                 filter.getStatus(),
+                filter.getTourId(),
+                filter.getTargetDate(),
                 keyword,
                 filter.getPageable()
         );
@@ -257,6 +260,8 @@ public class MatchingGroupServiceImpl implements MatchingGroupService {
         if (currentUser.getStatus() != UserStatus.ACTIVE) {
             throw new AppException(ErrorCode.USER_NOT_ACTIVE);
         }
+
+        validateProfileCompleteness(currentUser);
 
         log.info("Creating matching group: ownerId={}, groupName={}", currentUser.getUserId(), request.getGroupName());
 
@@ -519,6 +524,8 @@ public class MatchingGroupServiceImpl implements MatchingGroupService {
         if (currentUser.getStatus() != UserStatus.ACTIVE) {
             throw new AppException(ErrorCode.USER_NOT_ACTIVE);
         }
+
+        validateProfileCompleteness(currentUser);
 
         UUID userId = currentUser.getUserId();
         log.info("Request to submit application to matching group: groupId={}, userId={}", groupId, userId);
@@ -1361,6 +1368,18 @@ public class MatchingGroupServiceImpl implements MatchingGroupService {
         }
         if (!matchingDeadline.isAfter(LocalDateTime.now())) {
             throw new AppException(ErrorCode.MATCHING_DEADLINE_PASSED);
+        }
+    }
+
+    private void validateProfileCompleteness(User user) {
+        if (user.getFullName() == null || user.getFullName().trim().length() < 2
+                || user.getPhone() == null || user.getPhone().trim().isEmpty()
+                || user.getDateOfBirth() == null
+                || user.getExperienceLevel() == null
+                || user.getPreferredDifficulty() == null) {
+            throw new AppException(
+                    ErrorCode.VALIDATION_ERROR,
+                    "Vui lòng cập nhật đầy đủ thông tin cá nhân và hồ sơ leo núi trước khi tiếp tục.");
         }
     }
 

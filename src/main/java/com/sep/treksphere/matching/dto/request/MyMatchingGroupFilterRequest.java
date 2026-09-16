@@ -11,7 +11,9 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.util.StringUtils;
 
+import java.time.LocalDate;
 import java.util.Set;
+import java.util.UUID;
 
 @Getter
 @Setter
@@ -31,6 +33,12 @@ public class MyMatchingGroupFilterRequest extends BaseFilterRequest {
 
     @Schema(description = "Lọc theo vai trò của người dùng: LEADER (nhóm do mình làm chủ) hoặc MEMBER (nhóm mình tham gia)")
     private MatchingRole role;
+
+    @Schema(description = "Lọc theo Tour ID")
+    private UUID tourId;
+
+    @Schema(description = "Lọc theo ngày khởi hành dự kiến (YYYY-MM-DD)")
+    private LocalDate targetDate;
 
     @Override
     public Pageable getPageable() {

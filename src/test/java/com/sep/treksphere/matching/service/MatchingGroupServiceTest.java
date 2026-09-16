@@ -17,8 +17,10 @@ import com.sep.treksphere.tour.DifficultyLevel;
 import com.sep.treksphere.tour.Tour;
 import com.sep.treksphere.tour.TourRepository;
 import com.sep.treksphere.tour.TourStatus;
+import com.sep.treksphere.user.ExperienceLevel;
 import com.sep.treksphere.user.User;
 import com.sep.treksphere.user.UserRepository;
+import com.sep.treksphere.user.UserStatus;
 import com.sep.treksphere.vendor.Vendor;
 import com.sep.treksphere.vendor.VendorStatus;
 import org.junit.jupiter.api.BeforeEach;
@@ -91,11 +93,21 @@ class MatchingGroupServiceTest {
         owner = new User();
         owner.setUserId(UUID.randomUUID());
         owner.setFullName("Leader John");
+        owner.setPhone("0987654321");
+        owner.setDateOfBirth(LocalDate.of(1995, 5, 20));
+        owner.setExperienceLevel(ExperienceLevel.INTERMEDIATE);
+        owner.setPreferredDifficulty(DifficultyLevel.MODERATE);
+        owner.setStatus(UserStatus.ACTIVE);
         owner.setAvatarUrl("https://example.com/leader.jpg");
 
         memberUser = new User();
         memberUser.setUserId(UUID.randomUUID());
         memberUser.setFullName("Member Alice");
+        memberUser.setPhone("0912345678");
+        memberUser.setDateOfBirth(LocalDate.of(1998, 8, 15));
+        memberUser.setExperienceLevel(ExperienceLevel.INTERMEDIATE);
+        memberUser.setPreferredDifficulty(DifficultyLevel.MODERATE);
+        memberUser.setStatus(UserStatus.ACTIVE);
         memberUser.setAvatarUrl("https://example.com/alice.jpg");
 
         // 1. Setup Tour-backed group
@@ -343,7 +355,7 @@ class MatchingGroupServiceTest {
         Page<MatchingGroup> page = new PageImpl<>(List.of(tourGroup, customJourneyGroup), PageRequest.of(0, 10), 2);
 
         when(matchingGroupRepository.findOwnedOrJoinedGroups(
-                eq(owner.getUserId()), eq(MatchingRole.MEMBER), eq(JoinStatus.ACCEPTED), isNull(), isNull(), anyString(), any()
+                eq(owner.getUserId()), eq(MatchingRole.LEADER), eq(MatchingRole.MEMBER), eq(JoinStatus.ACCEPTED), isNull(), isNull(), isNull(), isNull(), anyString(), any()
         )).thenReturn(page);
 
         PaginationResponse<MatchingGroupResponse> response = matchingGroupService.getMyMatchingGroups(filter, userDetails);
@@ -375,7 +387,7 @@ class MatchingGroupServiceTest {
 
         Page<MatchingGroup> page = new PageImpl<>(List.of(tourGroup), PageRequest.of(0, 10), 1);
         when(matchingGroupRepository.findOwnedOrJoinedGroups(
-                eq(owner.getUserId()), eq(MatchingRole.MEMBER), eq(JoinStatus.ACCEPTED), isNull(), isNull(), anyString(), any()
+                eq(owner.getUserId()), eq(MatchingRole.LEADER), eq(MatchingRole.MEMBER), eq(JoinStatus.ACCEPTED), isNull(), isNull(), isNull(), isNull(), anyString(), any()
         )).thenReturn(page);
 
         // Trưởng nhóm mới sau bầu cử: memberUser (không phải owner/người tạo nhóm).
@@ -408,7 +420,7 @@ class MatchingGroupServiceTest {
 
         Page<MatchingGroup> page = new PageImpl<>(List.of(tourGroup), PageRequest.of(0, 10), 1);
         when(matchingGroupRepository.findOwnedOrJoinedGroups(
-                eq(owner.getUserId()), eq(MatchingRole.MEMBER), eq(JoinStatus.ACCEPTED), isNull(), isNull(), anyString(), any()
+                eq(owner.getUserId()), eq(MatchingRole.LEADER), eq(MatchingRole.MEMBER), eq(JoinStatus.ACCEPTED), isNull(), isNull(), isNull(), isNull(), anyString(), any()
         )).thenReturn(page);
         when(matchingMemberRepository.findByGroupIdsAndRoleAndStatus(
                 List.of(tourGroup.getMatchingGroupId()), MatchingRole.LEADER, JoinStatus.ACCEPTED

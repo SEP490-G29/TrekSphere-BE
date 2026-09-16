@@ -100,9 +100,9 @@ class MatchingGroupFindOwnedOrJoinedGroupsIntegrationTest {
 
         // 1) Không lọc role: CẢ creator lẫn newLeader đều phải thấy nhóm này trong "của tôi".
         Page<MatchingGroup> creatorAll = matchingGroupRepository.findOwnedOrJoinedGroups(
-                creator.getUserId(), MatchingRole.MEMBER, JoinStatus.ACCEPTED, null, null, "", PageRequest.of(0, 20));
+                creator.getUserId(), MatchingRole.LEADER, MatchingRole.MEMBER, JoinStatus.ACCEPTED, null, null, null, null, "", PageRequest.of(0, 20));
         Page<MatchingGroup> newLeaderAll = matchingGroupRepository.findOwnedOrJoinedGroups(
-                newLeader.getUserId(), MatchingRole.MEMBER, JoinStatus.ACCEPTED, null, null, "", PageRequest.of(0, 20));
+                newLeader.getUserId(), MatchingRole.LEADER, MatchingRole.MEMBER, JoinStatus.ACCEPTED, null, null, null, null, "", PageRequest.of(0, 20));
 
         assertThat(creatorAll.getContent()).extracting(MatchingGroup::getMatchingGroupId)
                 .contains(savedGroup.getMatchingGroupId());
@@ -111,10 +111,10 @@ class MatchingGroupFindOwnedOrJoinedGroupsIntegrationTest {
 
         // 2) Lọc role=LEADER: chỉ newLeader thấy, creator (giờ chỉ là MEMBER) không còn thấy nữa.
         Page<MatchingGroup> creatorLeaderTab = matchingGroupRepository.findOwnedOrJoinedGroups(
-                creator.getUserId(), MatchingRole.MEMBER, JoinStatus.ACCEPTED, MatchingRole.LEADER, null, "",
+                creator.getUserId(), MatchingRole.LEADER, MatchingRole.MEMBER, JoinStatus.ACCEPTED, MatchingRole.LEADER, null, null, null, "",
                 PageRequest.of(0, 20));
         Page<MatchingGroup> newLeaderLeaderTab = matchingGroupRepository.findOwnedOrJoinedGroups(
-                newLeader.getUserId(), MatchingRole.MEMBER, JoinStatus.ACCEPTED, MatchingRole.LEADER, null, "",
+                newLeader.getUserId(), MatchingRole.LEADER, MatchingRole.MEMBER, JoinStatus.ACCEPTED, MatchingRole.LEADER, null, null, null, "",
                 PageRequest.of(0, 20));
 
         assertThat(creatorLeaderTab.getContent()).extracting(MatchingGroup::getMatchingGroupId)
@@ -124,10 +124,10 @@ class MatchingGroupFindOwnedOrJoinedGroupsIntegrationTest {
 
         // 3) Lọc role=MEMBER: chỉ creator (giờ là MEMBER) thấy, newLeader (giờ là LEADER) không thấy.
         Page<MatchingGroup> creatorMemberTab = matchingGroupRepository.findOwnedOrJoinedGroups(
-                creator.getUserId(), MatchingRole.MEMBER, JoinStatus.ACCEPTED, MatchingRole.MEMBER, null, "",
+                creator.getUserId(), MatchingRole.LEADER, MatchingRole.MEMBER, JoinStatus.ACCEPTED, MatchingRole.MEMBER, null, null, null, "",
                 PageRequest.of(0, 20));
         Page<MatchingGroup> newLeaderMemberTab = matchingGroupRepository.findOwnedOrJoinedGroups(
-                newLeader.getUserId(), MatchingRole.MEMBER, JoinStatus.ACCEPTED, MatchingRole.MEMBER, null, "",
+                newLeader.getUserId(), MatchingRole.LEADER, MatchingRole.MEMBER, JoinStatus.ACCEPTED, MatchingRole.MEMBER, null, null, null, "",
                 PageRequest.of(0, 20));
 
         assertThat(creatorMemberTab.getContent()).extracting(MatchingGroup::getMatchingGroupId)
