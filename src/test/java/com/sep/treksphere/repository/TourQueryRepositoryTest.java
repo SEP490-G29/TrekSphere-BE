@@ -15,6 +15,8 @@ import org.springframework.boot.test.autoconfigure.jdbc.AutoConfigureTestDatabas
 import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.domain.JpaSort;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
@@ -170,6 +172,58 @@ class TourQueryRepositoryTest {
                 PageRequest.of(0, 10));
 
         assertEquals(SECOND_TOUR_ID, page.getContent().getFirst().getTourId());
+    }
+
+    /**
+     * Giá không phải cột thật trên {@code Tour} (xem {@code TourService.PRICE_SORT_EXPRESSION}) —
+     * kiểm chứng biểu thức {@link JpaSort#unsafe} tương quan MIN(schedule.price) thật sự chạy đúng
+     * trên Postgres qua {@code searchTours}, không chỉ compile được ở tầng JPQL.
+     */
+    @Test
+    void searchToursSortsByMinOpenSchedulePriceAscendingAndDescending() {
+        seedSecondTour("Ba Vi, Ha Noi", "MODERATE");
+        UUID unpricedTourId = UUID.fromString("3c4d5e6f-0003-4c3d-8e4f-000000000003");
+        seedTourWithoutOpenSchedule(unpricedTourId, "Da Lat, Lam Dong", "EASY");
+        String priceExpression =
+                "(SELECT MIN(ts.price) FROM TourSchedule ts WHERE ts.tour = t "
+                + "AND ts.status = com.sep.treksphere.tour.schedule.ScheduleStatus.OPEN "
+                + "AND ts.departureDate >= CURRENT_DATE AND ts.isDeleted = false)";
+
+        // Khớp đúng cách TourService.getTours xây Sort: nullsLast() cho cả 2 chiều, vì mặc định
+        // Postgres coi NULL là "lớn nhất" (NULLS LAST khi ASC, NULLS FIRST khi DESC) — không ép
+        // thì tour chưa có schedule OPEN sẽ nhảy lên đầu khi sort DESC.
+        Sort ascByPrice = Sort.by(JpaSort.unsafe(Sort.Direction.ASC, priceExpression)
+                .stream().findFirst().orElseThrow().nullsLast());
+        Page<Tour> ascPage = tourRepository.searchTours(
+                com.sep.treksphere.tour.TourStatus.PUBLISHED,
+                null, null, null, null, null, null,
+                PageRequest.of(0, 10, ascByPrice));
+        assertEquals(TOUR_ID, ascPage.getContent().get(0).getTourId());
+        assertEquals(SECOND_TOUR_ID, ascPage.getContent().get(1).getTourId());
+        assertEquals(unpricedTourId, ascPage.getContent().get(2).getTourId());
+
+        Sort descByPrice = Sort.by(JpaSort.unsafe(Sort.Direction.DESC, priceExpression)
+                .stream().findFirst().orElseThrow().nullsLast());
+        Page<Tour> descPage = tourRepository.searchTours(
+                com.sep.treksphere.tour.TourStatus.PUBLISHED,
+                null, null, null, null, null, null,
+                PageRequest.of(0, 10, descByPrice));
+        assertEquals(SECOND_TOUR_ID, descPage.getContent().get(0).getTourId());
+        assertEquals(TOUR_ID, descPage.getContent().get(1).getTourId());
+        assertEquals(unpricedTourId, descPage.getContent().get(2).getTourId());
+    }
+
+    private void seedTourWithoutOpenSchedule(UUID tourId, String location, String difficulty) {
+        jdbc.update("""
+                INSERT INTO tour (
+                    tour_id, vendor_id, tour_name, description, duration_days,
+                    min_capacity, max_capacity, difficulty, status, cover_image_url,
+                    location, creator_id, is_deleted, published_at
+                ) VALUES (?, ?, 'Unpriced repository tour', 'Tour without any OPEN schedule', 2,
+                          4, 12, ?, 'PUBLISHED', 'https://example.com/unpriced-cover.jpg',
+                          ?, ?, FALSE, CURRENT_TIMESTAMP)
+                """, tourId, VENDOR_ID, difficulty, location,
+                UUID.fromString("1a2b3c4d-0003-4a1b-9c2d-000000000003"));
     }
 
     private void seedSecondTour(String location, String difficulty) {

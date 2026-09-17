@@ -36,6 +36,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.domain.JpaSort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
@@ -59,6 +60,16 @@ public class TourService {
     private static final List<TourStatus> VENDOR_VISIBLE_STATUSES = List.of(TourStatus.values());
     private static final Set<String> PUBLIC_SORT_FIELDS = Set.of(
             "createdAt", "publishedAt", "tourName", "difficulty", "durationDays");
+    /**
+     * Giá không phải cột thật trên {@code Tour} — là MIN(schedule.price) tính qua subquery, nên
+     * không thể gộp vào {@link #PUBLIC_SORT_FIELDS} (chỉ dùng được với property thật của entity).
+     * Phải xử lý riêng bằng {@link JpaSort#unsafe}.
+     */
+    private static final String PRICE_SORT_FIELD = "fromPrice";
+    private static final String PRICE_SORT_EXPRESSION =
+            "(SELECT MIN(ts.price) FROM TourSchedule ts WHERE ts.tour = t "
+            + "AND ts.status = com.sep.treksphere.tour.schedule.ScheduleStatus.OPEN "
+            + "AND ts.departureDate >= CURRENT_DATE AND ts.isDeleted = false)";
 
     private final TourRepository tourRepository;
     private final TourImageRepository tourImageRepository;
@@ -85,10 +96,21 @@ public class TourService {
             String sortBy,
             String sortDir) {
         String requestedSort = StringUtils.hasText(sortBy) ? sortBy.trim() : "publishedAt";
-        String validSortBy = PUBLIC_SORT_FIELDS.contains(requestedSort) ? requestedSort : "publishedAt";
-        Sort sort = "asc".equalsIgnoreCase(sortDir)
-                ? Sort.by(validSortBy).ascending()
-                : Sort.by(validSortBy).descending();
+        boolean isPriceSort = PRICE_SORT_FIELD.equals(requestedSort);
+        String validSortBy = (PUBLIC_SORT_FIELDS.contains(requestedSort) || isPriceSort)
+                ? requestedSort : "publishedAt";
+        Sort sort = isPriceSort
+                // NULLS LAST tường minh cho cả 2 chiều: mặc định Postgres coi NULL là "lớn nhất"
+                // (NULLS LAST khi ASC, NULLS FIRST khi DESC) — nếu không ép, tour chưa có schedule
+                // OPEN nào (fromPrice = null) sẽ nhảy lên đầu khi sort DESC, làm sai kết quả "giá
+                // cao nhất" (vd dùng cho thanh lọc khoảng giá).
+                ? Sort.by(JpaSort.unsafe(
+                        "asc".equalsIgnoreCase(sortDir) ? Sort.Direction.ASC : Sort.Direction.DESC,
+                        PRICE_SORT_EXPRESSION)
+                        .stream().findFirst().orElseThrow().nullsLast())
+                : ("asc".equalsIgnoreCase(sortDir)
+                        ? Sort.by(validSortBy).ascending()
+                        : Sort.by(validSortBy).descending());
         Pageable pageable = PageRequest.of(Math.max(page, 0), Math.min(Math.max(size, 1), 100), sort);
 
         Page<Tour> tourPage = tourRepository.searchTours(
