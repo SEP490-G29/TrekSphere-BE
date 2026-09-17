@@ -118,6 +118,9 @@ public final class NotificationTemplates {
         TEMPLATES.put(NotificationEventType.REPORT_RESOLVED, new TemplatePair(
                 "Báo cáo đã được xử lý",
                 "Báo cáo của bạn đã được xử lý: %s."));
+        TEMPLATES.put(NotificationEventType.REPORT_WARNING_ISSUED, new TemplatePair(
+                "Cảnh cáo vi phạm tiêu chuẩn cộng đồng",
+                "Nội dung \"%s\" của bạn đã nhận cảnh cáo do vi phạm: %s.%s Vui lòng tuân thủ quy chuẩn cộng đồng."));
 
         TEMPLATES.put(NotificationEventType.USER_STATUS_CHANGED, new TemplatePair(
                 "Tài khoản đã thay đổi trạng thái",

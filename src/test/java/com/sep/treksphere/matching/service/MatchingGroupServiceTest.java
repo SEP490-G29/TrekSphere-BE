@@ -218,7 +218,7 @@ class MatchingGroupServiceTest {
         Page<MatchingGroup> page = new PageImpl<>(List.of(tourGroup, customJourneyGroup), PageRequest.of(0, 10), 2);
 
         when(matchingGroupRepository.findAvailableMatchingGroups(
-                any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any()
+                any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any()
         )).thenReturn(page);
 
         PaginationResponse<MatchingGroupResponse> result = matchingGroupService.getMatchingGroups(filter);

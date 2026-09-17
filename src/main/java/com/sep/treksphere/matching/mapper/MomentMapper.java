@@ -14,9 +14,9 @@ import java.util.List;
 @Mapper(componentModel = "spring", unmappedTargetPolicy = ReportingPolicy.IGNORE)
 public interface MomentMapper {
 
-    @Mapping(target = "authorUserId", source = "authorUser.userId")
-    @Mapping(target = "authorName", source = "authorUser.fullName")
-    @Mapping(target = "authorAvatarUrl", source = "authorUser.avatarUrl")
+    @Mapping(target = "authorUserId", expression = "java(deriveAuthorUserId(entity))")
+    @Mapping(target = "authorName", expression = "java(deriveAuthorName(entity))")
+    @Mapping(target = "authorAvatarUrl", expression = "java(deriveAuthorAvatarUrl(entity))")
     @Mapping(target = "matchingGroupId", source = "matchingGroup.matchingGroupId")
     @Mapping(target = "groupName", source = "matchingGroup.groupName")
     @Mapping(target = "authorMatchingMemberId", source = "authorMatchingMember.matchingMemberId")
@@ -35,8 +35,8 @@ public interface MomentMapper {
     @Mapping(target = "latitude", source = "latitude")
     @Mapping(target = "longitude", source = "longitude")
     @Mapping(target = "capturedAt", source = "capturedAt")
-    @Mapping(target = "authorName", source = "authorUser.fullName")
-    @Mapping(target = "authorAvatarUrl", source = "authorUser.avatarUrl")
+    @Mapping(target = "authorName", expression = "java(deriveAuthorName(entity))")
+    @Mapping(target = "authorAvatarUrl", expression = "java(deriveAuthorAvatarUrl(entity))")
     @Mapping(target = "matchingGroupId", source = "matchingGroup.matchingGroupId")
     @Mapping(target = "groupName", source = "matchingGroup.groupName")
     @Mapping(target = "thumbnailUrl", expression = "java(entity.getMediaList() != null && !entity.getMediaList().isEmpty() ? entity.getMediaList().get(0).getImageUrl() : null)")
@@ -65,4 +65,28 @@ public interface MomentMapper {
     @Mapping(target = "hiddenReason", ignore = true)
     @Mapping(target = "mediaList", ignore = true)
     void updateEntityFromRequest(MomentUpdateRequest request, @MappingTarget Moment entity);
+
+    default java.util.UUID deriveAuthorUserId(Moment entity) {
+        if (entity == null || entity.getAuthorUser() == null) return null;
+        if (entity.getAuthorUser().getStatus() == com.sep.treksphere.user.UserStatus.LOCKED) {
+            return null;
+        }
+        return entity.getAuthorUser().getUserId();
+    }
+
+    default String deriveAuthorName(Moment entity) {
+        if (entity == null || entity.getAuthorUser() == null) return null;
+        if (entity.getAuthorUser().getStatus() == com.sep.treksphere.user.UserStatus.LOCKED) {
+            return com.sep.treksphere.blog.BlogService.SYSTEM_USER_ANONYMOUS_NAME;
+        }
+        return entity.getAuthorUser().getFullName();
+    }
+
+    default String deriveAuthorAvatarUrl(Moment entity) {
+        if (entity == null || entity.getAuthorUser() == null) return null;
+        if (entity.getAuthorUser().getStatus() == com.sep.treksphere.user.UserStatus.LOCKED) {
+            return null;
+        }
+        return entity.getAuthorUser().getAvatarUrl();
+    }
 }

@@ -87,8 +87,8 @@ public class MatchingGroupServiceImpl implements MatchingGroupService {
         LocalDate today = LocalDate.now();
         LocalDateTime now = LocalDateTime.now();
 
-        log.info("Fetching available matching groups with filters: sourceType={}, tourId={}, difficulty={}, location={}, targetDate={}, targetDateFrom={}, targetDateTo={}, availableSlotsOnly={}, keyword={}",
-                sourceType, filter.getTourId(), difficulty, location, filter.getTargetDate(), filter.getTargetDateFrom(), filter.getTargetDateTo(), availableSlotsOnly, keyword);
+        log.info("Fetching available matching groups with filters: sourceType={}, tourId={}, difficulty={}, location={}, minCost={}, maxCost={}, targetDate={}, targetDateFrom={}, targetDateTo={}, availableSlotsOnly={}, keyword={}",
+                sourceType, filter.getTourId(), difficulty, location, filter.getMinCost(), filter.getMaxCost(), filter.getTargetDate(), filter.getTargetDateFrom(), filter.getTargetDateTo(), availableSlotsOnly, keyword);
 
         Page<MatchingGroup> groups = matchingGroupRepository.findAvailableMatchingGroups(
                 MatchingGroupStatus.OPEN,
@@ -101,6 +101,8 @@ public class MatchingGroupServiceImpl implements MatchingGroupService {
                 filter.getTargetDateTo(),
                 difficulty,
                 location,
+                filter.getMinCost(),
+                filter.getMaxCost(),
                 availableSlotsOnly,
                 keyword,
                 today,
@@ -140,18 +142,37 @@ public class MatchingGroupServiceImpl implements MatchingGroupService {
                 filter.getPageable()
         );
 
+        List<UUID> groupIds = groups.getContent().stream()
+                .map(MatchingGroup::getMatchingGroupId)
+                .filter(Objects::nonNull)
+                .toList();
+
+        Map<UUID, MatchingMember> myMembershipsByGroupId = groupIds.isEmpty()
+                ? Collections.emptyMap()
+                : matchingMemberRepository.findByUserAndGroupIdsAndStatus(userId, groupIds, JoinStatus.ACCEPTED)
+                        .stream()
+                        .filter(m -> m.getMatchingGroup() != null && m.getMatchingGroup().getMatchingGroupId() != null)
+                        .collect(Collectors.toMap(
+                                m -> m.getMatchingGroup().getMatchingGroupId(),
+                                m -> m,
+                                (existing, duplicate) -> existing
+                        ));
+
         Page<MatchingGroupResponse> responsePage = groups.map(group -> {
             MatchingGroupResponse response = matchingGroupMapper.toResponse(group);
-            boolean isOwner = group.getOwner() != null && userId.equals(group.getOwner().getUserId());
-            response.setIsOwner(isOwner);
-            MatchingMember myMembership = group.getMembers() == null
-                    ? null
-                    : group.getMembers().stream()
-                            .filter(member -> member.getUser().getUserId().equals(userId)
-                                    && member.getStatus() == JoinStatus.ACCEPTED
-                                    && !Boolean.TRUE.equals(member.getIsDeleted()))
-                            .findFirst()
-                            .orElse(null);
+            MatchingMember myMembership = myMembershipsByGroupId.get(group.getMatchingGroupId());
+            if (myMembership == null && group.getMembers() != null) {
+                myMembership = group.getMembers().stream()
+                        .filter(member -> member.getUser() != null
+                                && member.getUser().getUserId() != null
+                                && member.getUser().getUserId().equals(userId)
+                                && member.getStatus() == JoinStatus.ACCEPTED
+                                && !Boolean.TRUE.equals(member.getIsDeleted()))
+                        .findFirst()
+                        .orElse(null);
+            }
+            boolean isLeader = myMembership != null && myMembership.getRole() == MatchingRole.LEADER;
+            response.setIsOwner(isLeader);
             response.setMyRole(myMembership != null ? myMembership.getRole() : null);
             return response;
         });
@@ -168,7 +189,6 @@ public class MatchingGroupServiceImpl implements MatchingGroupService {
                 .orElseThrow(() -> new AppException(ErrorCode.MATCHING_GROUP_NOT_FOUND));
 
         UUID viewerId = userDetails == null ? null : userDetails.getUser().getUserId();
-        boolean isOwner = viewerId != null && matchingGroup.getOwner() != null && matchingGroup.getOwner().getUserId().equals(viewerId);
         MatchingMember viewerMembership = (viewerId == null || matchingGroup.getMembers() == null)
                 ? null
                 : matchingGroup.getMembers().stream()
@@ -178,6 +198,14 @@ public class MatchingGroupServiceImpl implements MatchingGroupService {
                         .orElse(null);
 
         JoinStatus membershipStatus = viewerMembership == null ? null : viewerMembership.getStatus();
+        boolean isCurrentLeader = viewerMembership != null
+                && viewerMembership.getRole() == MatchingRole.LEADER
+                && membershipStatus == JoinStatus.ACCEPTED;
+        boolean isAcceptedMember = membershipStatus == JoinStatus.ACCEPTED;
+        boolean isOwner = viewerId != null
+                && matchingGroup.getOwner() != null
+                && matchingGroup.getOwner().getUserId().equals(viewerId);
+
         if (membershipStatus == null && viewerId != null && !isOwner) {
             boolean hasPending = groupJoinApplicationRepository
                     .existsByMatchingGroup_MatchingGroupIdAndApplicant_UserIdAndStatusAndIsDeletedFalse(
@@ -187,7 +215,6 @@ public class MatchingGroupServiceImpl implements MatchingGroupService {
                 membershipStatus = JoinStatus.PENDING;
             }
         }
-        boolean isAcceptedMember = isOwner || membershipStatus == JoinStatus.ACCEPTED;
 
         // Nếu không phải Leader/Member của nhóm, chỉ cho phép xem nếu nhóm ở trạng thái public (OPEN/FULL) và Tour/Vendor khả dụng
         if (!isAcceptedMember) {
@@ -234,10 +261,8 @@ public class MatchingGroupServiceImpl implements MatchingGroupService {
                 && matchingGroup.getMatchingDeadline().isAfter(LocalDateTime.now())
                 && matchingGroup.getTargetDate().isAfter(LocalDate.now());
 
-        boolean isCurrentLeader = viewerMembership != null && viewerMembership.getRole() == MatchingRole.LEADER;
-
         response.setIsOwner(isOwner);
-        response.setMyRole(viewerMembership != null ? viewerMembership.getRole() : null);
+        response.setMyRole(isAcceptedMember && viewerMembership != null ? viewerMembership.getRole() : null);
         response.setMyMembershipStatus(membershipStatus);
         response.setCanJoin(viewerId != null && !isOwner && !hasActiveMembership && groupIsJoinable);
         response.setCanLeave(viewerId != null && !isCurrentLeader && hasActiveMembership);
@@ -345,20 +370,36 @@ public class MatchingGroupServiceImpl implements MatchingGroupService {
      * ra bình thường vì mỗi nhóm luôn có đúng 1 leader).
      */
     private void applyCurrentLeaders(List<MatchingGroupResponse> responses) {
-        if (responses.isEmpty()) {
+        if (responses == null || responses.isEmpty()) {
             return;
         }
-        List<UUID> groupIds = responses.stream().map(MatchingGroupResponse::getMatchingGroupId).toList();
+        List<UUID> groupIds = responses.stream()
+                .map(MatchingGroupResponse::getMatchingGroupId)
+                .filter(Objects::nonNull)
+                .toList();
+        if (groupIds.isEmpty()) {
+            return;
+        }
         Map<UUID, MatchingMember> leadersByGroupId = matchingMemberRepository
                 .findByGroupIdsAndRoleAndStatus(groupIds, MatchingRole.LEADER, JoinStatus.ACCEPTED)
                 .stream()
-                .collect(Collectors.toMap(m -> m.getMatchingGroup().getMatchingGroupId(), m -> m));
+                .filter(m -> m.getMatchingGroup() != null && m.getMatchingGroup().getMatchingGroupId() != null)
+                .collect(Collectors.toMap(
+                        m -> m.getMatchingGroup().getMatchingGroupId(),
+                        m -> m,
+                        (existing, duplicate) -> existing
+                ));
 
         for (MatchingGroupResponse response : responses) {
             MatchingMember leader = leadersByGroupId.get(response.getMatchingGroupId());
-            if (leader != null) {
-                response.setLeaderName(leader.getUser().getFullName());
-                response.setLeaderAvatarUrl(leader.getUser().getAvatarUrl());
+            if (leader != null && leader.getUser() != null) {
+                if (leader.getUser().getStatus() == com.sep.treksphere.user.UserStatus.LOCKED) {
+                    response.setLeaderName(com.sep.treksphere.blog.BlogService.SYSTEM_USER_ANONYMOUS_NAME);
+                    response.setLeaderAvatarUrl(null);
+                } else {
+                    response.setLeaderName(leader.getUser().getFullName());
+                    response.setLeaderAvatarUrl(leader.getUser().getAvatarUrl());
+                }
             } else {
                 response.setLeaderName(response.getOwnerName());
                 response.setLeaderAvatarUrl(response.getOwnerAvatarUrl());
@@ -533,7 +574,16 @@ public class MatchingGroupServiceImpl implements MatchingGroupService {
         MatchingGroup matchingGroup = matchingGroupRepository.findByIdForUpdate(groupId)
                 .orElseThrow(() -> new AppException(ErrorCode.MATCHING_GROUP_NOT_FOUND));
 
-        if (matchingGroup.getOwner().getUserId().equals(userId)) {
+        boolean isCurrentLeader = matchingMemberRepository.findByMatchingGroupAndUser(
+                        matchingGroup,
+                        currentUser
+                )
+                .filter(m -> m.getRole() == MatchingRole.LEADER
+                        && m.getStatus() == JoinStatus.ACCEPTED
+                        && !Boolean.TRUE.equals(m.getIsDeleted()))
+                .isPresent();
+
+        if (isCurrentLeader) {
             throw new AppException(ErrorCode.MATCHING_OWNER_CANNOT_JOIN);
         }
 

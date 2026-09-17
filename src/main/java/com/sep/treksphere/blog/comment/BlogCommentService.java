@@ -210,11 +210,16 @@ public class BlogCommentService {
     }
 
     private BlogCommentResponse toCommentResponse(BlogComment comment) {
+        boolean isLocked = comment.getUser() != null && comment.getUser().getStatus() == com.sep.treksphere.user.UserStatus.LOCKED;
+        String userFullName = isLocked ? com.sep.treksphere.blog.BlogService.SYSTEM_USER_ANONYMOUS_NAME : (comment.getUser() != null ? comment.getUser().getFullName() : null);
+        String userAvatarUrl = isLocked ? null : (comment.getUser() != null ? comment.getUser().getAvatarUrl() : null);
+        String userId = isLocked ? null : (comment.getUser() != null ? comment.getUser().getUserId().toString() : null);
+
         return BlogCommentResponse.builder()
                 .commentId(comment.getBlogCommentId().toString())
-                .userId(comment.getUser().getUserId().toString())
-                .userFullName(comment.getUser().getFullName())
-                .userAvatarUrl(comment.getUser().getAvatarUrl())
+                .userId(userId)
+                .userFullName(userFullName)
+                .userAvatarUrl(userAvatarUrl)
                 .content(comment.getContent())
                 .status(comment.getStatus())
                 .createdAt(comment.getCreatedAt())

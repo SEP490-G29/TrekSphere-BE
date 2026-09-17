@@ -43,9 +43,11 @@ public interface MatchingGroupMapper {
     @Mapping(target = "location", expression = "java(deriveLocation(matchingGroup))")
     @Mapping(target = "estimatedCost", expression = "java(deriveEstimatedCost(matchingGroup))")
     @Mapping(target = "coverImageUrl", expression = "java(deriveCoverImageUrl(matchingGroup))")
-    @Mapping(target = "ownerId", source = "owner.userId")
-    @Mapping(target = "ownerName", source = "owner.fullName")
-    @Mapping(target = "ownerAvatarUrl", source = "owner.avatarUrl")
+    @Mapping(target = "ownerId", expression = "java(deriveOwnerId(matchingGroup))")
+    @Mapping(target = "ownerName", expression = "java(deriveOwnerName(matchingGroup))")
+    @Mapping(target = "ownerAvatarUrl", expression = "java(deriveOwnerAvatarUrl(matchingGroup))")
+    @Mapping(target = "leaderName", expression = "java(deriveLeaderName(matchingGroup))")
+    @Mapping(target = "leaderAvatarUrl", expression = "java(deriveLeaderAvatarUrl(matchingGroup))")
     MatchingGroupResponse toResponse(MatchingGroup matchingGroup);
 
     @Mapping(target = "sourceType", expression = "java(deriveSourceType(matchingGroup))")
@@ -65,9 +67,12 @@ public interface MatchingGroupMapper {
     @Mapping(target = "location", expression = "java(deriveLocation(matchingGroup))")
     @Mapping(target = "estimatedCost", expression = "java(deriveEstimatedCost(matchingGroup))")
     @Mapping(target = "coverImageUrl", expression = "java(deriveCoverImageUrl(matchingGroup))")
-    @Mapping(target = "ownerId", source = "owner.userId")
-    @Mapping(target = "ownerName", source = "owner.fullName")
-    @Mapping(target = "ownerAvatarUrl", source = "owner.avatarUrl")
+    @Mapping(target = "ownerId", expression = "java(deriveOwnerId(matchingGroup))")
+    @Mapping(target = "ownerName", expression = "java(deriveOwnerName(matchingGroup))")
+    @Mapping(target = "ownerAvatarUrl", expression = "java(deriveOwnerAvatarUrl(matchingGroup))")
+    @Mapping(target = "leaderId", expression = "java(deriveLeaderId(matchingGroup))")
+    @Mapping(target = "leaderName", expression = "java(deriveLeaderName(matchingGroup))")
+    @Mapping(target = "leaderAvatarUrl", expression = "java(deriveLeaderAvatarUrl(matchingGroup))")
     @Mapping(target = "members", ignore = true)
     @Mapping(target = "isOwner", ignore = true)
     @Mapping(target = "myMembershipStatus", ignore = true)
@@ -76,9 +81,10 @@ public interface MatchingGroupMapper {
     @Mapping(target = "hasConversation", expression = "java(matchingGroup.getConversation() != null)")
     MatchingGroupDetailResponse toDetailResponse(MatchingGroup matchingGroup);
 
-    @Mapping(target = "userId", source = "user.userId")
-    @Mapping(target = "fullName", source = "user.fullName")
-    @Mapping(target = "avatarUrl", source = "user.avatarUrl")
+    @Mapping(target = "userId", expression = "java(deriveMemberUserId(matchingMember))")
+    @Mapping(target = "fullName", expression = "java(deriveMemberFullName(matchingMember))")
+    @Mapping(target = "avatarUrl", expression = "java(deriveMemberAvatarUrl(matchingMember))")
+    @Mapping(target = "trustScore", expression = "java(deriveMemberTrustScore(matchingMember))")
     MatchingMemberResponse toMemberResponse(MatchingMember matchingMember);
 
     @Mapping(target = "applicationId", source = "applicationId")
@@ -86,6 +92,7 @@ public interface MatchingGroupMapper {
     @Mapping(target = "userId", source = "applicant.userId")
     @Mapping(target = "fullName", source = "applicant.fullName")
     @Mapping(target = "avatarUrl", source = "applicant.avatarUrl")
+    @Mapping(target = "trustScore", source = "applicant.trustScore")
     @Mapping(target = "role", constant = "MEMBER")
     @Mapping(target = "status", expression = "java(toJoinStatus(application.getStatus()))")
     @Mapping(target = "message", source = "message")
@@ -110,9 +117,9 @@ public interface MatchingGroupMapper {
     @Mapping(target = "customJourneyTitle", source = "matchingGroup.customJourney.title")
     @Mapping(target = "difficulty", expression = "java(deriveDifficulty(matchingMember.getMatchingGroup()))")
     @Mapping(target = "location", expression = "java(deriveLocation(matchingMember.getMatchingGroup()))")
-    @Mapping(target = "ownerId", source = "matchingGroup.owner.userId")
-    @Mapping(target = "ownerName", source = "matchingGroup.owner.fullName")
-    @Mapping(target = "ownerAvatarUrl", source = "matchingGroup.owner.avatarUrl")
+    @Mapping(target = "ownerId", expression = "java(deriveOwnerId(matchingMember.getMatchingGroup()))")
+    @Mapping(target = "ownerName", expression = "java(deriveOwnerName(matchingMember.getMatchingGroup()))")
+    @Mapping(target = "ownerAvatarUrl", expression = "java(deriveOwnerAvatarUrl(matchingMember.getMatchingGroup()))")
     @Mapping(target = "currentSize", source = "matchingGroup.currentSize")
     @Mapping(target = "maxSize", source = "matchingGroup.maxSize")
     @Mapping(target = "targetDate", source = "matchingGroup.targetDate")
@@ -208,11 +215,14 @@ public interface MatchingGroupMapper {
     default BigDecimal deriveEstimatedCost(MatchingGroup mg) {
         if (mg == null) return null;
         if (mg.getCustomJourney() != null && mg.getCustomJourney().getCostItems() != null) {
-            return mg.getCustomJourney().getCostItems().stream()
+            BigDecimal sum = mg.getCustomJourney().getCostItems().stream()
                     .filter(c -> !Boolean.TRUE.equals(c.getIsDeleted()))
                     .map(CustomJourneyCostItem::getEstimatedAmount)
                     .filter(Objects::nonNull)
                     .reduce(BigDecimal.ZERO, BigDecimal::add);
+            if (sum.compareTo(BigDecimal.ZERO) > 0) {
+                return sum;
+            }
         }
         return null;
     }
@@ -235,6 +245,101 @@ public interface MatchingGroupMapper {
                 .filter(c -> !Boolean.TRUE.equals(c.getIsDeleted()))
                 .map(this::toCostItemResponse)
                 .toList();
+    }
+
+    default java.util.UUID deriveOwnerId(MatchingGroup mg) {
+        if (mg == null || mg.getOwner() == null) return null;
+        if (mg.getOwner().getStatus() == com.sep.treksphere.user.UserStatus.LOCKED) {
+            return null;
+        }
+        return mg.getOwner().getUserId();
+    }
+
+    default String deriveOwnerName(MatchingGroup mg) {
+        if (mg == null || mg.getOwner() == null) return null;
+        if (mg.getOwner().getStatus() == com.sep.treksphere.user.UserStatus.LOCKED) {
+            return com.sep.treksphere.blog.BlogService.SYSTEM_USER_ANONYMOUS_NAME;
+        }
+        return mg.getOwner().getFullName();
+    }
+
+    default String deriveOwnerAvatarUrl(MatchingGroup mg) {
+        if (mg == null || mg.getOwner() == null) return null;
+        if (mg.getOwner().getStatus() == com.sep.treksphere.user.UserStatus.LOCKED) {
+            return null;
+        }
+        return mg.getOwner().getAvatarUrl();
+    }
+
+    default java.util.UUID deriveMemberUserId(MatchingMember mm) {
+        if (mm == null || mm.getUser() == null) return null;
+        if (mm.getUser().getStatus() == com.sep.treksphere.user.UserStatus.LOCKED) {
+            return null;
+        }
+        return mm.getUser().getUserId();
+    }
+
+    default String deriveMemberFullName(MatchingMember mm) {
+        if (mm == null || mm.getUser() == null) return null;
+        if (mm.getUser().getStatus() == com.sep.treksphere.user.UserStatus.LOCKED) {
+            return com.sep.treksphere.blog.BlogService.SYSTEM_USER_ANONYMOUS_NAME;
+        }
+        return mm.getUser().getFullName();
+    }
+
+    default String deriveMemberAvatarUrl(MatchingMember mm) {
+        if (mm == null || mm.getUser() == null) return null;
+        if (mm.getUser().getStatus() == com.sep.treksphere.user.UserStatus.LOCKED) {
+            return null;
+        }
+        return mm.getUser().getAvatarUrl();
+    }
+
+    default Short deriveMemberTrustScore(MatchingMember mm) {
+        if (mm == null || mm.getUser() == null) return null;
+        if (mm.getUser().getStatus() == com.sep.treksphere.user.UserStatus.LOCKED) {
+            return null;
+        }
+        return mm.getUser().getTrustScore();
+    }
+
+    default java.util.UUID deriveLeaderId(MatchingGroup mg) {
+        if (mg == null || mg.getMembers() == null) return deriveOwnerId(mg);
+        for (MatchingMember m : mg.getMembers()) {
+            if (m.getRole() == com.sep.treksphere.matching.enums.MatchingRole.LEADER
+                    && m.getStatus() == com.sep.treksphere.matching.enums.JoinStatus.ACCEPTED
+                    && !Boolean.TRUE.equals(m.getIsDeleted())
+                    && m.getUser() != null) {
+                return deriveMemberUserId(m);
+            }
+        }
+        return deriveOwnerId(mg);
+    }
+
+    default String deriveLeaderName(MatchingGroup mg) {
+        if (mg == null || mg.getMembers() == null) return deriveOwnerName(mg);
+        for (MatchingMember m : mg.getMembers()) {
+            if (m.getRole() == com.sep.treksphere.matching.enums.MatchingRole.LEADER
+                    && m.getStatus() == com.sep.treksphere.matching.enums.JoinStatus.ACCEPTED
+                    && !Boolean.TRUE.equals(m.getIsDeleted())
+                    && m.getUser() != null) {
+                return deriveMemberFullName(m);
+            }
+        }
+        return deriveOwnerName(mg);
+    }
+
+    default String deriveLeaderAvatarUrl(MatchingGroup mg) {
+        if (mg == null || mg.getMembers() == null) return deriveOwnerAvatarUrl(mg);
+        for (MatchingMember m : mg.getMembers()) {
+            if (m.getRole() == com.sep.treksphere.matching.enums.MatchingRole.LEADER
+                    && m.getStatus() == com.sep.treksphere.matching.enums.JoinStatus.ACCEPTED
+                    && !Boolean.TRUE.equals(m.getIsDeleted())
+                    && m.getUser() != null) {
+                return deriveMemberAvatarUrl(m);
+            }
+        }
+        return deriveOwnerAvatarUrl(mg);
     }
 }
 

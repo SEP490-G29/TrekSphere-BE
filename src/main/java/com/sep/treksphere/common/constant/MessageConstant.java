@@ -33,7 +33,8 @@ public class MessageConstant {
     // Profile Messages
     public static final String FULL_NAME_REQUIRED = "Họ tên không được để trống";
     public static final String INVALID_PHONE = "Số điện thoại không hợp lệ";
-    public static final String INVALID_DOB = "Ngày sinh không hợp lệ (không được lớn hơn ngày hiện tại)";
+    public static final String PHONE_EXISTED = "Số điện thoại đã được đăng ký bởi tài khoản khác";
+    public static final String INVALID_DOB = "Ngày sinh không hợp lệ (bạn phải từ 18 tuổi trở lên)";
     public static final String PROFILE_UPDATED_SUCCESSFULLY = "Cập nhật hồ sơ thành công";
     public static final String STATUS_UPDATED_SUCCESSFULLY = "Cập nhật trạng thái người dùng thành công";
     public static final String ROLE_PERMISSIONS_UPDATED_SUCCESSFULLY = "Cập nhật danh sách permission cho role thành công";

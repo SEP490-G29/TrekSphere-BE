@@ -22,17 +22,17 @@ public class PeerReviewMapper {
                 + (review.getFinancialFairnessRating() != null ? review.getFinancialFairnessRating() : 0);
         BigDecimal average = BigDecimal.valueOf(sum).divide(THREE, 2, RoundingMode.HALF_UP);
 
+        com.sep.treksphere.user.User revieweeUser = review.getRevieweeMatchingMember() != null ? review.getRevieweeMatchingMember().getUser() : null;
+        boolean isLocked = revieweeUser != null && revieweeUser.getStatus() == com.sep.treksphere.user.UserStatus.LOCKED;
+
         return PeerReviewResponse.builder()
                 .groupPeerReviewId(review.getGroupPeerReviewId())
                 .groupTripId(review.getGroupTrip() != null ? review.getGroupTrip().getGroupTripId() : null)
                 .revieweeMatchingMemberId(review.getRevieweeMatchingMember() != null
                         ? review.getRevieweeMatchingMember().getMatchingMemberId() : null)
-                .revieweeUserId(review.getRevieweeMatchingMember() != null && review.getRevieweeMatchingMember().getUser() != null
-                        ? review.getRevieweeMatchingMember().getUser().getUserId() : null)
-                .revieweeFullName(review.getRevieweeMatchingMember() != null && review.getRevieweeMatchingMember().getUser() != null
-                        ? review.getRevieweeMatchingMember().getUser().getFullName() : null)
-                .revieweeAvatarUrl(review.getRevieweeMatchingMember() != null && review.getRevieweeMatchingMember().getUser() != null
-                        ? review.getRevieweeMatchingMember().getUser().getAvatarUrl() : null)
+                .revieweeUserId(isLocked ? null : (revieweeUser != null ? revieweeUser.getUserId() : null))
+                .revieweeFullName(isLocked ? com.sep.treksphere.blog.BlogService.SYSTEM_USER_ANONYMOUS_NAME : (revieweeUser != null ? revieweeUser.getFullName() : null))
+                .revieweeAvatarUrl(isLocked ? null : (revieweeUser != null ? revieweeUser.getAvatarUrl() : null))
                 .actualEnduranceRating(review.getActualEnduranceRating())
                 .punctualityResponsibilityRating(review.getPunctualityResponsibilityRating())
                 .financialFairnessRating(review.getFinancialFairnessRating())

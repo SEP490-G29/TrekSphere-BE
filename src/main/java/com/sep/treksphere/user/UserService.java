@@ -4,6 +4,7 @@ import com.sep.treksphere.common.constant.MessageConstant;
 import com.sep.treksphere.common.dto.PaginationResponse;
 import com.sep.treksphere.common.exception.AppException;
 import com.sep.treksphere.common.exception.ErrorCode;
+import com.sep.treksphere.common.util.PhoneNumberUtil;
 import com.sep.treksphere.file.FileService;
 import com.sep.treksphere.notification.NotificationEventType;
 import com.sep.treksphere.notification.NotificationService;
@@ -41,6 +42,10 @@ public class UserService {
         User user = userRepository.findById(UUID.fromString(userId))
                 .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
 
+        if (user.getStatus() == UserStatus.LOCKED) {
+            throw new AppException(ErrorCode.ACCOUNT_LOCKED);
+        }
+
         return userMapper.toUserProfileResponse(user);
     }
 
@@ -48,6 +53,10 @@ public class UserService {
     public PublicHikingSummaryResponse getPublicHikingSummary(UUID userId) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
+
+        if (user.getStatus() == UserStatus.LOCKED) {
+            throw new AppException(ErrorCode.ACCOUNT_LOCKED);
+        }
 
         return userMapper.toPublicHikingSummaryResponse(user);
     }
@@ -64,12 +73,30 @@ public class UserService {
             }
             user.setFullName(fullName);
         }
-        if (request.getPhone() != null && !request.getPhone().trim().isEmpty()) {
-            user.setPhone(request.getPhone().trim());
+        if (request.getPhone() != null) {
+            String rawPhone = request.getPhone().trim();
+            if (rawPhone.isEmpty()) {
+                user.setPhone(null);
+            } else {
+                String normalizedPhone = PhoneNumberUtil.normalize(rawPhone);
+                String currentNormalized = PhoneNumberUtil.normalize(user.getPhone());
+                if (!Objects.equals(normalizedPhone, currentNormalized)) {
+                    List<String> variants = PhoneNumberUtil.getPhoneVariants(normalizedPhone);
+                    boolean phoneExists = userRepository.existsByPhoneInAndUserIdNot(variants, user.getUserId());
+                    if (phoneExists) {
+                        throw new AppException(ErrorCode.PHONE_EXISTED);
+                    }
+                }
+                user.setPhone(normalizedPhone);
+            }
         }
         if (request.getDateOfBirth() != null) {
-            if (request.getDateOfBirth().isAfter(java.time.LocalDate.now())) {
+            java.time.LocalDate today = java.time.LocalDate.now();
+            if (request.getDateOfBirth().isAfter(today.minusYears(18))) {
                 throw new AppException(ErrorCode.VALIDATION_ERROR, MessageConstant.INVALID_DOB);
+            }
+            if (request.getDateOfBirth().isBefore(today.minusYears(100))) {
+                throw new AppException(ErrorCode.VALIDATION_ERROR, "Ngày sinh không hợp lệ (không được vượt quá 100 tuổi)");
             }
             user.setDateOfBirth(request.getDateOfBirth());
         }

@@ -31,6 +31,18 @@ public class ReportResponse {
     private String targetTitle;
     
     private String targetContent;
+
+    private UUID targetAuthorId;
+
+    private String targetAuthorFullName;
+
+    private String targetAuthorEmail;
+
+    private String targetAuthorAvatar;
+
+    private String targetAuthorStatus;
+
+    private Short targetAuthorTrustScore;
     
     private String resolutionNotes;
     
