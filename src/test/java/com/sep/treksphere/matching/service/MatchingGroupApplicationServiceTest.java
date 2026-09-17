@@ -278,9 +278,55 @@ class MatchingGroupApplicationServiceTest {
             when(userRepository.findByIdForUpdate(leaderUser.getUserId())).thenReturn(Optional.of(leaderUser));
             when(matchingGroupRepository.findByIdForUpdate(groupId)).thenReturn(Optional.of(openTourGroup));
 
+            MatchingMember leaderMember = new MatchingMember();
+            leaderMember.setUser(leaderUser);
+            leaderMember.setRole(MatchingRole.LEADER);
+            leaderMember.setStatus(JoinStatus.ACCEPTED);
+            leaderMember.setIsDeleted(false);
+            when(matchingMemberRepository.findByMatchingGroupAndUser(openTourGroup, leaderUser))
+                    .thenReturn(Optional.of(leaderMember));
+
             assertThatThrownBy(() -> matchingGroupService.submitApplication(groupId, null, leaderDetails))
                     .isInstanceOf(AppException.class)
                     .satisfies(ex -> assertThat(((AppException) ex).getErrorCode()).isEqualTo(ErrorCode.MATCHING_OWNER_CANNOT_JOIN));
+        }
+
+        @Test
+        @DisplayName("Should successfully allow former leader/owner who is REMOVED to re-apply")
+        void submitApplication_success_formerOwnerWhoWasRemovedCanApply() {
+            UUID groupId = openTourGroup.getMatchingGroupId();
+            GroupApplicationRequest request = new GroupApplicationRequest("Xin tham gia lại nhóm");
+
+            when(userRepository.findByIdForUpdate(applicantUser.getUserId())).thenReturn(Optional.of(applicantUser));
+            openTourGroup.setOwner(applicantUser); // Historically was creator
+            when(matchingGroupRepository.findByIdForUpdate(groupId)).thenReturn(Optional.of(openTourGroup));
+
+            MatchingMember removedMember = new MatchingMember();
+            removedMember.setUser(applicantUser);
+            removedMember.setRole(MatchingRole.MEMBER);
+            removedMember.setStatus(JoinStatus.REMOVED);
+            when(matchingMemberRepository.findByMatchingGroupAndUser(openTourGroup, applicantUser))
+                    .thenReturn(Optional.of(removedMember));
+
+            when(matchingMemberRepository.existsByMatchingGroup_MatchingGroupIdAndUser_UserIdAndStatusAndIsDeletedFalse(
+                    groupId, applicantUser.getUserId(), JoinStatus.ACCEPTED
+            )).thenReturn(false);
+            when(groupJoinApplicationRepository.existsByMatchingGroup_MatchingGroupIdAndApplicant_UserIdAndStatusAndIsDeletedFalse(
+                    groupId, applicantUser.getUserId(), JoinApplicationStatus.PENDING
+            )).thenReturn(false);
+            when(matchingMemberRepository.countActiveMembersByGroupIdAndStatus(groupId, JoinStatus.ACCEPTED)).thenReturn(1L);
+
+            when(groupJoinApplicationRepository.save(any(GroupJoinApplication.class))).thenAnswer(inv -> {
+                GroupJoinApplication app = inv.getArgument(0);
+                app.setApplicationId(UUID.randomUUID());
+                return app;
+            });
+
+            MatchingMemberResponse response = matchingGroupService.submitApplication(groupId, request, applicantDetails);
+
+            assertThat(response).isNotNull();
+            assertThat(response.getStatus()).isEqualTo(JoinStatus.PENDING);
+            assertThat(response.getRole()).isEqualTo(MatchingRole.MEMBER);
         }
 
         @Test

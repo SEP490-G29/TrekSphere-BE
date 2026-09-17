@@ -13,6 +13,8 @@ import com.sep.treksphere.file.FileService;
 import com.sep.treksphere.notification.NotificationEventType;
 import com.sep.treksphere.notification.NotificationService;
 import com.sep.treksphere.notification.ReferenceType;
+import com.sep.treksphere.user.User;
+import com.sep.treksphere.user.UserStatus;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -32,6 +34,8 @@ import java.util.stream.Collectors;
 @Service
 @RequiredArgsConstructor
 public class BlogService {
+
+    public static final String SYSTEM_USER_ANONYMOUS_NAME = "NGƯỜI DÙNG HỆ THỐNG";
 
     private final BlogRepository blogRepository;
     private final BlogCommentRepository blogCommentRepository;
@@ -220,17 +224,22 @@ public class BlogService {
                 .toList();
     }
 
+    private boolean isUserLocked(User user) {
+        return user != null && user.getStatus() == UserStatus.LOCKED;
+    }
+
     private BlogSummaryResponse toSummaryResponse(Blog blog) {
         int totalComments = blogCommentRepository.countByBlogAndStatus(blog, CommentStatus.VISIBLE);
+        boolean isLocked = isUserLocked(blog.getUser());
         return BlogSummaryResponse.builder()
                 .blogId(blog.getBlogId().toString())
                 .title(blog.getTitle())
                 .coverImageUrl(blog.getCoverImageUrl())
                 .status(blog.getStatus())
                 .viewCount(blog.getViewCount())
-                .authorId(blog.getUser().getUserId().toString())
-                .authorName(blog.getUser().getFullName())
-                .authorAvatarUrl(blog.getUser().getAvatarUrl())
+                .authorId(isLocked ? null : blog.getUser().getUserId().toString())
+                .authorName(isLocked ? SYSTEM_USER_ANONYMOUS_NAME : blog.getUser().getFullName())
+                .authorAvatarUrl(isLocked ? null : blog.getUser().getAvatarUrl())
                 .totalComments(totalComments)
                 .createdAt(blog.getCreatedAt())
                 .build();
@@ -239,6 +248,7 @@ public class BlogService {
     private BlogDetailResponse toDetailResponse(Blog blog,
             List<BlogCommentResponse> comments,
             int totalComments) {
+        boolean isLocked = isUserLocked(blog.getUser());
         return BlogDetailResponse.builder()
                 .blogId(blog.getBlogId().toString())
                 .title(blog.getTitle())
@@ -246,9 +256,9 @@ public class BlogService {
                 .coverImageUrl(blog.getCoverImageUrl())
                 .status(blog.getStatus())
                 .viewCount(blog.getViewCount())
-                .authorId(blog.getUser().getUserId().toString())
-                .authorName(blog.getUser().getFullName())
-                .authorAvatarUrl(blog.getUser().getAvatarUrl())
+                .authorId(isLocked ? null : blog.getUser().getUserId().toString())
+                .authorName(isLocked ? SYSTEM_USER_ANONYMOUS_NAME : blog.getUser().getFullName())
+                .authorAvatarUrl(isLocked ? null : blog.getUser().getAvatarUrl())
                 .comments(comments)
                 .totalComments(totalComments)
                 .createdAt(blog.getCreatedAt())
@@ -257,11 +267,12 @@ public class BlogService {
     }
 
     private BlogCommentResponse toCommentResponse(BlogComment comment) {
+        boolean isLocked = isUserLocked(comment.getUser());
         return BlogCommentResponse.builder()
                 .commentId(comment.getBlogCommentId().toString())
-                .userId(comment.getUser().getUserId().toString())
-                .userFullName(comment.getUser().getFullName())
-                .userAvatarUrl(comment.getUser().getAvatarUrl())
+                .userId(isLocked ? null : comment.getUser().getUserId().toString())
+                .userFullName(isLocked ? SYSTEM_USER_ANONYMOUS_NAME : comment.getUser().getFullName())
+                .userAvatarUrl(isLocked ? null : comment.getUser().getAvatarUrl())
                 .content(comment.getContent())
                 .status(comment.getStatus())
                 .createdAt(comment.getCreatedAt())

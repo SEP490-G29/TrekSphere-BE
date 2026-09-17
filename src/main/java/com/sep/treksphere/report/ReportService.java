@@ -125,30 +125,44 @@ public class ReportService {
                 ? request.getResolutionNotes()
                 : report.getReason();
 
-        if (action == ReportAction.HIDE_CONTENT) {
-            if (report.getBlog() != null) {
-                Blog blog = report.getBlog();
-                blog.setStatus(BlogStatus.HIDDEN);
-                blogRepository.save(blog);
-                notificationService.notify(
-                        blog.getUser().getUserId(),
-                        NotificationEventType.BLOG_HIDDEN,
-                        ReferenceType.BLOG, blog.getBlogId(), "/trekker/blog",
-                        blog.getTitle());
-            } else if (report.getBlogComment() != null) {
-                BlogComment comment = report.getBlogComment();
-                comment.setStatus(CommentStatus.HIDDEN);
-                blogCommentRepository.save(comment);
-            } else if (report.getTour() != null) {
-                Tour tour = report.getTour();
-                tourService.hideTourForViolation(admin.getUserId(), tour.getTourId(), contentOwnerReason);
-            }
+        User author = extractTargetAuthor(report);
+
+        // Xử lý trừ điểm tín nhiệm (nếu có phạt và không phải bác bỏ báo cáo)
+        int defaultPenalty = switch (action) {
+            case WARNING -> 5;
+            case HIDE_CONTENT -> 10;
+            case DISMISS -> 0;
+        };
+        int penalty = request.getPenaltyTrustScore() != null ? request.getPenaltyTrustScore() : defaultPenalty;
+        if (author != null && penalty > 0 && action != ReportAction.DISMISS) {
+            short currentScore = author.getTrustScore() != null ? author.getTrustScore() : 100;
+            short newScore = (short) Math.max(0, currentScore - penalty);
+            author.setTrustScore(newScore);
+            userRepository.save(author);
+            log.info("Deducted {} trust points from author {}. New trust score: {}", penalty, author.getUserId(), newScore);
         }
 
-        if (action == ReportAction.DISMISS) {
-            report.setStatus(ReportStatus.REJECTED);
-        } else {
-            report.setStatus(ReportStatus.RESOLVED);
+        switch (action) {
+            case WARNING -> {
+                if (author != null) {
+                    String targetTitle = describeReportTargetTitle(report);
+                    String penaltyMsg = penalty > 0 ? " Bạn đã bị trừ " + penalty + " điểm tín nhiệm." : "";
+                    String actionUrl = resolveReportActionUrl(report);
+                    notificationService.notify(
+                            author.getUserId(),
+                            NotificationEventType.REPORT_WARNING_ISSUED,
+                            ReferenceType.REPORT, report.getReportContentId(), actionUrl,
+                            targetTitle, contentOwnerReason, penaltyMsg);
+                }
+                report.setStatus(ReportStatus.RESOLVED);
+            }
+            case HIDE_CONTENT -> {
+                hideTargetContent(report, admin, contentOwnerReason);
+                report.setStatus(ReportStatus.RESOLVED);
+            }
+            case DISMISS -> {
+                report.setStatus(ReportStatus.REJECTED);
+            }
         }
 
         report.setResolutionNotes(request.getResolutionNotes());
@@ -157,11 +171,51 @@ public class ReportService {
         reportContentRepository.save(report);
         log.info("Admin {} resolved report {} with action {}", adminId, reportId, action);
 
+        String reporterActionUrl = (action == ReportAction.HIDE_CONTENT)
+                ? null
+                : resolveReportActionUrl(report);
+
         notificationService.notify(
                 report.getReporter().getUserId(),
                 NotificationEventType.REPORT_RESOLVED,
-                ReferenceType.REPORT, report.getReportContentId(), null,
+                ReferenceType.REPORT, report.getReportContentId(), reporterActionUrl,
                 describeResolution(action));
+    }
+
+    private void hideTargetContent(ReportContent report, User admin, String reason) {
+        if (report.getBlog() != null) {
+            Blog blog = report.getBlog();
+            blog.setStatus(BlogStatus.HIDDEN);
+            blogRepository.save(blog);
+            notificationService.notify(
+                    blog.getUser().getUserId(),
+                    NotificationEventType.BLOG_HIDDEN,
+                    ReferenceType.BLOG, blog.getBlogId(), "/trekker/blog",
+                    blog.getTitle());
+        } else if (report.getBlogComment() != null) {
+            BlogComment comment = report.getBlogComment();
+            comment.setStatus(CommentStatus.HIDDEN);
+            blogCommentRepository.save(comment);
+        } else if (report.getTour() != null) {
+            Tour tour = report.getTour();
+            tourService.hideTourForViolation(admin.getUserId(), tour.getTourId(), reason);
+        }
+    }
+
+    private User extractTargetAuthor(ReportContent report) {
+        if (report == null) return null;
+        if (report.getBlog() != null) return report.getBlog().getUser();
+        if (report.getBlogComment() != null) return report.getBlogComment().getUser();
+        if (report.getTour() != null) return report.getTour().getCreator();
+        return null;
+    }
+
+    private String describeReportTargetTitle(ReportContent report) {
+        if (report == null) return "Nội dung";
+        if (report.getBlog() != null) return report.getBlog().getTitle();
+        if (report.getBlogComment() != null) return "Bình luận Blog";
+        if (report.getTour() != null) return report.getTour().getTourName();
+        return "Nội dung";
     }
 
     private String describeResolution(ReportAction action) {
@@ -170,5 +224,22 @@ public class ReportService {
             case WARNING -> "đã gửi cảnh báo tới người vi phạm";
             case DISMISS -> "báo cáo không hợp lệ, đã được từ chối";
         };
+    }
+
+    private String resolveReportActionUrl(ReportContent report) {
+        if (report == null) return null;
+        if (report.getBlog() != null) {
+            return "/news/" + report.getBlog().getBlogId();
+        }
+        if (report.getBlogComment() != null) {
+            UUID blogId = report.getBlogComment().getBlog() != null ? report.getBlogComment().getBlog().getBlogId() : null;
+            if (blogId != null) {
+                return "/news/" + blogId + "#comment-" + report.getBlogComment().getBlogCommentId();
+            }
+        }
+        if (report.getTour() != null) {
+            return "/tours/" + report.getTour().getTourId();
+        }
+        return null;
     }
 }

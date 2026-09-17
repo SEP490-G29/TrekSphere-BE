@@ -16,6 +16,7 @@ public class MatchingMemberResponse {
     private UUID userId;
     private String fullName;
     private String avatarUrl;
+    private Short trustScore;
     private MatchingRole role;
     private JoinStatus status;
     private String message;

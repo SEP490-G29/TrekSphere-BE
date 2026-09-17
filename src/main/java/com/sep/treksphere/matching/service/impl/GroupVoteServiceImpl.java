@@ -478,6 +478,10 @@ public class GroupVoteServiceImpl implements GroupVoteService {
 
         newLeader.setRole(MatchingRole.LEADER);
         matchingMemberRepository.save(newLeader);
+
+        MatchingGroup matchingGroup = vote.getMatchingGroup();
+        matchingGroup.setOwner(newLeader.getUser());
+        matchingGroupRepository.save(matchingGroup);
     }
 
     /**

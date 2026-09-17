@@ -2,6 +2,7 @@ package com.sep.treksphere.tour.dto.request;
 
 import com.sep.treksphere.common.constant.MessageConstant;
 import com.sep.treksphere.tour.DifficultyLevel;
+import com.sep.treksphere.tour.policy.TourParticipationPolicyRequest;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
@@ -57,5 +58,11 @@ public class CreateTourRequest {
 
     @Schema(description = "Các dịch vụ không bao gồm", example = "- Chi phí cá nhân\n- Vé cáp treo")
     private String excludes;
+
+    @Schema(description = "URL ảnh bìa đã upload sẵn", example = "https://res.cloudinary.com/.../cover.jpg")
+    private String coverImageUrl;
+
+    @Schema(description = "Điều kiện tham gia tour")
+    private TourParticipationPolicyRequest participationPolicy;
 
 }

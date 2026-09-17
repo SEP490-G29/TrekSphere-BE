@@ -57,15 +57,12 @@ public interface MatchingGroupRepository extends JpaRepository<MatchingGroup, UU
         LEFT JOIN FETCH mg.customJourney cj
         JOIN FETCH mg.owner o
         WHERE (
-              (:role IS NULL AND (
-                  o.userId = :userId
-                  OR EXISTS (
-                      SELECT 1 FROM MatchingMember mm
-                      WHERE mm.matchingGroup = mg
-                        AND mm.user.userId = :userId
-                        AND mm.status = :acceptedStatus
-                        AND mm.isDeleted = false
-                  )
+              (:role IS NULL AND EXISTS (
+                  SELECT 1 FROM MatchingMember mm
+                  WHERE mm.matchingGroup = mg
+                    AND mm.user.userId = :userId
+                    AND mm.status = :acceptedStatus
+                    AND mm.isDeleted = false
               ))
               OR (CAST(:role AS string) = 'LEADER' AND EXISTS (
                   SELECT 1 FROM MatchingMember mm
@@ -99,15 +96,12 @@ public interface MatchingGroupRepository extends JpaRepository<MatchingGroup, UU
         LEFT JOIN mg.tour t
         LEFT JOIN mg.customJourney cj
         WHERE (
-              (:role IS NULL AND (
-                  mg.owner.userId = :userId
-                  OR EXISTS (
-                      SELECT 1 FROM MatchingMember mm
-                      WHERE mm.matchingGroup = mg
-                        AND mm.user.userId = :userId
-                        AND mm.status = :acceptedStatus
-                        AND mm.isDeleted = false
-                  )
+              (:role IS NULL AND EXISTS (
+                  SELECT 1 FROM MatchingMember mm
+                  WHERE mm.matchingGroup = mg
+                    AND mm.user.userId = :userId
+                    AND mm.status = :acceptedStatus
+                    AND mm.isDeleted = false
               ))
               OR (CAST(:role AS string) = 'LEADER' AND EXISTS (
                   SELECT 1 FROM MatchingMember mm
@@ -190,6 +184,24 @@ public interface MatchingGroupRepository extends JpaRepository<MatchingGroup, UU
               )
           )
           AND (
+              CAST(:minCost AS big_decimal) IS NULL
+              OR EXISTS (
+                  SELECT 1 FROM CustomJourneyCostItem ci
+                  WHERE ci.customJourney = cj
+                  GROUP BY ci.customJourney
+                  HAVING SUM(ci.estimatedAmount) >= :minCost
+              )
+          )
+          AND (
+              CAST(:maxCost AS big_decimal) IS NULL
+              OR EXISTS (
+                  SELECT 1 FROM CustomJourneyCostItem ci
+                  WHERE ci.customJourney = cj
+                  GROUP BY ci.customJourney
+                  HAVING SUM(ci.estimatedAmount) <= :maxCost
+              )
+          )
+          AND (
               CAST(:keyword AS string) = ''
               OR LOWER(mg.groupName) LIKE LOWER(CONCAT('%', CAST(:keyword AS string), '%'))
               OR (t IS NOT NULL AND LOWER(t.tourName) LIKE LOWER(CONCAT('%', CAST(:keyword AS string), '%')))
@@ -234,6 +246,24 @@ public interface MatchingGroupRepository extends JpaRepository<MatchingGroup, UU
               )
           )
           AND (
+              CAST(:minCost AS big_decimal) IS NULL
+              OR EXISTS (
+                  SELECT 1 FROM CustomJourneyCostItem ci
+                  WHERE ci.customJourney = cj
+                  GROUP BY ci.customJourney
+                  HAVING SUM(ci.estimatedAmount) >= :minCost
+              )
+          )
+          AND (
+              CAST(:maxCost AS big_decimal) IS NULL
+              OR EXISTS (
+                  SELECT 1 FROM CustomJourneyCostItem ci
+                  WHERE ci.customJourney = cj
+                  GROUP BY ci.customJourney
+                  HAVING SUM(ci.estimatedAmount) <= :maxCost
+              )
+          )
+          AND (
               CAST(:keyword AS string) = ''
               OR LOWER(mg.groupName) LIKE LOWER(CONCAT('%', CAST(:keyword AS string), '%'))
               OR (t IS NOT NULL AND LOWER(t.tourName) LIKE LOWER(CONCAT('%', CAST(:keyword AS string), '%')))
@@ -251,6 +281,8 @@ public interface MatchingGroupRepository extends JpaRepository<MatchingGroup, UU
             @Param("targetDateTo") LocalDate targetDateTo,
             @Param("difficulty") String difficulty,
             @Param("location") String location,
+            @Param("minCost") java.math.BigDecimal minCost,
+            @Param("maxCost") java.math.BigDecimal maxCost,
             @Param("availableSlotsOnly") Boolean availableSlotsOnly,
             @Param("keyword") String keyword,
             @Param("today") LocalDate today,

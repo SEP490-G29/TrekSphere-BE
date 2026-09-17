@@ -31,6 +31,8 @@ import com.sep.treksphere.user.User;
 import com.sep.treksphere.user.UserRepository;
 import com.sep.treksphere.vendor.Vendor;
 import com.sep.treksphere.vendor.VendorAccessService;
+import com.sep.treksphere.tour.policy.TourParticipationPolicy;
+import com.sep.treksphere.tour.policy.TourParticipationPolicyRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -45,7 +47,13 @@ import org.springframework.web.multipart.MultipartFile;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.EnumSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 @Service
@@ -75,6 +83,7 @@ public class TourService {
     private final TourImageRepository tourImageRepository;
     private final TourCheckpointRepository tourCheckpointRepository;
     private final TourScheduleRepository tourScheduleRepository;
+    private final TourParticipationPolicyRepository tourParticipationPolicyRepository;
     private final NotificationService notificationService;
     private final MatchingGroupRepository matchingGroupRepository;
     private final UserRepository userRepository;
@@ -134,7 +143,8 @@ public class TourService {
         List<TourImage> images = activeImages(tour);
         List<TourCheckpoint> checkpoints = activeCheckpoints(tour);
         List<TourSchedule> schedules = upcomingSchedules(tour);
-        return toPublicDetailResponse(tour, images, checkpoints, schedules, minPriceOf(schedules));
+        TourParticipationPolicy policy = activePolicy(tour);
+        return toPublicDetailResponse(tour, images, checkpoints, schedules, policy, minPriceOf(schedules));
     }
 
     @Transactional(readOnly = true)
@@ -171,6 +181,10 @@ public class TourService {
             tour.setCoverImageUrl(fileService.uploadFile(coverImage, "tours"));
         }
         tour = tourRepository.save(tour);
+        if (request.getParticipationPolicy() != null) {
+            TourParticipationPolicy policy = tourMapper.toParticipationPolicy(request.getParticipationPolicy(), tour);
+            tourParticipationPolicyRepository.save(policy);
+        }
         saveGallery(tour, tourImages);
         return loadVendorDetail(tour);
     }
@@ -194,6 +208,18 @@ public class TourService {
             readinessService.validatePublishedStructure(tour);
         }
         tour = tourRepository.save(tour);
+        if (request.getParticipationPolicy() != null) {
+            Optional<TourParticipationPolicy> existingPolicyOpt = tourParticipationPolicyRepository
+                    .findByTour_TourIdAndIsDeletedFalse(tourId);
+            if (existingPolicyOpt.isPresent()) {
+                TourParticipationPolicy existingPolicy = existingPolicyOpt.get();
+                tourMapper.updateParticipationPolicy(request.getParticipationPolicy(), existingPolicy);
+                tourParticipationPolicyRepository.save(existingPolicy);
+            } else {
+                TourParticipationPolicy newPolicy = tourMapper.toParticipationPolicy(request.getParticipationPolicy(), tour);
+                tourParticipationPolicyRepository.save(newPolicy);
+            }
+        }
         if (tourImages != null) {
             List<TourImage> existing = activeImages(tour);
             if (!existing.isEmpty()) {
@@ -246,6 +272,7 @@ public class TourService {
         tourCheckpointRepository.softDeleteByTourId(tourId, now, userEmail);
         tourScheduleRepository.softDeleteByTourId(tourId, now, userEmail);
         tourImageRepository.softDeleteByTourId(tourId, now, userEmail);
+        tourParticipationPolicyRepository.softDeleteByTourId(tourId, now, userEmail);
     }
 
     @Transactional
@@ -261,6 +288,7 @@ public class TourService {
         tourCheckpointRepository.restoreByTourIdAndDeletedAt(tourId, deletedAt);
         tourScheduleRepository.restoreByTourIdAndDeletedAt(tourId, deletedAt);
         tourImageRepository.restoreByTourIdAndDeletedAt(tourId, deletedAt);
+        tourParticipationPolicyRepository.restoreByTourIdAndDeletedAt(tourId, deletedAt);
         return loadVendorDetail(tour);
     }
 
@@ -396,7 +424,15 @@ public class TourService {
         List<TourCheckpoint> checkpoints = activeCheckpoints(tour);
         List<TourSchedule> schedules = tourScheduleRepository
                 .findByTourAndIsDeletedFalseOrderByDepartureDateAsc(tour);
-        return toVendorDetailResponse(tour, images, checkpoints, schedules, minPriceOf(schedules));
+        TourParticipationPolicy policy = activePolicy(tour);
+        return toVendorDetailResponse(tour, images, checkpoints, schedules, policy, minPriceOf(schedules));
+    }
+
+    private TourParticipationPolicy activePolicy(Tour tour) {
+        if (tour == null || tour.getTourId() == null) {
+            return null;
+        }
+        return tourParticipationPolicyRepository.findByTour_TourIdAndIsDeletedFalse(tour.getTourId()).orElse(null);
     }
 
     private List<TourImage> activeImages(Tour tour) {
@@ -442,6 +478,7 @@ public class TourService {
             List<TourImage> images,
             List<TourCheckpoint> checkpoints,
             List<TourSchedule> schedules,
+            TourParticipationPolicy policy,
             BigDecimal fromPrice) {
         List<String> readinessErrors = readinessService.getPublishReadinessErrors(tour);
         return TourDetailResponse.builder()
@@ -478,6 +515,7 @@ public class TourService {
                 .images(images.stream().map(this::toImageResponse).toList())
                 .checkpoints(checkpoints.stream().map(this::toCheckpointResponse).toList())
                 .schedules(schedules.stream().map(this::toScheduleResponse).toList())
+                .participationPolicy(tourMapper.toParticipationPolicyResponse(policy))
                 .publishable(readinessErrors.isEmpty())
                 .publishReadinessErrors(readinessErrors)
                 .build();
@@ -488,6 +526,7 @@ public class TourService {
             List<TourImage> images,
             List<TourCheckpoint> checkpoints,
             List<TourSchedule> schedules,
+            TourParticipationPolicy policy,
             BigDecimal fromPrice) {
         return PublicTourDetailResponse.builder()
                 .tourId(tour.getTourId().toString())
@@ -511,11 +550,12 @@ public class TourService {
                 .vendorLogoUrl(tour.getVendor() != null ? tour.getVendor().getLogoUrl() : null)
                 .vendorContactEmail(tour.getVendor() != null ? tour.getVendor().getContactEmail() : null)
                 .vendorContactPhone(tour.getVendor() != null ? tour.getVendor().getContactPhone() : null)
-                .creatorId(tour.getCreator() != null ? tour.getCreator().getUserId().toString() : null)
-                .creatorName(tour.getCreator() != null ? tour.getCreator().getFullName() : null)
+                .creatorId(tour.getCreator() != null && tour.getCreator().getStatus() != com.sep.treksphere.user.UserStatus.LOCKED ? tour.getCreator().getUserId().toString() : null)
+                .creatorName(tour.getCreator() != null && tour.getCreator().getStatus() == com.sep.treksphere.user.UserStatus.LOCKED ? com.sep.treksphere.blog.BlogService.SYSTEM_USER_ANONYMOUS_NAME : (tour.getCreator() != null ? tour.getCreator().getFullName() : null))
                 .images(images.stream().map(this::toImageResponse).toList())
                 .checkpoints(checkpoints.stream().map(this::toCheckpointResponse).toList())
                 .schedules(schedules.stream().map(this::toScheduleResponse).toList())
+                .participationPolicy(tourMapper.toParticipationPolicyResponse(policy))
                 .build();
     }
 
