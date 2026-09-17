@@ -350,4 +350,73 @@ class SosAlertServiceImplTest {
 
         verify(sosAlertRepository, never()).save(any());
     }
+
+    @Test
+    @DisplayName("getActiveAlerts: thành viên hợp lệ -> trả về danh sách alert đang OPEN của chuyến đi")
+    void getActiveAlerts_Success() {
+        SosAlert alert = newOpenAlert("key-active");
+        when(matchingMemberRepository.findByGroupIdAndUserId(groupId, sender.getUserId()))
+                .thenReturn(Optional.of(senderMember));
+        when(groupTripRepository.findByMatchingGroup_MatchingGroupId(groupId)).thenReturn(Optional.of(trip));
+        when(sosAlertRepository.findByGroupTrip_GroupTripIdAndStatusAndIsDeletedFalseOrderByCreatedAtDesc(
+                tripId, SosAlertStatus.OPEN)).thenReturn(List.of(alert));
+
+        List<SosAlertResponse> result = sosAlertService.getActiveAlerts(groupId, sender.getUserId());
+
+        assertThat(result).hasSize(1);
+        assertThat(result.get(0).getStatus()).isEqualTo(SosAlertStatus.OPEN);
+    }
+
+    @Test
+    @DisplayName("getActiveAlerts: người gọi không phải thành viên đã duyệt của nhóm -> UNAUTHORIZED_SOS_ALERT")
+    void getActiveAlerts_NotMember_ThrowsException() {
+        UUID outsiderId = UUID.randomUUID();
+        when(matchingMemberRepository.findByGroupIdAndUserId(groupId, outsiderId)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> sosAlertService.getActiveAlerts(groupId, outsiderId))
+                .isInstanceOf(AppException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.UNAUTHORIZED_SOS_ALERT);
+
+        verify(groupTripRepository, never()).findByMatchingGroup_MatchingGroupId(any());
+    }
+
+    @Test
+    @DisplayName("getActiveAlerts: nhóm chưa có chuyến đi nào -> GROUP_TRIP_NOT_FOUND")
+    void getActiveAlerts_NoTrip_ThrowsException() {
+        when(matchingMemberRepository.findByGroupIdAndUserId(groupId, sender.getUserId()))
+                .thenReturn(Optional.of(senderMember));
+        when(groupTripRepository.findByMatchingGroup_MatchingGroupId(groupId)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> sosAlertService.getActiveAlerts(groupId, sender.getUserId()))
+                .isInstanceOf(AppException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.GROUP_TRIP_NOT_FOUND);
+    }
+
+    @Test
+    @DisplayName("getAlertHistory: thành viên hợp lệ -> trả về lịch sử alert (cả active lẫn đã xử lý) đã phân trang")
+    void getAlertHistory_Success() {
+        SosAlert alert = newOpenAlert("key-history");
+        org.springframework.data.domain.Pageable pageable = org.springframework.data.domain.PageRequest.of(0, 10);
+        when(matchingMemberRepository.findByGroupIdAndUserId(groupId, sender.getUserId()))
+                .thenReturn(Optional.of(senderMember));
+        when(groupTripRepository.findByMatchingGroup_MatchingGroupId(groupId)).thenReturn(Optional.of(trip));
+        when(sosAlertRepository.findByGroupTrip_GroupTripIdAndIsDeletedFalseOrderByCreatedAtDesc(tripId, pageable))
+                .thenReturn(new org.springframework.data.domain.PageImpl<>(List.of(alert)));
+
+        var result = sosAlertService.getAlertHistory(groupId, pageable, sender.getUserId());
+
+        assertThat(result.getContent()).hasSize(1);
+    }
+
+    @Test
+    @DisplayName("getAlertHistory: người gọi không phải thành viên đã duyệt của nhóm -> UNAUTHORIZED_SOS_ALERT")
+    void getAlertHistory_NotMember_ThrowsException() {
+        UUID outsiderId = UUID.randomUUID();
+        org.springframework.data.domain.Pageable pageable = org.springframework.data.domain.PageRequest.of(0, 10);
+        when(matchingMemberRepository.findByGroupIdAndUserId(groupId, outsiderId)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> sosAlertService.getAlertHistory(groupId, pageable, outsiderId))
+                .isInstanceOf(AppException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.UNAUTHORIZED_SOS_ALERT);
+    }
 }

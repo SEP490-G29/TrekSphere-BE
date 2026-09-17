@@ -36,6 +36,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -409,5 +410,54 @@ class GroupChecklistServiceTest {
 
         assertThat(sharedItem.getIsDeleted()).isTrue();
         verify(checklistItemRepository).save(sharedItem);
+    }
+
+    @Test
+    @DisplayName("deleteChecklistItem - Member thường không được xoá đồ dùng chung -> UNAUTHORIZED_CHECKLIST_ACTION")
+    void deleteChecklistItem_SharedByNonLeader_ThrowsUnauthorized() {
+        UUID itemId = sharedItem.getGroupChecklistItemId();
+
+        when(matchingGroupRepository.findById(groupId)).thenReturn(Optional.of(group));
+        when(matchingMemberRepository.findActiveMembers(groupId, JoinStatus.ACCEPTED)).thenReturn(List.of(member1));
+        when(checklistItemRepository.findByGroupChecklistItemIdAndMatchingGroup_MatchingGroupIdAndIsDeletedFalse(itemId, groupId))
+                .thenReturn(Optional.of(sharedItem));
+
+        assertThatThrownBy(() -> checklistService.deleteChecklistItem(groupId, itemId, member1Id))
+                .isInstanceOf(AppException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.UNAUTHORIZED_CHECKLIST_ACTION);
+
+        assertThat(sharedItem.getIsDeleted()).isFalse();
+        verify(checklistItemRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("deleteChecklistItem - Chính chủ nhân xoá đồ cá nhân của mình -> thành công")
+    void deleteChecklistItem_PersonalByOwnAssignee_Success() {
+        UUID itemId = personalItem1.getGroupChecklistItemId();
+
+        when(matchingGroupRepository.findById(groupId)).thenReturn(Optional.of(group));
+        when(matchingMemberRepository.findActiveMembers(groupId, JoinStatus.ACCEPTED)).thenReturn(List.of(member1));
+        when(checklistItemRepository.findByGroupChecklistItemIdAndMatchingGroup_MatchingGroupIdAndIsDeletedFalse(itemId, groupId))
+                .thenReturn(Optional.of(personalItem1));
+
+        checklistService.deleteChecklistItem(groupId, itemId, member1Id);
+
+        assertThat(personalItem1.getIsDeleted()).isTrue();
+        verify(checklistItemRepository).save(personalItem1);
+    }
+
+    @Test
+    @DisplayName("deleteChecklistItem - Không tìm thấy item -> CHECKLIST_ITEM_NOT_FOUND")
+    void deleteChecklistItem_NotFound_ThrowsException() {
+        UUID itemId = UUID.randomUUID();
+
+        when(matchingGroupRepository.findById(groupId)).thenReturn(Optional.of(group));
+        when(matchingMemberRepository.findActiveMembers(groupId, JoinStatus.ACCEPTED)).thenReturn(List.of(leaderMember));
+        when(checklistItemRepository.findByGroupChecklistItemIdAndMatchingGroup_MatchingGroupIdAndIsDeletedFalse(itemId, groupId))
+                .thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> checklistService.deleteChecklistItem(groupId, itemId, leaderId))
+                .isInstanceOf(AppException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.CHECKLIST_ITEM_NOT_FOUND);
     }
 }

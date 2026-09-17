@@ -1034,4 +1034,56 @@ class GroupVoteServiceImplTest {
 
         verify(groupVoteRepository).findByGroupWithFilters(groupId, VoteType.OTHER, null, pageable);
     }
+
+    @Test
+    @DisplayName("getVotes: người gọi không phải thành viên đã được duyệt của nhóm -> NOT_ACCEPTED_MATCHING_MEMBER")
+    void getVotes_OutsiderNotMember_ThrowsError() {
+        org.springframework.data.domain.Pageable pageable = org.springframework.data.domain.PageRequest.of(0, 10);
+        UUID outsiderId = UUID.randomUUID();
+        when(matchingMemberRepository.findByGroupIdAndUserId(groupId, outsiderId)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> groupVoteService.getVotes(groupId, null, null, pageable, outsiderId))
+                .isInstanceOf(AppException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.NOT_ACCEPTED_MATCHING_MEMBER);
+
+        verify(groupVoteRepository, never()).findByGroupWithFilters(any(), any(), any(), any());
+    }
+
+    @Test
+    @DisplayName("cancelVote: Leader (không phải người mở vote) vẫn huỷ được vote của người khác")
+    void cancelVote_ByLeaderNotOpener_Succeeds() {
+        GroupVote vote = newOpenVote(3, LocalDateTime.now().plusDays(1));
+        vote.setCreatedByMember(memberEntity); // người mở vote là member thường, không phải leader
+
+        when(matchingMemberRepository.findByGroupIdAndUserId(groupId, leaderUser.getUserId()))
+                .thenReturn(Optional.of(leaderMember));
+        when(groupVoteRepository.findByIdForUpdate(vote.getGroupVoteId())).thenReturn(Optional.of(vote));
+        when(groupVoteRepository.save(vote)).thenReturn(vote);
+        when(groupVoteOptionRepository.findByGroupVote_GroupVoteIdAndIsDeletedFalseOrderByOptionOrderAsc(vote.getGroupVoteId()))
+                .thenReturn(List.of());
+        when(matchingMemberRepository.findActiveMembers(groupId, JoinStatus.ACCEPTED))
+                .thenReturn(List.of(leaderMember, memberEntity));
+
+        GroupVoteResponse response = groupVoteService.cancelVote(groupId, vote.getGroupVoteId(), leaderUser.getUserId());
+
+        assertThat(response.getStatus()).isEqualTo(VoteStatus.CLOSED);
+        assertThat(response.getWinningOptionId()).isNull();
+    }
+
+    @Test
+    @DisplayName("cancelVote: vote đã CLOSED từ trước -> ném GROUP_VOTE_CLOSED, không lưu lại")
+    void cancelVote_AlreadyClosed_ThrowsError() {
+        GroupVote vote = newOpenVote(3, LocalDateTime.now().plusDays(1));
+        vote.setStatus(VoteStatus.CLOSED);
+
+        when(matchingMemberRepository.findByGroupIdAndUserId(groupId, leaderUser.getUserId()))
+                .thenReturn(Optional.of(leaderMember));
+        when(groupVoteRepository.findByIdForUpdate(vote.getGroupVoteId())).thenReturn(Optional.of(vote));
+
+        assertThatThrownBy(() -> groupVoteService.cancelVote(groupId, vote.getGroupVoteId(), leaderUser.getUserId()))
+                .isInstanceOf(AppException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.GROUP_VOTE_CLOSED);
+
+        verify(groupVoteRepository, never()).save(any());
+    }
 }

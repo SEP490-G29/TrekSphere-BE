@@ -1,5 +1,6 @@
 package com.sep.treksphere.user;
 
+import com.sep.treksphere.common.dto.PaginationResponse;
 import com.sep.treksphere.common.exception.AppException;
 import com.sep.treksphere.common.exception.ErrorCode;
 import com.sep.treksphere.file.FileService;
@@ -11,6 +12,8 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
 
 import java.util.List;
 import java.util.Optional;
@@ -18,6 +21,10 @@ import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -31,6 +38,9 @@ class UserServiceTest {
 
     @Mock
     private UserMapper userMapper;
+
+    @Mock
+    private com.sep.treksphere.notification.NotificationService notificationService;
 
     @InjectMocks
     private UserService userService;
@@ -128,5 +138,104 @@ class UserServiceTest {
         assertThat(sampleUser.getPreferredDifficulty()).isEqualTo(DifficultyLevel.HARD);
         assertThat(sampleUser.getPreferredAreas()).containsExactly("yen bai", "lai chau");
         assertThat(sampleUser.getSkills()).containsExactly("survival", "first aid", "climbing");
+    }
+
+    @Test
+    @DisplayName("getUserProfile: email tồn tại -> trả về hồ sơ người dùng")
+    void getUserProfile_Success() {
+        UserProfileResponse expected = new UserProfileResponse();
+        expected.setFullName(sampleUser.getFullName());
+        when(userRepository.findByEmail(sampleUser.getEmail())).thenReturn(Optional.of(sampleUser));
+        when(userMapper.toUserProfileResponse(sampleUser)).thenReturn(expected);
+
+        UserProfileResponse response = userService.getUserProfile(sampleUser.getEmail());
+
+        assertThat(response.getFullName()).isEqualTo(sampleUser.getFullName());
+    }
+
+    @Test
+    @DisplayName("getUserProfile: email không tồn tại -> ném AppException USER_NOT_FOUND")
+    void getUserProfile_NotFound_ThrowsException() {
+        when(userRepository.findByEmail("ghost@example.com")).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> userService.getUserProfile("ghost@example.com"))
+                .isInstanceOfSatisfying(AppException.class,
+                        e -> assertThat(e.getErrorCode()).isEqualTo(ErrorCode.USER_NOT_FOUND));
+    }
+
+    @Test
+    @DisplayName("getUserById: userId tồn tại -> trả về hồ sơ người dùng")
+    void getUserById_Success() {
+        UserProfileResponse expected = new UserProfileResponse();
+        expected.setFullName(sampleUser.getFullName());
+        when(userRepository.findById(sampleUserId)).thenReturn(Optional.of(sampleUser));
+        when(userMapper.toUserProfileResponse(sampleUser)).thenReturn(expected);
+
+        UserProfileResponse response = userService.getUserById(sampleUserId.toString());
+
+        assertThat(response.getFullName()).isEqualTo(sampleUser.getFullName());
+    }
+
+    @Test
+    @DisplayName("getUserById: userId không tồn tại -> ném AppException USER_NOT_FOUND")
+    void getUserById_NotFound_ThrowsException() {
+        UUID randomId = UUID.randomUUID();
+        when(userRepository.findById(randomId)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> userService.getUserById(randomId.toString()))
+                .isInstanceOfSatisfying(AppException.class,
+                        e -> assertThat(e.getErrorCode()).isEqualTo(ErrorCode.USER_NOT_FOUND));
+    }
+
+    @Test
+    @DisplayName("getUsers: trả về danh sách user đã phân trang cho Admin")
+    void getUsers_ReturnsPaginatedUsers() {
+        UserFilterRequest filter = new UserFilterRequest();
+        Page<User> page = new PageImpl<>(List.of(sampleUser));
+        when(userRepository.findAllUsersWithFilter(eq(filter.getStatus()), eq(filter.getRoleName()),
+                eq(filter.getKeyword()), any())).thenReturn(page);
+        when(userMapper.toUserProfileResponse(sampleUser)).thenReturn(new UserProfileResponse());
+
+        PaginationResponse<UserProfileResponse> result = userService.getUsers(filter);
+
+        assertThat(result.getContent()).hasSize(1);
+        assertThat(result.getTotalElements()).isEqualTo(1);
+    }
+
+    @Test
+    @DisplayName("changeUserStatus: khoá tài khoản -> lưu trạng thái LOCKED và gửi đúng thông báo")
+    void changeUserStatus_ToLocked_NotifiesUser() {
+        when(userRepository.findById(sampleUserId)).thenReturn(Optional.of(sampleUser));
+
+        userService.changeUserStatus(sampleUserId.toString(), UserStatus.LOCKED);
+
+        assertThat(sampleUser.getStatus()).isEqualTo(UserStatus.LOCKED);
+        verify(notificationService).notify(
+                eq(sampleUserId), any(), any(), eq(sampleUserId), eq("/profile"), eq("bị khóa"));
+    }
+
+    @Test
+    @DisplayName("changeUserStatus: kích hoạt lại tài khoản -> lưu trạng thái ACTIVE và gửi đúng thông báo")
+    void changeUserStatus_ToActive_NotifiesUser() {
+        sampleUser.setStatus(UserStatus.LOCKED);
+        when(userRepository.findById(sampleUserId)).thenReturn(Optional.of(sampleUser));
+
+        userService.changeUserStatus(sampleUserId.toString(), UserStatus.ACTIVE);
+
+        assertThat(sampleUser.getStatus()).isEqualTo(UserStatus.ACTIVE);
+        verify(notificationService).notify(
+                eq(sampleUserId), any(), any(), eq(sampleUserId), eq("/profile"), eq("được kích hoạt lại"));
+    }
+
+    @Test
+    @DisplayName("changeUserStatus: userId không tồn tại -> ném AppException USER_NOT_FOUND, không thông báo")
+    void changeUserStatus_UserNotFound_ThrowsException() {
+        UUID randomId = UUID.randomUUID();
+        when(userRepository.findById(randomId)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> userService.changeUserStatus(randomId.toString(), UserStatus.LOCKED))
+                .isInstanceOfSatisfying(AppException.class,
+                        e -> assertThat(e.getErrorCode()).isEqualTo(ErrorCode.USER_NOT_FOUND));
+        verify(notificationService, never()).notify(any(UUID.class), any(), any(), any(), any(), any());
     }
 }

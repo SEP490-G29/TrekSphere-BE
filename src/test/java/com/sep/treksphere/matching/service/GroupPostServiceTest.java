@@ -47,6 +47,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -583,5 +584,141 @@ class GroupPostServiceTest {
         assertThat(childReply.getIsDeleted()).isTrue();
         verify(commentRepository).save(comment);
         verify(commentRepository).saveAll(anyList());
+    }
+
+    @Test
+    @DisplayName("toggleHideComment - Leader ẩn bình luận vi phạm thành công")
+    void toggleHideComment_SuccessByLeader_HidesComment() {
+        UUID postId = post.getGroupPostId();
+        UUID commentId = comment.getGroupPostCommentId();
+
+        when(matchingGroupRepository.findById(groupId)).thenReturn(Optional.of(group));
+        when(matchingMemberRepository.findActiveMembers(groupId, JoinStatus.ACCEPTED)).thenReturn(List.of(leaderMember));
+        when(commentRepository.findByGroupPostCommentIdAndGroupPost_GroupPostIdAndIsDeletedFalse(commentId, postId))
+                .thenReturn(Optional.of(comment));
+        when(commentRepository.save(any(GroupPostComment.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(commentRepository.findByParentComment_GroupPostCommentIdAndIsDeletedFalse(commentId))
+                .thenReturn(List.of());
+
+        GroupPostCommentResponse response = postService.toggleHideComment(groupId, postId, commentId, leaderId);
+
+        assertThat(response.getStatus()).isEqualTo(GroupContentStatus.HIDDEN);
+        assertThat(comment.getStatus()).isEqualTo(GroupContentStatus.HIDDEN);
+    }
+
+    @Test
+    @DisplayName("toggleHideComment - Bấm lại lần 2 -> chuyển ngược HIDDEN về SHOW, cascade cho reply con")
+    void toggleHideComment_ToggleBackToShow_CascadesToReplies() {
+        UUID postId = post.getGroupPostId();
+        UUID commentId = comment.getGroupPostCommentId();
+        comment.setStatus(GroupContentStatus.HIDDEN);
+
+        GroupPostComment childReply = new GroupPostComment();
+        childReply.setGroupPostCommentId(UUID.randomUUID());
+        childReply.setGroupPost(post);
+        childReply.setParentComment(comment);
+        childReply.setStatus(GroupContentStatus.HIDDEN);
+        childReply.setIsDeleted(false);
+
+        when(matchingGroupRepository.findById(groupId)).thenReturn(Optional.of(group));
+        when(matchingMemberRepository.findActiveMembers(groupId, JoinStatus.ACCEPTED)).thenReturn(List.of(leaderMember));
+        when(commentRepository.findByGroupPostCommentIdAndGroupPost_GroupPostIdAndIsDeletedFalse(commentId, postId))
+                .thenReturn(Optional.of(comment));
+        when(commentRepository.save(any(GroupPostComment.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(commentRepository.findByParentComment_GroupPostCommentIdAndIsDeletedFalse(commentId))
+                .thenReturn(List.of(childReply));
+
+        GroupPostCommentResponse response = postService.toggleHideComment(groupId, postId, commentId, leaderId);
+
+        assertThat(response.getStatus()).isEqualTo(GroupContentStatus.SHOW);
+        assertThat(childReply.getStatus()).isEqualTo(GroupContentStatus.SHOW);
+        verify(commentRepository).saveAll(anyList());
+    }
+
+    @Test
+    @DisplayName("toggleHideComment - Member thường không phải Leader -> UNAUTHORIZED_COMMENT_ACTION")
+    void toggleHideComment_ByNonLeader_ThrowsUnauthorized() {
+        UUID postId = post.getGroupPostId();
+        UUID commentId = comment.getGroupPostCommentId();
+
+        when(matchingGroupRepository.findById(groupId)).thenReturn(Optional.of(group));
+        when(matchingMemberRepository.findActiveMembers(groupId, JoinStatus.ACCEPTED)).thenReturn(List.of(authorMember));
+
+        assertThatThrownBy(() -> postService.toggleHideComment(groupId, postId, commentId, authorId))
+                .isInstanceOf(AppException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.UNAUTHORIZED_COMMENT_ACTION);
+
+        verify(commentRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("updateComment - Không phải tác giả (kể cả Leader) -> UNAUTHORIZED_COMMENT_ACTION")
+    void updateComment_ForbiddenWhenNotAuthor() {
+        UUID postId = post.getGroupPostId();
+        UUID commentId = comment.getGroupPostCommentId();
+        GroupPostCommentUpdateRequest request = GroupPostCommentUpdateRequest.builder()
+                .content("Sửa bởi người khác")
+                .build();
+
+        when(matchingGroupRepository.findById(groupId)).thenReturn(Optional.of(group));
+        when(matchingMemberRepository.findActiveMembers(groupId, JoinStatus.ACCEPTED)).thenReturn(List.of(leaderMember));
+        when(commentRepository.findByGroupPostCommentIdAndGroupPost_GroupPostIdAndIsDeletedFalse(commentId, postId))
+                .thenReturn(Optional.of(comment));
+
+        assertThatThrownBy(() -> postService.updateComment(groupId, postId, commentId, request, leaderId))
+                .isInstanceOf(AppException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.UNAUTHORIZED_COMMENT_ACTION);
+    }
+
+    @Test
+    @DisplayName("deleteComment - Chính tác giả (không phải Leader) tự xoá bình luận của mình -> thành công")
+    void deleteComment_BySelfAuthor_Success() {
+        UUID postId = post.getGroupPostId();
+        UUID commentId = comment.getGroupPostCommentId();
+
+        when(matchingGroupRepository.findById(groupId)).thenReturn(Optional.of(group));
+        when(matchingMemberRepository.findActiveMembers(groupId, JoinStatus.ACCEPTED)).thenReturn(List.of(otherMember));
+        when(commentRepository.findByGroupPostCommentIdAndGroupPost_GroupPostIdAndIsDeletedFalse(commentId, postId))
+                .thenReturn(Optional.of(comment));
+        when(commentRepository.findByParentComment_GroupPostCommentIdAndIsDeletedFalse(commentId))
+                .thenReturn(List.of());
+
+        postService.deleteComment(groupId, postId, commentId, otherMemberId);
+
+        assertThat(comment.getIsDeleted()).isTrue();
+        verify(commentRepository).save(comment);
+    }
+
+    @Test
+    @DisplayName("deleteComment - Thành viên không liên quan (không phải tác giả, không phải Leader) -> chặn")
+    void deleteComment_ForbiddenByUnrelatedMember() {
+        UUID postId = post.getGroupPostId();
+        UUID commentId = comment.getGroupPostCommentId();
+
+        when(matchingGroupRepository.findById(groupId)).thenReturn(Optional.of(group));
+        when(matchingMemberRepository.findActiveMembers(groupId, JoinStatus.ACCEPTED)).thenReturn(List.of(authorMember));
+        when(commentRepository.findByGroupPostCommentIdAndGroupPost_GroupPostIdAndIsDeletedFalse(commentId, postId))
+                .thenReturn(Optional.of(comment));
+
+        assertThatThrownBy(() -> postService.deleteComment(groupId, postId, commentId, authorId))
+                .isInstanceOf(AppException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.UNAUTHORIZED_COMMENT_ACTION);
+
+        assertThat(comment.getIsDeleted()).isFalse();
+    }
+
+    @Test
+    @DisplayName("toggleHideGroupPost - Member thường (kể cả tác giả) không phải Leader -> UNAUTHORIZED_POST_ACTION")
+    void toggleHideGroupPost_ForbiddenByNonLeader() {
+        UUID postId = post.getGroupPostId();
+
+        when(matchingGroupRepository.findById(groupId)).thenReturn(Optional.of(group));
+        when(matchingMemberRepository.findActiveMembers(groupId, JoinStatus.ACCEPTED)).thenReturn(List.of(authorMember));
+
+        assertThatThrownBy(() -> postService.toggleHideGroupPost(groupId, postId, authorId))
+                .isInstanceOf(AppException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.UNAUTHORIZED_POST_ACTION);
+
+        verify(postRepository, never()).save(any());
     }
 }

@@ -55,6 +55,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -756,5 +757,235 @@ class CustomJourneyServiceTest {
         assertThatThrownBy(() -> customJourneyService.resetCheckpointProgress(groupId, cpId, leaderId))
                 .isInstanceOf(AppException.class)
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.CUSTOM_JOURNEY_CHECKPOINT_PROGRESS_NOT_SET);
+    }
+
+    // ---------------------------------------------------------------
+    // getActivities
+    // ---------------------------------------------------------------
+
+    @Test
+    @DisplayName("getActivities - nhóm OPEN, trả về danh sách hoạt động theo đúng thứ tự")
+    void getActivities_Success() {
+        com.sep.treksphere.matching.entity.CustomJourneyActivity activity =
+                new com.sep.treksphere.matching.entity.CustomJourneyActivity();
+        activity.setCustomJourneyActivityId(UUID.randomUUID());
+        activity.setCustomJourney(journey);
+        activity.setDayNo(1);
+        activity.setTimeSlot(com.sep.treksphere.matching.enums.TimeSlot.MORNING);
+        activity.setActivityOrder(1);
+        activity.setTitle("Ăn sáng");
+
+        when(matchingGroupRepository.findById(groupId)).thenReturn(Optional.of(group));
+        when(customJourneyRepository.findByMatchingGroup_MatchingGroupIdAndIsDeletedFalse(groupId))
+                .thenReturn(Optional.of(journey));
+        when(activityRepository
+                .findByCustomJourney_CustomJourneyIdAndIsDeletedFalseOrderByDayNoAscTimeSlotAscActivityOrderAsc(
+                        journey.getCustomJourneyId()))
+                .thenReturn(List.of(activity));
+
+        List<com.sep.treksphere.matching.dto.response.CustomJourneyActivityResponse> result =
+                customJourneyService.getActivities(groupId, outsiderId);
+
+        assertThat(result).hasSize(1);
+        assertThat(result.get(0).getTitle()).isEqualTo("Ăn sáng");
+    }
+
+    @Test
+    @DisplayName("getActivities - nhóm chưa có journey -> JOURNEY_NOT_FOUND")
+    void getActivities_JourneyNotFound_ThrowsException() {
+        when(matchingGroupRepository.findById(groupId)).thenReturn(Optional.of(group));
+        when(customJourneyRepository.findByMatchingGroup_MatchingGroupIdAndIsDeletedFalse(groupId))
+                .thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> customJourneyService.getActivities(groupId, outsiderId))
+                .isInstanceOf(AppException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.JOURNEY_NOT_FOUND);
+    }
+
+    @Test
+    @DisplayName("getActivities - nhóm HIDDEN, outsider không được xem -> UNAUTHORIZED_WORKSPACE_ACCESS")
+    void getActivities_HiddenGroupForbiddenForOutsider() {
+        group.setStatus(MatchingGroupStatus.HIDDEN);
+        when(matchingGroupRepository.findById(groupId)).thenReturn(Optional.of(group));
+        when(matchingMemberRepository.existsByMatchingGroup_MatchingGroupIdAndUser_UserIdAndStatusAndIsDeletedFalse(
+                groupId, outsiderId, JoinStatus.ACCEPTED)).thenReturn(false);
+
+        assertThatThrownBy(() -> customJourneyService.getActivities(groupId, outsiderId))
+                .isInstanceOf(AppException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.UNAUTHORIZED_WORKSPACE_ACCESS);
+    }
+
+    // ---------------------------------------------------------------
+    // updateActivity
+    // ---------------------------------------------------------------
+
+    private com.sep.treksphere.matching.entity.CustomJourneyActivity existingActivity() {
+        com.sep.treksphere.matching.entity.CustomJourneyActivity activity =
+                new com.sep.treksphere.matching.entity.CustomJourneyActivity();
+        activity.setCustomJourneyActivityId(UUID.randomUUID());
+        activity.setCustomJourney(journey);
+        activity.setDayNo(1);
+        activity.setTimeSlot(com.sep.treksphere.matching.enums.TimeSlot.MORNING);
+        activity.setActivityOrder(1);
+        activity.setTitle("Ăn sáng");
+        activity.setPlannedStartAt("07:00");
+        activity.setPlannedEndAt("08:00");
+        activity.setIsDeleted(false);
+        return activity;
+    }
+
+    private com.sep.treksphere.matching.dto.request.CustomJourneyActivityUpdateRequest updateRequest(String title) {
+        return com.sep.treksphere.matching.dto.request.CustomJourneyActivityUpdateRequest.builder()
+                .dayNo(1)
+                .timeSlot(com.sep.treksphere.matching.enums.TimeSlot.MORNING)
+                .activityOrder(1)
+                .title(title)
+                .plannedStartAt("07:00")
+                .plannedEndAt("08:30")
+                .build();
+    }
+
+    @Test
+    @DisplayName("updateActivity - Leader cập nhật hoạt động thành công")
+    void updateActivity_Success() {
+        com.sep.treksphere.matching.entity.CustomJourneyActivity activity = existingActivity();
+        var request = updateRequest("Ăn sáng muộn");
+
+        when(matchingGroupRepository.findById(groupId)).thenReturn(Optional.of(group));
+        when(matchingMemberRepository.findActiveMembers(groupId, JoinStatus.ACCEPTED)).thenReturn(List.of(leaderMember));
+        when(customJourneyRepository.findByMatchingGroup_MatchingGroupIdAndIsDeletedFalse(groupId))
+                .thenReturn(Optional.of(journey));
+        when(activityRepository.findByCustomJourneyActivityIdAndCustomJourney_CustomJourneyIdAndIsDeletedFalse(
+                activity.getCustomJourneyActivityId(), journey.getCustomJourneyId()))
+                .thenReturn(Optional.of(activity));
+        when(activityRepository
+                .existsByCustomJourney_CustomJourneyIdAndDayNoAndTimeSlotAndActivityOrderAndCustomJourneyActivityIdNotAndIsDeletedFalse(
+                        journey.getCustomJourneyId(), 1, com.sep.treksphere.matching.enums.TimeSlot.MORNING, 1,
+                        activity.getCustomJourneyActivityId()))
+                .thenReturn(false);
+        when(activityRepository.save(any(com.sep.treksphere.matching.entity.CustomJourneyActivity.class)))
+                .thenAnswer(inv -> inv.getArgument(0));
+
+        var response = customJourneyService.updateActivity(
+                groupId, activity.getCustomJourneyActivityId(), request, leaderId);
+
+        assertThat(response.getTitle()).isEqualTo("Ăn sáng muộn");
+        verify(activityRepository).save(activity);
+    }
+
+    @Test
+    @DisplayName("updateActivity - trùng (ngày, buổi, thứ tự) với hoạt động khác -> ACTIVITY_ORDER_DUPLICATED")
+    void updateActivity_DuplicateOrder_ThrowsException() {
+        com.sep.treksphere.matching.entity.CustomJourneyActivity activity = existingActivity();
+        var request = updateRequest("Ăn sáng muộn");
+
+        when(matchingGroupRepository.findById(groupId)).thenReturn(Optional.of(group));
+        when(matchingMemberRepository.findActiveMembers(groupId, JoinStatus.ACCEPTED)).thenReturn(List.of(leaderMember));
+        when(customJourneyRepository.findByMatchingGroup_MatchingGroupIdAndIsDeletedFalse(groupId))
+                .thenReturn(Optional.of(journey));
+        when(activityRepository.findByCustomJourneyActivityIdAndCustomJourney_CustomJourneyIdAndIsDeletedFalse(
+                activity.getCustomJourneyActivityId(), journey.getCustomJourneyId()))
+                .thenReturn(Optional.of(activity));
+        when(activityRepository
+                .existsByCustomJourney_CustomJourneyIdAndDayNoAndTimeSlotAndActivityOrderAndCustomJourneyActivityIdNotAndIsDeletedFalse(
+                        journey.getCustomJourneyId(), 1, com.sep.treksphere.matching.enums.TimeSlot.MORNING, 1,
+                        activity.getCustomJourneyActivityId()))
+                .thenReturn(true);
+
+        assertThatThrownBy(() -> customJourneyService.updateActivity(
+                groupId, activity.getCustomJourneyActivityId(), request, leaderId))
+                .isInstanceOf(AppException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.ACTIVITY_ORDER_DUPLICATED);
+
+        verify(activityRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("updateActivity - journey đã khoá -> JOURNEY_LOCKED")
+    void updateActivity_JourneyLocked_ThrowsException() {
+        journey.setIsLocked(true);
+        var request = updateRequest("Ăn sáng muộn");
+
+        when(matchingGroupRepository.findById(groupId)).thenReturn(Optional.of(group));
+        when(matchingMemberRepository.findActiveMembers(groupId, JoinStatus.ACCEPTED)).thenReturn(List.of(leaderMember));
+        when(customJourneyRepository.findByMatchingGroup_MatchingGroupIdAndIsDeletedFalse(groupId))
+                .thenReturn(Optional.of(journey));
+
+        assertThatThrownBy(() -> customJourneyService.updateActivity(
+                groupId, UUID.randomUUID(), request, leaderId))
+                .isInstanceOf(AppException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.JOURNEY_LOCKED);
+    }
+
+    @Test
+    @DisplayName("updateActivity - member thường (không phải Leader) -> MATCHING_GROUP_UNAUTHORIZED_MANAGE")
+    void updateActivity_NotLeader_ThrowsException() {
+        var request = updateRequest("Ăn sáng muộn");
+
+        when(matchingGroupRepository.findById(groupId)).thenReturn(Optional.of(group));
+        when(matchingMemberRepository.findActiveMembers(groupId, JoinStatus.ACCEPTED)).thenReturn(List.of(normalMember));
+
+        assertThatThrownBy(() -> customJourneyService.updateActivity(
+                groupId, UUID.randomUUID(), request, memberId))
+                .isInstanceOf(AppException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.MATCHING_GROUP_UNAUTHORIZED_MANAGE);
+    }
+
+    // ---------------------------------------------------------------
+    // deleteActivity
+    // ---------------------------------------------------------------
+
+    @Test
+    @DisplayName("deleteActivity - Leader xoá hoạt động thành công")
+    void deleteActivity_Success() {
+        com.sep.treksphere.matching.entity.CustomJourneyActivity activity = existingActivity();
+
+        when(matchingGroupRepository.findById(groupId)).thenReturn(Optional.of(group));
+        when(matchingMemberRepository.findActiveMembers(groupId, JoinStatus.ACCEPTED)).thenReturn(List.of(leaderMember));
+        when(customJourneyRepository.findByMatchingGroup_MatchingGroupIdAndIsDeletedFalse(groupId))
+                .thenReturn(Optional.of(journey));
+        when(activityRepository.findByCustomJourneyActivityIdAndCustomJourney_CustomJourneyIdAndIsDeletedFalse(
+                activity.getCustomJourneyActivityId(), journey.getCustomJourneyId()))
+                .thenReturn(Optional.of(activity));
+
+        customJourneyService.deleteActivity(groupId, activity.getCustomJourneyActivityId(), leaderId);
+
+        assertThat(activity.getIsDeleted()).isTrue();
+        verify(activityRepository).save(activity);
+    }
+
+    @Test
+    @DisplayName("deleteActivity - không tìm thấy hoạt động -> CUSTOM_JOURNEY_ACTIVITY_NOT_FOUND")
+    void deleteActivity_NotFound_ThrowsException() {
+        UUID activityId = UUID.randomUUID();
+
+        when(matchingGroupRepository.findById(groupId)).thenReturn(Optional.of(group));
+        when(matchingMemberRepository.findActiveMembers(groupId, JoinStatus.ACCEPTED)).thenReturn(List.of(leaderMember));
+        when(customJourneyRepository.findByMatchingGroup_MatchingGroupIdAndIsDeletedFalse(groupId))
+                .thenReturn(Optional.of(journey));
+        when(activityRepository.findByCustomJourneyActivityIdAndCustomJourney_CustomJourneyIdAndIsDeletedFalse(
+                activityId, journey.getCustomJourneyId()))
+                .thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> customJourneyService.deleteActivity(groupId, activityId, leaderId))
+                .isInstanceOf(AppException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.CUSTOM_JOURNEY_ACTIVITY_NOT_FOUND);
+    }
+
+    @Test
+    @DisplayName("deleteActivity - journey đã khoá -> JOURNEY_LOCKED, không xoá")
+    void deleteActivity_JourneyLocked_ThrowsException() {
+        journey.setIsLocked(true);
+
+        when(matchingGroupRepository.findById(groupId)).thenReturn(Optional.of(group));
+        when(matchingMemberRepository.findActiveMembers(groupId, JoinStatus.ACCEPTED)).thenReturn(List.of(leaderMember));
+        when(customJourneyRepository.findByMatchingGroup_MatchingGroupIdAndIsDeletedFalse(groupId))
+                .thenReturn(Optional.of(journey));
+
+        assertThatThrownBy(() -> customJourneyService.deleteActivity(groupId, UUID.randomUUID(), leaderId))
+                .isInstanceOf(AppException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.JOURNEY_LOCKED);
+
+        verify(activityRepository, never()).save(any());
     }
 }
