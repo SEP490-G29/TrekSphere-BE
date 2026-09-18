@@ -107,6 +107,7 @@ class TourServiceTest {
         tour.setDurationDays(2);
         tour.setMinCapacity(2);
         tour.setMaxCapacity(15);
+        tour.setPrice(new BigDecimal("2500000"));
         tour.setTotalDistanceKm(new BigDecimal("25.50"));
         tour.setHighlights("- Ngắm biển mây");
         tour.setIncludes("- HDV địa phương");
@@ -128,6 +129,7 @@ class TourServiceTest {
         request.setDurationDays(2);
         request.setMinCapacity(2);
         request.setMaxCapacity(15);
+        request.setPrice(new BigDecimal("2500000"));
         request.setTotalDistanceKm(new BigDecimal("25.50"));
         request.setHighlights("- Ngắm biển mây");
         request.setIncludes("- HDV địa phương");
@@ -163,6 +165,7 @@ class TourServiceTest {
 
         assertThat(response).isNotNull();
         assertThat(response.getTourName()).isEqualTo("Fansipan Trek");
+        assertThat(response.getPrice()).isEqualTo(new BigDecimal("2500000"));
         assertThat(response.getTotalDistanceKm()).isEqualTo(new BigDecimal("25.50"));
         assertThat(response.getHighlights()).isEqualTo("- Ngắm biển mây");
         assertThat(response.getIncludes()).isEqualTo("- HDV địa phương");

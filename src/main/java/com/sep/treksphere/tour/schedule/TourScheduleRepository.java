@@ -83,14 +83,4 @@ public interface TourScheduleRepository extends JpaRepository<TourSchedule, UUID
        @Query("select s from TourSchedule s join fetch s.tour t join fetch t.vendor " +
                      "where s.tourScheduleId = :tourScheduleId and s.isDeleted = false")
        Optional<TourSchedule> findByIdForUpdate(@Param("tourScheduleId") UUID tourScheduleId);
-
-       @Query("""
-              SELECT ts.tour.tourId, MIN(ts.price) FROM TourSchedule ts
-              WHERE ts.tour.tourId IN :tourIds
-                AND ts.status = com.sep.treksphere.tour.schedule.ScheduleStatus.OPEN
-                AND ts.departureDate >= :today
-                AND ts.isDeleted = false
-              GROUP BY ts.tour.tourId
-              """)
-       List<Object[]> findMinOpenPriceByTourIds(@Param("tourIds") List<UUID> tourIds, @Param("today") LocalDate today);
 }

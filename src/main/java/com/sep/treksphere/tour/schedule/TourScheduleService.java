@@ -61,7 +61,6 @@ public class TourScheduleService {
         schedule.setTour(tour);
         schedule.setDepartureDate(request.getDepartureDate());
         schedule.setReturnDate(request.getReturnDate());
-        schedule.setPrice(request.getPrice());
         schedule.setStatus(ScheduleStatus.OPEN);
         return toResponse(tourScheduleRepository.save(schedule));
     }
@@ -100,9 +99,6 @@ public class TourScheduleService {
 
         schedule.setDepartureDate(departure);
         schedule.setReturnDate(returnDate);
-        if (request.getPrice() != null) {
-            schedule.setPrice(request.getPrice());
-        }
         schedule.setStatus(requestedStatus);
         if (requestedStatus == ScheduleStatus.CANCELLED) {
             schedule.setCancellationReason(request.getReason().trim());
@@ -183,7 +179,6 @@ public class TourScheduleService {
                 .tourId(schedule.getTour().getTourId().toString())
                 .departureDate(schedule.getDepartureDate())
                 .returnDate(schedule.getReturnDate())
-                .price(schedule.getPrice())
                 .status(schedule.getStatus())
                 .cancellationReason(schedule.getCancellationReason())
                 .cancelledAt(schedule.getCancelledAt())

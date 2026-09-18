@@ -18,7 +18,6 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -109,10 +108,9 @@ public class TourRecommendationService {
         Set<UUID> popularTourIds = findPopularTourIds(recommendedTourIds);
         Set<UUID> flexibleScheduleTourIds = findFlexibleScheduleTourIds(recommendedTourIds);
         Set<UUID> availableGroupTourIds = findAvailableGroupTourIds(recommendedTourIds);
-        Map<UUID, BigDecimal> prices = tourService.loadFromPrices(result.getContent());
         List<RecommendedTourResponse> content = result.getContent().stream()
                 .map(tour -> RecommendedTourResponse.builder()
-                        .tour(tourService.toSummaryResponse(tour, prices.get(tour.getTourId())))
+                        .tour(tourService.toSummaryResponse(tour))
                         .matchReasons(matchReasons(
                                 tour,
                                 user,

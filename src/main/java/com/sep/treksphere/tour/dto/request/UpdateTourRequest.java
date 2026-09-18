@@ -4,6 +4,7 @@ import com.sep.treksphere.common.constant.MessageConstant;
 import com.sep.treksphere.tour.DifficultyLevel;
 import com.sep.treksphere.tour.policy.TourParticipationPolicyRequest;
 import io.swagger.v3.oas.annotations.media.Schema;
+import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.Min;
 import lombok.Getter;
 import lombok.Setter;
@@ -37,6 +38,10 @@ public class UpdateTourRequest {
     @Min(value = 1, message = MessageConstant.TOUR_MAX_CAPACITY_MIN)
     @Schema(description = "Số lượng người tối đa của tour", example = "15")
     private Integer maxCapacity;
+
+    @DecimalMin(value = "0.0", message = MessageConstant.TOUR_BASE_PRICE_MIN)
+    @Schema(description = "Giá tour (VNĐ/người)", example = "2500000")
+    private BigDecimal price;
 
     @Schema(description = "Tổng quãng đường di chuyển (km)", example = "12.5")
     private BigDecimal totalDistanceKm;

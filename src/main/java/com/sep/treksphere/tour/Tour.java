@@ -50,6 +50,9 @@ public class Tour extends BaseEntity {
     @Column(nullable = false)
     private Integer maxCapacity;
 
+    @Column(nullable = false, precision = 12, scale = 2)
+    private BigDecimal price;
+
     @Column(precision = 5, scale = 2)
     private BigDecimal totalDistanceKm;
 

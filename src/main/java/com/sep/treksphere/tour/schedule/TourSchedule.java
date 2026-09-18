@@ -7,7 +7,6 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
-import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.UUID;
@@ -34,9 +33,6 @@ public class TourSchedule extends BaseEntity {
 
     @Column(nullable = false)
     private LocalDate returnDate;
-
-    @Column(nullable = false, precision = 12, scale = 2)
-    private BigDecimal price;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)

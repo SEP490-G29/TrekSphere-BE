@@ -25,7 +25,7 @@ public class PublicTourDetailResponse {
     private DifficultyLevel difficulty;
     private String location;
     private Integer durationDays;
-    private BigDecimal fromPrice;
+    private BigDecimal price;
     private Integer minCapacity;
     private Integer maxCapacity;
     private BigDecimal totalDistanceKm;
