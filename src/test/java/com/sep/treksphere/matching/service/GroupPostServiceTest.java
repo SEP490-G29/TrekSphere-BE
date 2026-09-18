@@ -14,6 +14,7 @@ import com.sep.treksphere.matching.entity.GroupPostComment;
 import com.sep.treksphere.matching.entity.MatchingGroup;
 import com.sep.treksphere.matching.entity.MatchingMember;
 import com.sep.treksphere.matching.enums.GroupContentStatus;
+import com.sep.treksphere.matching.enums.GroupPostType;
 import com.sep.treksphere.matching.enums.JoinStatus;
 import com.sep.treksphere.matching.enums.MatchingGroupStatus;
 import com.sep.treksphere.matching.enums.MatchingRole;
@@ -163,11 +164,11 @@ class GroupPostServiceTest {
         Pageable pageable = PageRequest.of(0, 10);
         when(matchingGroupRepository.findById(groupId)).thenReturn(Optional.of(group));
         when(matchingMemberRepository.findActiveMembers(groupId, JoinStatus.ACCEPTED)).thenReturn(List.of(leaderMember));
-        when(postRepository.findByMatchingGroup_MatchingGroupIdAndIsDeletedFalse(groupId, pageable))
+        when(postRepository.findByMatchingGroup_MatchingGroupIdAndIsDeletedFalseOrderByIsPinnedDescCreatedAtDesc(groupId, pageable))
                 .thenReturn(new PageImpl<>(List.of(post)));
         when(commentRepository.countByGroupPost_GroupPostIdAndIsDeletedFalse(post.getGroupPostId())).thenReturn(1L);
 
-        Page<GroupPostResponse> result = postService.getGroupPosts(groupId, pageable, leaderId);
+        Page<GroupPostResponse> result = postService.getGroupPosts(groupId, null, pageable, leaderId);
 
         assertThat(result).isNotNull();
         assertThat(result.getContent()).hasSize(1);
@@ -181,11 +182,11 @@ class GroupPostServiceTest {
         Pageable pageable = PageRequest.of(0, 10);
         when(matchingGroupRepository.findById(groupId)).thenReturn(Optional.of(group));
         when(matchingMemberRepository.findActiveMembers(groupId, JoinStatus.ACCEPTED)).thenReturn(List.of(authorMember));
-        when(postRepository.findByMatchingGroup_MatchingGroupIdAndStatusAndIsDeletedFalse(groupId, GroupContentStatus.SHOW, pageable))
+        when(postRepository.findByMatchingGroup_MatchingGroupIdAndStatusAndIsDeletedFalseOrderByIsPinnedDescCreatedAtDesc(groupId, GroupContentStatus.SHOW, pageable))
                 .thenReturn(new PageImpl<>(List.of(post)));
         when(commentRepository.countByGroupPost_GroupPostIdAndStatusAndIsDeletedFalse(post.getGroupPostId(), GroupContentStatus.SHOW)).thenReturn(1L);
 
-        Page<GroupPostResponse> result = postService.getGroupPosts(groupId, pageable, authorId);
+        Page<GroupPostResponse> result = postService.getGroupPosts(groupId, null, pageable, authorId);
 
         assertThat(result).isNotNull();
         assertThat(result.getContent()).hasSize(1);
@@ -201,7 +202,7 @@ class GroupPostServiceTest {
         when(matchingMemberRepository.existsByMatchingGroup_MatchingGroupIdAndUser_UserIdAndStatusAndIsDeletedFalse(
                 groupId, outsiderId, JoinStatus.ACCEPTED)).thenReturn(false);
 
-        assertThatThrownBy(() -> postService.getGroupPosts(groupId, pageable, outsiderId))
+        assertThatThrownBy(() -> postService.getGroupPosts(groupId, null, pageable, outsiderId))
                 .isInstanceOf(AppException.class)
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.UNAUTHORIZED_WORKSPACE_ACCESS);
     }
@@ -230,7 +231,7 @@ class GroupPostServiceTest {
 
 
     @Test
-    @DisplayName("createGroupPost - Thành viên tạo bài đăng kèm ảnh thành công")
+    @DisplayName("createGroupPost - Thành viên tạo bài đăng kèm ảnh thành công và gửi thông báo GROUP_POST_CREATED")
     void createGroupPost_Success() {
         GroupPostCreateRequest request = GroupPostCreateRequest.builder()
                 .title("Thông báo mới")
@@ -239,7 +240,7 @@ class GroupPostServiceTest {
                 .build();
 
         when(matchingGroupRepository.findById(groupId)).thenReturn(Optional.of(group));
-        when(matchingMemberRepository.findActiveMembers(groupId, JoinStatus.ACCEPTED)).thenReturn(List.of(authorMember));
+        when(matchingMemberRepository.findActiveMembers(groupId, JoinStatus.ACCEPTED)).thenReturn(List.of(authorMember, leaderMember));
         when(postRepository.save(any(GroupPost.class))).thenAnswer(inv -> {
             GroupPost p = inv.getArgument(0);
             p.setGroupPostId(UUID.randomUUID());
@@ -253,12 +254,21 @@ class GroupPostServiceTest {
         assertThat(response.getContent()).isEqualTo("Nội dung thông báo");
         assertThat(response.getImageUrls()).hasSize(2);
         assertThat(response.getStatus()).isEqualTo(GroupContentStatus.SHOW);
+        verify(notificationService).notify(
+                org.mockito.ArgumentMatchers.<List<UUID>>any(),
+                org.mockito.ArgumentMatchers.eq(com.sep.treksphere.notification.NotificationEventType.GROUP_POST_CREATED),
+                org.mockito.ArgumentMatchers.eq(com.sep.treksphere.notification.ReferenceType.MATCHING_GROUP),
+                org.mockito.ArgumentMatchers.eq(groupId),
+                org.mockito.ArgumentMatchers.anyString(),
+                org.mockito.ArgumentMatchers.anyString(),
+                org.mockito.ArgumentMatchers.any());
     }
 
     @Test
     @DisplayName("createGroupPost - Leader tạo bài đăng gửi thông báo GROUP_POST_ANNOUNCEMENT")
     void createGroupPost_LeaderSendsAnnouncementNotification() {
         GroupPostCreateRequest request = GroupPostCreateRequest.builder()
+                .postType(GroupPostType.ANNOUNCEMENT)
                 .title("Thông báo họp nhóm khẩn")
                 .content("Họp lúc 20h tối nay")
                 .build();

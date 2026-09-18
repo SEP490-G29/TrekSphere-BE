@@ -8,6 +8,8 @@ import com.sep.treksphere.tour.policy.TourParticipationPolicyResponse;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 
+import java.math.BigDecimal;
+
 @Component
 public class TourMapper {
 
@@ -24,7 +26,7 @@ public class TourMapper {
         tour.setDurationDays(request.getDurationDays());
         tour.setMinCapacity(request.getMinCapacity() != null ? request.getMinCapacity() : 1);
         tour.setMaxCapacity(request.getMaxCapacity());
-        tour.setPrice(request.getPrice());
+        tour.setPrice(request.getPrice() != null ? request.getPrice() : BigDecimal.ZERO);
         tour.setTotalDistanceKm(request.getTotalDistanceKm());
         tour.setHighlights(request.getHighlights());
         tour.setIncludes(request.getIncludes());

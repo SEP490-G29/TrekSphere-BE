@@ -53,6 +53,9 @@ public final class NotificationTemplates {
                 "Khoảnh khắc mới trong nhóm",
                 "%s vừa chia sẻ khoảnh khắc mới trong nhóm \"%s\"."));
 
+        TEMPLATES.put(NotificationEventType.GROUP_POST_CREATED, new TemplatePair(
+                "Bài viết mới trong nhóm",
+                "%s vừa đăng một bài viết mới trong nhóm \"%s\"."));
         TEMPLATES.put(NotificationEventType.GROUP_POST_ANNOUNCEMENT, new TemplatePair(
                 "Thông báo mới từ trưởng nhóm",
                 "Trưởng nhóm vừa đăng một thông báo quan trọng trong nhóm \"%s\"."));

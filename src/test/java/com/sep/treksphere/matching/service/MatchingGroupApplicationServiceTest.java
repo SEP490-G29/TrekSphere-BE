@@ -7,13 +7,19 @@ import com.sep.treksphere.common.security.CustomUserDetails;
 import com.sep.treksphere.matching.dto.request.GroupApplicationRequest;
 import com.sep.treksphere.matching.dto.request.MatchingJoinRequestFilter;
 import com.sep.treksphere.matching.dto.request.MyMatchingJoinRequestFilter;
+import com.sep.treksphere.matching.dto.request.RejectApplicationRequest;
 import com.sep.treksphere.matching.dto.response.MatchingMemberResponse;
 import com.sep.treksphere.matching.dto.response.MyMatchingJoinRequestResponse;
 import com.sep.treksphere.matching.entity.CustomJourney;
 import com.sep.treksphere.matching.entity.GroupJoinApplication;
 import com.sep.treksphere.matching.entity.MatchingGroup;
 import com.sep.treksphere.matching.entity.MatchingMember;
-import com.sep.treksphere.matching.enums.*;
+import com.sep.treksphere.matching.enums.JoinApplicationStatus;
+import com.sep.treksphere.matching.enums.JoinStatus;
+import com.sep.treksphere.matching.enums.JourneyDifficulty;
+import com.sep.treksphere.matching.enums.MatchingGroupSourceType;
+import com.sep.treksphere.matching.enums.MatchingGroupStatus;
+import com.sep.treksphere.matching.enums.MatchingRole;
 import com.sep.treksphere.matching.mapper.MatchingGroupMapper;
 import com.sep.treksphere.matching.repository.GroupJoinApplicationRepository;
 import com.sep.treksphere.matching.repository.GroupTripRepository;
@@ -86,6 +92,21 @@ class MatchingGroupApplicationServiceTest {
 
     @Mock
     private GroupVoteService groupVoteService;
+
+    @Mock
+    private com.sep.treksphere.matching.repository.GroupExpenseRepository groupExpenseRepository;
+
+    @Mock
+    private com.sep.treksphere.matching.repository.GroupExpenseShareRepository groupExpenseShareRepository;
+
+    @Mock
+    private com.sep.treksphere.matching.repository.GroupSettlementRepository groupSettlementRepository;
+
+    @Mock
+    private com.sep.treksphere.matching.repository.GroupPostRepository groupPostRepository;
+
+    @Mock
+    private com.sep.treksphere.matching.repository.MomentRepository momentRepository;
 
     @Spy
     private MatchingGroupMapper matchingGroupMapper = Mappers.getMapper(MatchingGroupMapper.class);
@@ -871,11 +892,36 @@ class MatchingGroupApplicationServiceTest {
             when(groupJoinApplicationRepository.findDetailById(pendingAppId)).thenReturn(Optional.of(pendingApp));
             when(groupJoinApplicationRepository.save(any(GroupJoinApplication.class))).thenAnswer(inv -> inv.getArgument(0));
 
-            MatchingMemberResponse response = matchingGroupService.rejectMember(groupId, pendingAppId, leaderDetails);
+            MatchingMemberResponse response = matchingGroupService.rejectMember(groupId, pendingAppId, null, leaderDetails);
 
             assertThat(response).isNotNull();
             assertThat(response.getStatus()).isEqualTo(JoinStatus.REJECTED);
             assertThat(pendingApp.getStatus()).isEqualTo(JoinApplicationStatus.REJECTED);
+            assertThat(pendingApp.getReviewedBy()).isEqualTo(leaderUser);
+            assertThat(openTourGroup.getCurrentSize()).isEqualTo(1);
+        }
+
+        @Test
+        @DisplayName("Leader rejects PENDING member with reject reason; status transitions to REJECTED and rejectReason is saved")
+        void rejectMember_withReason_success() {
+            UUID groupId = openTourGroup.getMatchingGroupId();
+            openTourGroup.setCurrentSize(1);
+            RejectApplicationRequest request = RejectApplicationRequest.builder()
+                    .rejectReason("Chưa đủ kinh nghiệm trekking cho cung này")
+                    .build();
+
+            when(matchingGroupRepository.findByIdForUpdate(groupId)).thenReturn(Optional.of(openTourGroup));
+            mockLeaderCheck();
+            when(groupJoinApplicationRepository.findDetailById(pendingAppId)).thenReturn(Optional.of(pendingApp));
+            when(groupJoinApplicationRepository.save(any(GroupJoinApplication.class))).thenAnswer(inv -> inv.getArgument(0));
+
+            MatchingMemberResponse response = matchingGroupService.rejectMember(groupId, pendingAppId, request, leaderDetails);
+
+            assertThat(response).isNotNull();
+            assertThat(response.getStatus()).isEqualTo(JoinStatus.REJECTED);
+            assertThat(response.getRejectReason()).isEqualTo("Chưa đủ kinh nghiệm trekking cho cung này");
+            assertThat(pendingApp.getStatus()).isEqualTo(JoinApplicationStatus.REJECTED);
+            assertThat(pendingApp.getRejectReason()).isEqualTo("Chưa đủ kinh nghiệm trekking cho cung này");
             assertThat(pendingApp.getReviewedBy()).isEqualTo(leaderUser);
             assertThat(openTourGroup.getCurrentSize()).isEqualTo(1);
         }
@@ -890,7 +936,7 @@ class MatchingGroupApplicationServiceTest {
             mockLeaderCheck();
             when(groupJoinApplicationRepository.findDetailById(pendingAppId)).thenReturn(Optional.of(pendingApp));
 
-            assertThatThrownBy(() -> matchingGroupService.rejectMember(groupId, pendingAppId, leaderDetails))
+            assertThatThrownBy(() -> matchingGroupService.rejectMember(groupId, pendingAppId, null, leaderDetails))
                     .isInstanceOf(AppException.class)
                     .satisfies(ex -> assertThat(((AppException) ex).getErrorCode()).isEqualTo(ErrorCode.MEMBER_ALREADY_REJECTED));
         }
@@ -905,7 +951,7 @@ class MatchingGroupApplicationServiceTest {
             mockLeaderCheck();
             when(groupJoinApplicationRepository.findDetailById(pendingAppId)).thenReturn(Optional.of(pendingApp));
 
-            assertThatThrownBy(() -> matchingGroupService.rejectMember(groupId, pendingAppId, leaderDetails))
+            assertThatThrownBy(() -> matchingGroupService.rejectMember(groupId, pendingAppId, null, leaderDetails))
                     .isInstanceOf(AppException.class)
                     .satisfies(ex -> assertThat(((AppException) ex).getErrorCode()).isEqualTo(ErrorCode.INVALID_MEMBER_STATUS));
         }
@@ -1194,6 +1240,169 @@ class MatchingGroupApplicationServiceTest {
                     eq(groupId),
                     anyString(),
                     any());
+        }
+
+        @Test
+        @DisplayName("Leader removes a Member: throws 8181 when member has unsettled settlement")
+        void removeMember_ThrowsException_WhenMemberHasUnsettledSettlement() {
+            UUID groupId = openTourGroup.getMatchingGroupId();
+
+            when(matchingGroupRepository.findByIdForUpdate(groupId)).thenReturn(Optional.of(openTourGroup));
+            when(userRepository.getReferenceById(leaderUser.getUserId())).thenReturn(leaderUser);
+            when(matchingMemberRepository.findByMatchingGroupAndUser(openTourGroup, leaderUser))
+                    .thenReturn(Optional.of(leaderMember));
+            when(matchingMemberRepository.findMemberByIdAndGroupId(memberEntity.getMatchingMemberId(), groupId))
+                    .thenReturn(Optional.of(memberEntity));
+
+            com.sep.treksphere.matching.entity.GroupSettlement pendingSettlement = new com.sep.treksphere.matching.entity.GroupSettlement();
+            pendingSettlement.setFromMatchingMember(memberEntity);
+            pendingSettlement.setToMatchingMember(leaderMember);
+            pendingSettlement.setStatus(com.sep.treksphere.matching.enums.SettlementStatus.PENDING);
+            when(groupSettlementRepository.findByGroupTrip_MatchingGroup_MatchingGroupIdAndIsDeletedFalseOrderByCreatedAtAsc(groupId))
+                    .thenReturn(List.of(pendingSettlement));
+
+            assertThatThrownBy(() -> matchingGroupService.removeMember(
+                    groupId, memberEntity.getMatchingMemberId(), leaderDetails))
+                    .isInstanceOf(AppException.class)
+                    .satisfies(ex -> assertThat(((AppException) ex).getErrorCode())
+                            .isEqualTo(ErrorCode.MEMBER_HAS_UNSETTLED_EXPENSES));
+        }
+
+        @Test
+        @DisplayName("Leader removes a Member: hides group posts and handles public vs group moments")
+        void removeMember_CleansUpPostsAndMoments() {
+            UUID groupId = openTourGroup.getMatchingGroupId();
+            openTourGroup.setCurrentSize(2);
+            openTourGroup.setStatus(MatchingGroupStatus.OPEN);
+
+            when(matchingGroupRepository.findByIdForUpdate(groupId)).thenReturn(Optional.of(openTourGroup));
+            when(userRepository.getReferenceById(leaderUser.getUserId())).thenReturn(leaderUser);
+            when(matchingMemberRepository.findByMatchingGroupAndUser(openTourGroup, leaderUser))
+                    .thenReturn(Optional.of(leaderMember));
+            when(matchingMemberRepository.findMemberByIdAndGroupId(memberEntity.getMatchingMemberId(), groupId))
+                    .thenReturn(Optional.of(memberEntity));
+            when(matchingMemberRepository.countActiveMembersByGroupIdAndStatus(groupId, JoinStatus.ACCEPTED))
+                    .thenReturn(2L);
+            when(matchingMemberRepository.save(memberEntity)).thenReturn(memberEntity);
+
+            com.sep.treksphere.matching.entity.GroupPost post = new com.sep.treksphere.matching.entity.GroupPost();
+            post.setStatus(com.sep.treksphere.matching.enums.GroupContentStatus.SHOW);
+            when(groupPostRepository.findByMatchingGroup_MatchingGroupIdAndPostedBy_MatchingMemberIdAndIsDeletedFalse(
+                    groupId, memberEntity.getMatchingMemberId()))
+                    .thenReturn(List.of(post));
+
+            com.sep.treksphere.matching.entity.Moment publicMoment = new com.sep.treksphere.matching.entity.Moment();
+            publicMoment.setVisibility(com.sep.treksphere.matching.enums.MomentVisibility.PUBLIC_PROFILE);
+            publicMoment.setMatchingGroup(openTourGroup);
+            publicMoment.setAuthorMatchingMember(memberEntity);
+
+            com.sep.treksphere.matching.entity.Moment groupOnlyMoment = new com.sep.treksphere.matching.entity.Moment();
+            groupOnlyMoment.setVisibility(com.sep.treksphere.matching.enums.MomentVisibility.GROUP_ONLY);
+            groupOnlyMoment.setMatchingGroup(openTourGroup);
+            groupOnlyMoment.setAuthorMatchingMember(memberEntity);
+
+            when(momentRepository.findByMatchingGroup_MatchingGroupIdAndAuthorMatchingMember_MatchingMemberIdAndIsDeletedFalse(
+                    groupId, memberEntity.getMatchingMemberId()))
+                    .thenReturn(List.of(publicMoment, groupOnlyMoment));
+
+            matchingGroupService.removeMember(groupId, memberEntity.getMatchingMemberId(), leaderDetails);
+
+            assertThat(post.getStatus()).isEqualTo(com.sep.treksphere.matching.enums.GroupContentStatus.HIDDEN);
+            assertThat(publicMoment.getMatchingGroup()).isNull();
+            assertThat(publicMoment.getAuthorMatchingMember()).isNull();
+            assertThat(publicMoment.getVisibility()).isEqualTo(com.sep.treksphere.matching.enums.MomentVisibility.PUBLIC_PROFILE);
+            assertThat(groupOnlyMoment.getStatus()).isEqualTo(com.sep.treksphere.matching.enums.MomentStatus.HIDDEN);
+            assertThat(groupOnlyMoment.getMatchingGroup()).isNull();
+
+            org.mockito.Mockito.verify(groupPostRepository).saveAll(any());
+            org.mockito.Mockito.verify(momentRepository).saveAll(any());
+        }
+    }
+
+    @Nested
+    @DisplayName("Schedule Conflict Validations")
+    class ScheduleConflictTests {
+
+        @Test
+        @DisplayName("Should throw 8179 USER_SCHEDULE_CONFLICT when applicant is already in an overlapping group")
+        void submitApplication_fail_scheduleConflict() {
+            UUID groupId = openTourGroup.getMatchingGroupId();
+            GroupApplicationRequest request = new GroupApplicationRequest("Xin vào nhóm");
+
+            MatchingGroup existingGroup = new MatchingGroup();
+            existingGroup.setMatchingGroupId(UUID.randomUUID());
+            existingGroup.setGroupName("Nhóm Leo Fansipan");
+            existingGroup.setTargetDate(openTourGroup.getTargetDate());
+            existingGroup.setStatus(MatchingGroupStatus.OPEN);
+
+            CustomJourney existingJourney = new CustomJourney();
+            existingJourney.setStartDate(openTourGroup.getTargetDate());
+            existingJourney.setEndDate(openTourGroup.getTargetDate().plusDays(2));
+            existingGroup.setCustomJourney(existingJourney);
+
+            MatchingMember existingMembership = new MatchingMember();
+            existingMembership.setMatchingGroup(existingGroup);
+            existingMembership.setUser(applicantUser);
+            existingMembership.setStatus(JoinStatus.ACCEPTED);
+
+            when(userRepository.findByIdForUpdate(applicantUser.getUserId())).thenReturn(Optional.of(applicantUser));
+            when(matchingGroupRepository.findByIdForUpdate(groupId)).thenReturn(Optional.of(openTourGroup));
+            when(matchingMemberRepository.findActiveMembershipsWithSchedules(
+                    eq(applicantUser.getUserId()),
+                    eq(JoinStatus.ACCEPTED),
+                    any()
+            )).thenReturn(List.of(existingMembership));
+
+            assertThatThrownBy(() -> matchingGroupService.submitApplication(groupId, request, applicantDetails))
+                    .isInstanceOf(AppException.class)
+                    .satisfies(ex -> assertThat(((AppException) ex).getErrorCode())
+                            .isEqualTo(ErrorCode.USER_SCHEDULE_CONFLICT));
+        }
+
+        @Test
+        @DisplayName("Should throw 8180 APPLICANT_SCHEDULE_CONFLICT when approving applicant with overlapping schedule")
+        void approveMember_fail_applicantScheduleConflict() {
+            UUID groupId = openTourGroup.getMatchingGroupId();
+            UUID applicationId = UUID.randomUUID();
+
+            GroupJoinApplication application = new GroupJoinApplication();
+            application.setApplicationId(applicationId);
+            application.setMatchingGroup(openTourGroup);
+            application.setApplicant(applicantUser);
+            application.setStatus(JoinApplicationStatus.PENDING);
+
+            MatchingGroup existingGroup = new MatchingGroup();
+            existingGroup.setMatchingGroupId(UUID.randomUUID());
+            existingGroup.setGroupName("Nhóm Leo Bạch Mộc");
+            existingGroup.setTargetDate(openTourGroup.getTargetDate());
+            existingGroup.setStatus(MatchingGroupStatus.OPEN);
+
+            MatchingMember existingMembership = new MatchingMember();
+            existingMembership.setMatchingGroup(existingGroup);
+            existingMembership.setUser(applicantUser);
+            existingMembership.setStatus(JoinStatus.ACCEPTED);
+
+            MatchingMember leaderMember = new MatchingMember();
+            leaderMember.setMatchingGroup(openTourGroup);
+            leaderMember.setUser(leaderUser);
+            leaderMember.setRole(MatchingRole.LEADER);
+            leaderMember.setStatus(JoinStatus.ACCEPTED);
+
+            when(matchingGroupRepository.findByIdForUpdate(groupId)).thenReturn(Optional.of(openTourGroup));
+            when(userRepository.getReferenceById(leaderUser.getUserId())).thenReturn(leaderUser);
+            when(matchingMemberRepository.findByMatchingGroupAndUser(openTourGroup, leaderUser))
+                    .thenReturn(Optional.of(leaderMember));
+            when(groupJoinApplicationRepository.findDetailById(applicationId)).thenReturn(Optional.of(application));
+            when(matchingMemberRepository.findActiveMembershipsWithSchedules(
+                    eq(applicantUser.getUserId()),
+                    eq(JoinStatus.ACCEPTED),
+                    any()
+            )).thenReturn(List.of(existingMembership));
+
+            assertThatThrownBy(() -> matchingGroupService.approveMember(groupId, applicationId, leaderDetails))
+                    .isInstanceOf(AppException.class)
+                    .satisfies(ex -> assertThat(((AppException) ex).getErrorCode())
+                            .isEqualTo(ErrorCode.APPLICANT_SCHEDULE_CONFLICT));
         }
     }
 }

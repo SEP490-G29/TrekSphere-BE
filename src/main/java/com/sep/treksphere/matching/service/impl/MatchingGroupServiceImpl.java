@@ -5,18 +5,53 @@ import com.sep.treksphere.common.exception.AppException;
 import com.sep.treksphere.common.exception.ErrorCode;
 import com.sep.treksphere.common.security.CustomUserDetails;
 import com.sep.treksphere.common.util.PaginationUtils;
-import com.sep.treksphere.matching.dto.request.*;
+import com.sep.treksphere.matching.dto.request.CustomJourneyCreateRequest;
+import com.sep.treksphere.matching.dto.request.CustomJourneyUpdateRequest;
+import com.sep.treksphere.matching.dto.request.GroupApplicationRequest;
+import com.sep.treksphere.matching.dto.request.MatchingGroupCreateRequest;
+import com.sep.treksphere.matching.dto.request.MatchingGroupFilterRequest;
+import com.sep.treksphere.matching.dto.request.MatchingGroupUpdateRequest;
+import com.sep.treksphere.matching.dto.request.MatchingJoinRequestFilter;
+import com.sep.treksphere.matching.dto.request.MyMatchingGroupFilterRequest;
+import com.sep.treksphere.matching.dto.request.MyMatchingJoinRequestFilter;
+import com.sep.treksphere.matching.dto.request.RejectApplicationRequest;
 import com.sep.treksphere.matching.dto.response.MatchingGroupDetailResponse;
 import com.sep.treksphere.matching.dto.response.MatchingGroupResponse;
 import com.sep.treksphere.matching.dto.response.MatchingMemberResponse;
 import com.sep.treksphere.matching.dto.response.MyMatchingJoinRequestResponse;
-import com.sep.treksphere.matching.entity.*;
-import com.sep.treksphere.matching.enums.*;
+import com.sep.treksphere.matching.entity.CustomJourney;
+import com.sep.treksphere.matching.entity.CustomJourneyCheckpoint;
+import com.sep.treksphere.matching.entity.CustomJourneyCostItem;
+import com.sep.treksphere.matching.entity.GroupExpense;
+import com.sep.treksphere.matching.entity.GroupExpenseShare;
+import com.sep.treksphere.matching.entity.GroupJoinApplication;
+import com.sep.treksphere.matching.entity.GroupPost;
+import com.sep.treksphere.matching.entity.GroupSettlement;
+import com.sep.treksphere.matching.entity.GroupTrip;
+import com.sep.treksphere.matching.entity.MatchingGroup;
+import com.sep.treksphere.matching.entity.MatchingMember;
+import com.sep.treksphere.matching.entity.Moment;
+import com.sep.treksphere.matching.enums.GroupContentStatus;
+import com.sep.treksphere.matching.enums.GroupTripStatus;
+import com.sep.treksphere.matching.enums.JoinApplicationStatus;
+import com.sep.treksphere.matching.enums.JoinStatus;
+import com.sep.treksphere.matching.enums.JourneyDifficulty;
+import com.sep.treksphere.matching.enums.MatchingGroupSourceType;
+import com.sep.treksphere.matching.enums.MatchingGroupStatus;
+import com.sep.treksphere.matching.enums.MatchingRole;
+import com.sep.treksphere.matching.enums.MomentStatus;
+import com.sep.treksphere.matching.enums.MomentVisibility;
+import com.sep.treksphere.matching.enums.SettlementStatus;
 import com.sep.treksphere.matching.mapper.MatchingGroupMapper;
+import com.sep.treksphere.matching.repository.GroupExpenseRepository;
+import com.sep.treksphere.matching.repository.GroupExpenseShareRepository;
 import com.sep.treksphere.matching.repository.GroupJoinApplicationRepository;
+import com.sep.treksphere.matching.repository.GroupPostRepository;
+import com.sep.treksphere.matching.repository.GroupSettlementRepository;
 import com.sep.treksphere.matching.repository.GroupTripRepository;
 import com.sep.treksphere.matching.repository.MatchingGroupRepository;
 import com.sep.treksphere.matching.repository.MatchingMemberRepository;
+import com.sep.treksphere.matching.repository.MomentRepository;
 import com.sep.treksphere.matching.service.GroupVoteService;
 import com.sep.treksphere.matching.service.MatchingGroupService;
 import com.sep.treksphere.notification.NotificationEventType;
@@ -38,9 +73,18 @@ import org.springframework.data.domain.Page;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.util.*;
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Optional;
+import java.util.Set;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 @Service
@@ -62,6 +106,11 @@ public class MatchingGroupServiceImpl implements MatchingGroupService {
     private final ApplicationEventPublisher eventPublisher;
     private final NotificationService notificationService;
     private final GroupVoteService groupVoteService;
+    private final GroupExpenseRepository groupExpenseRepository;
+    private final GroupExpenseShareRepository groupExpenseShareRepository;
+    private final GroupSettlementRepository groupSettlementRepository;
+    private final GroupPostRepository groupPostRepository;
+    private final MomentRepository momentRepository;
 
     @Override
     @Transactional(readOnly = true)
@@ -206,13 +255,18 @@ public class MatchingGroupServiceImpl implements MatchingGroupService {
                 && matchingGroup.getOwner() != null
                 && matchingGroup.getOwner().getUserId().equals(viewerId);
 
+        String myRejectReason = null;
         if (membershipStatus == null && viewerId != null && !isOwner) {
-            boolean hasPending = groupJoinApplicationRepository
-                    .existsByMatchingGroup_MatchingGroupIdAndApplicant_UserIdAndStatusAndIsDeletedFalse(
-                            id, viewerId, JoinApplicationStatus.PENDING
-                    );
-            if (hasPending) {
-                membershipStatus = JoinStatus.PENDING;
+            List<GroupJoinApplication> userApps = groupJoinApplicationRepository
+                    .findByMatchingGroup_MatchingGroupIdAndApplicant_UserIdOrderByCreatedAtDesc(id, viewerId);
+            if (!userApps.isEmpty()) {
+                GroupJoinApplication latestApp = userApps.get(0);
+                if (latestApp.getStatus() == JoinApplicationStatus.PENDING) {
+                    membershipStatus = JoinStatus.PENDING;
+                } else if (latestApp.getStatus() == JoinApplicationStatus.REJECTED) {
+                    membershipStatus = JoinStatus.REJECTED;
+                    myRejectReason = latestApp.getRejectReason();
+                }
             }
         }
 
@@ -264,6 +318,7 @@ public class MatchingGroupServiceImpl implements MatchingGroupService {
         response.setIsOwner(isOwner);
         response.setMyRole(isAcceptedMember && viewerMembership != null ? viewerMembership.getRole() : null);
         response.setMyMembershipStatus(membershipStatus);
+        response.setMyRejectReason(myRejectReason);
         response.setCanJoin(viewerId != null && !isOwner && !hasActiveMembership && groupIsJoinable);
         response.setCanLeave(viewerId != null && !isCurrentLeader && hasActiveMembership);
         
@@ -318,6 +373,12 @@ public class MatchingGroupServiceImpl implements MatchingGroupService {
         if (tour != null && customJourney == null) {
             customJourney = createCustomJourneyFromTour(tour, request, normalizedGroupName, normalizedDescription);
         }
+
+        LocalDate startDate = request.getTargetDate();
+        LocalDate endDate = customJourney != null && customJourney.getEndDate() != null
+                ? customJourney.getEndDate()
+                : startDate;
+        validateNoScheduleConflict(currentUser.getUserId(), startDate, endDate, null, false);
 
         MatchingGroup matchingGroup = matchingGroupMapper.toEntity(request);
         matchingGroup.setTour(tour);
@@ -545,6 +606,71 @@ public class MatchingGroupServiceImpl implements MatchingGroupService {
         return journey;
     }
 
+    private static final List<MatchingGroupStatus> INACTIVE_GROUP_STATUSES = List.of(
+            MatchingGroupStatus.CANCELLED,
+            MatchingGroupStatus.COMPLETED
+    );
+
+    private LocalDate[] resolveGroupDateRange(MatchingGroup mg) {
+        if (mg == null) {
+            return null;
+        }
+        LocalDate start = mg.getTargetDate();
+        LocalDate end = mg.getTargetDate();
+
+        if (mg.getCustomJourney() != null) {
+            if (mg.getCustomJourney().getStartDate() != null) {
+                start = mg.getCustomJourney().getStartDate();
+            }
+            if (mg.getCustomJourney().getEndDate() != null) {
+                end = mg.getCustomJourney().getEndDate();
+            }
+        } else if (mg.getTour() != null) {
+            int durationDays = (mg.getTour().getDurationDays() != null && mg.getTour().getDurationDays() > 0)
+                    ? mg.getTour().getDurationDays()
+                    : 1;
+            end = start.plusDays(durationDays - 1);
+        }
+        return new LocalDate[]{start, end};
+    }
+
+    private boolean isDateRangeOverlapping(LocalDate startA, LocalDate endA, LocalDate startB, LocalDate endB) {
+        if (startA == null || endA == null || startB == null || endB == null) {
+            return false;
+        }
+        return !startA.isAfter(endB) && !endA.isBefore(startB);
+    }
+
+    private void validateNoScheduleConflict(
+            UUID userId,
+            LocalDate startDate,
+            LocalDate endDate,
+            UUID excludeGroupId,
+            boolean isApplicant
+    ) {
+        if (userId == null || startDate == null || endDate == null) {
+            return;
+        }
+        List<MatchingMember> activeMemberships = matchingMemberRepository
+                .findActiveMembershipsWithSchedules(userId, JoinStatus.ACCEPTED, INACTIVE_GROUP_STATUSES);
+
+        for (MatchingMember mm : activeMemberships) {
+            MatchingGroup mg = mm.getMatchingGroup();
+            if (mg == null || (excludeGroupId != null && excludeGroupId.equals(mg.getMatchingGroupId()))) {
+                continue;
+            }
+            LocalDate[] range = resolveGroupDateRange(mg);
+            if (range != null && isDateRangeOverlapping(startDate, endDate, range[0], range[1])) {
+                log.warn("Schedule conflict detected for user {}: target [{}, {}] overlaps with group {} [{}, {}]",
+                        userId, startDate, endDate, mg.getGroupName(), range[0], range[1]);
+                if (isApplicant) {
+                    throw new AppException(ErrorCode.APPLICANT_SCHEDULE_CONFLICT);
+                }
+                throw new AppException(ErrorCode.USER_SCHEDULE_CONFLICT);
+            }
+        }
+    }
+
     private String normalizeNullableText(String value) {
         if (value == null) {
             return null;
@@ -588,6 +714,12 @@ public class MatchingGroupServiceImpl implements MatchingGroupService {
         }
 
         validateGroupOpenAndActive(matchingGroup);
+
+        // Check if user has schedule conflict with another active group
+        LocalDate[] targetRange = resolveGroupDateRange(matchingGroup);
+        if (targetRange != null) {
+            validateNoScheduleConflict(userId, targetRange[0], targetRange[1], groupId, false);
+        }
 
         // Check if user is already an active member of this group
         boolean alreadyActiveMember = matchingMemberRepository
@@ -731,6 +863,12 @@ public class MatchingGroupServiceImpl implements MatchingGroupService {
             throw new AppException(ErrorCode.INVALID_MEMBER_STATUS);
         }
 
+        // Check if applicant has schedule conflict with another active group
+        LocalDate[] targetRange = resolveGroupDateRange(matchingGroup);
+        if (targetRange != null) {
+            validateNoScheduleConflict(application.getApplicant().getUserId(), targetRange[0], targetRange[1], groupId, true);
+        }
+
         long acceptedCount = matchingMemberRepository
                 .countActiveMembersByGroupIdAndStatus(
                         groupId,
@@ -787,6 +925,7 @@ public class MatchingGroupServiceImpl implements MatchingGroupService {
     public MatchingMemberResponse rejectMember(
             UUID groupId,
             UUID applicationId,
+            RejectApplicationRequest request,
             CustomUserDetails userDetails
     ) {
         User currentUser = userDetails.getUser();
@@ -815,6 +954,9 @@ public class MatchingGroupServiceImpl implements MatchingGroupService {
         application.setStatus(JoinApplicationStatus.REJECTED);
         application.setReviewedBy(currentUser);
         application.setReviewedAt(LocalDateTime.now());
+        if (request != null && request.getRejectReason() != null && !request.getRejectReason().isBlank()) {
+            application.setRejectReason(request.getRejectReason().trim());
+        }
 
         GroupJoinApplication savedApp = groupJoinApplicationRepository.save(application);
 
@@ -881,6 +1023,8 @@ public class MatchingGroupServiceImpl implements MatchingGroupService {
             throw new AppException(ErrorCode.OWNER_CANNOT_LEAVE);
         }
 
+        validateMemberHasNoUnsettledExpenses(groupId, member.getMatchingMemberId());
+
         long acceptedCount = matchingMemberRepository
                 .countActiveMembersByGroupIdAndStatus(groupId, JoinStatus.ACCEPTED);
 
@@ -895,6 +1039,7 @@ public class MatchingGroupServiceImpl implements MatchingGroupService {
 
         MatchingMember savedMember = matchingMemberRepository.save(member);
         groupVoteService.handleMemberEligibilityLoss(savedMember);
+        cleanupMemberGroupContent(groupId, member.getMatchingMemberId());
 
         List<UUID> recipientIds = matchingMemberRepository.findActiveMembers(groupId, JoinStatus.ACCEPTED)
                 .stream()
@@ -935,6 +1080,8 @@ public class MatchingGroupServiceImpl implements MatchingGroupService {
             throw new AppException(ErrorCode.MATCHING_MEMBER_CANNOT_REMOVE_LEADER);
         }
 
+        validateMemberHasNoUnsettledExpenses(groupId, target.getMatchingMemberId());
+
         long acceptedCount = matchingMemberRepository
                 .countActiveMembersByGroupIdAndStatus(groupId, JoinStatus.ACCEPTED);
 
@@ -949,6 +1096,7 @@ public class MatchingGroupServiceImpl implements MatchingGroupService {
 
         MatchingMember savedTarget = matchingMemberRepository.save(target);
         groupVoteService.handleMemberEligibilityLoss(savedTarget);
+        cleanupMemberGroupContent(groupId, target.getMatchingMemberId());
 
         notificationService.notify(
                 savedTarget.getUser().getUserId(),
@@ -958,6 +1106,95 @@ public class MatchingGroupServiceImpl implements MatchingGroupService {
                 matchingGroup.getGroupName());
 
         return matchingGroupMapper.toMemberResponse(savedTarget);
+    }
+
+    private void validateMemberHasNoUnsettledExpenses(UUID groupId, UUID memberId) {
+        List<GroupSettlement> settlements = groupSettlementRepository
+                .findByGroupTrip_MatchingGroup_MatchingGroupIdAndIsDeletedFalseOrderByCreatedAtAsc(groupId);
+        boolean hasUnsettledSettlements = settlements.stream()
+                .anyMatch(s -> s.getStatus() != SettlementStatus.CONFIRMED
+                        && ((s.getFromMatchingMember() != null && memberId.equals(s.getFromMatchingMember().getMatchingMemberId()))
+                        || (s.getToMatchingMember() != null && memberId.equals(s.getToMatchingMember().getMatchingMemberId()))));
+        if (hasUnsettledSettlements) {
+            log.warn("Member {} cannot leave/be removed from group {}: has pending settlements", memberId, groupId);
+            throw new AppException(ErrorCode.MEMBER_HAS_UNSETTLED_EXPENSES);
+        }
+
+        List<GroupExpense> expenses = groupExpenseRepository
+                .findByGroupTrip_MatchingGroup_MatchingGroupIdAndIsDeletedFalse(groupId);
+        if (!expenses.isEmpty()) {
+            BigDecimal totalPaid = BigDecimal.ZERO;
+            BigDecimal totalShare = BigDecimal.ZERO;
+
+            for (GroupExpense expense : expenses) {
+                if (Boolean.TRUE.equals(expense.getIsDeleted())) {
+                    continue;
+                }
+                if (expense.getPaidBy() != null && memberId.equals(expense.getPaidBy().getMatchingMemberId())) {
+                    totalPaid = totalPaid.add(expense.getAmount() != null ? expense.getAmount() : BigDecimal.ZERO);
+                }
+                if (expense.getShares() != null) {
+                    for (GroupExpenseShare share : expense.getShares()) {
+                        if (!Boolean.TRUE.equals(share.getIsDeleted())
+                                && share.getMatchingMember() != null
+                                && memberId.equals(share.getMatchingMember().getMatchingMemberId())) {
+                            totalShare = totalShare.add(share.getShareAmount() != null ? share.getShareAmount() : BigDecimal.ZERO);
+                        }
+                    }
+                }
+            }
+
+            BigDecimal confirmedReceived = settlements.stream()
+                    .filter(s -> s.getStatus() == SettlementStatus.CONFIRMED
+                            && s.getToMatchingMember() != null
+                            && memberId.equals(s.getToMatchingMember().getMatchingMemberId()))
+                    .map(GroupSettlement::getAmount)
+                    .filter(Objects::nonNull)
+                    .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+            BigDecimal confirmedPaid = settlements.stream()
+                    .filter(s -> s.getStatus() == SettlementStatus.CONFIRMED
+                            && s.getFromMatchingMember() != null
+                            && memberId.equals(s.getFromMatchingMember().getMatchingMemberId()))
+                    .map(GroupSettlement::getAmount)
+                    .filter(Objects::nonNull)
+                    .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+            BigDecimal netBalance = totalPaid.subtract(totalShare).add(confirmedReceived).subtract(confirmedPaid);
+            if (netBalance.abs().compareTo(new BigDecimal("0.01")) > 0) {
+                log.warn("Member {} cannot leave/be removed from group {}: unsettled net balance = {}", memberId, groupId, netBalance);
+                throw new AppException(ErrorCode.MEMBER_HAS_UNSETTLED_EXPENSES);
+            }
+        }
+    }
+
+    private void cleanupMemberGroupContent(UUID groupId, UUID memberId) {
+        List<GroupPost> posts = groupPostRepository
+                .findByMatchingGroup_MatchingGroupIdAndPostedBy_MatchingMemberIdAndIsDeletedFalse(groupId, memberId);
+        if (!posts.isEmpty()) {
+            for (GroupPost post : posts) {
+                post.setStatus(GroupContentStatus.HIDDEN);
+            }
+            groupPostRepository.saveAll(posts);
+            log.info("Hidden {} posts for member {} in group {}", posts.size(), memberId, groupId);
+        }
+
+        List<Moment> moments = momentRepository
+                .findByMatchingGroup_MatchingGroupIdAndAuthorMatchingMember_MatchingMemberIdAndIsDeletedFalse(groupId, memberId);
+        if (!moments.isEmpty()) {
+            for (Moment moment : moments) {
+                if (moment.getVisibility() == MomentVisibility.PUBLIC_PROFILE) {
+                    moment.setMatchingGroup(null);
+                    moment.setAuthorMatchingMember(null);
+                } else {
+                    moment.setStatus(MomentStatus.HIDDEN);
+                    moment.setMatchingGroup(null);
+                    moment.setAuthorMatchingMember(null);
+                }
+            }
+            momentRepository.saveAll(moments);
+            log.info("Processed {} moments for member {} in group {}", moments.size(), memberId, groupId);
+        }
     }
 
 

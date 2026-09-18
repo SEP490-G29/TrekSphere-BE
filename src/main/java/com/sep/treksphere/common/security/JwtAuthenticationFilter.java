@@ -81,6 +81,11 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                     return;
                 }
 
+                if (!userDetails.isEnabled()) {
+                    sendErrorResponse(response, "Tài khoản của bạn đã bị vô hiệu hoá");
+                    return;
+                }
+
                 if (jwtService.isTokenValid(jwt, userDetails)) {
                     UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(
                             userDetails,
