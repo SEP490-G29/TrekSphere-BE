@@ -43,6 +43,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -323,7 +324,7 @@ public class TourService {
                 .tourName(tour.getTourName())
                 .location(tour.getLocation())
                 .durationDays(tour.getDurationDays())
-                .price(tour.getPrice())
+                .price(tour.getPrice() != null ? tour.getPrice() : BigDecimal.ZERO)
                 .minCapacity(tour.getMinCapacity())
                 .maxCapacity(tour.getMaxCapacity())
                 .totalDistanceKm(tour.getTotalDistanceKm())
@@ -440,7 +441,7 @@ public class TourService {
                 .difficulty(tour.getDifficulty())
                 .location(tour.getLocation())
                 .durationDays(tour.getDurationDays())
-                .price(tour.getPrice())
+                .price(tour.getPrice() != null ? tour.getPrice() : BigDecimal.ZERO)
                 .minCapacity(tour.getMinCapacity())
                 .maxCapacity(tour.getMaxCapacity())
                 .totalDistanceKm(tour.getTotalDistanceKm())
@@ -486,7 +487,7 @@ public class TourService {
                 .difficulty(tour.getDifficulty())
                 .location(tour.getLocation())
                 .durationDays(tour.getDurationDays())
-                .price(tour.getPrice())
+                .price(tour.getPrice() != null ? tour.getPrice() : BigDecimal.ZERO)
                 .minCapacity(tour.getMinCapacity())
                 .maxCapacity(tour.getMaxCapacity())
                 .totalDistanceKm(tour.getTotalDistanceKm())

@@ -70,6 +70,7 @@ public class MatchingGroupDetailResponse {
     /** Role thật của viewer trong nhóm (LEADER/MEMBER) — khác với isOwner (chỉ là người tạo nhóm, cố định). */
     private MatchingRole myRole;
     private JoinStatus myMembershipStatus;
+    private String myRejectReason;
     private Boolean canJoin;
     private Boolean canLeave;
     private Boolean hasConversation;

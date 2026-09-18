@@ -7,6 +7,7 @@ import com.sep.treksphere.matching.dto.request.GroupPostUpdateRequest;
 import com.sep.treksphere.matching.dto.response.GroupPostCommentResponse;
 import com.sep.treksphere.matching.dto.response.GroupPostDetailResponse;
 import com.sep.treksphere.matching.dto.response.GroupPostResponse;
+import com.sep.treksphere.matching.enums.GroupPostType;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 
@@ -14,7 +15,7 @@ import java.util.UUID;
 
 public interface GroupPostService {
 
-    Page<GroupPostResponse> getGroupPosts(UUID groupId, Pageable pageable, UUID currentUserId);
+    Page<GroupPostResponse> getGroupPosts(UUID groupId, GroupPostType postType, Pageable pageable, UUID currentUserId);
 
     GroupPostDetailResponse getGroupPostDetail(UUID groupId, UUID postId, UUID currentUserId);
 
@@ -25,6 +26,8 @@ public interface GroupPostService {
     void deleteGroupPost(UUID groupId, UUID postId, UUID currentUserId);
 
     GroupPostResponse toggleHideGroupPost(UUID groupId, UUID postId, UUID currentUserId);
+
+    GroupPostResponse togglePinGroupPost(UUID groupId, UUID postId, UUID currentUserId);
 
     GroupPostCommentResponse createComment(UUID groupId, UUID postId, GroupPostCommentCreateRequest request, UUID currentUserId);
 

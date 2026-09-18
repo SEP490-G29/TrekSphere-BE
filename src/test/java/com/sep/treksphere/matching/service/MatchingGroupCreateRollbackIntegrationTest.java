@@ -162,6 +162,10 @@ class MatchingGroupCreateRollbackIntegrationTest {
         User owner = new User();
         owner.setEmail("p2-s3-owner-" + UUID.randomUUID() + "@example.com");
         owner.setFullName("P2-S3 Integration Owner");
+        owner.setPhone("0987654321");
+        owner.setDateOfBirth(LocalDate.of(1995, 5, 20));
+        owner.setExperienceLevel(com.sep.treksphere.user.ExperienceLevel.INTERMEDIATE);
+        owner.setPreferredDifficulty(com.sep.treksphere.tour.DifficultyLevel.MODERATE);
         owner.setStatus(UserStatus.ACTIVE);
         owner.setEmailVerified(true);
         owner.setProvider(AuthProvider.LOCAL);

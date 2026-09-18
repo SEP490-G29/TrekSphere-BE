@@ -187,5 +187,22 @@ public interface MatchingMemberRepository extends JpaRepository<MatchingMember, 
             @Param("status") JoinStatus status,
             @Param("groupStatuses") Collection<MatchingGroupStatus> groupStatuses
     );
+
+    @Query("""
+        SELECT mm FROM MatchingMember mm
+        JOIN FETCH mm.matchingGroup mg
+        LEFT JOIN FETCH mg.tour t
+        LEFT JOIN FETCH mg.customJourney cj
+        WHERE mm.user.userId = :userId
+          AND mm.status = :status
+          AND mm.isDeleted = false
+          AND mg.isDeleted = false
+          AND mg.status NOT IN :excludedStatuses
+    """)
+    List<MatchingMember> findActiveMembershipsWithSchedules(
+            @Param("userId") UUID userId,
+            @Param("status") JoinStatus status,
+            @Param("excludedStatuses") Collection<MatchingGroupStatus> excludedStatuses
+    );
 }
 

@@ -331,6 +331,7 @@ public class MessageConstant {
     public static final String CUSTOM_JOURNEY_CHECKPOINT_PROGRESS_NOT_SET = "Điểm dừng này chưa được cập nhật tiến độ nên không thể gỡ";
     public static final String CUSTOM_JOURNEY_PROGRESS_TRIP_NOT_ACTIVE = "Chuyến đi chưa hoặc không còn đang diễn ra nên không thể cập nhật tiến độ điểm dừng";
     public static final String GROUP_DISSOLUTION_TRIP_ALREADY_STARTED = "Chuyến đi đã bắt đầu nên không thể mở biểu quyết giải tán nhóm";
+    public static final String CHECKLIST_LOCKED_TRIP_ACTIVE = "Chuyến đi đang diễn ra hoặc đã kết thúc, không thể thay đổi danh mục đồ dùng";
     public static final String GROUP_VOTE_CREATED_SUCCESS = "Mở bình chọn thành công";
     public static final String GROUP_VOTE_BALLOT_CAST_SUCCESS = "Gửi phiếu bầu thành công";
     public static final String GROUP_VOTE_CLOSED_SUCCESS = "Đóng bình chọn thành công";
@@ -338,6 +339,8 @@ public class MessageConstant {
     public static final String GROUP_VOTES_FETCHED = "Lấy danh sách bình chọn thành công";
     public static final String MATCHING_GROUP_TRIP_STARTED_SUCCESS = "Bắt đầu chuyến đi thành công";
     public static final String MATCHING_GROUP_TRIP_COMPLETED_SUCCESS = "Hoàn thành chuyến đi thành công";
+    public static final String USER_SCHEDULE_CONFLICT = "Bạn đang tham gia một nhóm khác có lịch trình trùng với khoảng thời gian này";
+    public static final String APPLICANT_SCHEDULE_CONFLICT = "Thành viên này đang tham gia một nhóm khác có lịch trình trùng với khoảng thời gian này";
 
     public static final String MATCHING_TOUR_ID_REQUIRED = "Mã tour không được để trống";
     public static final String MATCHING_GROUP_SOURCE_TYPE_REQUIRED = "Loại nguồn của nhóm không được để trống";
@@ -713,6 +716,7 @@ public class MessageConstant {
     public static final String UNAUTHORIZED_SETTLEMENT_CONFIRM = "Chỉ người nhận tiền (Payee) mới có quyền xác nhận quyết toán";
     public static final String UNAUTHORIZED_SETTLEMENT_REJECT = "Chỉ người nhận tiền (Payee) mới có quyền từ chối quyết toán";
     public static final String INVALID_SETTLEMENT_STATUS = "Trạng thái quyết toán không hợp lệ cho thao tác này";
+    public static final String MEMBER_HAS_UNSETTLED_EXPENSES = "Thành viên còn khoản chi phí hoặc quyết toán chưa hoàn tất trong nhóm, không thể rời hoặc xóa khỏi nhóm";
 
     // Moment Messages
     public static final String MOMENT_NOT_FOUND = "Khoảnh khắc không tồn tại";

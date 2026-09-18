@@ -14,6 +14,7 @@ import com.sep.treksphere.matching.entity.GroupPostComment;
 import com.sep.treksphere.matching.entity.MatchingGroup;
 import com.sep.treksphere.matching.entity.MatchingMember;
 import com.sep.treksphere.matching.enums.GroupContentStatus;
+import com.sep.treksphere.matching.enums.GroupPostType;
 import com.sep.treksphere.matching.enums.JoinStatus;
 import com.sep.treksphere.matching.enums.MatchingGroupStatus;
 import com.sep.treksphere.matching.enums.MatchingRole;
@@ -33,6 +34,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -51,7 +53,8 @@ public class GroupPostServiceImpl implements GroupPostService {
 
     @Override
     @Transactional(readOnly = true)
-    public Page<GroupPostResponse> getGroupPosts(UUID groupId, Pageable pageable, UUID currentUserId) {
+    public Page<GroupPostResponse> getGroupPosts(
+            UUID groupId, GroupPostType postType, Pageable pageable, UUID currentUserId) {
         MatchingGroup group = getGroupOrThrow(groupId);
         validateReadPermission(group, currentUserId);
 
@@ -59,10 +62,21 @@ public class GroupPostServiceImpl implements GroupPostService {
 
         Page<GroupPost> posts;
         if (isLeader) {
-            posts = postRepository.findByMatchingGroup_MatchingGroupIdAndIsDeletedFalse(groupId, pageable);
+            if (postType != null) {
+                posts = postRepository.findByMatchingGroup_MatchingGroupIdAndPostTypeAndIsDeletedFalseOrderByIsPinnedDescCreatedAtDesc(
+                        groupId, postType, pageable);
+            } else {
+                posts = postRepository.findByMatchingGroup_MatchingGroupIdAndIsDeletedFalseOrderByIsPinnedDescCreatedAtDesc(
+                        groupId, pageable);
+            }
         } else {
-            posts = postRepository.findByMatchingGroup_MatchingGroupIdAndStatusAndIsDeletedFalse(
-                    groupId, GroupContentStatus.SHOW, pageable);
+            if (postType != null) {
+                posts = postRepository.findByMatchingGroup_MatchingGroupIdAndStatusAndPostTypeAndIsDeletedFalseOrderByIsPinnedDescCreatedAtDesc(
+                        groupId, GroupContentStatus.SHOW, postType, pageable);
+            } else {
+                posts = postRepository.findByMatchingGroup_MatchingGroupIdAndStatusAndIsDeletedFalseOrderByIsPinnedDescCreatedAtDesc(
+                        groupId, GroupContentStatus.SHOW, pageable);
+            }
         }
 
         return posts.map(post -> {
@@ -145,22 +159,45 @@ public class GroupPostServiceImpl implements GroupPostService {
         post.setPostedBy(callerMember);
         post.setStatus(GroupContentStatus.SHOW);
 
+        if (post.getPostType() == null) {
+            post.setPostType(GroupPostType.DISCUSSION);
+        }
+
+        boolean isLeader = callerMember.getRole() == MatchingRole.LEADER;
+        if (Boolean.TRUE.equals(request.getIsPinned()) && isLeader) {
+            post.setIsPinned(true);
+            post.setPinnedAt(LocalDateTime.now());
+        } else {
+            post.setIsPinned(false);
+            post.setPinnedAt(null);
+        }
+
         GroupPost saved = postRepository.save(post);
         log.info("Created post {} in group {} by user {}", saved.getGroupPostId(), groupId, currentUserId);
 
-        if (callerMember.getRole() == MatchingRole.LEADER) {
-            List<UUID> memberIdsToNotify = matchingMemberRepository.findActiveMembers(groupId, JoinStatus.ACCEPTED)
-                    .stream()
-                    .map(m -> m.getUser().getUserId())
-                    .filter(id -> !id.equals(currentUserId))
-                    .toList();
+        List<UUID> memberIdsToNotify = matchingMemberRepository.findActiveMembers(groupId, JoinStatus.ACCEPTED)
+                .stream()
+                .map(m -> m.getUser().getUserId())
+                .filter(id -> !id.equals(currentUserId))
+                .toList();
 
-            notificationService.notify(
-                    memberIdsToNotify,
-                    NotificationEventType.GROUP_POST_ANNOUNCEMENT,
-                    ReferenceType.MATCHING_GROUP, groupId,
-                    "/trekker/my-groups/" + groupId + "?tab=workspace",
-                    group.getGroupName());
+        if (!memberIdsToNotify.isEmpty()) {
+            if (isLeader && saved.getPostType() == GroupPostType.ANNOUNCEMENT) {
+                notificationService.notify(
+                        memberIdsToNotify,
+                        NotificationEventType.GROUP_POST_ANNOUNCEMENT,
+                        ReferenceType.MATCHING_GROUP, groupId,
+                        "/trekker/my-groups/" + groupId + "?tab=workspace",
+                        group.getGroupName());
+            } else {
+                notificationService.notify(
+                        memberIdsToNotify,
+                        NotificationEventType.GROUP_POST_CREATED,
+                        ReferenceType.MATCHING_GROUP, groupId,
+                        "/trekker/my-groups/" + groupId + "?tab=workspace",
+                        callerMember.getUser().getFullName(),
+                        group.getGroupName());
+            }
         }
 
         GroupPostResponse response = postMapper.toPostResponse(saved);
@@ -173,7 +210,7 @@ public class GroupPostServiceImpl implements GroupPostService {
     public GroupPostResponse updateGroupPost(
             UUID groupId, UUID postId, GroupPostUpdateRequest request, UUID currentUserId) {
         getGroupOrThrow(groupId);
-        getCallerMemberOrThrow(groupId, currentUserId);
+        MatchingMember callerMember = getCallerMemberOrThrow(groupId, currentUserId);
 
         GroupPost post = postRepository
                 .findByGroupPostIdAndMatchingGroup_MatchingGroupIdAndIsDeletedFalse(postId, groupId)
@@ -184,8 +221,40 @@ public class GroupPostServiceImpl implements GroupPostService {
         }
 
         postMapper.updatePostEntityFromRequest(request, post);
+
+        if (request.getIsPinned() != null && callerMember.getRole() == MatchingRole.LEADER) {
+            post.setIsPinned(request.getIsPinned());
+            post.setPinnedAt(Boolean.TRUE.equals(request.getIsPinned()) ? LocalDateTime.now() : null);
+        }
+
         GroupPost saved = postRepository.save(post);
         log.info("Updated post {} in group {} by author {}", postId, groupId, currentUserId);
+
+        GroupPostResponse response = postMapper.toPostResponse(saved);
+        response.setCommentCount(commentRepository.countByGroupPost_GroupPostIdAndIsDeletedFalse(postId));
+        return response;
+    }
+
+    @Override
+    @Transactional
+    public GroupPostResponse togglePinGroupPost(UUID groupId, UUID postId, UUID currentUserId) {
+        getGroupOrThrow(groupId);
+        MatchingMember callerMember = getCallerMemberOrThrow(groupId, currentUserId);
+
+        if (callerMember.getRole() != MatchingRole.LEADER) {
+            throw new AppException(ErrorCode.UNAUTHORIZED_POST_ACTION);
+        }
+
+        GroupPost post = postRepository
+                .findByGroupPostIdAndMatchingGroup_MatchingGroupIdAndIsDeletedFalse(postId, groupId)
+                .orElseThrow(() -> new AppException(ErrorCode.POST_NOT_FOUND));
+
+        boolean newPinned = !Boolean.TRUE.equals(post.getIsPinned());
+        post.setIsPinned(newPinned);
+        post.setPinnedAt(newPinned ? LocalDateTime.now() : null);
+
+        GroupPost saved = postRepository.save(post);
+        log.info("Leader {} changed post {} isPinned to {}", currentUserId, postId, newPinned);
 
         GroupPostResponse response = postMapper.toPostResponse(saved);
         response.setCommentCount(commentRepository.countByGroupPost_GroupPostIdAndIsDeletedFalse(postId));

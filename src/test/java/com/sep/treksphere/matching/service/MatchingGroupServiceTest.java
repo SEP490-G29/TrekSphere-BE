@@ -77,6 +77,24 @@ class MatchingGroupServiceTest {
     @Mock
     private com.sep.treksphere.notification.NotificationService notificationService;
 
+    @Mock
+    private com.sep.treksphere.matching.service.GroupVoteService groupVoteService;
+
+    @Mock
+    private com.sep.treksphere.matching.repository.GroupExpenseRepository groupExpenseRepository;
+
+    @Mock
+    private com.sep.treksphere.matching.repository.GroupExpenseShareRepository groupExpenseShareRepository;
+
+    @Mock
+    private com.sep.treksphere.matching.repository.GroupSettlementRepository groupSettlementRepository;
+
+    @Mock
+    private com.sep.treksphere.matching.repository.GroupPostRepository groupPostRepository;
+
+    @Mock
+    private com.sep.treksphere.matching.repository.MomentRepository momentRepository;
+
     @InjectMocks
     private MatchingGroupServiceImpl matchingGroupService;
 

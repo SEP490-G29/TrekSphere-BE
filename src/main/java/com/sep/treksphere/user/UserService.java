@@ -1,5 +1,6 @@
 package com.sep.treksphere.user;
 
+import com.sep.treksphere.auth.RefreshTokenService;
 import com.sep.treksphere.common.constant.MessageConstant;
 import com.sep.treksphere.common.dto.PaginationResponse;
 import com.sep.treksphere.common.exception.AppException;
@@ -28,6 +29,7 @@ public class UserService {
     private final UserMapper userMapper;
     private final FileService fileService;
     private final NotificationService notificationService;
+    private final RefreshTokenService refreshTokenService;
 
     @Transactional(readOnly = true)
     public UserProfileResponse getUserProfile(String email) {
@@ -182,6 +184,10 @@ public class UserService {
 
         user.setStatus(status);
         userRepository.save(user);
+
+        if (status == UserStatus.LOCKED || status == UserStatus.DEACTIVATED) {
+            refreshTokenService.revokeAll(user.getEmail());
+        }
 
         notificationService.notify(
                 user.getUserId(),
