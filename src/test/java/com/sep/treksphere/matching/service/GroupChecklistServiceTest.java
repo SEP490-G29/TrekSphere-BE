@@ -11,9 +11,11 @@ import com.sep.treksphere.matching.dto.response.GroupChecklistSummaryResponse;
 import com.sep.treksphere.matching.entity.GroupChecklistItem;
 import com.sep.treksphere.matching.entity.MatchingGroup;
 import com.sep.treksphere.matching.entity.MatchingMember;
+import com.sep.treksphere.matching.entity.GroupTrip;
 import com.sep.treksphere.matching.enums.*;
 import com.sep.treksphere.matching.mapper.GroupChecklistMapper;
 import com.sep.treksphere.matching.repository.GroupChecklistItemRepository;
+import com.sep.treksphere.matching.repository.GroupTripRepository;
 import com.sep.treksphere.matching.repository.MatchingGroupRepository;
 import com.sep.treksphere.matching.repository.MatchingMemberRepository;
 import com.sep.treksphere.matching.service.impl.GroupChecklistServiceImpl;
@@ -50,6 +52,9 @@ class GroupChecklistServiceTest {
 
     @Mock
     private MatchingMemberRepository matchingMemberRepository;
+
+    @Mock
+    private GroupTripRepository groupTripRepository;
 
     @Spy
     private GroupChecklistMapper checklistMapper = Mappers.getMapper(GroupChecklistMapper.class);
@@ -409,5 +414,106 @@ class GroupChecklistServiceTest {
 
         assertThat(sharedItem.getIsDeleted()).isTrue();
         verify(checklistItemRepository).save(sharedItem);
+    }
+
+    @Test
+    @DisplayName("createChecklistItem - Ném CHECKLIST_LOCKED_TRIP_ACTIVE khi nhóm IN_PROGRESS")
+    void createChecklistItem_WhenGroupInProgress_ThrowsException() {
+        group.setStatus(MatchingGroupStatus.IN_PROGRESS);
+        when(matchingGroupRepository.findById(groupId)).thenReturn(Optional.of(group));
+
+        GroupChecklistItemCreateRequest request = GroupChecklistItemCreateRequest.builder()
+                .title("Áo mưa cứu hộ")
+                .itemScope(ChecklistItemScope.SHARED)
+                .itemTypeCode(ChecklistItemType.CLOTHING)
+                .build();
+
+        assertThatThrownBy(() -> checklistService.createChecklistItem(groupId, request, leaderId))
+                .isInstanceOf(AppException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.CHECKLIST_LOCKED_TRIP_ACTIVE);
+    }
+
+    @Test
+    @DisplayName("createChecklistItem - Ném CHECKLIST_LOCKED_TRIP_ACTIVE khi GroupTrip IN_PROGRESS")
+    void createChecklistItem_WhenTripInProgress_ThrowsException() {
+        group.setStatus(MatchingGroupStatus.OPEN);
+        GroupTrip trip = new GroupTrip();
+        trip.setStatus(GroupTripStatus.IN_PROGRESS);
+
+        when(matchingGroupRepository.findById(groupId)).thenReturn(Optional.of(group));
+        when(groupTripRepository.findByMatchingGroup(group)).thenReturn(Optional.of(trip));
+
+        GroupChecklistItemCreateRequest request = GroupChecklistItemCreateRequest.builder()
+                .title("Đèn pin siêu sáng")
+                .itemScope(ChecklistItemScope.SHARED)
+                .itemTypeCode(ChecklistItemType.ELECTRONICS)
+                .build();
+
+        assertThatThrownBy(() -> checklistService.createChecklistItem(groupId, request, leaderId))
+                .isInstanceOf(AppException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.CHECKLIST_LOCKED_TRIP_ACTIVE);
+    }
+
+    @Test
+    @DisplayName("updateChecklistItem - Ném CHECKLIST_LOCKED_TRIP_ACTIVE khi nhóm IN_PROGRESS")
+    void updateChecklistItem_WhenGroupInProgress_ThrowsException() {
+        group.setStatus(MatchingGroupStatus.IN_PROGRESS);
+        when(matchingGroupRepository.findById(groupId)).thenReturn(Optional.of(group));
+
+        GroupChecklistItemUpdateRequest request = GroupChecklistItemUpdateRequest.builder()
+                .title("Cập nhật tên")
+                .build();
+
+        assertThatThrownBy(() -> checklistService.updateChecklistItem(groupId, sharedItem.getGroupChecklistItemId(), request, leaderId))
+                .isInstanceOf(AppException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.CHECKLIST_LOCKED_TRIP_ACTIVE);
+    }
+
+    @Test
+    @DisplayName("deleteChecklistItem - Ném CHECKLIST_LOCKED_TRIP_ACTIVE khi nhóm IN_PROGRESS")
+    void deleteChecklistItem_WhenGroupInProgress_ThrowsException() {
+        group.setStatus(MatchingGroupStatus.IN_PROGRESS);
+        when(matchingGroupRepository.findById(groupId)).thenReturn(Optional.of(group));
+
+        assertThatThrownBy(() -> checklistService.deleteChecklistItem(groupId, sharedItem.getGroupChecklistItemId(), leaderId))
+                .isInstanceOf(AppException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.CHECKLIST_LOCKED_TRIP_ACTIVE);
+    }
+
+    @Test
+    @DisplayName("updateItemStatus - Thành công đổi trạng thái khi nhóm IN_PROGRESS (Phương án A)")
+    void updateItemStatus_WhenGroupInProgress_Success() {
+        group.setStatus(MatchingGroupStatus.IN_PROGRESS);
+        UUID itemId = personalItem1.getGroupChecklistItemId();
+        GroupChecklistItemStatusUpdateRequest request = GroupChecklistItemStatusUpdateRequest.builder()
+                .status(ChecklistItemStatus.DONE)
+                .build();
+
+        when(matchingGroupRepository.findById(groupId)).thenReturn(Optional.of(group));
+        when(matchingMemberRepository.findActiveMembers(groupId, JoinStatus.ACCEPTED)).thenReturn(List.of(member1));
+        when(checklistItemRepository.findByGroupChecklistItemIdAndMatchingGroup_MatchingGroupIdAndIsDeletedFalse(itemId, groupId))
+                .thenReturn(Optional.of(personalItem1));
+        when(checklistItemRepository.save(any(GroupChecklistItem.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        GroupChecklistItemResponse response = checklistService.updateItemStatus(groupId, itemId, request, member1Id);
+
+        assertThat(response).isNotNull();
+        assertThat(personalItem1.getStatus()).isEqualTo(ChecklistItemStatus.DONE);
+    }
+
+    @Test
+    @DisplayName("updateItemStatus - Ném CHECKLIST_LOCKED_TRIP_ACTIVE khi nhóm COMPLETED")
+    void updateItemStatus_WhenGroupCompleted_ThrowsException() {
+        group.setStatus(MatchingGroupStatus.COMPLETED);
+        UUID itemId = personalItem1.getGroupChecklistItemId();
+        GroupChecklistItemStatusUpdateRequest request = GroupChecklistItemStatusUpdateRequest.builder()
+                .status(ChecklistItemStatus.DONE)
+                .build();
+
+        when(matchingGroupRepository.findById(groupId)).thenReturn(Optional.of(group));
+
+        assertThatThrownBy(() -> checklistService.updateItemStatus(groupId, itemId, request, member1Id))
+                .isInstanceOf(AppException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.CHECKLIST_LOCKED_TRIP_ACTIVE);
     }
 }

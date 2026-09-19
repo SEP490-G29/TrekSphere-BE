@@ -3,6 +3,7 @@ package com.sep.treksphere.matching.repository;
 import com.sep.treksphere.matching.entity.MatchingGroup;
 import com.sep.treksphere.matching.entity.MatchingMember;
 import com.sep.treksphere.matching.enums.JoinStatus;
+import com.sep.treksphere.matching.enums.MatchingGroupStatus;
 import com.sep.treksphere.matching.enums.MatchingRole;
 import com.sep.treksphere.user.User;
 import org.springframework.data.domain.Page;
@@ -142,7 +143,8 @@ public interface MatchingMemberRepository extends JpaRepository<MatchingMember, 
     @Query("""
         SELECT mm FROM MatchingMember mm
         JOIN FETCH mm.user u
-        WHERE mm.matchingGroup.matchingGroupId IN :groupIds
+        JOIN FETCH mm.matchingGroup mg
+        WHERE mg.matchingGroupId IN :groupIds
           AND mm.role = :role
           AND mm.status = :status
           AND mm.isDeleted = false
@@ -151,6 +153,56 @@ public interface MatchingMemberRepository extends JpaRepository<MatchingMember, 
             @Param("groupIds") Collection<UUID> groupIds,
             @Param("role") MatchingRole role,
             @Param("status") JoinStatus status
+    );
+
+    @Query("""
+        SELECT mm FROM MatchingMember mm
+        JOIN FETCH mm.matchingGroup mg
+        JOIN FETCH mm.user u
+        WHERE mm.user.userId = :userId
+          AND mg.matchingGroupId IN :groupIds
+          AND mm.status = :status
+          AND mm.isDeleted = false
+    """)
+    List<MatchingMember> findByUserAndGroupIdsAndStatus(
+            @Param("userId") UUID userId,
+            @Param("groupIds") Collection<UUID> groupIds,
+            @Param("status") JoinStatus status
+    );
+
+    @Query("""
+        SELECT mm FROM MatchingMember mm
+        JOIN FETCH mm.matchingGroup mg
+        JOIN FETCH mm.user u
+        WHERE mm.user.userId = :userId
+          AND mm.role = :role
+          AND mm.status = :status
+          AND mm.isDeleted = false
+          AND mg.status IN :groupStatuses
+          AND mg.isDeleted = false
+    """)
+    List<MatchingMember> findLeaderMembershipsInActiveGroups(
+            @Param("userId") UUID userId,
+            @Param("role") MatchingRole role,
+            @Param("status") JoinStatus status,
+            @Param("groupStatuses") Collection<MatchingGroupStatus> groupStatuses
+    );
+
+    @Query("""
+        SELECT mm FROM MatchingMember mm
+        JOIN FETCH mm.matchingGroup mg
+        LEFT JOIN FETCH mg.tour t
+        LEFT JOIN FETCH mg.customJourney cj
+        WHERE mm.user.userId = :userId
+          AND mm.status = :status
+          AND mm.isDeleted = false
+          AND mg.isDeleted = false
+          AND mg.status NOT IN :excludedStatuses
+    """)
+    List<MatchingMember> findActiveMembershipsWithSchedules(
+            @Param("userId") UUID userId,
+            @Param("status") JoinStatus status,
+            @Param("excludedStatuses") Collection<MatchingGroupStatus> excludedStatuses
     );
 }
 

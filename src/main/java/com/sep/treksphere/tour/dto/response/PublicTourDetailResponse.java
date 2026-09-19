@@ -3,6 +3,7 @@ package com.sep.treksphere.tour.dto.response;
 import com.sep.treksphere.tour.DifficultyLevel;
 import com.sep.treksphere.tour.checkpoint.TourCheckpointResponse;
 import com.sep.treksphere.tour.image.TourImageResponse;
+import com.sep.treksphere.tour.policy.TourParticipationPolicyResponse;
 import com.sep.treksphere.tour.schedule.TourScheduleResponse;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -24,7 +25,7 @@ public class PublicTourDetailResponse {
     private DifficultyLevel difficulty;
     private String location;
     private Integer durationDays;
-    private BigDecimal fromPrice;
+    private BigDecimal price;
     private Integer minCapacity;
     private Integer maxCapacity;
     private BigDecimal totalDistanceKm;
@@ -44,4 +45,5 @@ public class PublicTourDetailResponse {
     private List<TourImageResponse> images;
     private List<TourCheckpointResponse> checkpoints;
     private List<TourScheduleResponse> schedules;
+    private TourParticipationPolicyResponse participationPolicy;
 }

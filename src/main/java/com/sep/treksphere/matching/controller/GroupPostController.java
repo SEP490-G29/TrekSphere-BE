@@ -10,6 +10,7 @@ import com.sep.treksphere.matching.dto.request.GroupPostUpdateRequest;
 import com.sep.treksphere.matching.dto.response.GroupPostCommentResponse;
 import com.sep.treksphere.matching.dto.response.GroupPostDetailResponse;
 import com.sep.treksphere.matching.dto.response.GroupPostResponse;
+import com.sep.treksphere.matching.enums.GroupPostType;
 import com.sep.treksphere.matching.service.GroupPostService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -39,10 +40,11 @@ public class GroupPostController {
     @Operation(summary = "Lấy danh sách bài đăng bảng tin của nhóm (phân trang)")
     public ResponseEntity<ApiResponse<Page<GroupPostResponse>>> getGroupPosts(
             @PathVariable UUID groupId,
+            @RequestParam(required = false) com.sep.treksphere.matching.enums.GroupPostType postType,
             @PageableDefault(sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable,
             @AuthenticationPrincipal CustomUserDetails userDetails) {
         UUID currentUserId = userDetails != null ? userDetails.getUser().getUserId() : null;
-        Page<GroupPostResponse> posts = postService.getGroupPosts(groupId, pageable, currentUserId);
+        Page<GroupPostResponse> posts = postService.getGroupPosts(groupId, postType, pageable, currentUserId);
         return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, posts));
     }
 
@@ -105,6 +107,18 @@ public class GroupPostController {
         UUID currentUserId = userDetails.getUser().getUserId();
         GroupPostResponse post = postService.toggleHideGroupPost(groupId, postId, currentUserId);
         return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, post, MessageConstant.POST_HIDDEN_SUCCESS));
+    }
+
+    @PatchMapping("/{postId}/toggle-pin")
+    @PreAuthorize("hasAuthority('MATCHING_GROUP_PARTICIPATE')")
+    @Operation(summary = "Ghim/Bỏ ghim bài viết (chỉ Leader)")
+    public ResponseEntity<ApiResponse<GroupPostResponse>> togglePinGroupPost(
+            @PathVariable UUID groupId,
+            @PathVariable UUID postId,
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+        UUID currentUserId = userDetails.getUser().getUserId();
+        GroupPostResponse post = postService.togglePinGroupPost(groupId, postId, currentUserId);
+        return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, post, "Cập nhật trạng thái ghim bài viết thành công"));
     }
 
     @PostMapping("/{postId}/comments")

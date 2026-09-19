@@ -129,4 +129,92 @@ class UserServiceTest {
         assertThat(sampleUser.getPreferredAreas()).containsExactly("yen bai", "lai chau");
         assertThat(sampleUser.getSkills()).containsExactly("survival", "first aid", "climbing");
     }
+
+    @Test
+    @DisplayName("Cập nhật số điện thoại thành công khi số điện thoại chưa tồn tại")
+    void updateProfile_WithNewPhone_Success() {
+        UpdateProfileRequest request = new UpdateProfileRequest();
+        request.setPhone("0912345678");
+
+        when(userRepository.findByEmail("trekker@example.com")).thenReturn(Optional.of(sampleUser));
+        when(userRepository.existsByPhoneInAndUserIdNot(List.of("0912345678", "+84912345678", "84912345678"), sampleUserId)).thenReturn(false);
+        when(userMapper.toUserProfileResponse(sampleUser)).thenReturn(new UserProfileResponse());
+
+        userService.updateProfile("trekker@example.com", request, null);
+
+        assertThat(sampleUser.getPhone()).isEqualTo("0912345678");
+    }
+
+    @Test
+    @DisplayName("Cập nhật số điện thoại với định dạng +84 được chuẩn hóa về 0 và lưu thành công")
+    void updateProfile_WithPlus84Phone_NormalizesTo0_Success() {
+        UpdateProfileRequest request = new UpdateProfileRequest();
+        request.setPhone("+84837319199");
+
+        when(userRepository.findByEmail("trekker@example.com")).thenReturn(Optional.of(sampleUser));
+        when(userRepository.existsByPhoneInAndUserIdNot(List.of("0837319199", "+84837319199", "84837319199"), sampleUserId)).thenReturn(false);
+        when(userMapper.toUserProfileResponse(sampleUser)).thenReturn(new UserProfileResponse());
+
+        userService.updateProfile("trekker@example.com", request, null);
+
+        assertThat(sampleUser.getPhone()).isEqualTo("0837319199");
+    }
+
+    @Test
+    @DisplayName("Cập nhật số điện thoại thất bại khi số điện thoại đã tồn tại ở tài khoản khác -> PHONE_EXISTED")
+    void updateProfile_WithDuplicatePhone_ThrowsPhoneExisted() {
+        UpdateProfileRequest request = new UpdateProfileRequest();
+        request.setPhone("+84837319199");
+
+        when(userRepository.findByEmail("trekker@example.com")).thenReturn(Optional.of(sampleUser));
+        when(userRepository.existsByPhoneInAndUserIdNot(List.of("0837319199", "+84837319199", "84837319199"), sampleUserId)).thenReturn(true);
+
+        assertThatThrownBy(() -> userService.updateProfile("trekker@example.com", request, null))
+                .isInstanceOf(AppException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.PHONE_EXISTED);
+    }
+
+    @Test
+    @DisplayName("Cùng một user đổi định dạng số điện thoại giữa +84 và 0 không bị báo lỗi trùng")
+    void updateProfile_SameUserChangingFormat_Success() {
+        sampleUser.setPhone("0987654321");
+
+        UpdateProfileRequest request = new UpdateProfileRequest();
+        request.setPhone("+84987654321"); // Cùng một số, khác định dạng
+
+        when(userRepository.findByEmail("trekker@example.com")).thenReturn(Optional.of(sampleUser));
+        when(userMapper.toUserProfileResponse(sampleUser)).thenReturn(new UserProfileResponse());
+
+        userService.updateProfile("trekker@example.com", request, null);
+
+        assertThat(sampleUser.getPhone()).isEqualTo("0987654321");
+    }
+
+    @Test
+    @DisplayName("Cập nhật ngày sinh chưa đủ 18 tuổi -> Bắn AppException VALIDATION_ERROR")
+    void updateProfile_Underage_ThrowsValidationError() {
+        UpdateProfileRequest request = new UpdateProfileRequest();
+        request.setDateOfBirth(java.time.LocalDate.now().minusYears(17));
+
+        when(userRepository.findByEmail("trekker@example.com")).thenReturn(Optional.of(sampleUser));
+
+        assertThatThrownBy(() -> userService.updateProfile("trekker@example.com", request, null))
+                .isInstanceOf(AppException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.VALIDATION_ERROR);
+    }
+
+    @Test
+    @DisplayName("Cập nhật ngày sinh đủ 18 tuổi trở lên -> Thành công")
+    void updateProfile_ValidAge_Success() {
+        java.time.LocalDate validDob = java.time.LocalDate.now().minusYears(20);
+        UpdateProfileRequest request = new UpdateProfileRequest();
+        request.setDateOfBirth(validDob);
+
+        when(userRepository.findByEmail("trekker@example.com")).thenReturn(Optional.of(sampleUser));
+        when(userMapper.toUserProfileResponse(sampleUser)).thenReturn(new UserProfileResponse());
+
+        userService.updateProfile("trekker@example.com", request, null);
+
+        assertThat(sampleUser.getDateOfBirth()).isEqualTo(validDob);
+    }
 }

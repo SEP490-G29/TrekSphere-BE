@@ -1,5 +1,6 @@
 package com.sep.treksphere.report;
 
+import com.sep.treksphere.user.User;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
 
@@ -17,7 +18,51 @@ public abstract class ReportMapper {
     @Mapping(target = "targetId", expression = "java(determineTargetId(report))")
     @Mapping(target = "targetTitle", expression = "java(determineTargetTitle(report))")
     @Mapping(target = "targetContent", expression = "java(determineTargetContent(report))")
+    @Mapping(target = "targetAuthorId", expression = "java(determineTargetAuthorId(report))")
+    @Mapping(target = "targetAuthorFullName", expression = "java(determineTargetAuthorFullName(report))")
+    @Mapping(target = "targetAuthorEmail", expression = "java(determineTargetAuthorEmail(report))")
+    @Mapping(target = "targetAuthorAvatar", expression = "java(determineTargetAuthorAvatar(report))")
+    @Mapping(target = "targetAuthorStatus", expression = "java(determineTargetAuthorStatus(report))")
+    @Mapping(target = "targetAuthorTrustScore", expression = "java(determineTargetAuthorTrustScore(report))")
     public abstract ReportResponse toReportResponse(ReportContent report);
+
+    protected User extractAuthor(ReportContent report) {
+        if (report == null) return null;
+        if (report.getBlog() != null) return report.getBlog().getUser();
+        if (report.getBlogComment() != null) return report.getBlogComment().getUser();
+        if (report.getTour() != null) return report.getTour().getCreator();
+        return null;
+    }
+
+    protected UUID determineTargetAuthorId(ReportContent report) {
+        User author = extractAuthor(report);
+        return author != null ? author.getUserId() : null;
+    }
+
+    protected String determineTargetAuthorFullName(ReportContent report) {
+        User author = extractAuthor(report);
+        return author != null ? author.getFullName() : null;
+    }
+
+    protected String determineTargetAuthorEmail(ReportContent report) {
+        User author = extractAuthor(report);
+        return author != null ? author.getEmail() : null;
+    }
+
+    protected String determineTargetAuthorAvatar(ReportContent report) {
+        User author = extractAuthor(report);
+        return author != null ? author.getAvatarUrl() : null;
+    }
+
+    protected String determineTargetAuthorStatus(ReportContent report) {
+        User author = extractAuthor(report);
+        return (author != null && author.getStatus() != null) ? author.getStatus().name() : null;
+    }
+
+    protected Short determineTargetAuthorTrustScore(ReportContent report) {
+        User author = extractAuthor(report);
+        return author != null ? author.getTrustScore() : null;
+    }
 
     protected ReportTargetType determineTargetType(ReportContent report) {
         if (report.getBlog() != null) return ReportTargetType.BLOG;

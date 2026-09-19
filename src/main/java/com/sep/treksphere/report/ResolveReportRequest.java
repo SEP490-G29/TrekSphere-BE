@@ -1,5 +1,7 @@
 package com.sep.treksphere.report;
 
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
 import lombok.Data;
 
@@ -10,4 +12,8 @@ public class ResolveReportRequest {
     private ReportAction action;
 
     private String resolutionNotes;
+
+    @Min(value = 0, message = "Điểm trừ không được âm")
+    @Max(value = 100, message = "Điểm trừ không được vượt quá 100")
+    private Integer penaltyTrustScore;
 }

@@ -5,7 +5,6 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 
@@ -19,7 +18,6 @@ public class TourScheduleResponse {
     private String tourId;
     private LocalDate departureDate;
     private LocalDate returnDate;
-    private BigDecimal price;
     private ScheduleStatus status;
     private String cancellationReason;
     private LocalDateTime cancelledAt;

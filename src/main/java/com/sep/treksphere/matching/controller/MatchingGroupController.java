@@ -4,7 +4,14 @@ import com.sep.treksphere.common.constant.MessageConstant;
 import com.sep.treksphere.common.dto.ApiResponse;
 import com.sep.treksphere.common.dto.PaginationResponse;
 import com.sep.treksphere.common.security.CustomUserDetails;
-import com.sep.treksphere.matching.dto.request.*;
+import com.sep.treksphere.matching.dto.request.GroupApplicationRequest;
+import com.sep.treksphere.matching.dto.request.MatchingGroupCreateRequest;
+import com.sep.treksphere.matching.dto.request.MatchingGroupFilterRequest;
+import com.sep.treksphere.matching.dto.request.MatchingGroupUpdateRequest;
+import com.sep.treksphere.matching.dto.request.MatchingJoinRequestFilter;
+import com.sep.treksphere.matching.dto.request.MyMatchingGroupFilterRequest;
+import com.sep.treksphere.matching.dto.request.MyMatchingJoinRequestFilter;
+import com.sep.treksphere.matching.dto.request.RejectApplicationRequest;
 import com.sep.treksphere.matching.dto.response.MatchingGroupDetailResponse;
 import com.sep.treksphere.matching.dto.response.MatchingGroupResponse;
 import com.sep.treksphere.matching.dto.response.MatchingMemberResponse;
@@ -20,7 +27,16 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.ModelAttribute;
+import org.springframework.web.bind.annotation.PatchMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
 
 import java.util.UUID;
 
@@ -273,8 +289,9 @@ public class MatchingGroupController {
     public ResponseEntity<ApiResponse<MatchingMemberResponse>> rejectMember(
             @Parameter(description = "UUID của nhóm ghép") @PathVariable UUID groupId,
             @Parameter(description = "UUID của bản ghi thành viên cần từ chối") @PathVariable UUID memberId,
+            @Valid @RequestBody(required = false) RejectApplicationRequest request,
             @AuthenticationPrincipal CustomUserDetails userDetails) {
-        MatchingMemberResponse result = matchingGroupService.rejectMember(groupId, memberId, userDetails);
+        MatchingMemberResponse result = matchingGroupService.rejectMember(groupId, memberId, request, userDetails);
         return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, result, MessageConstant.MATCHING_MEMBER_REJECTED_SUCCESS));
     }
 

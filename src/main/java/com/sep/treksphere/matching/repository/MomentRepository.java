@@ -37,4 +37,7 @@ public interface MomentRepository extends JpaRepository<Moment, UUID> {
 
     Page<Moment> findByAuthorUser_UserIdAndVisibilityAndStatusAndIsDeletedFalse(
             UUID userId, MomentVisibility visibility, MomentStatus status, Pageable pageable);
+
+    List<Moment> findByMatchingGroup_MatchingGroupIdAndAuthorMatchingMember_MatchingMemberIdAndIsDeletedFalse(
+            UUID matchingGroupId, UUID matchingMemberId);
 }

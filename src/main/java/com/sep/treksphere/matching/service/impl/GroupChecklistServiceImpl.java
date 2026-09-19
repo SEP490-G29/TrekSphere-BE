@@ -11,9 +11,16 @@ import com.sep.treksphere.matching.dto.response.GroupChecklistSummaryResponse;
 import com.sep.treksphere.matching.entity.GroupChecklistItem;
 import com.sep.treksphere.matching.entity.MatchingGroup;
 import com.sep.treksphere.matching.entity.MatchingMember;
-import com.sep.treksphere.matching.enums.*;
+import com.sep.treksphere.matching.enums.ChecklistItemScope;
+import com.sep.treksphere.matching.enums.ChecklistItemStatus;
+import com.sep.treksphere.matching.enums.ChecklistItemType;
+import com.sep.treksphere.matching.enums.GroupTripStatus;
+import com.sep.treksphere.matching.enums.JoinStatus;
+import com.sep.treksphere.matching.enums.MatchingGroupStatus;
+import com.sep.treksphere.matching.enums.MatchingRole;
 import com.sep.treksphere.matching.mapper.GroupChecklistMapper;
 import com.sep.treksphere.matching.repository.GroupChecklistItemRepository;
+import com.sep.treksphere.matching.repository.GroupTripRepository;
 import com.sep.treksphere.matching.repository.MatchingGroupRepository;
 import com.sep.treksphere.matching.repository.MatchingMemberRepository;
 import com.sep.treksphere.matching.service.GroupChecklistService;
@@ -35,6 +42,7 @@ public class GroupChecklistServiceImpl implements GroupChecklistService {
     private final GroupChecklistItemRepository checklistItemRepository;
     private final MatchingGroupRepository matchingGroupRepository;
     private final MatchingMemberRepository matchingMemberRepository;
+    private final GroupTripRepository groupTripRepository;
     private final GroupChecklistMapper checklistMapper;
 
     @Override
@@ -105,6 +113,7 @@ public class GroupChecklistServiceImpl implements GroupChecklistService {
     public GroupChecklistItemResponse createChecklistItem(
             UUID groupId, GroupChecklistItemCreateRequest request, UUID currentUserId) {
         MatchingGroup group = getGroupOrThrow(groupId);
+        validateChecklistModifiable(group);
         MatchingMember callerMember = getCallerMemberOrThrow(groupId, currentUserId);
 
         GroupChecklistItem item = checklistMapper.toEntity(request);
@@ -131,7 +140,8 @@ public class GroupChecklistServiceImpl implements GroupChecklistService {
     @Transactional
     public GroupChecklistItemResponse updateChecklistItem(
             UUID groupId, UUID itemId, GroupChecklistItemUpdateRequest request, UUID currentUserId) {
-        getGroupOrThrow(groupId);
+        MatchingGroup group = getGroupOrThrow(groupId);
+        validateChecklistModifiable(group);
         MatchingMember callerMember = getCallerMemberOrThrow(groupId, currentUserId);
 
         GroupChecklistItem item = checklistItemRepository
@@ -162,7 +172,8 @@ public class GroupChecklistServiceImpl implements GroupChecklistService {
     @Transactional
     public GroupChecklistItemResponse updateItemStatus(
             UUID groupId, UUID itemId, GroupChecklistItemStatusUpdateRequest request, UUID currentUserId) {
-        getGroupOrThrow(groupId);
+        MatchingGroup group = getGroupOrThrow(groupId);
+        validateChecklistStatusToggleable(group);
         MatchingMember callerMember = getCallerMemberOrThrow(groupId, currentUserId);
 
         GroupChecklistItem item = checklistItemRepository
@@ -181,7 +192,8 @@ public class GroupChecklistServiceImpl implements GroupChecklistService {
     @Override
     @Transactional
     public void deleteChecklistItem(UUID groupId, UUID itemId, UUID currentUserId) {
-        getGroupOrThrow(groupId);
+        MatchingGroup group = getGroupOrThrow(groupId);
+        validateChecklistModifiable(group);
         MatchingMember callerMember = getCallerMemberOrThrow(groupId, currentUserId);
 
         GroupChecklistItem item = checklistItemRepository
@@ -300,5 +312,30 @@ public class GroupChecklistServiceImpl implements GroupChecklistService {
                 || filter.getAssigneeMatchingMemberId() != null
                 || filter.getIsRequired() != null
                 || (filter.getKeyword() != null && !filter.getKeyword().isBlank());
+    }
+
+    private void validateChecklistModifiable(MatchingGroup group) {
+        if (group.getStatus() == MatchingGroupStatus.IN_PROGRESS
+                || group.getStatus() == MatchingGroupStatus.COMPLETED
+                || group.getStatus() == MatchingGroupStatus.CANCELLED) {
+            throw new AppException(ErrorCode.CHECKLIST_LOCKED_TRIP_ACTIVE);
+        }
+        groupTripRepository.findByMatchingGroup(group)
+                .filter(trip -> trip.getStatus() != GroupTripStatus.PLANNED)
+                .ifPresent(trip -> {
+                    throw new AppException(ErrorCode.CHECKLIST_LOCKED_TRIP_ACTIVE);
+                });
+    }
+
+    private void validateChecklistStatusToggleable(MatchingGroup group) {
+        if (group.getStatus() == MatchingGroupStatus.COMPLETED
+                || group.getStatus() == MatchingGroupStatus.CANCELLED) {
+            throw new AppException(ErrorCode.CHECKLIST_LOCKED_TRIP_ACTIVE);
+        }
+        groupTripRepository.findByMatchingGroup(group)
+                .filter(trip -> trip.getStatus() == GroupTripStatus.ENDED || trip.getStatus() == GroupTripStatus.CANCELLED)
+                .ifPresent(trip -> {
+                    throw new AppException(ErrorCode.CHECKLIST_LOCKED_TRIP_ACTIVE);
+                });
     }
 }

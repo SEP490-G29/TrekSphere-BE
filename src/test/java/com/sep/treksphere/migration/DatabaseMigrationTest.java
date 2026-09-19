@@ -20,6 +20,7 @@ import java.util.Map;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class DatabaseMigrationTest {
@@ -31,10 +32,12 @@ class DatabaseMigrationTest {
                     .dataSource(postgres.getPostgresDatabase())
                     .locations("classpath:db/migration")
                     .load();
-            assertEquals(22, flyway.migrate().migrationsExecuted);
+            assertEquals(24, flyway.migrate().migrationsExecuted);
 
             try (Connection connection = postgres.getPostgresDatabase().getConnection()) {
                 assertTrue(hasColumn(connection, "tour", "published_at"));
+                assertTrue(hasColumn(connection, "tour", "price"));
+                assertFalse(hasColumn(connection, "tour_schedule", "price"));
                 assertTrue(hasColumn(connection, "tour_schedule", "cancellation_reason"));
                 assertTrue(hasColumn(connection, "message", "attachment_url"));
                 assertTrue(hasColumn(connection, "vendor_application", "reviewed_by"));
@@ -79,19 +82,19 @@ class DatabaseMigrationTest {
             jdbc.update("""
                     INSERT INTO tour (
                         tour_id, vendor_id, tour_name, description, duration_days,
-                        min_capacity, max_capacity, difficulty, status, cover_image_url,
+                        min_capacity, max_capacity, price, difficulty, status, cover_image_url,
                         location, creator_id, is_deleted, published_at
                     ) VALUES (?, ?, 'Fansipan test', 'Tour for native query testing', 2,
-                              4, 12, 'MODERATE', 'PUBLISHED', 'https://example.com/cover.jpg',
+                              4, 12, 2500000, 'MODERATE', 'PUBLISHED', 'https://example.com/cover.jpg',
                               'Sa Pa, Lao Cai', ?, FALSE, CURRENT_TIMESTAMP)
                     """, tourId, vendorId,
                     UUID.fromString("1a2b3c4d-0003-4a1b-9c2d-000000000003"));
             jdbc.update("""
                     INSERT INTO tour_schedule (
                         tour_schedule_id, tour_id, departure_date, return_date,
-                        price, status, is_deleted
+                        status, is_deleted
                     ) VALUES (?, ?, CURRENT_DATE + 30, CURRENT_DATE + 31,
-                              2500000, 'OPEN', FALSE)
+                              'OPEN', FALSE)
                     """, UUID.fromString("4d5e6f70-0001-4d4e-8f50-000000000001"), tourId);
 
             Query statsAnnotation = VendorTourStatisticsRepository.class.getMethod(

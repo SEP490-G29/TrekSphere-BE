@@ -1,6 +1,7 @@
 package com.sep.treksphere.matching.dto.response;
 
 import com.sep.treksphere.matching.enums.GroupContentStatus;
+import com.sep.treksphere.matching.enums.GroupPostType;
 import com.sep.treksphere.matching.enums.MatchingRole;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -25,6 +26,10 @@ public class GroupPostResponse {
     private String postedByFullName;
     private String postedByAvatarUrl;
     private MatchingRole postedByRole;
+
+    private GroupPostType postType;
+    private Boolean isPinned;
+    private LocalDateTime pinnedAt;
 
     private String title;
     private String content;

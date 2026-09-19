@@ -29,7 +29,7 @@ public class TourCheckpointService {
 
     @Transactional(readOnly = true)
     public List<TourCheckpointResponse> getCheckpointsByTourId(UUID tourId) {
-        Tour tour = tourRepository.findPublishedDetailById(tourId)
+        Tour tour = tourRepository.findByTourIdAndIsDeletedFalse(tourId)
                 .orElseThrow(() -> new AppException(ErrorCode.TOUR_NOT_FOUND));
 
         List<TourCheckpoint> checkpoints = tourCheckpointRepository

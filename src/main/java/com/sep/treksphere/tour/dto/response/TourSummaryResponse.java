@@ -20,7 +20,7 @@ public class TourSummaryResponse {
     private String tourName;
     private String location;
     private Integer durationDays;
-    private BigDecimal fromPrice;
+    private BigDecimal price;
     private Integer minCapacity;
     private Integer maxCapacity;
     private BigDecimal totalDistanceKm;

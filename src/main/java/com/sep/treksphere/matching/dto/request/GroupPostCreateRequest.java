@@ -1,6 +1,7 @@
 package com.sep.treksphere.matching.dto.request;
 
 import com.sep.treksphere.common.constant.MessageConstant;
+import com.sep.treksphere.matching.enums.GroupPostType;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
@@ -17,6 +18,12 @@ import java.util.List;
 @AllArgsConstructor
 @Schema(description = "Request tạo bài đăng trong không gian làm việc nhóm")
 public class GroupPostCreateRequest {
+
+    @Schema(description = "Loại bài đăng", example = "DISCUSSION")
+    private GroupPostType postType;
+
+    @Schema(description = "Ghim bài viết (chỉ Leader)", example = "false")
+    private Boolean isPinned;
 
     @Size(max = 200, message = MessageConstant.POST_TITLE_MAX_LENGTH)
     @Schema(description = "Tiêu đề bài đăng (tùy chọn)", example = "Cập nhật tình hình thời tiết đỉnh Tà Xùa")

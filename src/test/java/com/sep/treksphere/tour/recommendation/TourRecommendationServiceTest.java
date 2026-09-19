@@ -15,9 +15,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 
-import java.math.BigDecimal;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -239,9 +237,7 @@ class TourRecommendationServiceTest {
     }
 
     private void stubTourResponse(Tour tour) {
-        when(tourService.loadFromPrices(anyList()))
-                .thenReturn(Map.of(tourId, BigDecimal.valueOf(2_000_000)));
-        when(tourService.toSummaryResponse(eq(tour), any()))
+        when(tourService.toSummaryResponse(eq(tour)))
                 .thenReturn(TourSummaryResponse.builder()
                         .tourId(tourId.toString())
                         .location(tour.getLocation())

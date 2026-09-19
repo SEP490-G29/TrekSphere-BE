@@ -31,12 +31,13 @@ import com.sep.treksphere.user.User;
 import com.sep.treksphere.user.UserRepository;
 import com.sep.treksphere.vendor.Vendor;
 import com.sep.treksphere.vendor.VendorAccessService;
+import com.sep.treksphere.tour.policy.TourParticipationPolicy;
+import com.sep.treksphere.tour.policy.TourParticipationPolicyRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
-import org.springframework.data.jpa.domain.JpaSort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
@@ -45,8 +46,12 @@ import org.springframework.web.multipart.MultipartFile;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.util.*;
-import java.util.stream.Collectors;
+import java.util.ArrayList;
+import java.util.EnumSet;
+import java.util.List;
+import java.util.Optional;
+import java.util.Set;
+import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -59,22 +64,13 @@ public class TourService {
             MatchingGroupStatus.IN_PROGRESS);
     private static final List<TourStatus> VENDOR_VISIBLE_STATUSES = List.of(TourStatus.values());
     private static final Set<String> PUBLIC_SORT_FIELDS = Set.of(
-            "createdAt", "publishedAt", "tourName", "difficulty", "durationDays");
-    /**
-     * Giá không phải cột thật trên {@code Tour} — là MIN(schedule.price) tính qua subquery, nên
-     * không thể gộp vào {@link #PUBLIC_SORT_FIELDS} (chỉ dùng được với property thật của entity).
-     * Phải xử lý riêng bằng {@link JpaSort#unsafe}.
-     */
-    private static final String PRICE_SORT_FIELD = "fromPrice";
-    private static final String PRICE_SORT_EXPRESSION =
-            "(SELECT MIN(ts.price) FROM TourSchedule ts WHERE ts.tour = t "
-            + "AND ts.status = com.sep.treksphere.tour.schedule.ScheduleStatus.OPEN "
-            + "AND ts.departureDate >= CURRENT_DATE AND ts.isDeleted = false)";
+            "createdAt", "publishedAt", "tourName", "difficulty", "durationDays", "price");
 
     private final TourRepository tourRepository;
     private final TourImageRepository tourImageRepository;
     private final TourCheckpointRepository tourCheckpointRepository;
     private final TourScheduleRepository tourScheduleRepository;
+    private final TourParticipationPolicyRepository tourParticipationPolicyRepository;
     private final NotificationService notificationService;
     private final MatchingGroupRepository matchingGroupRepository;
     private final UserRepository userRepository;
@@ -96,21 +92,10 @@ public class TourService {
             String sortBy,
             String sortDir) {
         String requestedSort = StringUtils.hasText(sortBy) ? sortBy.trim() : "publishedAt";
-        boolean isPriceSort = PRICE_SORT_FIELD.equals(requestedSort);
-        String validSortBy = (PUBLIC_SORT_FIELDS.contains(requestedSort) || isPriceSort)
-                ? requestedSort : "publishedAt";
-        Sort sort = isPriceSort
-                // NULLS LAST tường minh cho cả 2 chiều: mặc định Postgres coi NULL là "lớn nhất"
-                // (NULLS LAST khi ASC, NULLS FIRST khi DESC) — nếu không ép, tour chưa có schedule
-                // OPEN nào (fromPrice = null) sẽ nhảy lên đầu khi sort DESC, làm sai kết quả "giá
-                // cao nhất" (vd dùng cho thanh lọc khoảng giá).
-                ? Sort.by(JpaSort.unsafe(
-                        "asc".equalsIgnoreCase(sortDir) ? Sort.Direction.ASC : Sort.Direction.DESC,
-                        PRICE_SORT_EXPRESSION)
-                        .stream().findFirst().orElseThrow().nullsLast())
-                : ("asc".equalsIgnoreCase(sortDir)
-                        ? Sort.by(validSortBy).ascending()
-                        : Sort.by(validSortBy).descending());
+        String validSortBy = PUBLIC_SORT_FIELDS.contains(requestedSort) ? requestedSort : "publishedAt";
+        Sort sort = "asc".equalsIgnoreCase(sortDir)
+                ? Sort.by(validSortBy).ascending()
+                : Sort.by(validSortBy).descending();
         Pageable pageable = PageRequest.of(Math.max(page, 0), Math.min(Math.max(size, 1), 100), sort);
 
         Page<Tour> tourPage = tourRepository.searchTours(
@@ -122,9 +107,7 @@ public class TourService {
                 returnDate,
                 vendorId,
                 pageable);
-        Map<UUID, BigDecimal> fromPrices = loadFromPrices(tourPage.getContent());
-        return PaginationUtils.toPaginationResponse(
-                tourPage.map(tour -> toSummaryResponse(tour, fromPrices.get(tour.getTourId()))));
+        return PaginationUtils.toPaginationResponse(tourPage.map(this::toSummaryResponse));
     }
 
     @Transactional(readOnly = true)
@@ -134,7 +117,8 @@ public class TourService {
         List<TourImage> images = activeImages(tour);
         List<TourCheckpoint> checkpoints = activeCheckpoints(tour);
         List<TourSchedule> schedules = upcomingSchedules(tour);
-        return toPublicDetailResponse(tour, images, checkpoints, schedules, minPriceOf(schedules));
+        TourParticipationPolicy policy = activePolicy(tour);
+        return toPublicDetailResponse(tour, images, checkpoints, schedules, policy);
     }
 
     @Transactional(readOnly = true)
@@ -142,9 +126,7 @@ public class TourService {
         Vendor vendor = vendorAccessService.resolveByManagerEmail(userEmail);
         Page<Tour> page = tourRepository.findByVendorIdForOwner(
                 vendor.getVendorId(), VENDOR_VISIBLE_STATUSES, normalize(request.getKeyword()), request.getPageable());
-        Map<UUID, BigDecimal> fromPrices = loadFromPrices(page.getContent());
-        return PaginationUtils.toPaginationResponse(
-                page.map(tour -> toSummaryResponse(tour, fromPrices.get(tour.getTourId()))));
+        return PaginationUtils.toPaginationResponse(page.map(this::toSummaryResponse));
     }
 
     @Transactional(readOnly = true)
@@ -171,6 +153,10 @@ public class TourService {
             tour.setCoverImageUrl(fileService.uploadFile(coverImage, "tours"));
         }
         tour = tourRepository.save(tour);
+        if (request.getParticipationPolicy() != null) {
+            TourParticipationPolicy policy = tourMapper.toParticipationPolicy(request.getParticipationPolicy(), tour);
+            tourParticipationPolicyRepository.save(policy);
+        }
         saveGallery(tour, tourImages);
         return loadVendorDetail(tour);
     }
@@ -194,6 +180,18 @@ public class TourService {
             readinessService.validatePublishedStructure(tour);
         }
         tour = tourRepository.save(tour);
+        if (request.getParticipationPolicy() != null) {
+            Optional<TourParticipationPolicy> existingPolicyOpt = tourParticipationPolicyRepository
+                    .findByTour_TourIdAndIsDeletedFalse(tourId);
+            if (existingPolicyOpt.isPresent()) {
+                TourParticipationPolicy existingPolicy = existingPolicyOpt.get();
+                tourMapper.updateParticipationPolicy(request.getParticipationPolicy(), existingPolicy);
+                tourParticipationPolicyRepository.save(existingPolicy);
+            } else {
+                TourParticipationPolicy newPolicy = tourMapper.toParticipationPolicy(request.getParticipationPolicy(), tour);
+                tourParticipationPolicyRepository.save(newPolicy);
+            }
+        }
         if (tourImages != null) {
             List<TourImage> existing = activeImages(tour);
             if (!existing.isEmpty()) {
@@ -246,6 +244,7 @@ public class TourService {
         tourCheckpointRepository.softDeleteByTourId(tourId, now, userEmail);
         tourScheduleRepository.softDeleteByTourId(tourId, now, userEmail);
         tourImageRepository.softDeleteByTourId(tourId, now, userEmail);
+        tourParticipationPolicyRepository.softDeleteByTourId(tourId, now, userEmail);
     }
 
     @Transactional
@@ -261,6 +260,7 @@ public class TourService {
         tourCheckpointRepository.restoreByTourIdAndDeletedAt(tourId, deletedAt);
         tourScheduleRepository.restoreByTourIdAndDeletedAt(tourId, deletedAt);
         tourImageRepository.restoreByTourIdAndDeletedAt(tourId, deletedAt);
+        tourParticipationPolicyRepository.restoreByTourIdAndDeletedAt(tourId, deletedAt);
         return loadVendorDetail(tour);
     }
 
@@ -318,13 +318,13 @@ public class TourService {
         return loadVendorDetail(tour);
     }
 
-    public TourSummaryResponse toSummaryResponse(Tour tour, BigDecimal fromPrice) {
+    public TourSummaryResponse toSummaryResponse(Tour tour) {
         return TourSummaryResponse.builder()
                 .tourId(tour.getTourId().toString())
                 .tourName(tour.getTourName())
                 .location(tour.getLocation())
                 .durationDays(tour.getDurationDays())
-                .fromPrice(fromPrice)
+                .price(tour.getPrice() != null ? tour.getPrice() : BigDecimal.ZERO)
                 .minCapacity(tour.getMinCapacity())
                 .maxCapacity(tour.getMaxCapacity())
                 .totalDistanceKm(tour.getTotalDistanceKm())
@@ -339,16 +339,6 @@ public class TourService {
                 .createdAt(tour.getCreatedAt())
                 .publishedAt(tour.getPublishedAt())
                 .build();
-    }
-
-    public Map<UUID, BigDecimal> loadFromPrices(List<Tour> tours) {
-        if (tours.isEmpty()) {
-            return Map.of();
-        }
-        List<Object[]> rows = tourScheduleRepository.findMinOpenPriceByTourIds(
-                tours.stream().map(Tour::getTourId).toList(), LocalDate.now());
-        return rows.stream().collect(Collectors.toMap(
-                row -> (UUID) row[0], row -> (BigDecimal) row[1]));
     }
 
     private Tour getOwnedTour(UUID tourId, Vendor vendor, boolean deleted) {
@@ -396,7 +386,15 @@ public class TourService {
         List<TourCheckpoint> checkpoints = activeCheckpoints(tour);
         List<TourSchedule> schedules = tourScheduleRepository
                 .findByTourAndIsDeletedFalseOrderByDepartureDateAsc(tour);
-        return toVendorDetailResponse(tour, images, checkpoints, schedules, minPriceOf(schedules));
+        TourParticipationPolicy policy = activePolicy(tour);
+        return toVendorDetailResponse(tour, images, checkpoints, schedules, policy);
+    }
+
+    private TourParticipationPolicy activePolicy(Tour tour) {
+        if (tour == null || tour.getTourId() == null) {
+            return null;
+        }
+        return tourParticipationPolicyRepository.findByTour_TourIdAndIsDeletedFalse(tour.getTourId()).orElse(null);
     }
 
     private List<TourImage> activeImages(Tour tour) {
@@ -429,20 +427,12 @@ public class TourService {
         tourImageRepository.saveAll(images);
     }
 
-    private BigDecimal minPriceOf(List<TourSchedule> schedules) {
-        return schedules.stream()
-                .filter(schedule -> schedule.getStatus() == ScheduleStatus.OPEN)
-                .map(TourSchedule::getPrice)
-                .min(BigDecimal::compareTo)
-                .orElse(null);
-    }
-
     private TourDetailResponse toVendorDetailResponse(
             Tour tour,
             List<TourImage> images,
             List<TourCheckpoint> checkpoints,
             List<TourSchedule> schedules,
-            BigDecimal fromPrice) {
+            TourParticipationPolicy policy) {
         List<String> readinessErrors = readinessService.getPublishReadinessErrors(tour);
         return TourDetailResponse.builder()
                 .tourId(tour.getTourId().toString())
@@ -451,7 +441,7 @@ public class TourService {
                 .difficulty(tour.getDifficulty())
                 .location(tour.getLocation())
                 .durationDays(tour.getDurationDays())
-                .fromPrice(fromPrice)
+                .price(tour.getPrice() != null ? tour.getPrice() : BigDecimal.ZERO)
                 .minCapacity(tour.getMinCapacity())
                 .maxCapacity(tour.getMaxCapacity())
                 .totalDistanceKm(tour.getTotalDistanceKm())
@@ -478,6 +468,7 @@ public class TourService {
                 .images(images.stream().map(this::toImageResponse).toList())
                 .checkpoints(checkpoints.stream().map(this::toCheckpointResponse).toList())
                 .schedules(schedules.stream().map(this::toScheduleResponse).toList())
+                .participationPolicy(tourMapper.toParticipationPolicyResponse(policy))
                 .publishable(readinessErrors.isEmpty())
                 .publishReadinessErrors(readinessErrors)
                 .build();
@@ -488,7 +479,7 @@ public class TourService {
             List<TourImage> images,
             List<TourCheckpoint> checkpoints,
             List<TourSchedule> schedules,
-            BigDecimal fromPrice) {
+            TourParticipationPolicy policy) {
         return PublicTourDetailResponse.builder()
                 .tourId(tour.getTourId().toString())
                 .tourName(tour.getTourName())
@@ -496,7 +487,7 @@ public class TourService {
                 .difficulty(tour.getDifficulty())
                 .location(tour.getLocation())
                 .durationDays(tour.getDurationDays())
-                .fromPrice(fromPrice)
+                .price(tour.getPrice() != null ? tour.getPrice() : BigDecimal.ZERO)
                 .minCapacity(tour.getMinCapacity())
                 .maxCapacity(tour.getMaxCapacity())
                 .totalDistanceKm(tour.getTotalDistanceKm())
@@ -511,11 +502,12 @@ public class TourService {
                 .vendorLogoUrl(tour.getVendor() != null ? tour.getVendor().getLogoUrl() : null)
                 .vendorContactEmail(tour.getVendor() != null ? tour.getVendor().getContactEmail() : null)
                 .vendorContactPhone(tour.getVendor() != null ? tour.getVendor().getContactPhone() : null)
-                .creatorId(tour.getCreator() != null ? tour.getCreator().getUserId().toString() : null)
-                .creatorName(tour.getCreator() != null ? tour.getCreator().getFullName() : null)
+                .creatorId(tour.getCreator() != null && tour.getCreator().getStatus() != com.sep.treksphere.user.UserStatus.LOCKED ? tour.getCreator().getUserId().toString() : null)
+                .creatorName(tour.getCreator() != null && tour.getCreator().getStatus() == com.sep.treksphere.user.UserStatus.LOCKED ? com.sep.treksphere.blog.BlogService.SYSTEM_USER_ANONYMOUS_NAME : (tour.getCreator() != null ? tour.getCreator().getFullName() : null))
                 .images(images.stream().map(this::toImageResponse).toList())
                 .checkpoints(checkpoints.stream().map(this::toCheckpointResponse).toList())
                 .schedules(schedules.stream().map(this::toScheduleResponse).toList())
+                .participationPolicy(tourMapper.toParticipationPolicyResponse(policy))
                 .build();
     }
 
@@ -551,7 +543,6 @@ public class TourService {
                 .tourId(schedule.getTour().getTourId().toString())
                 .departureDate(schedule.getDepartureDate())
                 .returnDate(schedule.getReturnDate())
-                .price(schedule.getPrice())
                 .status(schedule.getStatus())
                 .cancellationReason(schedule.getCancellationReason())
                 .cancelledAt(schedule.getCancelledAt())
