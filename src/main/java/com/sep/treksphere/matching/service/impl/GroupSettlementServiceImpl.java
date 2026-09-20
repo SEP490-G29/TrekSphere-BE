@@ -155,6 +155,63 @@ public class GroupSettlementServiceImpl implements GroupSettlementService {
 
     @Override
     @Transactional
+    public void autoGenerateSettlementsOnDissolution(UUID groupId) {
+        MatchingGroup group = getGroupOrThrow(groupId);
+        GroupTrip groupTrip = resolveGroupTrip(group);
+        List<MatchingMember> activeMembers = matchingMemberRepository
+                .findActiveMembers(groupId, JoinStatus.ACCEPTED);
+        List<GroupExpense> expenses = groupExpenseRepository.findByGroupTrip_MatchingGroup_MatchingGroupIdAndIsDeletedFalse(groupId);
+        List<GroupSettlement> existingSettlements = groupSettlementRepository
+                .findByGroupTrip_MatchingGroup_MatchingGroupIdAndIsDeletedFalseOrderByCreatedAtAsc(groupId);
+
+        if (expenses.isEmpty()) {
+            log.info("Group {} has no active expenses on dissolution, skipping settlement auto-generation.", groupId);
+            return;
+        }
+
+        List<MemberBalanceResponse> balances = calculateMemberBalances(activeMembers, expenses, existingSettlements);
+        List<SettlementSuggestionResponse> suggestions = calculateGreedySettlementSuggestions(activeMembers, balances);
+
+        if (suggestions.isEmpty()) {
+            log.info("Group {} balances already zero/settled on dissolution, skipping settlement auto-generation.", groupId);
+            return;
+        }
+
+        Map<UUID, MatchingMember> memberMap = activeMembers.stream()
+                .collect(Collectors.toMap(MatchingMember::getMatchingMemberId, m -> m));
+
+        // Soft delete old unconfirmed settlements (PENDING or REJECTED)
+        for (GroupSettlement s : existingSettlements) {
+            if (s.getStatus() != SettlementStatus.CONFIRMED) {
+                s.setIsDeleted(true);
+                groupSettlementRepository.save(s);
+            }
+        }
+
+        List<GroupSettlement> newSettlements = new ArrayList<>();
+        for (SettlementSuggestionResponse suggestion : suggestions) {
+            MatchingMember from = memberMap.get(suggestion.getFromMember().getMatchingMemberId());
+            MatchingMember to = memberMap.get(suggestion.getToMember().getMatchingMemberId());
+
+            if (from == null || to == null) {
+                continue;
+            }
+
+            GroupSettlement settlement = new GroupSettlement();
+            settlement.setGroupTrip(groupTrip);
+            settlement.setFromMatchingMember(from);
+            settlement.setToMatchingMember(to);
+            settlement.setAmount(suggestion.getAmount());
+            settlement.setStatus(SettlementStatus.PENDING);
+            newSettlements.add(settlement);
+        }
+
+        List<GroupSettlement> saved = groupSettlementRepository.saveAll(newSettlements);
+        log.info("Auto-generated {} settlement records on dissolution for group {}", saved.size(), groupId);
+    }
+
+    @Override
+    @Transactional
     public GroupSettlementResponse submitProof(UUID groupId, UUID settlementId, GroupSettlementProofRequest request, String userEmail) {
         MatchingGroup group = getGroupOrThrow(groupId);
         MatchingMember currentMember = validateMemberAccess(group, userEmail);

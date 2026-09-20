@@ -99,6 +99,19 @@ public class CustomJourneyController {
         return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, null, MessageConstant.CHECKPOINT_DELETED_SUCCESS));
     }
 
+    @Operation(summary = "Đổi chéo thứ tự giữa 2 điểm dừng trong hành trình (chỉ Leader khi chưa khóa)")
+    @PutMapping("/checkpoints/{checkpointId}/swap/{targetCheckpointId}")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<ApiResponse<List<CustomJourneyCheckpointResponse>>> swapCheckpoints(
+            @Parameter(description = "ID nhóm ghép") @PathVariable UUID groupId,
+            @Parameter(description = "ID điểm dừng nguồn") @PathVariable UUID checkpointId,
+            @Parameter(description = "ID điểm dừng đích cần đổi thứ tự") @PathVariable UUID targetCheckpointId,
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+        List<CustomJourneyCheckpointResponse> response = customJourneyService.swapCheckpoints(
+                groupId, checkpointId, targetCheckpointId, userDetails.getUser().getUserId());
+        return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, response, MessageConstant.CHECKPOINT_SWAPPED_SUCCESS));
+    }
+
     @Operation(summary = "Leader cập nhật tiến độ 1 checkpoint: đã đến hoặc bỏ qua (chỉ khi chuyến đi đang diễn ra)")
     @PatchMapping("/checkpoints/{checkpointId}/progress")
     @PreAuthorize("isAuthenticated()")

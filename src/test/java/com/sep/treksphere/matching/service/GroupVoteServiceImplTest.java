@@ -78,6 +78,9 @@ class GroupVoteServiceImplTest {
     @Mock
     private SimpMessagingTemplate messagingTemplate;
 
+    @Mock
+    private GroupSettlementService groupSettlementService;
+
     @InjectMocks
     private GroupVoteServiceImpl groupVoteService;
 
@@ -332,7 +335,7 @@ class GroupVoteServiceImplTest {
         when(matchingMemberRepository.findByGroupIdAndUserId(groupId, memberUser.getUserId()))
                 .thenReturn(Optional.of(memberEntity));
         when(groupVoteRepository.findByIdForUpdate(vote.getGroupVoteId())).thenReturn(Optional.of(vote));
-        when(groupVoteOptionRepository.findByGroupVote_GroupVoteIdAndIsDeletedFalseOrderByOptionOrderAsc(vote.getGroupVoteId()))
+        when(groupVoteOptionRepository.findOptionsWithCandidateByVoteId(vote.getGroupVoteId()))
                 .thenReturn(List.of(optionA, optionB));
         when(groupVoteBallotRepository.countByGroupVoteAndGroupVoteOption(vote, optionA)).thenReturn(0L);
         when(groupVoteBallotRepository.countByGroupVoteAndGroupVoteOption(vote, optionB)).thenReturn(0L);
@@ -362,7 +365,7 @@ class GroupVoteServiceImplTest {
                 optionA.getGroupVoteOptionId(), vote.getGroupVoteId())).thenReturn(Optional.of(optionA));
         // Trước ballot cuối: đã có 2/3 phiếu (A=2). Sau khi lưu ballot thứ 3 (A) -> count = 3 = eligible -> auto-close.
         when(groupVoteBallotRepository.countByGroupVote(vote)).thenReturn(3L);
-        when(groupVoteOptionRepository.findByGroupVote_GroupVoteIdAndIsDeletedFalseOrderByOptionOrderAsc(vote.getGroupVoteId()))
+        when(groupVoteOptionRepository.findOptionsWithCandidateByVoteId(vote.getGroupVoteId()))
                 .thenReturn(List.of(optionA, optionB));
         when(groupVoteBallotRepository.countByGroupVoteAndGroupVoteOption(vote, optionA)).thenReturn(3L);
         when(groupVoteBallotRepository.countByGroupVoteAndGroupVoteOption(vote, optionB)).thenReturn(0L);
@@ -403,7 +406,7 @@ class GroupVoteServiceImplTest {
         when(matchingMemberRepository.findByGroupIdAndUserId(groupId, leaderUser.getUserId()))
                 .thenReturn(Optional.of(leaderMember));
         when(groupVoteRepository.findByIdForUpdate(vote.getGroupVoteId())).thenReturn(Optional.of(vote));
-        when(groupVoteOptionRepository.findByGroupVote_GroupVoteIdAndIsDeletedFalseOrderByOptionOrderAsc(vote.getGroupVoteId()))
+        when(groupVoteOptionRepository.findOptionsWithCandidateByVoteId(vote.getGroupVoteId()))
                 .thenReturn(List.of());
 
         GroupVoteResponse response = groupVoteService.closeVote(groupId, vote.getGroupVoteId(), leaderUser.getUserId());
@@ -423,7 +426,7 @@ class GroupVoteServiceImplTest {
                 .thenReturn(Optional.of(leaderMember));
         when(groupVoteRepository.findByIdForUpdate(vote.getGroupVoteId())).thenReturn(Optional.of(vote));
         when(groupVoteBallotRepository.countByGroupVote(vote)).thenReturn(2L);
-        when(groupVoteOptionRepository.findByGroupVote_GroupVoteIdAndIsDeletedFalseOrderByOptionOrderAsc(vote.getGroupVoteId()))
+        when(groupVoteOptionRepository.findOptionsWithCandidateByVoteId(vote.getGroupVoteId()))
                 .thenReturn(List.of(optionA, optionB));
         when(groupVoteBallotRepository.countByGroupVoteAndGroupVoteOption(vote, optionA)).thenReturn(1L);
         when(groupVoteBallotRepository.countByGroupVoteAndGroupVoteOption(vote, optionB)).thenReturn(1L);
@@ -463,7 +466,7 @@ class GroupVoteServiceImplTest {
                 .thenReturn(Optional.of(leaderMember));
         when(groupVoteRepository.findByIdForUpdate(vote.getGroupVoteId())).thenReturn(Optional.of(vote));
         when(groupVoteRepository.save(vote)).thenReturn(vote);
-        when(groupVoteOptionRepository.findByGroupVote_GroupVoteIdAndIsDeletedFalseOrderByOptionOrderAsc(vote.getGroupVoteId()))
+        when(groupVoteOptionRepository.findOptionsWithCandidateByVoteId(vote.getGroupVoteId()))
                 .thenReturn(List.of());
         when(matchingMemberRepository.findActiveMembers(groupId, JoinStatus.ACCEPTED))
                 .thenReturn(List.of(leaderMember, memberEntity));
@@ -593,7 +596,7 @@ class GroupVoteServiceImplTest {
                 .thenReturn(Optional.of(leaderMember));
         when(groupVoteRepository.findByIdForUpdate(vote.getGroupVoteId())).thenReturn(Optional.of(vote));
         when(groupVoteBallotRepository.countByGroupVote(vote)).thenReturn(2L);
-        when(groupVoteOptionRepository.findByGroupVote_GroupVoteIdAndIsDeletedFalseOrderByOptionOrderAsc(vote.getGroupVoteId()))
+        when(groupVoteOptionRepository.findOptionsWithCandidateByVoteId(vote.getGroupVoteId()))
                 .thenReturn(List.of(winnerOption, loserOption));
         when(groupVoteBallotRepository.countByGroupVoteAndGroupVoteOption(vote, winnerOption)).thenReturn(2L);
         when(groupVoteBallotRepository.countByGroupVoteAndGroupVoteOption(vote, loserOption)).thenReturn(0L);
@@ -624,7 +627,7 @@ class GroupVoteServiceImplTest {
                 .thenReturn(Optional.of(leaderMember));
         when(groupVoteRepository.findByIdForUpdate(vote.getGroupVoteId())).thenReturn(Optional.of(vote));
         when(groupVoteBallotRepository.countByGroupVote(vote)).thenReturn(2L);
-        when(groupVoteOptionRepository.findByGroupVote_GroupVoteIdAndIsDeletedFalseOrderByOptionOrderAsc(vote.getGroupVoteId()))
+        when(groupVoteOptionRepository.findOptionsWithCandidateByVoteId(vote.getGroupVoteId()))
                 .thenReturn(List.of(optionA, optionB));
         when(groupVoteBallotRepository.countByGroupVoteAndGroupVoteOption(vote, optionA)).thenReturn(1L);
         when(groupVoteBallotRepository.countByGroupVoteAndGroupVoteOption(vote, optionB)).thenReturn(1L);
@@ -761,7 +764,7 @@ class GroupVoteServiceImplTest {
                 .thenReturn(Optional.of(leaderMember));
         when(groupVoteRepository.findByIdForUpdate(vote.getGroupVoteId())).thenReturn(Optional.of(vote));
         when(groupVoteBallotRepository.countByGroupVote(vote)).thenReturn(2L);
-        when(groupVoteOptionRepository.findByGroupVote_GroupVoteIdAndIsDeletedFalseOrderByOptionOrderAsc(vote.getGroupVoteId()))
+        when(groupVoteOptionRepository.findOptionsWithCandidateByVoteId(vote.getGroupVoteId()))
                 .thenReturn(List.of(agreeOption, disagreeOption));
         when(groupVoteBallotRepository.countByGroupVoteAndGroupVoteOption(vote, agreeOption)).thenReturn(2L);
         when(groupVoteBallotRepository.countByGroupVoteAndGroupVoteOption(vote, disagreeOption)).thenReturn(0L);
@@ -779,6 +782,7 @@ class GroupVoteServiceImplTest {
         assertThat(trip.getStatus()).isEqualTo(GroupTripStatus.CANCELLED);
         verify(matchingGroupRepository).save(group);
         verify(groupTripRepository).save(trip);
+        verify(groupSettlementService).autoGenerateSettlementsOnDissolution(groupId);
     }
 
     @Test
@@ -794,7 +798,7 @@ class GroupVoteServiceImplTest {
                 .thenReturn(Optional.of(leaderMember));
         when(groupVoteRepository.findByIdForUpdate(vote.getGroupVoteId())).thenReturn(Optional.of(vote));
         when(groupVoteBallotRepository.countByGroupVote(vote)).thenReturn(2L);
-        when(groupVoteOptionRepository.findByGroupVote_GroupVoteIdAndIsDeletedFalseOrderByOptionOrderAsc(vote.getGroupVoteId()))
+        when(groupVoteOptionRepository.findOptionsWithCandidateByVoteId(vote.getGroupVoteId()))
                 .thenReturn(List.of(agreeOption, disagreeOption));
         when(groupVoteBallotRepository.countByGroupVoteAndGroupVoteOption(vote, agreeOption)).thenReturn(0L);
         when(groupVoteBallotRepository.countByGroupVoteAndGroupVoteOption(vote, disagreeOption)).thenReturn(2L);
@@ -823,7 +827,7 @@ class GroupVoteServiceImplTest {
                 .thenReturn(Optional.of(leaderMember));
         when(groupVoteRepository.findByIdForUpdate(vote.getGroupVoteId())).thenReturn(Optional.of(vote));
         when(groupVoteBallotRepository.countByGroupVote(vote)).thenReturn(2L);
-        when(groupVoteOptionRepository.findByGroupVote_GroupVoteIdAndIsDeletedFalseOrderByOptionOrderAsc(vote.getGroupVoteId()))
+        when(groupVoteOptionRepository.findOptionsWithCandidateByVoteId(vote.getGroupVoteId()))
                 .thenReturn(List.of(agreeOption, disagreeOption));
         when(groupVoteBallotRepository.countByGroupVoteAndGroupVoteOption(vote, agreeOption)).thenReturn(1L);
         when(groupVoteBallotRepository.countByGroupVoteAndGroupVoteOption(vote, disagreeOption)).thenReturn(1L);
@@ -894,7 +898,7 @@ class GroupVoteServiceImplTest {
         when(groupVoteRepository.save(vote)).thenReturn(vote);
         // eligibleVoterCount giảm 2 -> 1; 1 phiếu còn lại (memberEntity) vẫn đủ -> tự đóng.
         when(groupVoteBallotRepository.countByGroupVote(vote)).thenReturn(1L);
-        when(groupVoteOptionRepository.findByGroupVote_GroupVoteIdAndIsDeletedFalseOrderByOptionOrderAsc(vote.getGroupVoteId()))
+        when(groupVoteOptionRepository.findOptionsWithCandidateByVoteId(vote.getGroupVoteId()))
                 .thenReturn(List.of(optionA, optionB));
         when(groupVoteBallotRepository.countByGroupVoteAndGroupVoteOption(vote, optionA)).thenReturn(1L);
         when(groupVoteBallotRepository.countByGroupVoteAndGroupVoteOption(vote, optionB)).thenReturn(0L);
@@ -1002,7 +1006,7 @@ class GroupVoteServiceImplTest {
                 .thenReturn(Optional.of(leaderMember));
         when(groupVoteRepository.findByIdForUpdate(vote.getGroupVoteId())).thenReturn(Optional.of(vote));
         when(groupVoteBallotRepository.countByGroupVote(vote)).thenReturn(2L);
-        when(groupVoteOptionRepository.findByGroupVote_GroupVoteIdAndIsDeletedFalseOrderByOptionOrderAsc(vote.getGroupVoteId()))
+        when(groupVoteOptionRepository.findOptionsWithCandidateByVoteId(vote.getGroupVoteId()))
                 .thenReturn(List.of(optionA, optionB));
         when(groupVoteBallotRepository.countByGroupVoteAndGroupVoteOption(vote, optionA)).thenReturn(2L);
         when(groupVoteBallotRepository.countByGroupVoteAndGroupVoteOption(vote, optionB)).thenReturn(0L);
