@@ -31,6 +31,7 @@ import com.sep.treksphere.notification.NotificationEventType;
 import com.sep.treksphere.notification.NotificationService;
 import com.sep.treksphere.notification.ReferenceType;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -48,6 +49,9 @@ import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
+import com.sep.treksphere.matching.service.GroupSettlementService;
+
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class GroupVoteServiceImpl implements GroupVoteService {
@@ -58,6 +62,7 @@ public class GroupVoteServiceImpl implements GroupVoteService {
     private final MatchingMemberRepository matchingMemberRepository;
     private final MatchingGroupRepository matchingGroupRepository;
     private final GroupTripRepository groupTripRepository;
+    private final GroupSettlementService groupSettlementService;
     private final NotificationService notificationService;
     private final SimpMessagingTemplate messagingTemplate;
 
@@ -79,7 +84,10 @@ public class GroupVoteServiceImpl implements GroupVoteService {
         vote.setMatchingGroup(creator.getMatchingGroup());
         vote.setVoteType(VoteType.OTHER);
         vote.setTitle(request.getTitle());
-        vote.setReason(request.getReason());
+        String reason = (request.getReason() != null && !request.getReason().trim().isEmpty())
+                ? request.getReason().trim()
+                : request.getTitle();
+        vote.setReason(reason);
         vote.setCreatedByMember(creator);
         vote.setStatus(VoteStatus.OPEN);
         vote.setOpensAt(LocalDateTime.now());
@@ -107,7 +115,7 @@ public class GroupVoteServiceImpl implements GroupVoteService {
         notificationService.notify(activeMemberUserIdsExcept(groupId, currentUserId),
                 NotificationEventType.GROUP_VOTE_OPENED,
                 ReferenceType.GROUP_VOTE, savedVote.getGroupVoteId(),
-                "/trekker/my-groups/" + groupId,
+                "/trekker/my-groups/" + groupId + "?tab=votes&voteId=" + savedVote.getGroupVoteId(),
                 creator.getUser().getFullName(), savedVote.getTitle());
 
         GroupVoteResponse response = toResponse(savedVote, options, currentUserId);
@@ -175,7 +183,7 @@ public class GroupVoteServiceImpl implements GroupVoteService {
         notificationService.notify(activeMemberUserIdsExcept(groupId, currentUserId),
                 NotificationEventType.GROUP_VOTE_OPENED,
                 ReferenceType.GROUP_VOTE, savedVote.getGroupVoteId(),
-                "/trekker/my-groups/" + groupId,
+                "/trekker/my-groups/" + groupId + "?tab=votes&voteId=" + savedVote.getGroupVoteId(),
                 opener.getUser().getFullName(), savedVote.getTitle());
 
         GroupVoteResponse response = toResponse(savedVote, options, currentUserId);
@@ -236,7 +244,7 @@ public class GroupVoteServiceImpl implements GroupVoteService {
         notificationService.notify(activeMemberUserIdsExcept(groupId, currentUserId),
                 NotificationEventType.GROUP_VOTE_OPENED,
                 ReferenceType.GROUP_VOTE, savedVote.getGroupVoteId(),
-                "/trekker/my-groups/" + groupId,
+                "/trekker/my-groups/" + groupId + "?tab=votes&voteId=" + savedVote.getGroupVoteId(),
                 opener.getUser().getFullName(), savedVote.getTitle());
 
         GroupVoteResponse response = toResponse(savedVote, options, currentUserId);
@@ -349,7 +357,7 @@ public class GroupVoteServiceImpl implements GroupVoteService {
         notificationService.notify(activeMemberUserIdsExcept(groupId, currentUserId),
                 NotificationEventType.GROUP_VOTE_CLOSED,
                 ReferenceType.GROUP_VOTE, savedVote.getGroupVoteId(),
-                "/trekker/my-groups/" + groupId, savedVote.getTitle());
+                "/trekker/my-groups/" + groupId + "?tab=votes&voteId=" + savedVote.getGroupVoteId(), savedVote.getTitle());
 
         GroupVoteResponse response = toResponse(savedVote, loadOptions(voteId), currentUserId);
         broadcastAfterCommit(groupId, response);
@@ -409,7 +417,7 @@ public class GroupVoteServiceImpl implements GroupVoteService {
         notificationService.notify(activeMemberUserIdsExcept(groupId, actorUserId),
                 NotificationEventType.GROUP_VOTE_CLOSED,
                 ReferenceType.GROUP_VOTE, savedVote.getGroupVoteId(),
-                "/trekker/my-groups/" + groupId, savedVote.getTitle());
+                "/trekker/my-groups/" + groupId + "?tab=votes&voteId=" + savedVote.getGroupVoteId(), savedVote.getTitle());
 
         if (winner != null && savedVote.getVoteType() == VoteType.LEADER_ELECTION) {
             notificationService.notify(activeMemberUserIdsExcept(groupId, null),
@@ -468,9 +476,19 @@ public class GroupVoteServiceImpl implements GroupVoteService {
         MatchingMember newLeader = winner.getCandidateMatchingMember();
         UUID groupId = vote.getMatchingGroup().getMatchingGroupId();
 
+        // Tải đầy đủ entity newLeader kèm User nếu chưa được nạp
+        if (newLeader == null || newLeader.getUser() == null) {
+            newLeader = matchingMemberRepository.findMemberByIdAndGroupId(
+                    winner.getCandidateMatchingMember() != null ? winner.getCandidateMatchingMember().getMatchingMemberId() : null,
+                    groupId
+            ).orElseThrow(() -> new AppException(ErrorCode.GROUP_VOTE_INVALID_CANDIDATE));
+        }
+
+        final UUID newLeaderMemberId = newLeader.getMatchingMemberId();
+
         matchingMemberRepository.findActiveMembers(groupId, JoinStatus.ACCEPTED).stream()
                 .filter(m -> m.getRole() == MatchingRole.LEADER)
-                .filter(m -> !m.getMatchingMemberId().equals(newLeader.getMatchingMemberId()))
+                .filter(m -> !m.getMatchingMemberId().equals(newLeaderMemberId))
                 .forEach(oldLeader -> {
                     oldLeader.setRole(MatchingRole.MEMBER);
                     matchingMemberRepository.save(oldLeader);
@@ -479,7 +497,8 @@ public class GroupVoteServiceImpl implements GroupVoteService {
         newLeader.setRole(MatchingRole.LEADER);
         matchingMemberRepository.save(newLeader);
 
-        MatchingGroup matchingGroup = vote.getMatchingGroup();
+        MatchingGroup matchingGroup = matchingGroupRepository.findById(groupId)
+                .orElse(vote.getMatchingGroup());
         matchingGroup.setOwner(newLeader.getUser());
         matchingGroupRepository.save(matchingGroup);
     }
@@ -505,6 +524,14 @@ public class GroupVoteServiceImpl implements GroupVoteService {
                     trip.setStatus(GroupTripStatus.CANCELLED);
                     groupTripRepository.save(trip);
                 });
+
+        // Auto-generate official settlement records so members can settle debt P2P immediately
+        try {
+            groupSettlementService.autoGenerateSettlementsOnDissolution(matchingGroup.getMatchingGroupId());
+        } catch (Exception e) {
+            log.error("Failed to auto-generate settlements on dissolution for group {}: {}",
+                    matchingGroup.getMatchingGroupId(), e.getMessage(), e);
+        }
     }
 
     private boolean isDeadlineReached(GroupVote vote) {
@@ -527,7 +554,7 @@ public class GroupVoteServiceImpl implements GroupVoteService {
     }
 
     private List<GroupVoteOption> loadOptions(UUID voteId) {
-        return groupVoteOptionRepository.findByGroupVote_GroupVoteIdAndIsDeletedFalseOrderByOptionOrderAsc(voteId);
+        return groupVoteOptionRepository.findOptionsWithCandidateByVoteId(voteId);
     }
 
     private List<UUID> activeMemberUserIdsExcept(UUID groupId, UUID excludeUserId) {

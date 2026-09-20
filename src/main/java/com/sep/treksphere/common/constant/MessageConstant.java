@@ -388,6 +388,7 @@ public class MessageConstant {
     public static final String JOURNEY_NOT_FOUND = "Hành trình Custom Journey không tồn tại";
     public static final String CUSTOM_JOURNEY_CHECKPOINT_NOT_FOUND = "Điểm dừng checkpoint không tồn tại";
     public static final String CHECKPOINT_ORDER_DUPLICATED = "Thứ tự điểm dừng đã tồn tại trong hành trình này";
+    public static final String CHECKPOINT_ORDER_NOT_CONSECUTIVE = "Thứ tự điểm dừng mới phải được tạo tuần tự theo số thứ tự tiếp theo";
     public static final String CHECKPOINT_TIME_INVALID = "Thời gian kết thúc điểm dừng phải sau hoặc bằng thời gian bắt đầu";
     public static final String CHECKLIST_ITEM_NOT_FOUND = "Mục checklist không tồn tại";
     public static final String POST_NOT_FOUND = "Bài đăng không tồn tại";
@@ -400,6 +401,7 @@ public class MessageConstant {
     public static final String CHECKPOINT_CREATED_SUCCESS = "Thêm điểm dừng hành trình thành công";
     public static final String CHECKPOINT_UPDATED_SUCCESS = "Cập nhật điểm dừng hành trình thành công";
     public static final String CHECKPOINT_DELETED_SUCCESS = "Xoá điểm dừng hành trình thành công";
+    public static final String CHECKPOINT_SWAPPED_SUCCESS = "Đổi thứ tự điểm dừng thành công";
     public static final String CHECKPOINT_PROGRESS_UPDATED_SUCCESS = "Đã cập nhật tiến độ điểm dừng thành công";
     public static final String CHECKPOINT_PROGRESS_RESET_SUCCESS = "Đã gỡ tiến độ điểm dừng thành công";
     public static final String CUSTOM_JOURNEY_ACTIVITY_NOT_FOUND = "Hoạt động trong thời khóa biểu hành trình không tồn tại";

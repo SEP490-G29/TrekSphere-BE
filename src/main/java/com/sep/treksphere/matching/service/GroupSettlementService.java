@@ -21,4 +21,6 @@ public interface GroupSettlementService {
     GroupSettlementResponse confirmSettlement(UUID groupId, UUID settlementId, String userEmail);
 
     GroupSettlementResponse rejectSettlement(UUID groupId, UUID settlementId, GroupSettlementRejectRequest request, String userEmail);
+
+    void autoGenerateSettlementsOnDissolution(UUID groupId);
 }

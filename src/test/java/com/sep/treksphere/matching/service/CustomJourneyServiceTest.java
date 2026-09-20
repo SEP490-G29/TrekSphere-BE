@@ -55,6 +55,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -314,6 +315,7 @@ class CustomJourneyServiceTest {
         when(matchingGroupRepository.findById(groupId)).thenReturn(Optional.of(group));
         when(matchingMemberRepository.findActiveMembers(groupId, JoinStatus.ACCEPTED)).thenReturn(List.of(leaderMember));
         when(customJourneyRepository.findByMatchingGroup_MatchingGroupIdAndIsDeletedFalse(groupId)).thenReturn(Optional.of(journey));
+        when(checkpointRepository.countByCustomJourney_CustomJourneyIdAndIsDeletedFalse(journey.getCustomJourneyId())).thenReturn(0L);
         when(checkpointRepository.existsByCustomJourney_CustomJourneyIdAndCheckpointOrderAndIsDeletedFalse(
                 journey.getCustomJourneyId(), 1)).thenReturn(false);
         when(checkpointRepository.save(any(CustomJourneyCheckpoint.class))).thenAnswer(inv -> {
@@ -330,6 +332,24 @@ class CustomJourneyServiceTest {
     }
 
     @Test
+    @DisplayName("createCheckpoint - ném lỗi khi checkpointOrder không liên tục (nhảy cóc)")
+    void createCheckpoint_NonConsecutiveOrder_ThrowsException() {
+        CustomJourneyCheckpointCreateRequest request = CustomJourneyCheckpointCreateRequest.builder()
+                .checkpointOrder(5)
+                .title("Checkpoint 5")
+                .build();
+
+        when(matchingGroupRepository.findById(groupId)).thenReturn(Optional.of(group));
+        when(matchingMemberRepository.findActiveMembers(groupId, JoinStatus.ACCEPTED)).thenReturn(List.of(leaderMember));
+        when(customJourneyRepository.findByMatchingGroup_MatchingGroupIdAndIsDeletedFalse(groupId)).thenReturn(Optional.of(journey));
+        when(checkpointRepository.countByCustomJourney_CustomJourneyIdAndIsDeletedFalse(journey.getCustomJourneyId())).thenReturn(1L);
+
+        assertThatThrownBy(() -> customJourneyService.createCheckpoint(groupId, request, leaderId))
+                .isInstanceOf(AppException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.CHECKPOINT_ORDER_NOT_CONSECUTIVE);
+    }
+
+    @Test
     @DisplayName("createCheckpoint - ném lỗi khi checkpointOrder bị trùng lặp")
     void createCheckpoint_OrderDuplicated() {
         CustomJourneyCheckpointCreateRequest request = CustomJourneyCheckpointCreateRequest.builder()
@@ -340,6 +360,7 @@ class CustomJourneyServiceTest {
         when(matchingGroupRepository.findById(groupId)).thenReturn(Optional.of(group));
         when(matchingMemberRepository.findActiveMembers(groupId, JoinStatus.ACCEPTED)).thenReturn(List.of(leaderMember));
         when(customJourneyRepository.findByMatchingGroup_MatchingGroupIdAndIsDeletedFalse(groupId)).thenReturn(Optional.of(journey));
+        when(checkpointRepository.countByCustomJourney_CustomJourneyIdAndIsDeletedFalse(journey.getCustomJourneyId())).thenReturn(0L);
         when(checkpointRepository.existsByCustomJourney_CustomJourneyIdAndCheckpointOrderAndIsDeletedFalse(
                 journey.getCustomJourneyId(), 1)).thenReturn(true);
 
@@ -361,6 +382,7 @@ class CustomJourneyServiceTest {
         when(matchingGroupRepository.findById(groupId)).thenReturn(Optional.of(group));
         when(matchingMemberRepository.findActiveMembers(groupId, JoinStatus.ACCEPTED)).thenReturn(List.of(leaderMember));
         when(customJourneyRepository.findByMatchingGroup_MatchingGroupIdAndIsDeletedFalse(groupId)).thenReturn(Optional.of(journey));
+        when(checkpointRepository.countByCustomJourney_CustomJourneyIdAndIsDeletedFalse(journey.getCustomJourneyId())).thenReturn(0L);
         when(checkpointRepository.existsByCustomJourney_CustomJourneyIdAndCheckpointOrderAndIsDeletedFalse(
                 journey.getCustomJourneyId(), 1)).thenReturn(false);
 
@@ -394,20 +416,82 @@ class CustomJourneyServiceTest {
     }
 
     @Test
-    @DisplayName("deleteCheckpoint - Leader xoá mềm checkpoint thành công")
+    @DisplayName("deleteCheckpoint - Leader xoá mềm checkpoint và dồn thứ tự các chặng phía sau")
     void deleteCheckpoint_Success() {
         UUID cpId = checkpoint.getCustomJourneyCheckpointId();
+        checkpoint.setCheckpointOrder(1);
+
+        CustomJourneyCheckpoint cp2 = new CustomJourneyCheckpoint();
+        cp2.setCustomJourneyCheckpointId(UUID.randomUUID());
+        cp2.setCustomJourney(journey);
+        cp2.setCheckpointOrder(2);
+        cp2.setTitle("Checkpoint 2");
 
         when(matchingGroupRepository.findById(groupId)).thenReturn(Optional.of(group));
         when(matchingMemberRepository.findActiveMembers(groupId, JoinStatus.ACCEPTED)).thenReturn(List.of(leaderMember));
         when(customJourneyRepository.findByMatchingGroup_MatchingGroupIdAndIsDeletedFalse(groupId)).thenReturn(Optional.of(journey));
         when(checkpointRepository.findByCustomJourneyCheckpointIdAndCustomJourney_CustomJourneyIdAndIsDeletedFalse(cpId, journey.getCustomJourneyId()))
                 .thenReturn(Optional.of(checkpoint));
+        when(checkpointRepository.findByCustomJourney_CustomJourneyIdAndCheckpointOrderGreaterThanAndIsDeletedFalseOrderByCheckpointOrderAsc(
+                journey.getCustomJourneyId(), 1)).thenReturn(List.of(cp2));
 
         customJourneyService.deleteCheckpoint(groupId, cpId, leaderId);
 
         assertThat(checkpoint.getIsDeleted()).isTrue();
-        verify(checkpointRepository).save(checkpoint);
+        assertThat(cp2.getCheckpointOrder()).isEqualTo(1);
+        verify(checkpointRepository).saveAndFlush(checkpoint);
+        verify(checkpointRepository).saveAndFlush(cp2);
+    }
+
+    @Test
+    @DisplayName("swapCheckpoints - Leader đổi chéo thứ tự 2 checkpoint thành công")
+    void swapCheckpoints_Success() {
+        UUID cp1Id = checkpoint.getCustomJourneyCheckpointId();
+        checkpoint.setCheckpointOrder(1);
+
+        UUID cp2Id = UUID.randomUUID();
+        CustomJourneyCheckpoint cp2 = new CustomJourneyCheckpoint();
+        cp2.setCustomJourneyCheckpointId(cp2Id);
+        cp2.setCustomJourney(journey);
+        cp2.setCheckpointOrder(2);
+        cp2.setTitle("Checkpoint 2");
+
+        when(matchingGroupRepository.findById(groupId)).thenReturn(Optional.of(group));
+        when(matchingMemberRepository.findActiveMembers(groupId, JoinStatus.ACCEPTED)).thenReturn(List.of(leaderMember));
+        when(customJourneyRepository.findByMatchingGroup_MatchingGroupIdAndIsDeletedFalse(groupId)).thenReturn(Optional.of(journey));
+        when(checkpointRepository.findByCustomJourneyCheckpointIdAndCustomJourney_CustomJourneyIdAndIsDeletedFalse(cp1Id, journey.getCustomJourneyId()))
+                .thenReturn(Optional.of(checkpoint));
+        when(checkpointRepository.findByCustomJourneyCheckpointIdAndCustomJourney_CustomJourneyIdAndIsDeletedFalse(cp2Id, journey.getCustomJourneyId()))
+                .thenReturn(Optional.of(cp2));
+        when(checkpointRepository.findByCustomJourney_CustomJourneyIdAndIsDeletedFalseOrderByDayNoAscCheckpointOrderAsc(journey.getCustomJourneyId()))
+                .thenReturn(List.of(checkpoint, cp2));
+
+        List<CustomJourneyCheckpointResponse> response = customJourneyService.swapCheckpoints(groupId, cp1Id, cp2Id, leaderId);
+
+        assertThat(checkpoint.getCheckpointOrder()).isEqualTo(2);
+        assertThat(cp2.getCheckpointOrder()).isEqualTo(1);
+        verify(checkpointRepository, atLeastOnce()).saveAndFlush(checkpoint);
+        verify(checkpointRepository, atLeastOnce()).saveAndFlush(cp2);
+        assertThat(response).hasSize(2);
+    }
+
+    @Test
+    @DisplayName("swapCheckpoints - ném lỗi khi 1 trong 2 checkpoint không tồn tại")
+    void swapCheckpoints_CheckpointNotFound() {
+        UUID cp1Id = checkpoint.getCustomJourneyCheckpointId();
+        UUID cp2Id = UUID.randomUUID();
+
+        when(matchingGroupRepository.findById(groupId)).thenReturn(Optional.of(group));
+        when(matchingMemberRepository.findActiveMembers(groupId, JoinStatus.ACCEPTED)).thenReturn(List.of(leaderMember));
+        when(customJourneyRepository.findByMatchingGroup_MatchingGroupIdAndIsDeletedFalse(groupId)).thenReturn(Optional.of(journey));
+        when(checkpointRepository.findByCustomJourneyCheckpointIdAndCustomJourney_CustomJourneyIdAndIsDeletedFalse(cp1Id, journey.getCustomJourneyId()))
+                .thenReturn(Optional.of(checkpoint));
+        when(checkpointRepository.findByCustomJourneyCheckpointIdAndCustomJourney_CustomJourneyIdAndIsDeletedFalse(cp2Id, journey.getCustomJourneyId()))
+                .thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> customJourneyService.swapCheckpoints(groupId, cp1Id, cp2Id, leaderId))
+                .isInstanceOf(AppException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.CUSTOM_JOURNEY_CHECKPOINT_NOT_FOUND);
     }
 
     @Test

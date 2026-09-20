@@ -93,6 +93,9 @@ class GroupVoteConcurrencyIntegrationTest {
     @MockitoBean
     private SimpMessagingTemplate messagingTemplate;
 
+    @MockitoBean
+    private GroupSettlementService groupSettlementService;
+
     @DynamicPropertySource
     static void configureDatabase(DynamicPropertyRegistry registry) {
         registry.add("spring.datasource.url", () -> POSTGRES.getJdbcUrl("postgres", "postgres"));
