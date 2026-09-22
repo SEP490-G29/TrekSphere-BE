@@ -6,20 +6,20 @@ TrekSphere là nền tảng chuyên cung cấp các tour du lịch trekking và 
 
 ## 🛠️ Công nghệ & Thư viện Sử dụng
 
-| Công nghệ / Thư viện     | Phiên bản   | Mô tả                                                                          |
-| :------------------------ | :---------- | :------------------------------------------------------------------------------ |
+| Công nghệ / Thư viện      | Phiên bản   | Mô tả                                                                                     |
+| :------------------------ | :---------- | :---------------------------------------------------------------------------------------- |
 | **Java**                  | 21          | Sử dụng các tính năng mới của Java LTS (Record, Pattern Matching, Virtual Threads ready). |
-| **Spring Boot**           | 3.5.x       | Framework phát triển ứng dụng Java Web nhanh chóng và mạnh mẽ.                  |
-| **PostgreSQL**            | 15 (Alpine) | Cơ sở dữ liệu quan hệ chính, tối ưu hiệu năng và độ ổn định cao.                |
-| **Redis**                 | Alpine      | Cache / lưu trạng thái tạm thời (rate limit, token blacklist...).               |
-| **Flyway**                | -           | Quản lý và versioning schema cơ sở dữ liệu.                                     |
-| **Spring Security + JWT** | -           | Xác thực & phân quyền bằng JWT (thư viện `jjwt`), hỗ trợ Google OAuth2 login.   |
-| **MapStruct**              | -           | Sinh code ánh xạ (mapping) giữa Entity và DTO tại compile-time.                 |
-| **Spring WebSocket**       | -           | Giao tiếp realtime (chat, thông báo...).                                        |
-| **Thymeleaf**              | -           | Render template email (xác thực tài khoản, đặt lại mật khẩu...).                |
-| **SendGrid**                | -           | Gửi email giao dịch (transactional email).                                     |
-| **Cloudinary**              | -           | Lưu trữ & xử lý media (ảnh, tài liệu đính kèm).                                 |
-| **springdoc-openapi**       | -           | Sinh tài liệu API chuẩn OpenAPI / Swagger UI.                                    |
+| **Spring Boot**           | 3.5.x       | Framework phát triển ứng dụng Java Web nhanh chóng và mạnh mẽ.                            |
+| **PostgreSQL**            | 15 (Alpine) | Cơ sở dữ liệu quan hệ chính, tối ưu hiệu năng và độ ổn định cao.                          |
+| **Redis**                 | Alpine      | Cache / lưu trạng thái tạm thời (rate limit, token blacklist...).                         |
+| **Flyway**                | -           | Quản lý và versioning schema cơ sở dữ liệu.                                               |
+| **Spring Security + JWT** | -           | Xác thực & phân quyền bằng JWT (thư viện`jjwt`), hỗ trợ Google OAuth2 login.              |
+| **MapStruct**             | -           | Sinh code ánh xạ (mapping) giữa Entity và DTO tại compile-time.                           |
+| **Spring WebSocket**      | -           | Giao tiếp realtime (chat, thông báo...).                                                  |
+| **Thymeleaf**             | -           | Render template email (xác thực tài khoản, đặt lại mật khẩu...).                          |
+| **SendGrid**              | -           | Gửi email giao dịch (transactional email).                                                |
+| **Cloudinary**            | -           | Lưu trữ & xử lý media (ảnh, tài liệu đính kèm).                                           |
+| **springdoc-openapi**     | -           | Sinh tài liệu API chuẩn OpenAPI / Swagger UI.                                             |
 
 ---
 
@@ -149,12 +149,12 @@ docker-compose up -d
 
 Docker Compose sẽ khởi chạy 4 service:
 
-| Service         | Cổng mặc định | Mô tả                          |
-| :--------------- | :------------- | :------------------------------- |
-| `db`             | `5432`          | PostgreSQL - cơ sở dữ liệu chính |
-| `pgadmin`        | `5050`          | Giao diện quản trị PostgreSQL    |
-| `redis`          | `6379`          | Cache / rate limit / blacklist   |
-| `redisinsight`   | `8001`          | Giao diện quản trị Redis         |
+| Service        | Cổng mặc định | Mô tả                            |
+| :------------- | :------------ | :------------------------------- |
+| `db`           | `5432`        | PostgreSQL - cơ sở dữ liệu chính |
+| `pgadmin`      | `5050`        | Giao diện quản trị PostgreSQL    |
+| `redis`        | `6379`        | Cache / rate limit / blacklist   |
+| `redisinsight` | `8001`        | Giao diện quản trị Redis         |
 
 Để kiểm tra trạng thái hoạt động của các container:
 
@@ -186,12 +186,10 @@ Việc chạy migration được điều khiển bởi cấu hình `spring.flywa
 ```yaml
 spring:
   flyway:
-    enabled: true   # đặt false nếu muốn bỏ qua bước chạy migration khi start app
+    enabled: true # đặt false nếu muốn bỏ qua bước chạy migration khi start app
 ```
 
 - `enabled: true` (mặc định khi deploy) — Flyway tự động chạy `V1__init_schema.sql` để tạo schema trên database trống.
 - `enabled: false` — bỏ qua bước migration, dùng khi chạy thử ứng dụng trên một database **đã có sẵn schema** từ trước.
-
-> Lưu ý: khi tắt Flyway, `spring.jpa.hibernate.ddl-auto` vẫn đang ở chế độ `validate` — Hibernate sẽ đối chiếu entity với schema hiện có và **báo lỗi khi khởi động** nếu database đang trống hoặc thiếu bảng. Chỉ tắt Flyway khi chắc chắn database đích đã có đủ schema tương ứng.
 
 ---
