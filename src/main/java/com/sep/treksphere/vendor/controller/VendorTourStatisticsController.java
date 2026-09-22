@@ -1,7 +1,10 @@
-package com.sep.treksphere.vendor.statistics;
+package com.sep.treksphere.vendor.controller;
 
 import com.sep.treksphere.common.dto.ApiResponse;
 import com.sep.treksphere.common.security.CustomUserDetails;
+import com.sep.treksphere.vendor.dto.request.VendorTourStatisticsFilter;
+import com.sep.treksphere.vendor.dto.response.VendorTourStatisticsResponse;
+import com.sep.treksphere.vendor.service.VendorTourStatisticsService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;

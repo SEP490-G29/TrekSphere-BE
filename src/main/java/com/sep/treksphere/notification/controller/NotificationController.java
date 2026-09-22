@@ -1,9 +1,11 @@
-package com.sep.treksphere.notification;
+package com.sep.treksphere.notification.controller;
 
 import com.sep.treksphere.common.constant.MessageConstant;
 import com.sep.treksphere.common.dto.ApiResponse;
 import com.sep.treksphere.common.dto.PaginationResponse;
 import com.sep.treksphere.common.security.CustomUserDetails;
+import com.sep.treksphere.notification.dto.response.NotificationResponse;
+import com.sep.treksphere.notification.service.NotificationService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;

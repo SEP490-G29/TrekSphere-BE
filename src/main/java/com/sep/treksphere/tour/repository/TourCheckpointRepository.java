@@ -1,6 +1,7 @@
-package com.sep.treksphere.tour.checkpoint;
+package com.sep.treksphere.tour.repository;
 
-import com.sep.treksphere.tour.Tour;
+import com.sep.treksphere.tour.entity.Tour;
+import com.sep.treksphere.tour.entity.TourCheckpoint;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
@@ -35,10 +36,6 @@ public interface TourCheckpointRepository extends JpaRepository<TourCheckpoint, 
     boolean existsByTourAndLatitudeAndLongitudeAndTourCheckpointIdNotAndIsDeletedFalse(
             Tour tour, BigDecimal latitude, BigDecimal longitude, UUID tourCheckpointId);
 
-    /**
-     * Cascade soft delete: đánh dấu xóa mềm tất cả checkpoint chưa bị xóa của tour,
-     * gán chung deletedAt timestamp để phục vụ restore đúng đợt.
-     */
     @Modifying
     @Query("UPDATE TourCheckpoint tc SET tc.isDeleted = true, tc.deletedAt = :deletedAt, tc.deletedBy = :deletedBy " +
            "WHERE tc.tour.tourId = :tourId AND tc.isDeleted = false")
@@ -46,9 +43,6 @@ public interface TourCheckpointRepository extends JpaRepository<TourCheckpoint, 
                            @Param("deletedAt") LocalDateTime deletedAt,
                            @Param("deletedBy") String deletedBy);
 
-    /**
-     * Restore: khôi phục checkpoint bị xóa cùng đợt với tour (match exact deletedAt).
-     */
     @Modifying
     @Query("UPDATE TourCheckpoint tc SET tc.isDeleted = false, tc.deletedAt = null, tc.deletedBy = null " +
            "WHERE tc.tour.tourId = :tourId AND tc.deletedAt = :deletedAt AND tc.isDeleted = true")

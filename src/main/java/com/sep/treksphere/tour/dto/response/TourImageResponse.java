@@ -1,4 +1,4 @@
-package com.sep.treksphere.tour.image;
+package com.sep.treksphere.tour.dto.response;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;

@@ -1,4 +1,4 @@
-package com.sep.treksphere.user;
+package com.sep.treksphere.user.dto.response;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;

@@ -1,5 +1,6 @@
-package com.sep.treksphere.chat;
+package com.sep.treksphere.chat.dto.request;
 
+import com.sep.treksphere.chat.enums.ConversationType;
 import com.sep.treksphere.common.constant.MessageConstant;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotEmpty;

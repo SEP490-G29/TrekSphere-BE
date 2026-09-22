@@ -1,12 +1,18 @@
-package com.sep.treksphere.tour.recommendation;
+package com.sep.treksphere.tour.service;
 
 import com.sep.treksphere.common.exception.AppException;
 import com.sep.treksphere.common.exception.ErrorCode;
-import com.sep.treksphere.tour.Tour;
-import com.sep.treksphere.tour.TourRepository;
-import com.sep.treksphere.user.User;
-import com.sep.treksphere.user.UserRepository;
-import com.sep.treksphere.user.UserStatus;
+import com.sep.treksphere.tour.dto.request.TourBehaviorEventBatchRequest;
+import com.sep.treksphere.tour.dto.request.TourBehaviorEventItemRequest;
+import com.sep.treksphere.tour.dto.response.TourBehaviorEventBatchResponse;
+import com.sep.treksphere.tour.entity.Tour;
+import com.sep.treksphere.tour.entity.TourBehaviorEvent;
+import com.sep.treksphere.tour.enums.TourBehaviorEventType;
+import com.sep.treksphere.tour.repository.TourBehaviorEventRepository;
+import com.sep.treksphere.tour.repository.TourRepository;
+import com.sep.treksphere.user.entity.User;
+import com.sep.treksphere.user.enums.UserStatus;
+import com.sep.treksphere.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
@@ -14,14 +20,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Duration;
 import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.HashMap;
-import java.util.LinkedHashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.UUID;
+import java.util.*;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 

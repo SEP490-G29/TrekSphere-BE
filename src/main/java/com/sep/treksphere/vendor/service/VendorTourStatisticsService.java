@@ -1,9 +1,15 @@
-package com.sep.treksphere.vendor.statistics;
+package com.sep.treksphere.vendor.service;
 
 import com.sep.treksphere.common.dto.PaginationResponse;
-import com.sep.treksphere.tour.TourStatus;
-import com.sep.treksphere.vendor.Vendor;
-import com.sep.treksphere.vendor.VendorAccessService;
+import com.sep.treksphere.tour.enums.TourStatus;
+import com.sep.treksphere.vendor.dto.request.VendorTourStatisticsFilter;
+import com.sep.treksphere.vendor.dto.response.VendorStatisticsOverview;
+import com.sep.treksphere.vendor.dto.response.VendorTourStatisticItem;
+import com.sep.treksphere.vendor.dto.response.VendorTourStatisticsResponse;
+import com.sep.treksphere.vendor.entity.Vendor;
+import com.sep.treksphere.vendor.repository.VendorStatisticsOverviewProjection;
+import com.sep.treksphere.vendor.repository.VendorTourStatisticProjection;
+import com.sep.treksphere.vendor.repository.VendorTourStatisticsRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;

@@ -1,20 +1,28 @@
-package com.sep.treksphere.blog;
+package com.sep.treksphere.blog.service;
 
-import com.sep.treksphere.blog.comment.BlogComment;
-import com.sep.treksphere.blog.comment.BlogCommentRepository;
-import com.sep.treksphere.blog.comment.BlogCommentResponse;
-import com.sep.treksphere.blog.comment.CommentStatus;
+import com.sep.treksphere.blog.dto.request.BlogFilterRequest;
+import com.sep.treksphere.blog.dto.request.CreateBlogRequest;
+import com.sep.treksphere.blog.dto.request.UpdateBlogRequest;
+import com.sep.treksphere.blog.dto.response.BlogCommentResponse;
+import com.sep.treksphere.blog.dto.response.BlogDetailResponse;
+import com.sep.treksphere.blog.dto.response.BlogSummaryResponse;
+import com.sep.treksphere.blog.entity.Blog;
+import com.sep.treksphere.blog.entity.BlogComment;
+import com.sep.treksphere.blog.enums.BlogStatus;
+import com.sep.treksphere.blog.enums.CommentStatus;
+import com.sep.treksphere.blog.repository.BlogCommentRepository;
+import com.sep.treksphere.blog.repository.BlogRepository;
 import com.sep.treksphere.common.dto.PaginationResponse;
 import com.sep.treksphere.common.exception.AppException;
 import com.sep.treksphere.common.exception.ErrorCode;
 import com.sep.treksphere.common.security.CustomUserDetails;
 import com.sep.treksphere.common.util.PaginationUtils;
-import com.sep.treksphere.file.FileService;
-import com.sep.treksphere.notification.NotificationEventType;
-import com.sep.treksphere.notification.NotificationService;
-import com.sep.treksphere.notification.ReferenceType;
-import com.sep.treksphere.user.User;
-import com.sep.treksphere.user.UserStatus;
+import com.sep.treksphere.file.service.FileService;
+import com.sep.treksphere.notification.enums.NotificationEventType;
+import com.sep.treksphere.notification.enums.ReferenceType;
+import com.sep.treksphere.notification.service.NotificationService;
+import com.sep.treksphere.user.entity.User;
+import com.sep.treksphere.user.enums.UserStatus;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -193,7 +201,6 @@ public class BlogService {
         return blog;
     }
 
-    /** Chỉ tính là hành động kiểm duyệt (cần thông báo cho tác giả) khi Admin thao tác trên bài viết không phải của mình. */
     private boolean isAdminModerationAction(Blog blog, CustomUserDetails userDetails) {
         boolean isAdmin = userDetails.getAuthorities().stream()
                 .anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN"));

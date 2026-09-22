@@ -1,5 +1,6 @@
-package com.sep.treksphere.chat.message;
+package com.sep.treksphere.chat.repository;
 
+import com.sep.treksphere.chat.entity.Message;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;

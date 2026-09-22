@@ -1,6 +1,9 @@
-package com.sep.treksphere.report;
+package com.sep.treksphere.report.mapper;
 
-import com.sep.treksphere.user.User;
+import com.sep.treksphere.report.dto.response.ReportResponse;
+import com.sep.treksphere.report.entity.ReportContent;
+import com.sep.treksphere.report.enums.ReportTargetType;
+import com.sep.treksphere.user.entity.User;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
 

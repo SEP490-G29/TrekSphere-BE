@@ -1,6 +1,11 @@
-package com.sep.treksphere.blog;
+package com.sep.treksphere.blog.controller;
 
-import com.sep.treksphere.blog.comment.*;
+import com.sep.treksphere.blog.dto.request.*;
+import com.sep.treksphere.blog.dto.response.BlogCommentResponse;
+import com.sep.treksphere.blog.dto.response.BlogDetailResponse;
+import com.sep.treksphere.blog.dto.response.BlogSummaryResponse;
+import com.sep.treksphere.blog.service.BlogCommentService;
+import com.sep.treksphere.blog.service.BlogService;
 import com.sep.treksphere.common.constant.MessageConstant;
 import com.sep.treksphere.common.dto.ApiResponse;
 import com.sep.treksphere.common.dto.PaginationResponse;

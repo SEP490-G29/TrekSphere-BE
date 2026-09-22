@@ -1,6 +1,7 @@
-package com.sep.treksphere.report;
+package com.sep.treksphere.report.dto.request;
 
 import com.sep.treksphere.common.constant.MessageConstant;
+import com.sep.treksphere.report.enums.ReportTargetType;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import lombok.AllArgsConstructor;

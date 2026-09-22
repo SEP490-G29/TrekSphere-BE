@@ -1,13 +1,10 @@
-package com.sep.treksphere.notification;
+package com.sep.treksphere.notification.service;
+
+import com.sep.treksphere.notification.enums.NotificationEventType;
 
 import java.util.EnumMap;
 import java.util.Map;
 
-/**
- * Bảng tra tiêu đề/nội dung cho từng {@link NotificationEventType}, dùng {@link String#format(String, Object...)}.
- * Thêm loại thông báo mới: chỉ cần thêm 1 dòng vào {@code TEMPLATES} bên dưới — xem cookbook trong
- * draft/notification_system_plan.md mục 4.
- */
 public final class NotificationTemplates {
 
     public record Resolved(String title, String content) {
@@ -73,8 +70,6 @@ public final class NotificationTemplates {
                 "Xác nhận thanh toán quyết toán",
                 "%s đã xác nhận nhận tiền quyết toán của bạn trong nhóm \"%s\"."));
 
-        // Nội dung có 2 biến thể cấu trúc khác nhau (top-level vs reply) nên được
-        // BlogCommentService dựng sẵn thành 1 câu hoàn chỉnh rồi truyền vào đây.
         TEMPLATES.put(NotificationEventType.BLOG_COMMENT_ADDED, new TemplatePair(
                 "Bình luận mới",
                 "%s"));
@@ -106,7 +101,6 @@ public final class NotificationTemplates {
         TEMPLATES.put(NotificationEventType.BLOG_HIDDEN, new TemplatePair(
                 "Bài viết đã bị ẩn",
                 "Bài viết \"%s\" đã bị ẩn bởi quản trị viên."));
-        // Nội dung tuỳ loại (blog/comment) nên được caller dựng sẵn thành 1 câu hoàn chỉnh.
         TEMPLATES.put(NotificationEventType.BLOG_DELETED, new TemplatePair(
                 "Nội dung đã bị xoá",
                 "%s"));

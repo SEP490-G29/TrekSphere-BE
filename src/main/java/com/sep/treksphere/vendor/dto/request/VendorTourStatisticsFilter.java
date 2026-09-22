@@ -1,6 +1,6 @@
-package com.sep.treksphere.vendor.statistics;
+package com.sep.treksphere.vendor.dto.request;
 
-import com.sep.treksphere.tour.TourStatus;
+import com.sep.treksphere.tour.enums.TourStatus;
 import lombok.Getter;
 import lombok.Setter;
 

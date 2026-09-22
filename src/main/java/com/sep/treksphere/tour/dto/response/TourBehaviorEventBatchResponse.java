@@ -1,4 +1,4 @@
-package com.sep.treksphere.tour.recommendation;
+package com.sep.treksphere.tour.dto.response;
 
 import lombok.Builder;
 import lombok.Data;

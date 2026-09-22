@@ -1,13 +1,14 @@
-package com.sep.treksphere.auth;
+package com.sep.treksphere.auth.controller;
 
 import com.sep.treksphere.auth.dto.request.*;
 import com.sep.treksphere.auth.dto.response.LoginResponse;
 import com.sep.treksphere.auth.dto.response.RegisterResponse;
+import com.sep.treksphere.auth.service.AuthService;
 import com.sep.treksphere.common.constant.MessageConstant;
 import com.sep.treksphere.common.dto.ApiResponse;
 import com.sep.treksphere.common.security.CustomUserDetails;
 import com.sep.treksphere.common.util.CookieUtil;
-import com.sep.treksphere.user.UserResponse;
+import com.sep.treksphere.user.dto.response.UserResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;

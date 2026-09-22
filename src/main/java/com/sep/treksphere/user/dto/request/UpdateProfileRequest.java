@@ -1,8 +1,10 @@
-package com.sep.treksphere.user;
+package com.sep.treksphere.user.dto.request;
 
 import com.sep.treksphere.common.constant.MessageConstant;
 import com.sep.treksphere.common.constant.ValidationConstant;
-import com.sep.treksphere.tour.DifficultyLevel;
+import com.sep.treksphere.tour.enums.DifficultyLevel;
+import com.sep.treksphere.user.enums.ExperienceLevel;
+import com.sep.treksphere.user.enums.Gender;
 import jakarta.validation.constraints.Past;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;

@@ -1,4 +1,4 @@
-package com.sep.treksphere.user;
+package com.sep.treksphere.user.entity;
 
 import jakarta.persistence.*;
 import lombok.Getter;

@@ -1,4 +1,4 @@
-package com.sep.treksphere.chat;
+package com.sep.treksphere.chat.enums;
 
 public enum ConversationType {
     DIRECT, GROUP

@@ -1,8 +1,12 @@
-package com.sep.treksphere.notification;
+package com.sep.treksphere.notification.service;
 
 import com.sep.treksphere.common.dto.PaginationResponse;
-import com.sep.treksphere.user.User;
-import com.sep.treksphere.user.UserRepository;
+import com.sep.treksphere.notification.dto.response.NotificationResponse;
+import com.sep.treksphere.notification.entity.Notification;
+import com.sep.treksphere.notification.enums.NotificationEventType;
+import com.sep.treksphere.notification.repository.NotificationRepository;
+import com.sep.treksphere.user.entity.User;
+import com.sep.treksphere.user.repository.UserRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;

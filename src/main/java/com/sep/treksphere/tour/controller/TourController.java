@@ -1,19 +1,12 @@
-package com.sep.treksphere.tour;
+package com.sep.treksphere.tour.controller;
 
 import com.sep.treksphere.common.dto.ApiResponse;
 import com.sep.treksphere.common.dto.PaginationResponse;
 import com.sep.treksphere.common.security.CustomUserDetails;
-import com.sep.treksphere.tour.checkpoint.TourCheckpointResponse;
-import com.sep.treksphere.tour.checkpoint.TourCheckpointService;
-import com.sep.treksphere.tour.dto.response.PublicTourDetailResponse;
-import com.sep.treksphere.tour.dto.response.TourSummaryResponse;
-import com.sep.treksphere.tour.recommendation.RecommendedTourResponse;
-import com.sep.treksphere.tour.recommendation.TourBehaviorEventBatchRequest;
-import com.sep.treksphere.tour.recommendation.TourBehaviorEventBatchResponse;
-import com.sep.treksphere.tour.recommendation.TourBehaviorEventService;
-import com.sep.treksphere.tour.recommendation.TourRecommendationService;
-import com.sep.treksphere.tour.schedule.TourScheduleResponse;
-import com.sep.treksphere.tour.schedule.TourScheduleService;
+import com.sep.treksphere.tour.dto.request.TourBehaviorEventBatchRequest;
+import com.sep.treksphere.tour.dto.response.*;
+import com.sep.treksphere.tour.enums.DifficultyLevel;
+import com.sep.treksphere.tour.service.*;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;

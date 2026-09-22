@@ -1,5 +1,6 @@
-package com.sep.treksphere.tour.schedule;
+package com.sep.treksphere.tour.dto.request;
 
+import com.sep.treksphere.tour.enums.ScheduleStatus;
 import lombok.Data;
 
 import java.time.LocalDate;

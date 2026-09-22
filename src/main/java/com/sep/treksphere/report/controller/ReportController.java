@@ -1,8 +1,10 @@
-package com.sep.treksphere.report;
+package com.sep.treksphere.report.controller;
 
 import com.sep.treksphere.common.constant.MessageConstant;
 import com.sep.treksphere.common.dto.ApiResponse;
 import com.sep.treksphere.common.security.CustomUserDetails;
+import com.sep.treksphere.report.dto.request.CreateReportRequest;
+import com.sep.treksphere.report.service.ReportService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;

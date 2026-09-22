@@ -1,4 +1,4 @@
-package com.sep.treksphere.tour.policy;
+package com.sep.treksphere.tour.dto.request;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.AllArgsConstructor;

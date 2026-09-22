@@ -1,5 +1,6 @@
-package com.sep.treksphere.report;
+package com.sep.treksphere.report.dto.request;
 
+import com.sep.treksphere.report.enums.ReportAction;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;

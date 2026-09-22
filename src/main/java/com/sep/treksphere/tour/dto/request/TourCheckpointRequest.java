@@ -1,4 +1,4 @@
-package com.sep.treksphere.tour.checkpoint;
+package com.sep.treksphere.tour.dto.request;
 
 import com.sep.treksphere.common.constant.MessageConstant;
 import jakarta.validation.constraints.Min;

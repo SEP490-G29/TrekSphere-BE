@@ -1,13 +1,16 @@
-package com.sep.treksphere.tour.checkpoint;
+package com.sep.treksphere.tour.service;
 
 import com.sep.treksphere.common.exception.AppException;
 import com.sep.treksphere.common.exception.ErrorCode;
-import com.sep.treksphere.file.FileService;
-import com.sep.treksphere.tour.Tour;
-import com.sep.treksphere.tour.TourReadinessService;
-import com.sep.treksphere.tour.TourRepository;
-import com.sep.treksphere.vendor.Vendor;
-import com.sep.treksphere.vendor.VendorAccessService;
+import com.sep.treksphere.file.service.FileService;
+import com.sep.treksphere.tour.dto.request.TourCheckpointRequest;
+import com.sep.treksphere.tour.dto.response.TourCheckpointResponse;
+import com.sep.treksphere.tour.entity.Tour;
+import com.sep.treksphere.tour.entity.TourCheckpoint;
+import com.sep.treksphere.tour.repository.TourCheckpointRepository;
+import com.sep.treksphere.tour.repository.TourRepository;
+import com.sep.treksphere.vendor.entity.Vendor;
+import com.sep.treksphere.vendor.service.VendorAccessService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;

@@ -1,8 +1,7 @@
 package com.sep.treksphere.tour.dto.request;
 
 import com.sep.treksphere.common.constant.MessageConstant;
-import com.sep.treksphere.tour.DifficultyLevel;
-import com.sep.treksphere.tour.policy.TourParticipationPolicyRequest;
+import com.sep.treksphere.tour.enums.DifficultyLevel;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.Min;

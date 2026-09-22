@@ -1,10 +1,11 @@
-package com.sep.treksphere.report;
+package com.sep.treksphere.report.entity;
 
-import com.sep.treksphere.blog.Blog;
-import com.sep.treksphere.blog.comment.BlogComment;
+import com.sep.treksphere.blog.entity.Blog;
+import com.sep.treksphere.blog.entity.BlogComment;
 import com.sep.treksphere.common.entity.BaseEntity;
-import com.sep.treksphere.tour.Tour;
-import com.sep.treksphere.user.User;
+import com.sep.treksphere.report.enums.ReportStatus;
+import com.sep.treksphere.tour.entity.Tour;
+import com.sep.treksphere.user.entity.User;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.NoArgsConstructor;

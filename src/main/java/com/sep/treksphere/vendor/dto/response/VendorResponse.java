@@ -1,6 +1,7 @@
-package com.sep.treksphere.vendor;
+package com.sep.treksphere.vendor.dto.response;
 
-import com.sep.treksphere.user.UserProfileResponse;
+import com.sep.treksphere.user.dto.response.UserProfileResponse;
+import com.sep.treksphere.vendor.enums.VendorStatus;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;

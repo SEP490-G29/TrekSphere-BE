@@ -1,7 +1,7 @@
 package com.sep.treksphere.migration;
 
-import com.sep.treksphere.tour.recommendation.TourRecommendationRepository;
-import com.sep.treksphere.vendor.statistics.VendorTourStatisticsRepository;
+import com.sep.treksphere.tour.repository.TourRecommendationRepository;
+import com.sep.treksphere.vendor.repository.VendorTourStatisticsRepository;
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres;
 import org.flywaydb.core.Flyway;
 import org.junit.jupiter.api.Test;

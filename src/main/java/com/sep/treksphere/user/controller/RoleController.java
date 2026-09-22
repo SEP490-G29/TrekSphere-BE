@@ -1,7 +1,10 @@
-package com.sep.treksphere.user;
+package com.sep.treksphere.user.controller;
 
 import com.sep.treksphere.common.constant.MessageConstant;
 import com.sep.treksphere.common.dto.ApiResponse;
+import com.sep.treksphere.user.dto.request.AssignPermissionsRequest;
+import com.sep.treksphere.user.dto.response.RoleResponse;
+import com.sep.treksphere.user.service.RoleService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;

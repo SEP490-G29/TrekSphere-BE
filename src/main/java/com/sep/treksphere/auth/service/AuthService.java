@@ -1,4 +1,4 @@
-package com.sep.treksphere.auth;
+package com.sep.treksphere.auth.service;
 
 import com.google.api.client.googleapis.auth.oauth2.GoogleIdToken;
 import com.google.api.client.googleapis.auth.oauth2.GoogleIdTokenVerifier;
@@ -9,14 +9,20 @@ import com.sep.treksphere.auth.dto.request.LoginRequest;
 import com.sep.treksphere.auth.dto.request.RegisterRequest;
 import com.sep.treksphere.auth.dto.response.LoginResponse;
 import com.sep.treksphere.auth.dto.response.RegisterResponse;
+import com.sep.treksphere.auth.mapper.AuthMapper;
 import com.sep.treksphere.common.constant.MessageConstant;
 import com.sep.treksphere.common.exception.AppException;
 import com.sep.treksphere.common.exception.ErrorCode;
 import com.sep.treksphere.common.security.CustomUserDetails;
 import com.sep.treksphere.common.security.JwtService;
 import com.sep.treksphere.common.security.JwtTokenProvider;
-import com.sep.treksphere.notification.EmailService;
-import com.sep.treksphere.user.*;
+import com.sep.treksphere.notification.service.EmailService;
+import com.sep.treksphere.user.entity.Role;
+import com.sep.treksphere.user.entity.User;
+import com.sep.treksphere.user.enums.AuthProvider;
+import com.sep.treksphere.user.enums.UserStatus;
+import com.sep.treksphere.user.repository.RoleRepository;
+import com.sep.treksphere.user.repository.UserRepository;
 import io.jsonwebtoken.ExpiredJwtException;
 import io.jsonwebtoken.JwtException;
 import lombok.RequiredArgsConstructor;

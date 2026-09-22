@@ -1,4 +1,4 @@
-package com.sep.treksphere.file;
+package com.sep.treksphere.file.enums;
 
 import java.util.Set;
 

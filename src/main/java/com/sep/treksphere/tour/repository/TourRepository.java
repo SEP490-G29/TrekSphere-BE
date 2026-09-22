@@ -1,5 +1,8 @@
-package com.sep.treksphere.tour;
+package com.sep.treksphere.tour.repository;
 
+import com.sep.treksphere.tour.entity.Tour;
+import com.sep.treksphere.tour.enums.DifficultyLevel;
+import com.sep.treksphere.tour.enums.TourStatus;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -23,7 +26,7 @@ public interface TourRepository extends JpaRepository<Tour, UUID> {
                JOIN t.vendor v
                WHERE t.isDeleted = false
                  AND t.status = :status
-                 AND v.status = com.sep.treksphere.vendor.VendorStatus.ACTIVE
+                 AND v.status = com.sep.treksphere.vendor.enums.VendorStatus.ACTIVE
                  AND v.isDeleted = false
                  AND (CAST(:vendorId AS uuid) IS NULL OR v.vendorId = :vendorId)
                  AND (CAST(:keyword AS string) IS NULL
@@ -37,7 +40,7 @@ public interface TourRepository extends JpaRepository<Tour, UUID> {
                           SELECT ts.tourScheduleId FROM TourSchedule ts
                           WHERE ts.tour = t
                             AND ts.isDeleted = false
-                            AND ts.status = com.sep.treksphere.tour.schedule.ScheduleStatus.OPEN
+                            AND ts.status = com.sep.treksphere.tour.enums.ScheduleStatus.OPEN
                             AND (CAST(:departureDate AS date) IS NULL OR ts.departureDate = :departureDate)
                             AND (CAST(:returnDate AS date) IS NULL OR ts.returnDate = :returnDate)
                       ))
@@ -57,8 +60,8 @@ public interface TourRepository extends JpaRepository<Tour, UUID> {
                JOIN FETCH t.vendor v
                WHERE t.tourId = :tourId
                  AND t.isDeleted = false
-                 AND t.status = com.sep.treksphere.tour.TourStatus.PUBLISHED
-                 AND v.status = com.sep.treksphere.vendor.VendorStatus.ACTIVE
+                 AND t.status = com.sep.treksphere.tour.enums.TourStatus.PUBLISHED
+                 AND v.status = com.sep.treksphere.vendor.enums.VendorStatus.ACTIVE
                  AND v.isDeleted = false
                """)
      Optional<Tour> findPublishedDetailById(@Param("tourId") UUID tourId);
@@ -68,8 +71,8 @@ public interface TourRepository extends JpaRepository<Tour, UUID> {
                JOIN FETCH t.vendor v
                WHERE t.tourId IN :tourIds
                  AND t.isDeleted = false
-                 AND t.status = com.sep.treksphere.tour.TourStatus.PUBLISHED
-                 AND v.status = com.sep.treksphere.vendor.VendorStatus.ACTIVE
+                 AND t.status = com.sep.treksphere.tour.enums.TourStatus.PUBLISHED
+                 AND v.status = com.sep.treksphere.vendor.enums.VendorStatus.ACTIVE
                  AND v.isDeleted = false
                """)
      List<Tour> findPublishedByIds(@Param("tourIds") Collection<UUID> tourIds);
@@ -91,15 +94,8 @@ public interface TourRepository extends JpaRepository<Tour, UUID> {
 
      Optional<Tour> findByTourIdAndIsDeletedFalse(UUID tourId);
 
-     /**
-      * Tìm Tour đã bị xóa mềm — phục vụ API restore
-      */
      Optional<Tour> findByTourIdAndIsDeletedTrue(UUID tourId);
 
-     /**
-      * Dành cho Vendor Owner: thấy toàn bộ Tour của Vendor mình, mọi status
-      * (không còn phân biệt Manager/Staff — chỉ còn một actor Vendor Owner).
-      */
      @Query("""
                SELECT t FROM Tour t
                WHERE t.isDeleted = false

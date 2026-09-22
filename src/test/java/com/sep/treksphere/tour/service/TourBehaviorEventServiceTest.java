@@ -1,11 +1,18 @@
-package com.sep.treksphere.tour.recommendation;
+package com.sep.treksphere.tour.service;
 
 import com.sep.treksphere.common.exception.AppException;
-import com.sep.treksphere.tour.Tour;
-import com.sep.treksphere.tour.TourRepository;
-import com.sep.treksphere.user.User;
-import com.sep.treksphere.user.UserRepository;
-import com.sep.treksphere.user.UserStatus;
+import com.sep.treksphere.tour.dto.request.TourBehaviorEventBatchRequest;
+import com.sep.treksphere.tour.dto.request.TourBehaviorEventItemRequest;
+import com.sep.treksphere.tour.dto.response.TourBehaviorEventBatchResponse;
+import com.sep.treksphere.tour.entity.Tour;
+import com.sep.treksphere.tour.entity.TourBehaviorEvent;
+import com.sep.treksphere.tour.enums.TourBehaviorEventType;
+import com.sep.treksphere.tour.enums.TourBehaviorSource;
+import com.sep.treksphere.tour.repository.TourBehaviorEventRepository;
+import com.sep.treksphere.tour.repository.TourRepository;
+import com.sep.treksphere.user.entity.User;
+import com.sep.treksphere.user.repository.UserRepository;
+import com.sep.treksphere.user.enums.UserStatus;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;

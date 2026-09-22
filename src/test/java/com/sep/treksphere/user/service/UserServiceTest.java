@@ -1,9 +1,17 @@
-package com.sep.treksphere.user;
+package com.sep.treksphere.user.service;
 
 import com.sep.treksphere.common.exception.AppException;
 import com.sep.treksphere.common.exception.ErrorCode;
-import com.sep.treksphere.file.FileService;
-import com.sep.treksphere.tour.DifficultyLevel;
+import com.sep.treksphere.file.service.FileService;
+import com.sep.treksphere.tour.enums.DifficultyLevel;
+import com.sep.treksphere.user.dto.request.UpdateProfileRequest;
+import com.sep.treksphere.user.dto.response.PublicHikingSummaryResponse;
+import com.sep.treksphere.user.dto.response.UserProfileResponse;
+import com.sep.treksphere.user.entity.User;
+import com.sep.treksphere.user.enums.ExperienceLevel;
+import com.sep.treksphere.user.enums.Gender;
+import com.sep.treksphere.user.mapper.UserMapper;
+import com.sep.treksphere.user.repository.UserRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -180,7 +188,7 @@ class UserServiceTest {
         sampleUser.setPhone("0987654321");
 
         UpdateProfileRequest request = new UpdateProfileRequest();
-        request.setPhone("+84987654321"); // Cùng một số, khác định dạng
+        request.setPhone("+84987654321");
 
         when(userRepository.findByEmail("trekker@example.com")).thenReturn(Optional.of(sampleUser));
         when(userMapper.toUserProfileResponse(sampleUser)).thenReturn(new UserProfileResponse());

@@ -1,5 +1,6 @@
-package com.sep.treksphere.blog;
+package com.sep.treksphere.blog.dto.response;
 
+import com.sep.treksphere.blog.enums.BlogStatus;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;

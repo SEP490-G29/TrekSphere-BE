@@ -1,4 +1,4 @@
-package com.sep.treksphere.vendor;
+package com.sep.treksphere.vendor.enums;
 
 public enum VendorStatus {
     PENDING, ACTIVE, SUSPENDED;

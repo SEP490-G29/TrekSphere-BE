@@ -1,5 +1,7 @@
-package com.sep.treksphere.user;
+package com.sep.treksphere.user.repository;
 
+import com.sep.treksphere.user.entity.User;
+import com.sep.treksphere.user.enums.UserStatus;
 import jakarta.persistence.LockModeType;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;

@@ -1,15 +1,18 @@
-package com.sep.treksphere.tour.recommendation;
+package com.sep.treksphere.tour.service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.sep.treksphere.common.dto.PaginationResponse;
 import com.sep.treksphere.matching.enums.MatchingGroupStatus;
-import com.sep.treksphere.tour.DifficultyLevel;
-import com.sep.treksphere.tour.Tour;
-import com.sep.treksphere.tour.TourService;
+import com.sep.treksphere.tour.enums.DifficultyLevel;
+import com.sep.treksphere.tour.entity.Tour;
+import com.sep.treksphere.tour.enums.RecommendationReason;
+import com.sep.treksphere.tour.enums.TourBehaviorEventType;
+import com.sep.treksphere.tour.repository.TourRecommendationRepository;
+import com.sep.treksphere.tour.dto.response.RecommendedTourResponse;
 import com.sep.treksphere.tour.dto.response.TourSummaryResponse;
-import com.sep.treksphere.user.ExperienceLevel;
-import com.sep.treksphere.user.User;
-import com.sep.treksphere.user.UserRepository;
+import com.sep.treksphere.user.enums.ExperienceLevel;
+import com.sep.treksphere.user.entity.User;
+import com.sep.treksphere.user.repository.UserRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.data.domain.PageImpl;

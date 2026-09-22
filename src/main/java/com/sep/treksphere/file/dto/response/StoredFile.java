@@ -1,4 +1,4 @@
-package com.sep.treksphere.file;
+package com.sep.treksphere.file.dto.response;
 
 public record StoredFile(
         String storageId,

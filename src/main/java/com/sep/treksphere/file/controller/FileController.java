@@ -1,7 +1,8 @@
-package com.sep.treksphere.file;
+package com.sep.treksphere.file.controller;
 
 import com.sep.treksphere.common.constant.MessageConstant;
 import com.sep.treksphere.common.dto.ApiResponse;
+import com.sep.treksphere.file.service.FileService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;

@@ -1,23 +1,33 @@
-package com.sep.treksphere.report;
+package com.sep.treksphere.report.service;
 
-import com.sep.treksphere.blog.Blog;
-import com.sep.treksphere.blog.BlogRepository;
-import com.sep.treksphere.blog.BlogStatus;
-import com.sep.treksphere.blog.comment.BlogComment;
-import com.sep.treksphere.blog.comment.BlogCommentRepository;
-import com.sep.treksphere.blog.comment.CommentStatus;
+import com.sep.treksphere.blog.entity.Blog;
+import com.sep.treksphere.blog.entity.BlogComment;
+import com.sep.treksphere.blog.enums.BlogStatus;
+import com.sep.treksphere.blog.enums.CommentStatus;
+import com.sep.treksphere.blog.repository.BlogCommentRepository;
+import com.sep.treksphere.blog.repository.BlogRepository;
 import com.sep.treksphere.common.dto.PaginationResponse;
 import com.sep.treksphere.common.exception.AppException;
 import com.sep.treksphere.common.exception.ErrorCode;
 import com.sep.treksphere.common.util.PaginationUtils;
-import com.sep.treksphere.notification.NotificationEventType;
-import com.sep.treksphere.notification.NotificationService;
-import com.sep.treksphere.notification.ReferenceType;
-import com.sep.treksphere.tour.Tour;
-import com.sep.treksphere.tour.TourRepository;
-import com.sep.treksphere.tour.TourService;
-import com.sep.treksphere.user.User;
-import com.sep.treksphere.user.UserRepository;
+import com.sep.treksphere.notification.enums.NotificationEventType;
+import com.sep.treksphere.notification.enums.ReferenceType;
+import com.sep.treksphere.notification.service.NotificationService;
+import com.sep.treksphere.report.dto.request.CreateReportRequest;
+import com.sep.treksphere.report.dto.request.ReportFilterRequest;
+import com.sep.treksphere.report.dto.request.ResolveReportRequest;
+import com.sep.treksphere.report.dto.response.ReportResponse;
+import com.sep.treksphere.report.entity.ReportContent;
+import com.sep.treksphere.report.enums.ReportAction;
+import com.sep.treksphere.report.enums.ReportStatus;
+import com.sep.treksphere.report.enums.ReportTargetType;
+import com.sep.treksphere.report.mapper.ReportMapper;
+import com.sep.treksphere.report.repository.ReportContentRepository;
+import com.sep.treksphere.tour.entity.Tour;
+import com.sep.treksphere.tour.repository.TourRepository;
+import com.sep.treksphere.tour.service.TourService;
+import com.sep.treksphere.user.entity.User;
+import com.sep.treksphere.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -127,7 +137,6 @@ public class ReportService {
 
         User author = extractTargetAuthor(report);
 
-        // Xử lý trừ điểm tín nhiệm (nếu có phạt và không phải bác bỏ báo cáo)
         int defaultPenalty = switch (action) {
             case WARNING -> 5;
             case HIDE_CONTENT -> 10;

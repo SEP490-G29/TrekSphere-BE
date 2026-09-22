@@ -1,4 +1,4 @@
-package com.sep.treksphere.chat.message;
+package com.sep.treksphere.chat.dto.request;
 
 import com.sep.treksphere.common.constant.MessageConstant;
 import io.swagger.v3.oas.annotations.media.Schema;

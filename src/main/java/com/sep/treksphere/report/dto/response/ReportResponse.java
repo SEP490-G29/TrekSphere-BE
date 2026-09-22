@@ -1,5 +1,7 @@
-package com.sep.treksphere.report;
+package com.sep.treksphere.report.dto.response;
 
+import com.sep.treksphere.report.enums.ReportStatus;
+import com.sep.treksphere.report.enums.ReportTargetType;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.Setter;

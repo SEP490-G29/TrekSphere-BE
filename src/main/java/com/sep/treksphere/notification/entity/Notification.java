@@ -1,7 +1,9 @@
-package com.sep.treksphere.notification;
+package com.sep.treksphere.notification.entity;
 
 import com.sep.treksphere.common.entity.BaseEntity;
-import com.sep.treksphere.user.User;
+import com.sep.treksphere.notification.enums.NotificationEventType;
+import com.sep.treksphere.notification.enums.ReferenceType;
+import com.sep.treksphere.user.entity.User;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.NoArgsConstructor;

@@ -1,13 +1,16 @@
-package com.sep.treksphere.chat;
+package com.sep.treksphere.chat.controller;
 
-import com.sep.treksphere.chat.message.MessageCreateRequest;
-import com.sep.treksphere.chat.message.MessageResponse;
-import com.sep.treksphere.chat.message.MessageService;
+import com.sep.treksphere.chat.dto.request.ConversationCreateRequest;
+import com.sep.treksphere.chat.dto.request.MessageCreateRequest;
+import com.sep.treksphere.chat.dto.response.ConversationResponse;
+import com.sep.treksphere.chat.dto.response.MessageResponse;
+import com.sep.treksphere.chat.service.ConversationService;
+import com.sep.treksphere.chat.service.MessageService;
 import com.sep.treksphere.common.constant.MessageConstant;
 import com.sep.treksphere.common.dto.ApiResponse;
 import com.sep.treksphere.common.dto.PaginationResponse;
 import com.sep.treksphere.common.security.CustomUserDetails;
-import com.sep.treksphere.user.UserResponse;
+import com.sep.treksphere.user.dto.response.UserResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;

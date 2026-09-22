@@ -1,5 +1,6 @@
-package com.sep.treksphere.tour.schedule;
+package com.sep.treksphere.tour.dto.response;
 
+import com.sep.treksphere.tour.enums.ScheduleStatus;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;

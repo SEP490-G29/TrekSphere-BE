@@ -1,10 +1,16 @@
-package com.sep.treksphere.notification;
+package com.sep.treksphere.notification.service;
 
 import com.sep.treksphere.common.dto.PaginationResponse;
 import com.sep.treksphere.common.exception.AppException;
 import com.sep.treksphere.common.exception.ErrorCode;
-import com.sep.treksphere.user.User;
-import com.sep.treksphere.user.UserRepository;
+import com.sep.treksphere.notification.dto.response.NotificationResponse;
+import com.sep.treksphere.notification.entity.Notification;
+import com.sep.treksphere.notification.enums.NotificationEventType;
+import com.sep.treksphere.notification.enums.ReferenceType;
+import com.sep.treksphere.notification.event.NotifyCommand;
+import com.sep.treksphere.notification.repository.NotificationRepository;
+import com.sep.treksphere.user.entity.User;
+import com.sep.treksphere.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
@@ -74,18 +80,12 @@ public class NotificationService {
                 .orElseThrow(() -> new AppException(ErrorCode.NOTIFICATION_NOT_FOUND));
     }
 
-    /**
-     * 1 người nhận — ví dụ: báo cho chủ nhóm, báo cho tác giả blog, báo cho vendor manager.
-     * Chỉ cần gọi hàm này tại nơi nghiệp vụ xảy ra; phần lưu DB + đẩy WebSocket do
-     * {@link NotificationEventListener} xử lý sau khi transaction hiện tại commit.
-     */
     public void notify(UUID recipientId, NotificationEventType eventType,
                         ReferenceType referenceType, UUID referenceId, String actionUrl,
                         Object... templateArgs) {
         notify(List.of(recipientId), eventType, referenceType, referenceId, actionUrl, templateArgs);
     }
 
-    /** Nhiều người nhận (fan-out) — ví dụ: báo cho toàn bộ Admin, toàn bộ thành viên 1 nhóm. */
     public void notify(List<UUID> recipientIds, NotificationEventType eventType,
                         ReferenceType referenceType, UUID referenceId, String actionUrl,
                         Object... templateArgs) {

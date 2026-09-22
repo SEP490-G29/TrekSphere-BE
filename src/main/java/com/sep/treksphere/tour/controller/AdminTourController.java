@@ -1,10 +1,11 @@
-package com.sep.treksphere.tour;
+package com.sep.treksphere.tour.controller;
 
 import com.sep.treksphere.common.constant.MessageConstant;
 import com.sep.treksphere.common.dto.ApiResponse;
 import com.sep.treksphere.common.security.CustomUserDetails;
 import com.sep.treksphere.tour.dto.request.HideTourRequest;
 import com.sep.treksphere.tour.dto.response.TourDetailResponse;
+import com.sep.treksphere.tour.service.TourService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;

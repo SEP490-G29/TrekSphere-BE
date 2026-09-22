@@ -1,8 +1,8 @@
-package com.sep.treksphere.vendor.application;
+package com.sep.treksphere.vendor.entity;
 
 import com.sep.treksphere.common.entity.BaseEntity;
-import com.sep.treksphere.user.User;
-import com.sep.treksphere.vendor.Vendor;
+import com.sep.treksphere.user.entity.User;
+import com.sep.treksphere.vendor.enums.ApplicationStatus;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.NoArgsConstructor;

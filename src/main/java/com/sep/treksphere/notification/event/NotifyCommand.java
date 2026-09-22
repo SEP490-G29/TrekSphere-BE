@@ -1,4 +1,7 @@
-package com.sep.treksphere.notification;
+package com.sep.treksphere.notification.event;
+
+import com.sep.treksphere.notification.enums.NotificationEventType;
+import com.sep.treksphere.notification.enums.ReferenceType;
 
 import java.util.List;
 import java.util.UUID;

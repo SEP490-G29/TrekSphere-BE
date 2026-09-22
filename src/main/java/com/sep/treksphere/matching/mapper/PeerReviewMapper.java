@@ -1,7 +1,10 @@
 package com.sep.treksphere.matching.mapper;
 
+import com.sep.treksphere.blog.service.BlogService;
 import com.sep.treksphere.matching.dto.response.PeerReviewResponse;
 import com.sep.treksphere.matching.entity.GroupPeerReview;
+import com.sep.treksphere.user.entity.User;
+import com.sep.treksphere.user.enums.UserStatus;
 import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;
@@ -22,8 +25,8 @@ public class PeerReviewMapper {
                 + (review.getFinancialFairnessRating() != null ? review.getFinancialFairnessRating() : 0);
         BigDecimal average = BigDecimal.valueOf(sum).divide(THREE, 2, RoundingMode.HALF_UP);
 
-        com.sep.treksphere.user.User revieweeUser = review.getRevieweeMatchingMember() != null ? review.getRevieweeMatchingMember().getUser() : null;
-        boolean isLocked = revieweeUser != null && revieweeUser.getStatus() == com.sep.treksphere.user.UserStatus.LOCKED;
+        User revieweeUser = review.getRevieweeMatchingMember() != null ? review.getRevieweeMatchingMember().getUser() : null;
+        boolean isLocked = revieweeUser != null && revieweeUser.getStatus() == UserStatus.LOCKED;
 
         return PeerReviewResponse.builder()
                 .groupPeerReviewId(review.getGroupPeerReviewId())
@@ -31,7 +34,7 @@ public class PeerReviewMapper {
                 .revieweeMatchingMemberId(review.getRevieweeMatchingMember() != null
                         ? review.getRevieweeMatchingMember().getMatchingMemberId() : null)
                 .revieweeUserId(isLocked ? null : (revieweeUser != null ? revieweeUser.getUserId() : null))
-                .revieweeFullName(isLocked ? com.sep.treksphere.blog.BlogService.SYSTEM_USER_ANONYMOUS_NAME : (revieweeUser != null ? revieweeUser.getFullName() : null))
+                .revieweeFullName(isLocked ? BlogService.SYSTEM_USER_ANONYMOUS_NAME : (revieweeUser != null ? revieweeUser.getFullName() : null))
                 .revieweeAvatarUrl(isLocked ? null : (revieweeUser != null ? revieweeUser.getAvatarUrl() : null))
                 .actualEnduranceRating(review.getActualEnduranceRating())
                 .punctualityResponsibilityRating(review.getPunctualityResponsibilityRating())

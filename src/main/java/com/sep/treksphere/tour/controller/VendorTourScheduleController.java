@@ -1,8 +1,12 @@
-package com.sep.treksphere.tour.schedule;
+package com.sep.treksphere.tour.controller;
 
 import com.sep.treksphere.common.constant.MessageConstant;
 import com.sep.treksphere.common.dto.ApiResponse;
 import com.sep.treksphere.common.security.CustomUserDetails;
+import com.sep.treksphere.tour.dto.request.CreateScheduleRequest;
+import com.sep.treksphere.tour.dto.request.UpdateScheduleRequest;
+import com.sep.treksphere.tour.dto.response.TourScheduleResponse;
+import com.sep.treksphere.tour.service.TourScheduleService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;

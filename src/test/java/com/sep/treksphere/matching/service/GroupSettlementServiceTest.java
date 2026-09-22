@@ -14,9 +14,9 @@ import com.sep.treksphere.matching.enums.SettlementStatus;
 import com.sep.treksphere.matching.mapper.GroupSettlementMapper;
 import com.sep.treksphere.matching.repository.*;
 import com.sep.treksphere.matching.service.impl.GroupSettlementServiceImpl;
-import com.sep.treksphere.notification.NotificationService;
-import com.sep.treksphere.user.User;
-import com.sep.treksphere.user.UserRepository;
+import com.sep.treksphere.notification.service.NotificationService;
+import com.sep.treksphere.user.entity.User;
+import com.sep.treksphere.user.repository.UserRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -295,8 +295,8 @@ class GroupSettlementServiceTest {
         assertThat(response.getSubmittedAt()).isNotNull();
         verify(notificationService).notify(
                 org.mockito.ArgumentMatchers.eq(leaderMember.getUser().getUserId()),
-                org.mockito.ArgumentMatchers.eq(com.sep.treksphere.notification.NotificationEventType.GROUP_SETTLEMENT_PROOF_SUBMITTED),
-                org.mockito.ArgumentMatchers.eq(com.sep.treksphere.notification.ReferenceType.GROUP_EXPENSE),
+                org.mockito.ArgumentMatchers.eq(com.sep.treksphere.notification.enums.NotificationEventType.GROUP_SETTLEMENT_PROOF_SUBMITTED),
+                org.mockito.ArgumentMatchers.eq(com.sep.treksphere.notification.enums.ReferenceType.GROUP_EXPENSE),
                 org.mockito.ArgumentMatchers.eq(settlementId),
                 org.mockito.ArgumentMatchers.anyString(),
                 org.mockito.ArgumentMatchers.any(),
@@ -360,8 +360,8 @@ class GroupSettlementServiceTest {
         assertThat(response.getConfirmedBy().getMatchingMemberId()).isEqualTo(leaderMember.getMatchingMemberId());
         verify(notificationService).notify(
                 org.mockito.ArgumentMatchers.eq(member1.getUser().getUserId()),
-                org.mockito.ArgumentMatchers.eq(com.sep.treksphere.notification.NotificationEventType.GROUP_SETTLEMENT_CONFIRMED),
-                org.mockito.ArgumentMatchers.eq(com.sep.treksphere.notification.ReferenceType.GROUP_EXPENSE),
+                org.mockito.ArgumentMatchers.eq(com.sep.treksphere.notification.enums.NotificationEventType.GROUP_SETTLEMENT_CONFIRMED),
+                org.mockito.ArgumentMatchers.eq(com.sep.treksphere.notification.enums.ReferenceType.GROUP_EXPENSE),
                 org.mockito.ArgumentMatchers.eq(settlementId),
                 org.mockito.ArgumentMatchers.anyString(),
                 org.mockito.ArgumentMatchers.any(),

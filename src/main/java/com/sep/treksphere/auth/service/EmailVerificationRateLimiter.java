@@ -1,4 +1,4 @@
-package com.sep.treksphere.auth;
+package com.sep.treksphere.auth.service;
 
 import com.sep.treksphere.common.exception.AppException;
 import com.sep.treksphere.common.exception.ErrorCode;

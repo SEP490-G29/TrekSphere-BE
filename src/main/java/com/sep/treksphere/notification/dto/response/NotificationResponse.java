@@ -1,5 +1,8 @@
-package com.sep.treksphere.notification;
+package com.sep.treksphere.notification.dto.response;
 
+import com.sep.treksphere.notification.entity.Notification;
+import com.sep.treksphere.notification.enums.NotificationEventType;
+import com.sep.treksphere.notification.enums.ReferenceType;
 import lombok.Builder;
 import lombok.Getter;
 

@@ -1,5 +1,6 @@
-package com.sep.treksphere.notification;
+package com.sep.treksphere.notification.repository;
 
+import com.sep.treksphere.notification.entity.Notification;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;

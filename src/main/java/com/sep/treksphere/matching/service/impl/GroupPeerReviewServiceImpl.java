@@ -20,7 +20,7 @@ import com.sep.treksphere.matching.repository.MatchingGroupRepository;
 import com.sep.treksphere.matching.repository.MatchingMemberRepository;
 import com.sep.treksphere.matching.service.GroupPeerReviewService;
 import com.sep.treksphere.matching.service.TrustScoreService;
-import com.sep.treksphere.user.UserRepository;
+import com.sep.treksphere.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -53,17 +53,15 @@ public class GroupPeerReviewServiceImpl implements GroupPeerReviewService {
         GroupTrip trip = groupTripRepository.findByMatchingGroup(group)
                 .orElseThrow(() -> new AppException(ErrorCode.MATCHING_GROUP_NOT_FOUND));
 
-        // 1. Chỉ được review khi chuyến đi đã kết thúc (ENDED)
+        
         if (trip.getStatus() != GroupTripStatus.ENDED) {
             throw new AppException(ErrorCode.TRIP_NOT_ENDED_FOR_REVIEW);
         }
 
-        // 2. Xác thực reviewer là thành viên chính thức (ACCEPTED) của nhóm
         MatchingMember reviewerMember = matchingMemberRepository.findByGroupIdAndUserId(groupId, reviewerUserId)
                 .filter(m -> m.getStatus() == JoinStatus.ACCEPTED)
                 .orElseThrow(() -> new AppException(ErrorCode.NOT_TRIP_PARTICIPANT));
 
-        // 3. Xác thực reviewee là thành viên chính thức của nhóm
         MatchingMember revieweeMember;
         if (request.getRevieweeMemberId() != null) {
             revieweeMember = matchingMemberRepository.findMemberByIdAndGroupId(request.getRevieweeMemberId(), groupId)
@@ -77,17 +75,14 @@ public class GroupPeerReviewServiceImpl implements GroupPeerReviewService {
             throw new AppException(ErrorCode.NOT_TRIP_PARTICIPANT);
         }
 
-        // 4. Chặn tự đánh giá (Self-review)
         if (reviewerMember.getUser().getUserId().equals(revieweeMember.getUser().getUserId())) {
             throw new AppException(ErrorCode.CANNOT_REVIEW_SELF);
         }
 
-        // 5. Kiểm tra giá trị điểm rating 1..5
         validateRating(request.getActualEnduranceRating());
         validateRating(request.getPunctualityResponsibilityRating());
         validateRating(request.getFinancialFairnessRating());
 
-        // 6. Kiểm tra xem cặp reviewer -> reviewee trong trip này đã đánh giá chưa (Unique)
         boolean alreadyReviewed = groupPeerReviewRepository
                 .existsByGroupTrip_GroupTripIdAndReviewerMatchingMember_MatchingMemberIdAndRevieweeMatchingMember_MatchingMemberIdAndIsDeletedFalse(
                         trip.getGroupTripId(),
@@ -98,7 +93,6 @@ public class GroupPeerReviewServiceImpl implements GroupPeerReviewService {
             throw new AppException(ErrorCode.ALREADY_REVIEWED_MEMBER);
         }
 
-        // 7. Tạo và lưu entity GroupPeerReview
         GroupPeerReview peerReview = new GroupPeerReview();
         peerReview.setGroupTrip(trip);
         peerReview.setReviewerMatchingMember(reviewerMember);
@@ -111,7 +105,6 @@ public class GroupPeerReviewServiceImpl implements GroupPeerReviewService {
 
         GroupPeerReview saved = groupPeerReviewRepository.save(peerReview);
 
-        // 8. Tái tính Trust Score cho người được đánh giá
         try {
             trustScoreService.recalculateTrustScore(revieweeMember.getUser().getUserId());
         } catch (Exception ex) {
@@ -132,15 +125,10 @@ public class GroupPeerReviewServiceImpl implements GroupPeerReviewService {
         GroupTrip trip = groupTripRepository.findByMatchingGroup(group)
                 .orElseThrow(() -> new AppException(ErrorCode.MATCHING_GROUP_NOT_FOUND));
 
-        // Xác thực người gọi là thành viên chính thức
         matchingMemberRepository.findByGroupIdAndUserId(groupId, currentUserId)
                 .filter(m -> m.getStatus() == JoinStatus.ACCEPTED)
                 .orElseThrow(() -> new AppException(ErrorCode.NOT_TRIP_PARTICIPANT));
-
-        // Lấy tất cả thành viên ACCEPTED trong nhóm
         List<MatchingMember> activeMembers = matchingMemberRepository.findActiveMembers(groupId, JoinStatus.ACCEPTED);
-
-        // Lấy các review do currentMember đã chấm trong chuyến này
         List<GroupPeerReview> myReviews = groupPeerReviewRepository
                 .findMySubmittedReviews(trip.getGroupTripId(), currentUserId);
 
@@ -179,12 +167,10 @@ public class GroupPeerReviewServiceImpl implements GroupPeerReviewService {
         GroupTrip trip = groupTripRepository.findByMatchingGroup(group)
                 .orElseThrow(() -> new AppException(ErrorCode.MATCHING_GROUP_NOT_FOUND));
 
-        // Xác thực người gọi là thành viên chính thức của nhóm
         matchingMemberRepository.findByGroupIdAndUserId(groupId, currentUserId)
                 .filter(m -> m.getStatus() == JoinStatus.ACCEPTED)
                 .orElseThrow(() -> new AppException(ErrorCode.NOT_TRIP_PARTICIPANT));
 
-        // Trả về các đánh giá mà bạn đồng hành đã gửi CHO CHÍNH BẢN THÂN NGƯỜI DÙNG (currentUserId)
         List<GroupPeerReview> receivedReviews = groupPeerReviewRepository
                 .findMyReceivedReviews(trip.getGroupTripId(), currentUserId);
 

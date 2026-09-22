@@ -1,5 +1,6 @@
-package com.sep.treksphere.chat;
+package com.sep.treksphere.chat.repository;
 
+import com.sep.treksphere.chat.entity.Conversation;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -31,7 +32,7 @@ public interface ConversationRepository extends JpaRepository<Conversation, UUID
             FROM Conversation c
             JOIN c.participants firstParticipant
             JOIN c.participants secondParticipant
-            WHERE c.conversationType = com.sep.treksphere.chat.ConversationType.DIRECT
+            WHERE c.conversationType = com.sep.treksphere.chat.enums.ConversationType.DIRECT
               AND c.isDeleted = false
               AND firstParticipant.userId = :firstUserId
               AND secondParticipant.userId = :secondUserId

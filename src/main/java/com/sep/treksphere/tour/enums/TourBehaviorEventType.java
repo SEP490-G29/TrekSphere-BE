@@ -1,4 +1,4 @@
-package com.sep.treksphere.tour.recommendation;
+package com.sep.treksphere.tour.enums;
 
 public enum TourBehaviorEventType {
     IMPRESSION,

@@ -1,4 +1,4 @@
-package com.sep.treksphere.blog.comment;
+package com.sep.treksphere.blog.enums;
 
 public enum CommentStatus {
     VISIBLE, HIDDEN

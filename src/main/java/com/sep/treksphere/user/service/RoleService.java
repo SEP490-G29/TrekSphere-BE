@@ -1,7 +1,13 @@
-package com.sep.treksphere.user;
+package com.sep.treksphere.user.service;
 
 import com.sep.treksphere.common.exception.AppException;
 import com.sep.treksphere.common.exception.ErrorCode;
+import com.sep.treksphere.user.dto.response.PermissionResponse;
+import com.sep.treksphere.user.dto.response.RoleResponse;
+import com.sep.treksphere.user.entity.Permission;
+import com.sep.treksphere.user.entity.Role;
+import com.sep.treksphere.user.repository.PermissionRepository;
+import com.sep.treksphere.user.repository.RoleRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;

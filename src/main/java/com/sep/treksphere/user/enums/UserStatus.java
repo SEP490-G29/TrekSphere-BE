@@ -1,4 +1,4 @@
-package com.sep.treksphere.user;
+package com.sep.treksphere.user.enums;
 
 public enum UserStatus {
     ACTIVE, LOCKED, DEACTIVATED

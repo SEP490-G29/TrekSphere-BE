@@ -1,4 +1,4 @@
-package com.sep.treksphere.user;
+package com.sep.treksphere.user.dto.request;
 
 import jakarta.validation.constraints.NotNull;
 import lombok.Data;

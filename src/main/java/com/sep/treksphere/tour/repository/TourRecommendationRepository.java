@@ -1,8 +1,9 @@
-package com.sep.treksphere.tour.recommendation;
+package com.sep.treksphere.tour.repository;
 
 import com.sep.treksphere.matching.enums.MatchingGroupStatus;
-import com.sep.treksphere.tour.DifficultyLevel;
-import com.sep.treksphere.tour.Tour;
+import com.sep.treksphere.tour.entity.Tour;
+import com.sep.treksphere.tour.enums.DifficultyLevel;
+import com.sep.treksphere.tour.enums.TourBehaviorEventType;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.Query;
@@ -109,7 +110,7 @@ public interface TourRecommendationRepository extends Repository<Tour, UUID> {
             FROM TourSchedule schedule
             WHERE schedule.tour.tourId IN :tourIds
               AND schedule.isDeleted = false
-              AND schedule.status = com.sep.treksphere.tour.schedule.ScheduleStatus.OPEN
+              AND schedule.status = com.sep.treksphere.tour.enums.ScheduleStatus.OPEN
               AND schedule.departureDate > :today
             GROUP BY schedule.tour.tourId
             HAVING COUNT(schedule) >= :minimumScheduleCount

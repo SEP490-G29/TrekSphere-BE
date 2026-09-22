@@ -1,8 +1,8 @@
-package com.sep.treksphere.chat.message;
+package com.sep.treksphere.chat.entity;
 
-import com.sep.treksphere.chat.Conversation;
+import com.sep.treksphere.chat.enums.MessageType;
 import com.sep.treksphere.common.entity.BaseEntity;
-import com.sep.treksphere.user.User;
+import com.sep.treksphere.user.entity.User;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.NoArgsConstructor;

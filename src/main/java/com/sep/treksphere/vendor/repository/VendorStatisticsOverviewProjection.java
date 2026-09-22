@@ -1,4 +1,4 @@
-package com.sep.treksphere.vendor.statistics;
+package com.sep.treksphere.vendor.repository;
 
 public interface VendorStatisticsOverviewProjection {
     Long getTotalTours();

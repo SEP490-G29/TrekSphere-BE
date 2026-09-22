@@ -1,38 +1,32 @@
-package com.sep.treksphere.tour;
+package com.sep.treksphere.tour.service;
 
+import com.sep.treksphere.blog.service.BlogService;
 import com.sep.treksphere.common.constant.MessageConstant;
 import com.sep.treksphere.common.dto.BaseFilterRequest;
 import com.sep.treksphere.common.dto.PaginationResponse;
 import com.sep.treksphere.common.exception.AppException;
 import com.sep.treksphere.common.exception.ErrorCode;
 import com.sep.treksphere.common.util.PaginationUtils;
-import com.sep.treksphere.file.FileService;
+import com.sep.treksphere.file.service.FileService;
 import com.sep.treksphere.matching.enums.MatchingGroupStatus;
 import com.sep.treksphere.matching.repository.MatchingGroupRepository;
-import com.sep.treksphere.notification.NotificationEventType;
-import com.sep.treksphere.notification.NotificationService;
-import com.sep.treksphere.notification.ReferenceType;
-import com.sep.treksphere.tour.checkpoint.TourCheckpoint;
-import com.sep.treksphere.tour.checkpoint.TourCheckpointRepository;
-import com.sep.treksphere.tour.checkpoint.TourCheckpointResponse;
+import com.sep.treksphere.notification.enums.NotificationEventType;
+import com.sep.treksphere.notification.enums.ReferenceType;
+import com.sep.treksphere.notification.service.NotificationService;
 import com.sep.treksphere.tour.dto.request.CreateTourRequest;
 import com.sep.treksphere.tour.dto.request.UpdateTourRequest;
-import com.sep.treksphere.tour.dto.response.PublicTourDetailResponse;
-import com.sep.treksphere.tour.dto.response.TourDetailResponse;
-import com.sep.treksphere.tour.dto.response.TourSummaryResponse;
-import com.sep.treksphere.tour.image.TourImage;
-import com.sep.treksphere.tour.image.TourImageRepository;
-import com.sep.treksphere.tour.image.TourImageResponse;
-import com.sep.treksphere.tour.schedule.ScheduleStatus;
-import com.sep.treksphere.tour.schedule.TourSchedule;
-import com.sep.treksphere.tour.schedule.TourScheduleRepository;
-import com.sep.treksphere.tour.schedule.TourScheduleResponse;
-import com.sep.treksphere.user.User;
-import com.sep.treksphere.user.UserRepository;
-import com.sep.treksphere.vendor.Vendor;
-import com.sep.treksphere.vendor.VendorAccessService;
-import com.sep.treksphere.tour.policy.TourParticipationPolicy;
-import com.sep.treksphere.tour.policy.TourParticipationPolicyRepository;
+import com.sep.treksphere.tour.dto.response.*;
+import com.sep.treksphere.tour.entity.*;
+import com.sep.treksphere.tour.enums.DifficultyLevel;
+import com.sep.treksphere.tour.enums.ScheduleStatus;
+import com.sep.treksphere.tour.enums.TourStatus;
+import com.sep.treksphere.tour.mapper.TourMapper;
+import com.sep.treksphere.tour.repository.*;
+import com.sep.treksphere.user.entity.User;
+import com.sep.treksphere.user.enums.UserStatus;
+import com.sep.treksphere.user.repository.UserRepository;
+import com.sep.treksphere.vendor.entity.Vendor;
+import com.sep.treksphere.vendor.service.VendorAccessService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -46,12 +40,7 @@ import org.springframework.web.multipart.MultipartFile;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.EnumSet;
-import java.util.List;
-import java.util.Optional;
-import java.util.Set;
-import java.util.UUID;
+import java.util.*;
 
 @Service
 @RequiredArgsConstructor
@@ -502,8 +491,8 @@ public class TourService {
                 .vendorLogoUrl(tour.getVendor() != null ? tour.getVendor().getLogoUrl() : null)
                 .vendorContactEmail(tour.getVendor() != null ? tour.getVendor().getContactEmail() : null)
                 .vendorContactPhone(tour.getVendor() != null ? tour.getVendor().getContactPhone() : null)
-                .creatorId(tour.getCreator() != null && tour.getCreator().getStatus() != com.sep.treksphere.user.UserStatus.LOCKED ? tour.getCreator().getUserId().toString() : null)
-                .creatorName(tour.getCreator() != null && tour.getCreator().getStatus() == com.sep.treksphere.user.UserStatus.LOCKED ? com.sep.treksphere.blog.BlogService.SYSTEM_USER_ANONYMOUS_NAME : (tour.getCreator() != null ? tour.getCreator().getFullName() : null))
+                .creatorId(tour.getCreator() != null && tour.getCreator().getStatus() != UserStatus.LOCKED ? tour.getCreator().getUserId().toString() : null)
+                .creatorName(tour.getCreator() != null && tour.getCreator().getStatus() == UserStatus.LOCKED ? BlogService.SYSTEM_USER_ANONYMOUS_NAME : (tour.getCreator() != null ? tour.getCreator().getFullName() : null))
                 .images(images.stream().map(this::toImageResponse).toList())
                 .checkpoints(checkpoints.stream().map(this::toCheckpointResponse).toList())
                 .schedules(schedules.stream().map(this::toScheduleResponse).toList())

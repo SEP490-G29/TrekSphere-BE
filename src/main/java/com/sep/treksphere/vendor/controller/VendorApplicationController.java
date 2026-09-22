@@ -1,11 +1,12 @@
-package com.sep.treksphere.vendor.application;
+package com.sep.treksphere.vendor.controller;
 
 import com.sep.treksphere.common.constant.MessageConstant;
 import com.sep.treksphere.common.dto.ApiResponse;
 import com.sep.treksphere.common.dto.PaginationResponse;
 import com.sep.treksphere.common.security.CustomUserDetails;
-import com.sep.treksphere.vendor.application.dto.request.*;
-import com.sep.treksphere.vendor.application.dto.response.VendorApplicationResponse;
+import com.sep.treksphere.vendor.dto.request.*;
+import com.sep.treksphere.vendor.dto.response.VendorApplicationResponse;
+import com.sep.treksphere.vendor.service.VendorApplicationService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;

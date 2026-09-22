@@ -1,6 +1,8 @@
-package com.sep.treksphere.tour.schedule;
+package com.sep.treksphere.tour.repository;
 
-import com.sep.treksphere.tour.Tour;
+import com.sep.treksphere.tour.entity.Tour;
+import com.sep.treksphere.tour.entity.TourSchedule;
+import com.sep.treksphere.tour.enums.ScheduleStatus;
 import jakarta.persistence.LockModeType;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
@@ -32,7 +34,7 @@ public interface TourScheduleRepository extends JpaRepository<TourSchedule, UUID
        @Query("""
               SELECT COUNT(ts) FROM TourSchedule ts
               WHERE ts.tour.tourId = :tourId
-                AND ts.status = com.sep.treksphere.tour.schedule.ScheduleStatus.OPEN
+                AND ts.status = com.sep.treksphere.tour.enums.ScheduleStatus.OPEN
                 AND ts.departureDate > :today
                 AND ts.isDeleted = false
                 AND (CAST(:excludedId AS uuid) IS NULL OR ts.tourScheduleId <> :excludedId)
@@ -45,9 +47,9 @@ public interface TourScheduleRepository extends JpaRepository<TourSchedule, UUID
        @Modifying
        @Query("""
               UPDATE TourSchedule ts
-              SET ts.status = com.sep.treksphere.tour.schedule.ScheduleStatus.CLOSED,
+              SET ts.status = com.sep.treksphere.tour.enums.ScheduleStatus.CLOSED,
                   ts.updatedAt = :now
-              WHERE ts.status = com.sep.treksphere.tour.schedule.ScheduleStatus.OPEN
+              WHERE ts.status = com.sep.treksphere.tour.enums.ScheduleStatus.OPEN
                 AND ts.departureDate < :today
                 AND ts.isDeleted = false
               """)

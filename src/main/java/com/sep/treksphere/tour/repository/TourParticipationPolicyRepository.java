@@ -1,5 +1,6 @@
-package com.sep.treksphere.tour.policy;
+package com.sep.treksphere.tour.repository;
 
+import com.sep.treksphere.tour.entity.TourParticipationPolicy;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;

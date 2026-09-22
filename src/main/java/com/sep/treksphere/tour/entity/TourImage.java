@@ -1,7 +1,7 @@
-package com.sep.treksphere.tour.image;
+package com.sep.treksphere.tour.entity;
 
 import com.sep.treksphere.common.entity.BaseEntity;
-import com.sep.treksphere.tour.Tour;
+import com.sep.treksphere.tour.entity.Tour;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.NoArgsConstructor;

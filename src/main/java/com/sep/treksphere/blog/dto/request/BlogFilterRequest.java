@@ -1,4 +1,4 @@
-package com.sep.treksphere.blog;
+package com.sep.treksphere.blog.dto.request;
 
 import com.sep.treksphere.common.dto.BaseFilterRequest;
 import io.swagger.v3.oas.annotations.media.Schema;

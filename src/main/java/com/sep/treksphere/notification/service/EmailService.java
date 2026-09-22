@@ -1,4 +1,4 @@
-package com.sep.treksphere.notification;
+package com.sep.treksphere.notification.service;
 
 import com.sendgrid.Method;
 import com.sendgrid.Request;

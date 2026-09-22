@@ -1,5 +1,7 @@
-package com.sep.treksphere.user;
+package com.sep.treksphere.user.service;
 
+import com.sep.treksphere.user.dto.response.PermissionResponse;
+import com.sep.treksphere.user.repository.PermissionRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;

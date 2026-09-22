@@ -1,8 +1,8 @@
-package com.sep.treksphere.blog.comment;
+package com.sep.treksphere.blog.entity;
 
-import com.sep.treksphere.blog.Blog;
+import com.sep.treksphere.blog.enums.CommentStatus;
 import com.sep.treksphere.common.entity.BaseEntity;
-import com.sep.treksphere.user.User;
+import com.sep.treksphere.user.entity.User;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.NoArgsConstructor;

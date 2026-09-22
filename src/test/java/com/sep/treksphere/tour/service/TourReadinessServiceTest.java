@@ -1,9 +1,12 @@
-package com.sep.treksphere.tour;
+package com.sep.treksphere.tour.service;
 
 import com.sep.treksphere.common.exception.AppException;
-import com.sep.treksphere.tour.checkpoint.TourCheckpointRepository;
-import com.sep.treksphere.tour.schedule.ScheduleStatus;
-import com.sep.treksphere.tour.schedule.TourScheduleRepository;
+import com.sep.treksphere.tour.entity.Tour;
+import com.sep.treksphere.tour.enums.DifficultyLevel;
+import com.sep.treksphere.tour.enums.TourStatus;
+import com.sep.treksphere.tour.repository.TourCheckpointRepository;
+import com.sep.treksphere.tour.enums.ScheduleStatus;
+import com.sep.treksphere.tour.repository.TourScheduleRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 

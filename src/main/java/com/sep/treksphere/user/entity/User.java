@@ -1,7 +1,11 @@
-package com.sep.treksphere.user;
+package com.sep.treksphere.user.entity;
 
 import com.sep.treksphere.common.entity.BaseEntity;
-import com.sep.treksphere.tour.DifficultyLevel;
+import com.sep.treksphere.tour.enums.DifficultyLevel;
+import com.sep.treksphere.user.enums.AuthProvider;
+import com.sep.treksphere.user.enums.ExperienceLevel;
+import com.sep.treksphere.user.enums.Gender;
+import com.sep.treksphere.user.enums.UserStatus;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.NoArgsConstructor;

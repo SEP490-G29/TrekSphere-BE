@@ -1,11 +1,15 @@
 package com.sep.treksphere.matching.mapper;
 
+import com.sep.treksphere.blog.service.BlogService;
 import com.sep.treksphere.matching.dto.request.CustomJourneyCreateRequest;
 import com.sep.treksphere.matching.dto.request.MatchingGroupCreateRequest;
 import com.sep.treksphere.matching.dto.response.*;
 import com.sep.treksphere.matching.entity.*;
+import com.sep.treksphere.matching.enums.JoinApplicationStatus;
 import com.sep.treksphere.matching.enums.JoinStatus;
 import com.sep.treksphere.matching.enums.MatchingGroupSourceType;
+import com.sep.treksphere.matching.enums.MatchingRole;
+import com.sep.treksphere.user.enums.UserStatus;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
 import org.mapstruct.ReportingPolicy;
@@ -99,7 +103,7 @@ public interface MatchingGroupMapper {
     @Mapping(target = "rejectReason", source = "rejectReason")
     @Mapping(target = "reviewedAt", source = "reviewedAt")
     @Mapping(target = "withdrawnAt", source = "withdrawnAt")
-    MatchingMemberResponse toMemberResponse(com.sep.treksphere.matching.entity.GroupJoinApplication application);
+    MatchingMemberResponse toMemberResponse(GroupJoinApplication application);
 
     @Mapping(target = "progressUpdatedByName", source = "progressUpdatedBy.user.fullName")
     CustomJourneyCheckpointResponse toCheckpointResponse(CustomJourneyCheckpoint checkpoint);
@@ -155,9 +159,9 @@ public interface MatchingGroupMapper {
     @Mapping(target = "withdrawnAt", source = "withdrawnAt")
     @Mapping(target = "canCancel", ignore = true)
     @Mapping(target = "canWithdraw", ignore = true)
-    MyMatchingJoinRequestResponse toMyJoinRequestResponse(com.sep.treksphere.matching.entity.GroupJoinApplication application);
+    MyMatchingJoinRequestResponse toMyJoinRequestResponse(GroupJoinApplication application);
 
-    default JoinStatus toJoinStatus(com.sep.treksphere.matching.enums.JoinApplicationStatus appStatus) {
+    default JoinStatus toJoinStatus(JoinApplicationStatus appStatus) {
         if (appStatus == null) return null;
         return switch (appStatus) {
             case PENDING -> JoinStatus.PENDING;
@@ -249,7 +253,7 @@ public interface MatchingGroupMapper {
 
     default java.util.UUID deriveOwnerId(MatchingGroup mg) {
         if (mg == null || mg.getOwner() == null) return null;
-        if (mg.getOwner().getStatus() == com.sep.treksphere.user.UserStatus.LOCKED) {
+        if (mg.getOwner().getStatus() == UserStatus.LOCKED) {
             return null;
         }
         return mg.getOwner().getUserId();
@@ -257,15 +261,15 @@ public interface MatchingGroupMapper {
 
     default String deriveOwnerName(MatchingGroup mg) {
         if (mg == null || mg.getOwner() == null) return null;
-        if (mg.getOwner().getStatus() == com.sep.treksphere.user.UserStatus.LOCKED) {
-            return com.sep.treksphere.blog.BlogService.SYSTEM_USER_ANONYMOUS_NAME;
+        if (mg.getOwner().getStatus() == UserStatus.LOCKED) {
+            return BlogService.SYSTEM_USER_ANONYMOUS_NAME;
         }
         return mg.getOwner().getFullName();
     }
 
     default String deriveOwnerAvatarUrl(MatchingGroup mg) {
         if (mg == null || mg.getOwner() == null) return null;
-        if (mg.getOwner().getStatus() == com.sep.treksphere.user.UserStatus.LOCKED) {
+        if (mg.getOwner().getStatus() == UserStatus.LOCKED) {
             return null;
         }
         return mg.getOwner().getAvatarUrl();
@@ -273,7 +277,7 @@ public interface MatchingGroupMapper {
 
     default java.util.UUID deriveMemberUserId(MatchingMember mm) {
         if (mm == null || mm.getUser() == null) return null;
-        if (mm.getUser().getStatus() == com.sep.treksphere.user.UserStatus.LOCKED) {
+        if (mm.getUser().getStatus() == UserStatus.LOCKED) {
             return null;
         }
         return mm.getUser().getUserId();
@@ -281,15 +285,15 @@ public interface MatchingGroupMapper {
 
     default String deriveMemberFullName(MatchingMember mm) {
         if (mm == null || mm.getUser() == null) return null;
-        if (mm.getUser().getStatus() == com.sep.treksphere.user.UserStatus.LOCKED) {
-            return com.sep.treksphere.blog.BlogService.SYSTEM_USER_ANONYMOUS_NAME;
+        if (mm.getUser().getStatus() == UserStatus.LOCKED) {
+            return BlogService.SYSTEM_USER_ANONYMOUS_NAME;
         }
         return mm.getUser().getFullName();
     }
 
     default String deriveMemberAvatarUrl(MatchingMember mm) {
         if (mm == null || mm.getUser() == null) return null;
-        if (mm.getUser().getStatus() == com.sep.treksphere.user.UserStatus.LOCKED) {
+        if (mm.getUser().getStatus() == UserStatus.LOCKED) {
             return null;
         }
         return mm.getUser().getAvatarUrl();
@@ -297,7 +301,7 @@ public interface MatchingGroupMapper {
 
     default Short deriveMemberTrustScore(MatchingMember mm) {
         if (mm == null || mm.getUser() == null) return null;
-        if (mm.getUser().getStatus() == com.sep.treksphere.user.UserStatus.LOCKED) {
+        if (mm.getUser().getStatus() == UserStatus.LOCKED) {
             return null;
         }
         return mm.getUser().getTrustScore();
@@ -306,8 +310,8 @@ public interface MatchingGroupMapper {
     default java.util.UUID deriveLeaderId(MatchingGroup mg) {
         if (mg == null || mg.getMembers() == null) return deriveOwnerId(mg);
         for (MatchingMember m : mg.getMembers()) {
-            if (m.getRole() == com.sep.treksphere.matching.enums.MatchingRole.LEADER
-                    && m.getStatus() == com.sep.treksphere.matching.enums.JoinStatus.ACCEPTED
+            if (m.getRole() == MatchingRole.LEADER
+                    && m.getStatus() == JoinStatus.ACCEPTED
                     && !Boolean.TRUE.equals(m.getIsDeleted())
                     && m.getUser() != null) {
                 return deriveMemberUserId(m);
@@ -319,8 +323,8 @@ public interface MatchingGroupMapper {
     default String deriveLeaderName(MatchingGroup mg) {
         if (mg == null || mg.getMembers() == null) return deriveOwnerName(mg);
         for (MatchingMember m : mg.getMembers()) {
-            if (m.getRole() == com.sep.treksphere.matching.enums.MatchingRole.LEADER
-                    && m.getStatus() == com.sep.treksphere.matching.enums.JoinStatus.ACCEPTED
+            if (m.getRole() == MatchingRole.LEADER
+                    && m.getStatus() == JoinStatus.ACCEPTED
                     && !Boolean.TRUE.equals(m.getIsDeleted())
                     && m.getUser() != null) {
                 return deriveMemberFullName(m);
@@ -332,8 +336,8 @@ public interface MatchingGroupMapper {
     default String deriveLeaderAvatarUrl(MatchingGroup mg) {
         if (mg == null || mg.getMembers() == null) return deriveOwnerAvatarUrl(mg);
         for (MatchingMember m : mg.getMembers()) {
-            if (m.getRole() == com.sep.treksphere.matching.enums.MatchingRole.LEADER
-                    && m.getStatus() == com.sep.treksphere.matching.enums.JoinStatus.ACCEPTED
+            if (m.getRole() == MatchingRole.LEADER
+                    && m.getStatus() == JoinStatus.ACCEPTED
                     && !Boolean.TRUE.equals(m.getIsDeleted())
                     && m.getUser() != null) {
                 return deriveMemberAvatarUrl(m);

@@ -1,4 +1,4 @@
-package com.sep.treksphere.tour.recommendation;
+package com.sep.treksphere.tour.service;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -6,12 +6,15 @@ import com.sep.treksphere.common.dto.PaginationResponse;
 import com.sep.treksphere.common.exception.AppException;
 import com.sep.treksphere.common.exception.ErrorCode;
 import com.sep.treksphere.matching.enums.MatchingGroupStatus;
-import com.sep.treksphere.tour.DifficultyLevel;
-import com.sep.treksphere.tour.Tour;
-import com.sep.treksphere.tour.TourService;
-import com.sep.treksphere.user.ExperienceLevel;
-import com.sep.treksphere.user.User;
-import com.sep.treksphere.user.UserRepository;
+import com.sep.treksphere.tour.dto.response.RecommendedTourResponse;
+import com.sep.treksphere.tour.entity.Tour;
+import com.sep.treksphere.tour.enums.DifficultyLevel;
+import com.sep.treksphere.tour.enums.RecommendationReason;
+import com.sep.treksphere.tour.enums.TourBehaviorEventType;
+import com.sep.treksphere.tour.repository.TourRecommendationRepository;
+import com.sep.treksphere.user.entity.User;
+import com.sep.treksphere.user.enums.ExperienceLevel;
+import com.sep.treksphere.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -20,14 +23,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Locale;
-import java.util.Map;
-import java.util.Set;
-import java.util.UUID;
+import java.util.*;
 
 @Service
 @RequiredArgsConstructor

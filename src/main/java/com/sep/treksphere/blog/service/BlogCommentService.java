@@ -1,17 +1,25 @@
-package com.sep.treksphere.blog.comment;
+package com.sep.treksphere.blog.service;
 
-import com.sep.treksphere.blog.Blog;
-import com.sep.treksphere.blog.BlogRepository;
-import com.sep.treksphere.blog.BlogStatus;
+import com.sep.treksphere.blog.dto.request.BlogCommentFilterRequest;
+import com.sep.treksphere.blog.dto.request.CreateCommentRequest;
+import com.sep.treksphere.blog.dto.request.UpdateCommentRequest;
+import com.sep.treksphere.blog.dto.response.BlogCommentResponse;
+import com.sep.treksphere.blog.entity.Blog;
+import com.sep.treksphere.blog.entity.BlogComment;
+import com.sep.treksphere.blog.enums.BlogStatus;
+import com.sep.treksphere.blog.enums.CommentStatus;
+import com.sep.treksphere.blog.repository.BlogCommentRepository;
+import com.sep.treksphere.blog.repository.BlogRepository;
 import com.sep.treksphere.common.dto.PaginationResponse;
 import com.sep.treksphere.common.exception.AppException;
 import com.sep.treksphere.common.exception.ErrorCode;
 import com.sep.treksphere.common.security.CustomUserDetails;
 import com.sep.treksphere.common.util.PaginationUtils;
-import com.sep.treksphere.notification.NotificationEventType;
-import com.sep.treksphere.notification.NotificationService;
-import com.sep.treksphere.notification.ReferenceType;
-import com.sep.treksphere.user.User;
+import com.sep.treksphere.notification.enums.NotificationEventType;
+import com.sep.treksphere.notification.enums.ReferenceType;
+import com.sep.treksphere.notification.service.NotificationService;
+import com.sep.treksphere.user.entity.User;
+import com.sep.treksphere.user.enums.UserStatus;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -40,11 +48,9 @@ public class BlogCommentService {
             throw new AppException(ErrorCode.BLOG_NOT_FOUND);
         }
 
-        // Lấy top-level comments có phân trang
         Page<BlogComment> topLevelPage = blogCommentRepository
                 .findTopLevelByBlogId(blogId, CommentStatus.VISIBLE, filter.getPageable());
 
-        // Với mỗi top-level comment, load replies (cây lồng nhau)
         Page<BlogCommentResponse> responsePage = topLevelPage.map(comment -> {
             BlogCommentResponse response = toCommentResponse(comment);
             List<BlogComment> replies = blogCommentRepository
@@ -180,10 +186,6 @@ public class BlogCommentService {
 
     // ===================== Helpers =====================
 
-    /**
-     * Build reply tree cho một top-level comment.
-     * Load tất cả replies phẳng, sau đó lồng nhau theo parentComment.
-     */
     private List<BlogCommentResponse> buildReplyTree(List<BlogComment> replies) {
         if (replies == null || replies.isEmpty()) return new ArrayList<>();
 
@@ -203,15 +205,14 @@ public class BlogCommentService {
             }
         }
 
-        // Trả về chỉ những reply trực tiếp của top-level (parentComment là top-level comment)
         return replies.stream()
                 .map(r -> responseMap.get(r.getBlogCommentId()))
                 .toList();
     }
 
     private BlogCommentResponse toCommentResponse(BlogComment comment) {
-        boolean isLocked = comment.getUser() != null && comment.getUser().getStatus() == com.sep.treksphere.user.UserStatus.LOCKED;
-        String userFullName = isLocked ? com.sep.treksphere.blog.BlogService.SYSTEM_USER_ANONYMOUS_NAME : (comment.getUser() != null ? comment.getUser().getFullName() : null);
+        boolean isLocked = comment.getUser() != null && comment.getUser().getStatus() == UserStatus.LOCKED;
+        String userFullName = isLocked ? BlogService.SYSTEM_USER_ANONYMOUS_NAME : (comment.getUser() != null ? comment.getUser().getFullName() : null);
         String userAvatarUrl = isLocked ? null : (comment.getUser() != null ? comment.getUser().getAvatarUrl() : null);
         String userId = isLocked ? null : (comment.getUser() != null ? comment.getUser().getUserId().toString() : null);
 

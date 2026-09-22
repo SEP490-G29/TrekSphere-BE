@@ -1,9 +1,11 @@
-package com.sep.treksphere.file;
+package com.sep.treksphere.file.service;
 
 import com.cloudinary.Cloudinary;
 import com.cloudinary.utils.ObjectUtils;
 import com.sep.treksphere.common.exception.AppException;
 import com.sep.treksphere.common.exception.ErrorCode;
+import com.sep.treksphere.file.dto.response.StoredFile;
+import com.sep.treksphere.file.enums.UploadPolicy;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;

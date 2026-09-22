@@ -1,4 +1,4 @@
-package com.sep.treksphere.tour.policy;
+package com.sep.treksphere.tour.dto.response;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;

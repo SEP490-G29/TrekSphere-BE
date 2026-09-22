@@ -1,4 +1,4 @@
-package com.sep.treksphere.user;
+package com.sep.treksphere.user.controller;
 
 import com.sep.treksphere.common.constant.MessageConstant;
 import com.sep.treksphere.common.dto.ApiResponse;
@@ -8,6 +8,12 @@ import com.sep.treksphere.common.exception.ErrorCode;
 import com.sep.treksphere.common.security.CustomUserDetails;
 import com.sep.treksphere.matching.dto.response.PeerReviewResponse;
 import com.sep.treksphere.matching.service.GroupPeerReviewService;
+import com.sep.treksphere.user.dto.request.UpdateProfileRequest;
+import com.sep.treksphere.user.dto.request.UserFilterRequest;
+import com.sep.treksphere.user.dto.response.PublicHikingSummaryResponse;
+import com.sep.treksphere.user.dto.response.UserProfileResponse;
+import com.sep.treksphere.user.enums.UserStatus;
+import com.sep.treksphere.user.service.UserService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;

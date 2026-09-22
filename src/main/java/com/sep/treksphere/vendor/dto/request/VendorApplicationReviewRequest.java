@@ -1,7 +1,7 @@
-package com.sep.treksphere.vendor.application.dto.request;
+package com.sep.treksphere.vendor.dto.request;
 
 import com.sep.treksphere.common.constant.MessageConstant;
-import com.sep.treksphere.vendor.application.ApplicationStatus;
+import com.sep.treksphere.vendor.enums.ApplicationStatus;
 import jakarta.validation.constraints.NotNull;
 import lombok.Data;
 

@@ -1,19 +1,9 @@
-package com.sep.treksphere.tour.recommendation;
+package com.sep.treksphere.tour.entity;
 
-import com.sep.treksphere.tour.Tour;
-import com.sep.treksphere.user.User;
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.EnumType;
-import jakarta.persistence.Enumerated;
-import jakarta.persistence.FetchType;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
-import jakarta.persistence.JoinColumn;
-import jakarta.persistence.ManyToOne;
-import jakarta.persistence.PrePersist;
-import jakarta.persistence.Table;
+import com.sep.treksphere.tour.enums.TourBehaviorEventType;
+import com.sep.treksphere.tour.enums.TourBehaviorSource;
+import com.sep.treksphere.user.entity.User;
+import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;

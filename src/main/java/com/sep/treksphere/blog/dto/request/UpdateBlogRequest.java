@@ -1,4 +1,4 @@
-package com.sep.treksphere.blog;
+package com.sep.treksphere.blog.dto.request;
 
 import com.sep.treksphere.common.constant.MessageConstant;
 import jakarta.validation.constraints.Size;

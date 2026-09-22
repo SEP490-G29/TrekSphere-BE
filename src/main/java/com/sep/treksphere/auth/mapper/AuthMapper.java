@@ -1,8 +1,8 @@
-package com.sep.treksphere.auth;
+package com.sep.treksphere.auth.mapper;
 
 import com.sep.treksphere.auth.dto.response.LoginResponse;
-import com.sep.treksphere.user.User;
-import com.sep.treksphere.user.UserMapper;
+import com.sep.treksphere.user.entity.User;
+import com.sep.treksphere.user.mapper.UserMapper;
 import org.mapstruct.Mapper;
 
 @Mapper(componentModel = "spring", uses = {UserMapper.class})

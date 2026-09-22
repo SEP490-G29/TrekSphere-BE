@@ -1,6 +1,7 @@
-package com.sep.treksphere.user;
+package com.sep.treksphere.user.dto.request;
 
 import com.sep.treksphere.common.dto.BaseFilterRequest;
+import com.sep.treksphere.user.enums.UserStatus;
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Getter;
 import lombok.Setter;

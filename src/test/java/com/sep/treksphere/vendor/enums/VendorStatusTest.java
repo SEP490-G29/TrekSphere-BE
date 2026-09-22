@@ -1,4 +1,4 @@
-package com.sep.treksphere.vendor;
+package com.sep.treksphere.vendor.enums;
 
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;

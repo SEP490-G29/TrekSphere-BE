@@ -1,4 +1,4 @@
-package com.sep.treksphere.chat.message;
+package com.sep.treksphere.chat.dto.response;
 
 import lombok.*;
 

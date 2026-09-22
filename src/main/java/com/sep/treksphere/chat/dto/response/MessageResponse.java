@@ -1,5 +1,6 @@
-package com.sep.treksphere.chat.message;
+package com.sep.treksphere.chat.dto.response;
 
+import com.sep.treksphere.chat.enums.MessageType;
 import lombok.*;
 
 import java.time.LocalDateTime;

@@ -1,4 +1,4 @@
-package com.sep.treksphere.vendor.statistics;
+package com.sep.treksphere.vendor.repository;
 
 import java.time.LocalDateTime;
 import java.util.UUID;

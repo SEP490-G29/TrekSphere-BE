@@ -1,5 +1,6 @@
-package com.sep.treksphere.user;
+package com.sep.treksphere.user.repository;
 
+import com.sep.treksphere.user.entity.Permission;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 

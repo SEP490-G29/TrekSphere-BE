@@ -1,4 +1,4 @@
-package com.sep.treksphere.vendor.statistics;
+package com.sep.treksphere.vendor.dto.response;
 
 import lombok.Builder;
 import lombok.Data;

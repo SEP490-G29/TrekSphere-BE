@@ -1,10 +1,11 @@
-package com.sep.treksphere.tour;
+package com.sep.treksphere.tour.mapper;
 
 import com.sep.treksphere.tour.dto.request.CreateTourRequest;
+import com.sep.treksphere.tour.dto.request.TourParticipationPolicyRequest;
 import com.sep.treksphere.tour.dto.request.UpdateTourRequest;
-import com.sep.treksphere.tour.policy.TourParticipationPolicy;
-import com.sep.treksphere.tour.policy.TourParticipationPolicyRequest;
-import com.sep.treksphere.tour.policy.TourParticipationPolicyResponse;
+import com.sep.treksphere.tour.dto.response.TourParticipationPolicyResponse;
+import com.sep.treksphere.tour.entity.Tour;
+import com.sep.treksphere.tour.entity.TourParticipationPolicy;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 

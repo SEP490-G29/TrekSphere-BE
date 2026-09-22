@@ -1,6 +1,8 @@
-package com.sep.treksphere.user;
+package com.sep.treksphere.user.dto.response;
 
-import com.sep.treksphere.tour.DifficultyLevel;
+import com.sep.treksphere.tour.enums.DifficultyLevel;
+import com.sep.treksphere.user.enums.ExperienceLevel;
+import com.sep.treksphere.user.enums.Gender;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;

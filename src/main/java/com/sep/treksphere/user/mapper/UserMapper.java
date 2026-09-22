@@ -1,5 +1,9 @@
-package com.sep.treksphere.user;
+package com.sep.treksphere.user.mapper;
 
+import com.sep.treksphere.user.dto.response.PublicHikingSummaryResponse;
+import com.sep.treksphere.user.dto.response.UserProfileResponse;
+import com.sep.treksphere.user.dto.response.UserResponse;
+import com.sep.treksphere.user.entity.User;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
 

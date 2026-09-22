@@ -1,7 +1,10 @@
-package com.sep.treksphere.vendor;
+package com.sep.treksphere.vendor.service;
 
 import com.sep.treksphere.common.exception.AppException;
 import com.sep.treksphere.common.exception.ErrorCode;
+import com.sep.treksphere.vendor.entity.Vendor;
+import com.sep.treksphere.vendor.enums.VendorStatus;
+import com.sep.treksphere.vendor.repository.VendorRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
