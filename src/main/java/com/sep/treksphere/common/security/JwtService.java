@@ -1,6 +1,6 @@
 package com.sep.treksphere.common.security;
 
-import com.sep.treksphere.user.User;
+import com.sep.treksphere.user.entity.User;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.ExpiredJwtException;
 import io.jsonwebtoken.JwtException;

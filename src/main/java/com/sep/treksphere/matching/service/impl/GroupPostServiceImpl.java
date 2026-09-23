@@ -24,9 +24,9 @@ import com.sep.treksphere.matching.repository.GroupPostRepository;
 import com.sep.treksphere.matching.repository.MatchingGroupRepository;
 import com.sep.treksphere.matching.repository.MatchingMemberRepository;
 import com.sep.treksphere.matching.service.GroupPostService;
-import com.sep.treksphere.notification.NotificationEventType;
-import com.sep.treksphere.notification.NotificationService;
-import com.sep.treksphere.notification.ReferenceType;
+import com.sep.treksphere.notification.enums.NotificationEventType;
+import com.sep.treksphere.notification.service.NotificationService;
+import com.sep.treksphere.notification.enums.ReferenceType;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -331,7 +331,6 @@ public class GroupPostServiceImpl implements GroupPostService {
                     .filter(c -> c.getGroupPost().getMatchingGroup().getMatchingGroupId().equals(groupId))
                     .orElseThrow(() -> new AppException(ErrorCode.COMMENT_NOT_FOUND));
 
-            // Enforce max 2-level hierarchy: if target has parent, root is target's parent; otherwise target is root
             GroupPostComment rootComment = targetComment.getParentComment() != null
                     ? targetComment.getParentComment()
                     : targetComment;
@@ -408,7 +407,6 @@ public class GroupPostServiceImpl implements GroupPostService {
         comment.setIsDeleted(true);
         commentRepository.save(comment);
 
-        // Cascade soft-delete child replies if this was a root comment
         if (comment.getParentComment() == null) {
             List<GroupPostComment> childReplies = commentRepository
                     .findByParentComment_GroupPostCommentIdAndIsDeletedFalse(commentId);
@@ -444,7 +442,6 @@ public class GroupPostServiceImpl implements GroupPostService {
         comment.setStatus(newStatus);
         GroupPostComment saved = commentRepository.save(comment);
 
-        // Cascade update status for child replies if this is a root comment
         if (comment.getParentComment() == null) {
             List<GroupPostComment> childReplies = commentRepository
                     .findByParentComment_GroupPostCommentIdAndIsDeletedFalse(commentId);

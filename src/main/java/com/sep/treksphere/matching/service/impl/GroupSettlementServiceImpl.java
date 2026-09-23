@@ -13,11 +13,11 @@ import com.sep.treksphere.matching.enums.*;
 import com.sep.treksphere.matching.mapper.GroupSettlementMapper;
 import com.sep.treksphere.matching.repository.*;
 import com.sep.treksphere.matching.service.GroupSettlementService;
-import com.sep.treksphere.notification.NotificationEventType;
-import com.sep.treksphere.notification.NotificationService;
-import com.sep.treksphere.notification.ReferenceType;
-import com.sep.treksphere.user.User;
-import com.sep.treksphere.user.UserRepository;
+import com.sep.treksphere.notification.enums.NotificationEventType;
+import com.sep.treksphere.notification.service.NotificationService;
+import com.sep.treksphere.notification.enums.ReferenceType;
+import com.sep.treksphere.user.entity.User;
+import com.sep.treksphere.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -415,7 +415,6 @@ public class GroupSettlementServiceImpl implements GroupSettlementService {
         return groupSettlementMapper.toResponse(updated);
     }
 
-    // ==================== Private Helper Methods ====================
 
     private MatchingGroup getGroupOrThrow(UUID groupId) {
         return matchingGroupRepository.findById(groupId)

@@ -5,7 +5,7 @@ import com.sep.treksphere.matching.entity.MatchingMember;
 import com.sep.treksphere.matching.enums.JoinStatus;
 import com.sep.treksphere.matching.enums.MatchingGroupStatus;
 import com.sep.treksphere.matching.enums.MatchingRole;
-import com.sep.treksphere.user.User;
+import com.sep.treksphere.user.entity.User;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -117,10 +117,6 @@ public interface MatchingMemberRepository extends JpaRepository<MatchingMember, 
             Pageable pageable
     );
 
-    /**
-     * MatchingGroup không có FK trực tiếp tới TourSchedule (chỉ có tour + targetDate),
-     * nên nhóm nào "gắn" với 1 lịch khởi hành được xác định gián tiếp qua cặp (tour, targetDate = departureDate).
-     */
     @Query("""
         SELECT DISTINCT mm.user.userId FROM MatchingMember mm
         WHERE mm.matchingGroup.tour.tourId = :tourId
@@ -135,11 +131,6 @@ public interface MatchingMemberRepository extends JpaRepository<MatchingMember, 
             @Param("status") JoinStatus status
     );
 
-    /**
-     * Batch-lookup Trưởng nhóm HIỆN TẠI (role có thể đổi qua bầu cử) cho nhiều nhóm cùng lúc —
-     * dùng để hiển thị đúng leader trên các danh sách/card nhóm (khác với owner/người tạo nhóm,
-     * vốn không đổi khi bầu Trưởng nhóm mới). 1 query cho cả trang thay vì N+1.
-     */
     @Query("""
         SELECT mm FROM MatchingMember mm
         JOIN FETCH mm.user u

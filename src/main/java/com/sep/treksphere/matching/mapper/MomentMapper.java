@@ -5,8 +5,10 @@ import com.sep.treksphere.matching.dto.request.MomentUpdateRequest;
 import com.sep.treksphere.matching.dto.response.MomentMapResponse;
 import com.sep.treksphere.matching.dto.response.MomentMediaResponse;
 import com.sep.treksphere.matching.dto.response.MomentResponse;
+import com.sep.treksphere.blog.service.BlogService;
 import com.sep.treksphere.matching.entity.Moment;
 import com.sep.treksphere.matching.entity.MomentMedia;
+import com.sep.treksphere.user.enums.UserStatus;
 import org.mapstruct.*;
 
 import java.util.List;
@@ -68,7 +70,7 @@ public interface MomentMapper {
 
     default java.util.UUID deriveAuthorUserId(Moment entity) {
         if (entity == null || entity.getAuthorUser() == null) return null;
-        if (entity.getAuthorUser().getStatus() == com.sep.treksphere.user.UserStatus.LOCKED) {
+        if (entity.getAuthorUser().getStatus() == UserStatus.LOCKED) {
             return null;
         }
         return entity.getAuthorUser().getUserId();
@@ -76,15 +78,15 @@ public interface MomentMapper {
 
     default String deriveAuthorName(Moment entity) {
         if (entity == null || entity.getAuthorUser() == null) return null;
-        if (entity.getAuthorUser().getStatus() == com.sep.treksphere.user.UserStatus.LOCKED) {
-            return com.sep.treksphere.blog.BlogService.SYSTEM_USER_ANONYMOUS_NAME;
+        if (entity.getAuthorUser().getStatus() == UserStatus.LOCKED) {
+            return BlogService.SYSTEM_USER_ANONYMOUS_NAME;
         }
         return entity.getAuthorUser().getFullName();
     }
 
     default String deriveAuthorAvatarUrl(Moment entity) {
         if (entity == null || entity.getAuthorUser() == null) return null;
-        if (entity.getAuthorUser().getStatus() == com.sep.treksphere.user.UserStatus.LOCKED) {
+        if (entity.getAuthorUser().getStatus() == UserStatus.LOCKED) {
             return null;
         }
         return entity.getAuthorUser().getAvatarUrl();

@@ -3,7 +3,7 @@ package com.sep.treksphere.matching.entity;
 import com.sep.treksphere.common.entity.BaseEntity;
 import com.sep.treksphere.matching.enums.MomentStatus;
 import com.sep.treksphere.matching.enums.MomentVisibility;
-import com.sep.treksphere.user.User;
+import com.sep.treksphere.user.entity.User;
 import jakarta.persistence.*;
 import lombok.*;
 

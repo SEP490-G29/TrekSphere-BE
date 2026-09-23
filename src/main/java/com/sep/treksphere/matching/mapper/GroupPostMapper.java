@@ -6,8 +6,10 @@ import com.sep.treksphere.matching.dto.request.GroupPostCreateRequest;
 import com.sep.treksphere.matching.dto.request.GroupPostUpdateRequest;
 import com.sep.treksphere.matching.dto.response.GroupPostCommentResponse;
 import com.sep.treksphere.matching.dto.response.GroupPostResponse;
+import com.sep.treksphere.blog.service.BlogService;
 import com.sep.treksphere.matching.entity.GroupPost;
 import com.sep.treksphere.matching.entity.GroupPostComment;
+import com.sep.treksphere.user.enums.UserStatus;
 import org.mapstruct.*;
 
 import java.util.List;
@@ -77,7 +79,7 @@ public interface GroupPostMapper {
 
     default java.util.UUID derivePostedByUserId(GroupPost post) {
         if (post == null || post.getPostedBy() == null || post.getPostedBy().getUser() == null) return null;
-        if (post.getPostedBy().getUser().getStatus() == com.sep.treksphere.user.UserStatus.LOCKED) {
+        if (post.getPostedBy().getUser().getStatus() == UserStatus.LOCKED) {
             return null;
         }
         return post.getPostedBy().getUser().getUserId();
@@ -85,15 +87,15 @@ public interface GroupPostMapper {
 
     default String derivePostedByFullName(GroupPost post) {
         if (post == null || post.getPostedBy() == null || post.getPostedBy().getUser() == null) return null;
-        if (post.getPostedBy().getUser().getStatus() == com.sep.treksphere.user.UserStatus.LOCKED) {
-            return com.sep.treksphere.blog.BlogService.SYSTEM_USER_ANONYMOUS_NAME;
+        if (post.getPostedBy().getUser().getStatus() == UserStatus.LOCKED) {
+            return BlogService.SYSTEM_USER_ANONYMOUS_NAME;
         }
         return post.getPostedBy().getUser().getFullName();
     }
 
     default String derivePostedByAvatarUrl(GroupPost post) {
         if (post == null || post.getPostedBy() == null || post.getPostedBy().getUser() == null) return null;
-        if (post.getPostedBy().getUser().getStatus() == com.sep.treksphere.user.UserStatus.LOCKED) {
+        if (post.getPostedBy().getUser().getStatus() == UserStatus.LOCKED) {
             return null;
         }
         return post.getPostedBy().getUser().getAvatarUrl();
@@ -101,7 +103,7 @@ public interface GroupPostMapper {
 
     default java.util.UUID deriveAnsweredByUserId(GroupPostComment comment) {
         if (comment == null || comment.getAnsweredBy() == null || comment.getAnsweredBy().getUser() == null) return null;
-        if (comment.getAnsweredBy().getUser().getStatus() == com.sep.treksphere.user.UserStatus.LOCKED) {
+        if (comment.getAnsweredBy().getUser().getStatus() == UserStatus.LOCKED) {
             return null;
         }
         return comment.getAnsweredBy().getUser().getUserId();
@@ -109,15 +111,15 @@ public interface GroupPostMapper {
 
     default String deriveAnsweredByFullName(GroupPostComment comment) {
         if (comment == null || comment.getAnsweredBy() == null || comment.getAnsweredBy().getUser() == null) return null;
-        if (comment.getAnsweredBy().getUser().getStatus() == com.sep.treksphere.user.UserStatus.LOCKED) {
-            return com.sep.treksphere.blog.BlogService.SYSTEM_USER_ANONYMOUS_NAME;
+        if (comment.getAnsweredBy().getUser().getStatus() == UserStatus.LOCKED) {
+            return BlogService.SYSTEM_USER_ANONYMOUS_NAME;
         }
         return comment.getAnsweredBy().getUser().getFullName();
     }
 
     default String deriveAnsweredByAvatarUrl(GroupPostComment comment) {
         if (comment == null || comment.getAnsweredBy() == null || comment.getAnsweredBy().getUser() == null) return null;
-        if (comment.getAnsweredBy().getUser().getStatus() == com.sep.treksphere.user.UserStatus.LOCKED) {
+        if (comment.getAnsweredBy().getUser().getStatus() == UserStatus.LOCKED) {
             return null;
         }
         return comment.getAnsweredBy().getUser().getAvatarUrl();
@@ -125,7 +127,7 @@ public interface GroupPostMapper {
 
     default java.util.UUID deriveReplyToUserId(GroupPostComment comment) {
         if (comment == null || comment.getReplyToMember() == null || comment.getReplyToMember().getUser() == null) return null;
-        if (comment.getReplyToMember().getUser().getStatus() == com.sep.treksphere.user.UserStatus.LOCKED) {
+        if (comment.getReplyToMember().getUser().getStatus() == UserStatus.LOCKED) {
             return null;
         }
         return comment.getReplyToMember().getUser().getUserId();
@@ -133,8 +135,8 @@ public interface GroupPostMapper {
 
     default String deriveReplyToFullName(GroupPostComment comment) {
         if (comment == null || comment.getReplyToMember() == null || comment.getReplyToMember().getUser() == null) return null;
-        if (comment.getReplyToMember().getUser().getStatus() == com.sep.treksphere.user.UserStatus.LOCKED) {
-            return com.sep.treksphere.blog.BlogService.SYSTEM_USER_ANONYMOUS_NAME;
+        if (comment.getReplyToMember().getUser().getStatus() == UserStatus.LOCKED) {
+            return BlogService.SYSTEM_USER_ANONYMOUS_NAME;
         }
         return comment.getReplyToMember().getUser().getFullName();
     }

@@ -26,17 +26,17 @@ import com.sep.treksphere.matching.repository.GroupTripRepository;
 import com.sep.treksphere.matching.repository.MatchingGroupRepository;
 import com.sep.treksphere.matching.repository.MatchingMemberRepository;
 import com.sep.treksphere.matching.service.impl.MatchingGroupServiceImpl;
-import com.sep.treksphere.notification.NotificationService;
-import com.sep.treksphere.tour.DifficultyLevel;
-import com.sep.treksphere.tour.Tour;
-import com.sep.treksphere.tour.TourRepository;
-import com.sep.treksphere.tour.TourStatus;
-import com.sep.treksphere.user.ExperienceLevel;
-import com.sep.treksphere.user.User;
-import com.sep.treksphere.user.UserRepository;
-import com.sep.treksphere.user.UserStatus;
-import com.sep.treksphere.vendor.Vendor;
-import com.sep.treksphere.vendor.VendorStatus;
+import com.sep.treksphere.notification.service.NotificationService;
+import com.sep.treksphere.tour.enums.DifficultyLevel;
+import com.sep.treksphere.tour.entity.Tour;
+import com.sep.treksphere.tour.repository.TourRepository;
+import com.sep.treksphere.tour.enums.TourStatus;
+import com.sep.treksphere.user.enums.ExperienceLevel;
+import com.sep.treksphere.user.entity.User;
+import com.sep.treksphere.user.repository.UserRepository;
+import com.sep.treksphere.user.enums.UserStatus;
+import com.sep.treksphere.vendor.entity.Vendor;
+import com.sep.treksphere.vendor.enums.VendorStatus;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -1123,8 +1123,8 @@ class MatchingGroupApplicationServiceTest {
 
             org.mockito.Mockito.verify(notificationService).notify(
                     eq(List.of(leaderUser.getUserId())),
-                    eq(com.sep.treksphere.notification.NotificationEventType.GROUP_MEMBER_LEFT),
-                    eq(com.sep.treksphere.notification.ReferenceType.MATCHING_GROUP),
+                    eq(com.sep.treksphere.notification.enums.NotificationEventType.GROUP_MEMBER_LEFT),
+                    eq(com.sep.treksphere.notification.enums.ReferenceType.MATCHING_GROUP),
                     eq(groupId),
                     anyString(),
                     any(), any());
@@ -1235,8 +1235,8 @@ class MatchingGroupApplicationServiceTest {
 
             org.mockito.Mockito.verify(notificationService).notify(
                     eq(applicantUser.getUserId()),
-                    eq(com.sep.treksphere.notification.NotificationEventType.GROUP_MEMBER_REMOVED),
-                    eq(com.sep.treksphere.notification.ReferenceType.MATCHING_GROUP),
+                    eq(com.sep.treksphere.notification.enums.NotificationEventType.GROUP_MEMBER_REMOVED),
+                    eq(com.sep.treksphere.notification.enums.ReferenceType.MATCHING_GROUP),
                     eq(groupId),
                     anyString(),
                     any());

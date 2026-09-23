@@ -46,12 +46,12 @@ public interface CustomJourneyMapper {
 
     @Mapping(target = "customJourney", ignore = true)
     @Mapping(target = "customJourneyCostItemId", ignore = true)
-    CustomJourneyCostItem toCostItemEntity(com.sep.treksphere.matching.dto.request.CustomJourneyCostItemCreateRequest request);
+    CustomJourneyCostItem toCostItemEntity(CustomJourneyCostItemCreateRequest request);
 
     @BeanMapping(nullValuePropertyMappingStrategy = NullValuePropertyMappingStrategy.IGNORE)
     @Mapping(target = "customJourneyCostItemId", ignore = true)
     @Mapping(target = "customJourney", ignore = true)
-    void updateCostItemFromRequest(com.sep.treksphere.matching.dto.request.CustomJourneyCostItemUpdateRequest request, @MappingTarget CustomJourneyCostItem costItem);
+    void updateCostItemFromRequest(CustomJourneyCostItemUpdateRequest request, @MappingTarget CustomJourneyCostItem costItem);
 
     @BeanMapping(nullValuePropertyMappingStrategy = NullValuePropertyMappingStrategy.IGNORE)
     @Mapping(target = "customJourneyId", ignore = true)

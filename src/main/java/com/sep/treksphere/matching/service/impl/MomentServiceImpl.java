@@ -20,12 +20,12 @@ import com.sep.treksphere.matching.repository.MatchingMemberRepository;
 import com.sep.treksphere.matching.repository.MomentMediaRepository;
 import com.sep.treksphere.matching.repository.MomentRepository;
 import com.sep.treksphere.matching.service.MomentService;
-import com.sep.treksphere.notification.NotificationEventType;
-import com.sep.treksphere.notification.NotificationService;
-import com.sep.treksphere.notification.ReferenceType;
-import com.sep.treksphere.user.User;
-import com.sep.treksphere.user.UserRepository;
-import com.sep.treksphere.user.UserStatus;
+import com.sep.treksphere.notification.enums.NotificationEventType;
+import com.sep.treksphere.notification.service.NotificationService;
+import com.sep.treksphere.notification.enums.ReferenceType;
+import com.sep.treksphere.user.entity.User;
+import com.sep.treksphere.user.repository.UserRepository;
+import com.sep.treksphere.user.enums.UserStatus;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -53,9 +53,7 @@ public class MomentServiceImpl implements MomentService {
     private final MomentMapper momentMapper;
     private final NotificationService notificationService;
 
-    // ==========================================
-    // GROUP MOMENTS
-    // ==========================================
+   
 
     @Override
     @Transactional
@@ -281,9 +279,7 @@ public class MomentServiceImpl implements MomentService {
         return momentMapper.toResponse(moment);
     }
 
-    // ==========================================
-    // PERSONAL MOMENTS & SHOWCASE
-    // ==========================================
+  
 
     @Override
     @Transactional
@@ -435,9 +431,6 @@ public class MomentServiceImpl implements MomentService {
         return momentMapper.toResponse(moment);
     }
 
-    // ==========================================
-    // HELPER METHODS
-    // ==========================================
 
     private User getUserByIdOrThrow(UUID userId) {
         User user = userRepository.findById(userId)

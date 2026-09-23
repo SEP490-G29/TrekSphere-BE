@@ -1,0 +1,48 @@
+package com.sep.treksphere.chat.entity;
+
+import com.sep.treksphere.chat.enums.ConversationType;
+import com.sep.treksphere.common.entity.BaseEntity;
+import com.sep.treksphere.user.entity.User;
+import jakarta.persistence.*;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
+
+import java.time.LocalDateTime;
+import java.util.HashSet;
+import java.util.Set;
+import java.util.UUID;
+
+@Entity
+@Table(name = "conversation")
+@Getter
+@Setter
+@NoArgsConstructor
+
+
+public class Conversation extends BaseEntity {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.UUID)
+    private UUID conversationId;
+
+    @Column(length = 255)
+    private String title;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 20)
+    private ConversationType conversationType;
+
+    private LocalDateTime lastMessageAt;
+
+    @ManyToMany
+    @JoinTable(
+        name = "conversation_participant",
+        joinColumns = @JoinColumn(name = "conversation_id"),
+        inverseJoinColumns = @JoinColumn(name = "user_id")
+    )
+    private Set<User> participants = new HashSet<>();
+
+    @OneToMany(mappedBy = "conversation", cascade = CascadeType.ALL, orphanRemoval = true)
+    private Set<Message> messages = new HashSet<>();
+}
