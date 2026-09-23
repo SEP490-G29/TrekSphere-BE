@@ -18,7 +18,7 @@ public class NotificationEventListener {
     private final NotificationService notificationService;
     private final SimpMessagingTemplate messagingTemplate;
 
-    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT, fallbackExecution = true)
     public void onNotify(NotifyCommand command) {
         for (UUID recipientId : command.recipientIds()) {
             try {

@@ -85,15 +85,18 @@ public class GroupExpenseServiceImpl implements GroupExpenseService {
         }
         expense.setShares(shares);
 
-        List<UUID> beneficiaryUserIds = beneficiaries.stream()
-                .map(b -> b.getUser().getUserId())
-                .filter(id -> !id.equals(paidBy.getUser().getUserId()))
+        List<MatchingMember> activeMembers = matchingMemberRepository.findActiveMembers(groupId, JoinStatus.ACCEPTED);
+        List<UUID> recipientUserIds = activeMembers.stream()
+                .filter(m -> m.getUser() != null)
+                .map(m -> m.getUser().getUserId())
+                .filter(id -> !id.equals(currentUserId))
+                .distinct()
                 .toList();
 
-        if (!beneficiaryUserIds.isEmpty()) {
+        if (!recipientUserIds.isEmpty()) {
             String payerName = paidBy.getUser() != null ? paidBy.getUser().getFullName() : "Một thành viên";
             notificationService.notify(
-                    beneficiaryUserIds,
+                    recipientUserIds,
                     NotificationEventType.GROUP_EXPENSE_CREATED,
                     ReferenceType.GROUP_EXPENSE, expense.getGroupExpenseId(),
                     "/trekker/my-groups/" + groupId + "?tab=expenses",
@@ -147,6 +150,25 @@ public class GroupExpenseServiceImpl implements GroupExpenseService {
         }
 
         GroupExpense updated = groupExpenseRepository.save(expense);
+
+        List<MatchingMember> activeMembers = matchingMemberRepository.findActiveMembers(groupId, JoinStatus.ACCEPTED);
+        List<UUID> recipientUserIds = activeMembers.stream()
+                .filter(m -> m.getUser() != null)
+                .map(m -> m.getUser().getUserId())
+                .filter(id -> !id.equals(currentUserId))
+                .distinct()
+                .toList();
+
+        if (!recipientUserIds.isEmpty()) {
+            String payerName = callerMember.getUser() != null ? callerMember.getUser().getFullName() : "Trưởng nhóm";
+            notificationService.notify(
+                    recipientUserIds,
+                    NotificationEventType.GROUP_EXPENSE_CREATED,
+                    ReferenceType.GROUP_EXPENSE, updated.getGroupExpenseId(),
+                    "/trekker/my-groups/" + groupId + "?tab=expenses",
+                    payerName, updated.getTitle(), updated.getAmount().toPlainString(), group.getGroupName());
+        }
+
         return groupExpenseMapper.toResponse(updated);
     }
 
@@ -155,7 +177,7 @@ public class GroupExpenseServiceImpl implements GroupExpenseService {
     public void voidExpense(UUID groupId, UUID expenseId, UUID currentUserId) {
         log.info("Voiding group expense: {} for group: {}, userId: {}", expenseId, groupId, currentUserId);
 
-        getMatchingGroup(groupId);
+        MatchingGroup group = getMatchingGroup(groupId);
         MatchingMember callerMember = getActiveMember(groupId, currentUserId);
         validateLeaderPermission(callerMember);
 
@@ -173,7 +195,26 @@ public class GroupExpenseServiceImpl implements GroupExpenseService {
         }
 
         groupExpenseRepository.save(expense);
+
+        List<MatchingMember> activeMembers = matchingMemberRepository.findActiveMembers(groupId, JoinStatus.ACCEPTED);
+        List<UUID> recipientUserIds = activeMembers.stream()
+                .filter(m -> m.getUser() != null)
+                .map(m -> m.getUser().getUserId())
+                .filter(id -> !id.equals(currentUserId))
+                .distinct()
+                .toList();
+
+        if (!recipientUserIds.isEmpty()) {
+            String payerName = callerMember.getUser() != null ? callerMember.getUser().getFullName() : "Trưởng nhóm";
+            notificationService.notify(
+                    recipientUserIds,
+                    NotificationEventType.GROUP_EXPENSE_CREATED,
+                    ReferenceType.GROUP_EXPENSE, expense.getGroupExpenseId(),
+                    "/trekker/my-groups/" + groupId + "?tab=expenses",
+                    payerName, expense.getTitle(), expense.getAmount().toPlainString(), group.getGroupName());
+        }
     }
+
 
     @Override
     public GroupExpenseResponse getExpenseDetail(UUID groupId, UUID expenseId, UUID currentUserId) {

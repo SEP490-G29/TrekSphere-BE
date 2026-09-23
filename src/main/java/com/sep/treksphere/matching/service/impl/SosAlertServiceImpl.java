@@ -80,7 +80,7 @@ public class SosAlertServiceImpl implements SosAlertService {
                 .filter(id -> !id.equals(currentUserId))
                 .toList();
 
-        String actionUrl = "/trekker/my-groups/" + groupId;
+        String actionUrl = "/trekker/my-groups/" + groupId + "?tab=sos";
         notificationService.notify(recipientIds, NotificationEventType.SOS_ALERT_RAISED,
                 ReferenceType.SOS, saved.getSosAlertId(), actionUrl,
                 sender.getFullName(), saved.getIncidentTypeCode().getLabel());
@@ -134,7 +134,7 @@ public class SosAlertServiceImpl implements SosAlertService {
                 .filter(id -> !id.equals(currentUserId))
                 .toList();
 
-        String actionUrl = "/trekker/my-groups/" + groupId;
+        String actionUrl = "/trekker/my-groups/" + groupId + "?tab=sos";
         notificationService.notify(recipientIds, NotificationEventType.SOS_ALERT_RESOLVED,
                 ReferenceType.SOS, saved.getSosAlertId(), actionUrl, actor.getFullName());
 

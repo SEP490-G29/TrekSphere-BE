@@ -121,36 +121,97 @@ public class GroupSettlementServiceImpl implements GroupSettlementService {
         Map<UUID, MatchingMember> memberMap = activeMembers.stream()
                 .collect(Collectors.toMap(MatchingMember::getMatchingMemberId, m -> m));
 
-        // Soft delete old unconfirmed settlements (PENDING or REJECTED)
+        // Separate existing settlements:
+        // 1. CONFIRMED: preserved as-is.
+        // 2. PROOF_SUBMITTED: preserved to prevent wiping member's uploaded proof.
+        // 3. PENDING / REJECTED: soft-deleted and replaced by new suggestions.
+        Map<String, GroupSettlement> existingProofSubmittedMap = new HashMap<>();
+        List<GroupSettlement> pendingOrRejectedToDelete = new ArrayList<>();
+
         for (GroupSettlement s : existingSettlements) {
-            if (s.getStatus() != SettlementStatus.CONFIRMED) {
-                s.setIsDeleted(true);
-                groupSettlementRepository.save(s);
-            }
-        }
-
-        List<GroupSettlement> newSettlements = new ArrayList<>();
-        for (SettlementSuggestionResponse suggestion : suggestions) {
-            MatchingMember from = memberMap.get(suggestion.getFromMember().getMatchingMemberId());
-            MatchingMember to = memberMap.get(suggestion.getToMember().getMatchingMemberId());
-
-            if (from == null || to == null) {
+            if (s.getStatus() == SettlementStatus.CONFIRMED) {
                 continue;
             }
-
-            GroupSettlement settlement = new GroupSettlement();
-            settlement.setGroupTrip(groupTrip);
-            settlement.setFromMatchingMember(from);
-            settlement.setToMatchingMember(to);
-            settlement.setAmount(suggestion.getAmount());
-            settlement.setStatus(SettlementStatus.PENDING);
-            newSettlements.add(settlement);
+            if (s.getStatus() == SettlementStatus.PROOF_SUBMITTED && s.getFromMatchingMember() != null && s.getToMatchingMember() != null) {
+                String key = s.getFromMatchingMember().getMatchingMemberId() + "_" + s.getToMatchingMember().getMatchingMemberId();
+                existingProofSubmittedMap.put(key, s);
+            } else {
+                pendingOrRejectedToDelete.add(s);
+            }
         }
 
-        List<GroupSettlement> saved = groupSettlementRepository.saveAll(newSettlements);
-        log.info("Leader {} generated {} settlements for group {}", currentMember.getMatchingMemberId(), saved.size(), groupId);
+        for (GroupSettlement s : pendingOrRejectedToDelete) {
+            s.setIsDeleted(true);
+            groupSettlementRepository.save(s);
+        }
 
-        return groupSettlementMapper.toResponseList(saved);
+        List<GroupSettlement> allSettlements = new ArrayList<>();
+        List<GroupSettlement> toSave = new ArrayList<>();
+
+        for (SettlementSuggestionResponse suggestion : suggestions) {
+            UUID fromId = suggestion.getFromMember().getMatchingMemberId();
+            UUID toId = suggestion.getToMember().getMatchingMemberId();
+            String key = fromId + "_" + toId;
+
+            if (existingProofSubmittedMap.containsKey(key)) {
+                // Member already uploaded proof for this debt: PRESERVE status & proofUrl
+                GroupSettlement existingProofSettlement = existingProofSubmittedMap.remove(key);
+                existingProofSettlement.setAmount(suggestion.getAmount());
+                toSave.add(existingProofSettlement);
+            } else {
+                MatchingMember from = memberMap.get(fromId);
+                MatchingMember to = memberMap.get(toId);
+
+                if (from == null || to == null) {
+                    continue;
+                }
+
+                GroupSettlement settlement = new GroupSettlement();
+                settlement.setGroupTrip(groupTrip);
+                settlement.setFromMatchingMember(from);
+                settlement.setToMatchingMember(to);
+                settlement.setAmount(suggestion.getAmount());
+                settlement.setStatus(SettlementStatus.PENDING);
+                toSave.add(settlement);
+            }
+        }
+
+        // Keep any remaining PROOF_SUBMITTED settlements in database so proof is never lost
+        for (GroupSettlement remainingProof : existingProofSubmittedMap.values()) {
+            toSave.add(remainingProof);
+        }
+
+        List<GroupSettlement> saved = groupSettlementRepository.saveAll(toSave);
+        allSettlements.addAll(saved);
+
+        for (GroupSettlement s : existingSettlements) {
+            if (s.getStatus() == SettlementStatus.CONFIRMED) {
+                allSettlements.add(s);
+            }
+        }
+
+        log.info("Leader {} generated/updated {} settlements for group {}", currentMember.getMatchingMemberId(), saved.size(), groupId);
+
+        // Notify debtors about the newly generated/updated settlements
+        List<UUID> debtorUserIds = saved.stream()
+                .filter(s -> s.getStatus() == SettlementStatus.PENDING || s.getStatus() == SettlementStatus.PROOF_SUBMITTED)
+                .filter(s -> s.getFromMatchingMember() != null && s.getFromMatchingMember().getUser() != null)
+                .map(s -> s.getFromMatchingMember().getUser().getUserId())
+                .filter(id -> !id.equals(currentMember.getUser().getUserId()))
+                .distinct()
+                .toList();
+
+        if (!debtorUserIds.isEmpty()) {
+            String leaderName = currentMember.getUser() != null ? currentMember.getUser().getFullName() : "Trưởng nhóm";
+            notificationService.notify(
+                    debtorUserIds,
+                    NotificationEventType.GROUP_SETTLEMENT_CREATED,
+                    ReferenceType.GROUP_EXPENSE, groupId,
+                    "/trekker/my-groups/" + groupId + "?tab=expenses",
+                    leaderName, group.getGroupName());
+        }
+
+        return groupSettlementMapper.toResponseList(allSettlements);
     }
 
     @Override
@@ -180,35 +241,62 @@ public class GroupSettlementServiceImpl implements GroupSettlementService {
         Map<UUID, MatchingMember> memberMap = activeMembers.stream()
                 .collect(Collectors.toMap(MatchingMember::getMatchingMemberId, m -> m));
 
-        // Soft delete old unconfirmed settlements (PENDING or REJECTED)
+        Map<String, GroupSettlement> existingProofSubmittedMap = new HashMap<>();
+        List<GroupSettlement> pendingOrRejectedToDelete = new ArrayList<>();
+
         for (GroupSettlement s : existingSettlements) {
-            if (s.getStatus() != SettlementStatus.CONFIRMED) {
-                s.setIsDeleted(true);
-                groupSettlementRepository.save(s);
-            }
-        }
-
-        List<GroupSettlement> newSettlements = new ArrayList<>();
-        for (SettlementSuggestionResponse suggestion : suggestions) {
-            MatchingMember from = memberMap.get(suggestion.getFromMember().getMatchingMemberId());
-            MatchingMember to = memberMap.get(suggestion.getToMember().getMatchingMemberId());
-
-            if (from == null || to == null) {
+            if (s.getStatus() == SettlementStatus.CONFIRMED) {
                 continue;
             }
-
-            GroupSettlement settlement = new GroupSettlement();
-            settlement.setGroupTrip(groupTrip);
-            settlement.setFromMatchingMember(from);
-            settlement.setToMatchingMember(to);
-            settlement.setAmount(suggestion.getAmount());
-            settlement.setStatus(SettlementStatus.PENDING);
-            newSettlements.add(settlement);
+            if (s.getStatus() == SettlementStatus.PROOF_SUBMITTED && s.getFromMatchingMember() != null && s.getToMatchingMember() != null) {
+                String key = s.getFromMatchingMember().getMatchingMemberId() + "_" + s.getToMatchingMember().getMatchingMemberId();
+                existingProofSubmittedMap.put(key, s);
+            } else {
+                pendingOrRejectedToDelete.add(s);
+            }
         }
 
-        List<GroupSettlement> saved = groupSettlementRepository.saveAll(newSettlements);
+        for (GroupSettlement s : pendingOrRejectedToDelete) {
+            s.setIsDeleted(true);
+            groupSettlementRepository.save(s);
+        }
+
+        List<GroupSettlement> toSave = new ArrayList<>();
+        for (SettlementSuggestionResponse suggestion : suggestions) {
+            UUID fromId = suggestion.getFromMember().getMatchingMemberId();
+            UUID toId = suggestion.getToMember().getMatchingMemberId();
+            String key = fromId + "_" + toId;
+
+            if (existingProofSubmittedMap.containsKey(key)) {
+                GroupSettlement existingProofSettlement = existingProofSubmittedMap.remove(key);
+                existingProofSettlement.setAmount(suggestion.getAmount());
+                toSave.add(existingProofSettlement);
+            } else {
+                MatchingMember from = memberMap.get(fromId);
+                MatchingMember to = memberMap.get(toId);
+
+                if (from == null || to == null) {
+                    continue;
+                }
+
+                GroupSettlement settlement = new GroupSettlement();
+                settlement.setGroupTrip(groupTrip);
+                settlement.setFromMatchingMember(from);
+                settlement.setToMatchingMember(to);
+                settlement.setAmount(suggestion.getAmount());
+                settlement.setStatus(SettlementStatus.PENDING);
+                toSave.add(settlement);
+            }
+        }
+
+        for (GroupSettlement remainingProof : existingProofSubmittedMap.values()) {
+            toSave.add(remainingProof);
+        }
+
+        List<GroupSettlement> saved = groupSettlementRepository.saveAll(toSave);
         log.info("Auto-generated {} settlement records on dissolution for group {}", saved.size(), groupId);
     }
+
 
     @Override
     @Transactional
@@ -311,6 +399,18 @@ public class GroupSettlementServiceImpl implements GroupSettlementService {
 
         GroupSettlement updated = groupSettlementRepository.save(settlement);
         log.info("Payee {} rejected settlement {} with reason: {}", currentMember.getMatchingMemberId(), settlementId, request.getReason());
+
+        if (settlement.getFromMatchingMember() != null && settlement.getFromMatchingMember().getUser() != null) {
+            UUID debtorUserId = settlement.getFromMatchingMember().getUser().getUserId();
+            String payeeName = currentMember.getUser() != null ? currentMember.getUser().getFullName() : "Người nhận tiền";
+            String reason = request.getReason().trim();
+            notificationService.notify(
+                    debtorUserId,
+                    NotificationEventType.GROUP_SETTLEMENT_REJECTED,
+                    ReferenceType.GROUP_EXPENSE, settlementId,
+                    "/trekker/my-groups/" + groupId + "?tab=expenses",
+                    payeeName, group.getGroupName(), reason);
+        }
 
         return groupSettlementMapper.toResponse(updated);
     }

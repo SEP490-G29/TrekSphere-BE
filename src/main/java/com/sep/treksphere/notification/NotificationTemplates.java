@@ -66,12 +66,19 @@ public final class NotificationTemplates {
         TEMPLATES.put(NotificationEventType.GROUP_EXPENSE_CREATED, new TemplatePair(
                 "Khoản chi mới trong nhóm",
                 "%s vừa thêm khoản chi \"%s\" (%s VNĐ) trong nhóm \"%s\"."));
+        TEMPLATES.put(NotificationEventType.GROUP_SETTLEMENT_CREATED, new TemplatePair(
+                "Yêu cầu quyết toán chi phí",
+                "%s vừa khởi tạo quyết toán chi phí cho nhóm \"%s\". Vui lòng kiểm tra và hoàn tất thanh toán."));
         TEMPLATES.put(NotificationEventType.GROUP_SETTLEMENT_PROOF_SUBMITTED, new TemplatePair(
                 "Minh chứng thanh toán mới",
                 "%s đã gửi minh chứng thanh toán quyết toán cho bạn trong nhóm \"%s\"."));
         TEMPLATES.put(NotificationEventType.GROUP_SETTLEMENT_CONFIRMED, new TemplatePair(
                 "Xác nhận thanh toán quyết toán",
                 "%s đã xác nhận nhận tiền quyết toán của bạn trong nhóm \"%s\"."));
+        TEMPLATES.put(NotificationEventType.GROUP_SETTLEMENT_REJECTED, new TemplatePair(
+                "Thanh toán quyết toán bị từ chối",
+                "%s đã từ chối minh chứng quyết toán của bạn trong nhóm \"%s\". Lý do: %s"));
+
 
         // Nội dung có 2 biến thể cấu trúc khác nhau (top-level vs reply) nên được
         // BlogCommentService dựng sẵn thành 1 câu hoàn chỉnh rồi truyền vào đây.

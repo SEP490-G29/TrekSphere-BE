@@ -291,7 +291,7 @@ public class CustomJourneyServiceImpl implements CustomJourneyService {
                 .map(m -> m.getUser().getUserId())
                 .filter(id -> !id.equals(currentUserId))
                 .toList();
-        String actionUrl = "/trekker/my-groups/" + groupId;
+        String actionUrl = "/trekker/my-groups/" + groupId + "?tab=itinerary";
         NotificationEventType eventType = newStatus == CheckpointProgressStatus.CHECKED_IN
                 ? NotificationEventType.GROUP_CHECKPOINT_CHECKED_IN
                 : NotificationEventType.GROUP_CHECKPOINT_SKIPPED;

@@ -24,6 +24,8 @@ public class SosAlertResponse {
     private UUID matchingGroupId;
     private UUID senderId;
     private String senderName;
+    private String senderPhone;
+    private String senderAvatarUrl;
     private IncidentType incidentTypeCode;
     private BigDecimal latitude;
     private BigDecimal longitude;
@@ -41,6 +43,8 @@ public class SosAlertResponse {
                 .matchingGroupId(alert.getGroupTrip().getMatchingGroup().getMatchingGroupId())
                 .senderId(alert.getSender().getUserId())
                 .senderName(alert.getSender().getFullName())
+                .senderPhone(alert.getSender().getPhone())
+                .senderAvatarUrl(alert.getSender().getAvatarUrl())
                 .incidentTypeCode(alert.getIncidentTypeCode())
                 .latitude(alert.getLatitude())
                 .longitude(alert.getLongitude())

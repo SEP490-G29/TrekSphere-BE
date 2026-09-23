@@ -767,7 +767,7 @@ public class MatchingGroupServiceImpl implements MatchingGroupService {
                 currentLeaderUserId,
                 NotificationEventType.GROUP_JOIN_REQUEST,
                 ReferenceType.MATCHING_GROUP, matchingGroup.getMatchingGroupId(),
-                "/trekker/my-groups/" + matchingGroup.getMatchingGroupId(),
+                "/trekker/my-groups/" + matchingGroup.getMatchingGroupId() + "?tab=members&subTab=requests",
                 currentUser.getFullName(), matchingGroup.getGroupName());
 
         return matchingGroupMapper.toMemberResponse(savedApp);
@@ -964,7 +964,7 @@ public class MatchingGroupServiceImpl implements MatchingGroupService {
                 application.getApplicant().getUserId(),
                 NotificationEventType.GROUP_MEMBER_REJECTED,
                 ReferenceType.MATCHING_GROUP, matchingGroup.getMatchingGroupId(),
-                "/trekker/my-groups",
+                "/trekker/my-join-requests",
                 matchingGroup.getGroupName());
 
         return matchingGroupMapper.toMemberResponse(savedApp);
@@ -1556,7 +1556,7 @@ public class MatchingGroupServiceImpl implements MatchingGroupService {
                 memberIdsToNotifyStart,
                 NotificationEventType.GROUP_TRIP_STARTED,
                 ReferenceType.GROUP_TRIP, groupId,
-                "/trekker/my-groups/" + groupId,
+                "/trekker/my-groups/" + groupId + "?tab=itinerary",
                 matchingGroup.getGroupName());
 
         return getMatchingGroupById(groupId, userDetails);
@@ -1603,7 +1603,7 @@ public class MatchingGroupServiceImpl implements MatchingGroupService {
                 memberIdsToNotifyEnd,
                 NotificationEventType.GROUP_TRIP_ENDED,
                 ReferenceType.GROUP_TRIP, groupId,
-                "/trekker/my-groups/" + groupId,
+                "/trekker/my-groups/" + groupId + "?tab=members&subTab=reviews",
                 matchingGroup.getGroupName());
 
         return getMatchingGroupById(groupId, userDetails);

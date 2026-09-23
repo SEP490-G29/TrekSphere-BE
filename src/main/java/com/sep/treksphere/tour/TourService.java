@@ -286,7 +286,7 @@ public class TourService {
                 tour.getVendor().getManager().getUserId(),
                 NotificationEventType.TOUR_HIDDEN_VIOLATION,
                 ReferenceType.TOUR, tour.getTourId(),
-                "/vendor/tours/" + tour.getTourId(),
+                "/vendor/tours/" + tour.getTourId() + "/preview",
                 tour.getTourName(), reason.trim());
 
         return loadVendorDetail(tour);
@@ -312,7 +312,7 @@ public class TourService {
                 tour.getVendor().getManager().getUserId(),
                 NotificationEventType.TOUR_UNHIDDEN,
                 ReferenceType.TOUR, tour.getTourId(),
-                "/vendor/tours/" + tour.getTourId(),
+                "/vendor/tours/" + tour.getTourId() + "/preview",
                 tour.getTourName());
 
         return loadVendorDetail(tour);
