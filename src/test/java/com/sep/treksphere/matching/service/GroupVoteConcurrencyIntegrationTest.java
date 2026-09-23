@@ -23,11 +23,11 @@ import com.sep.treksphere.matching.repository.GroupVoteRepository;
 import com.sep.treksphere.matching.repository.MatchingGroupRepository;
 import com.sep.treksphere.matching.repository.MatchingMemberRepository;
 import com.sep.treksphere.matching.service.impl.GroupVoteServiceImpl;
-import com.sep.treksphere.notification.NotificationService;
-import com.sep.treksphere.user.AuthProvider;
-import com.sep.treksphere.user.User;
-import com.sep.treksphere.user.UserRepository;
-import com.sep.treksphere.user.UserStatus;
+import com.sep.treksphere.notification.service.NotificationService;
+import com.sep.treksphere.user.enums.AuthProvider;
+import com.sep.treksphere.user.entity.User;
+import com.sep.treksphere.user.repository.UserRepository;
+import com.sep.treksphere.user.enums.UserStatus;
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.DisplayName;
@@ -92,6 +92,9 @@ class GroupVoteConcurrencyIntegrationTest {
 
     @MockitoBean
     private SimpMessagingTemplate messagingTemplate;
+
+    @MockitoBean
+    private GroupSettlementService groupSettlementService;
 
     @DynamicPropertySource
     static void configureDatabase(DynamicPropertyRegistry registry) {

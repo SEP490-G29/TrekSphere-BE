@@ -14,9 +14,9 @@ import com.sep.treksphere.matching.enums.MatchingRole;
 import com.sep.treksphere.matching.mapper.CustomJourneyMapper;
 import com.sep.treksphere.matching.repository.*;
 import com.sep.treksphere.matching.service.CustomJourneyService;
-import com.sep.treksphere.notification.NotificationEventType;
-import com.sep.treksphere.notification.NotificationService;
-import com.sep.treksphere.notification.ReferenceType;
+import com.sep.treksphere.notification.enums.NotificationEventType;
+import com.sep.treksphere.notification.service.NotificationService;
+import com.sep.treksphere.notification.enums.ReferenceType;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -118,6 +118,15 @@ public class CustomJourneyServiceImpl implements CustomJourneyService {
 
         validateJourneyNotLocked(journey);
 
+        long currentCount = checkpointRepository.countByCustomJourney_CustomJourneyIdAndIsDeletedFalse(journey.getCustomJourneyId());
+        int expectedOrder = (int) currentCount + 1;
+
+        if (request.getCheckpointOrder() == null) {
+            request.setCheckpointOrder(expectedOrder);
+        } else if (!request.getCheckpointOrder().equals(expectedOrder)) {
+            throw new AppException(ErrorCode.CHECKPOINT_ORDER_NOT_CONSECUTIVE);
+        }
+
         if (checkpointRepository.existsByCustomJourney_CustomJourneyIdAndCheckpointOrderAndIsDeletedFalse(
                 journey.getCustomJourneyId(), request.getCheckpointOrder())) {
             throw new AppException(ErrorCode.CHECKPOINT_ORDER_DUPLICATED);
@@ -194,8 +203,61 @@ public class CustomJourneyServiceImpl implements CustomJourneyService {
 
         checkpoint.setIsDeleted(true);
         checkpoint.setDeletedAt(java.time.LocalDateTime.now());
-        checkpointRepository.save(checkpoint);
+        checkpointRepository.saveAndFlush(checkpoint);
+
+        // Normalize subsequent checkpoints' order so they remain consecutive 1, 2, ..., N
+        List<CustomJourneyCheckpoint> subsequentCheckpoints = checkpointRepository
+                .findByCustomJourney_CustomJourneyIdAndCheckpointOrderGreaterThanAndIsDeletedFalseOrderByCheckpointOrderAsc(
+                        journey.getCustomJourneyId(), checkpoint.getCheckpointOrder());
+        for (CustomJourneyCheckpoint subsequent : subsequentCheckpoints) {
+            subsequent.setCheckpointOrder(subsequent.getCheckpointOrder() - 1);
+            checkpointRepository.saveAndFlush(subsequent);
+        }
+
         log.info("Deleted checkpoint {} in custom journey {}", checkpointId, journey.getCustomJourneyId());
+    }
+
+    @Override
+    @Transactional
+    public List<CustomJourneyCheckpointResponse> swapCheckpoints(
+            UUID groupId, UUID checkpointId, UUID targetCheckpointId, UUID currentUserId) {
+        MatchingGroup group = getGroupOrThrow(groupId);
+        validateLeaderPermission(group, currentUserId);
+
+        CustomJourney journey = customJourneyRepository.findByMatchingGroup_MatchingGroupIdAndIsDeletedFalse(groupId)
+                .orElseThrow(() -> new AppException(ErrorCode.JOURNEY_NOT_FOUND));
+
+        validateJourneyNotLocked(journey);
+
+        if (checkpointId.equals(targetCheckpointId)) {
+            return getCheckpoints(groupId, currentUserId);
+        }
+
+        CustomJourneyCheckpoint cp1 = checkpointRepository
+                .findByCustomJourneyCheckpointIdAndCustomJourney_CustomJourneyIdAndIsDeletedFalse(checkpointId, journey.getCustomJourneyId())
+                .orElseThrow(() -> new AppException(ErrorCode.CUSTOM_JOURNEY_CHECKPOINT_NOT_FOUND));
+
+        CustomJourneyCheckpoint cp2 = checkpointRepository
+                .findByCustomJourneyCheckpointIdAndCustomJourney_CustomJourneyIdAndIsDeletedFalse(targetCheckpointId, journey.getCustomJourneyId())
+                .orElseThrow(() -> new AppException(ErrorCode.CUSTOM_JOURNEY_CHECKPOINT_NOT_FOUND));
+
+        Integer order1 = cp1.getCheckpointOrder();
+        Integer order2 = cp2.getCheckpointOrder();
+
+        // Use temporary large positive order and flush to avoid unique constraint violation while satisfying chk_cjc_order (> 0)
+        cp1.setCheckpointOrder(100_000 + order1);
+        checkpointRepository.saveAndFlush(cp1);
+
+        cp2.setCheckpointOrder(order1);
+        checkpointRepository.saveAndFlush(cp2);
+
+        cp1.setCheckpointOrder(order2);
+        checkpointRepository.saveAndFlush(cp1);
+
+        log.info("Swapped checkpoint orders between {} (now order {}) and {} (now order {}) in custom journey {}",
+                checkpointId, cp1.getCheckpointOrder(), targetCheckpointId, cp2.getCheckpointOrder(), journey.getCustomJourneyId());
+
+        return getCheckpoints(groupId, currentUserId);
     }
 
     @Override
@@ -229,7 +291,7 @@ public class CustomJourneyServiceImpl implements CustomJourneyService {
                 .map(m -> m.getUser().getUserId())
                 .filter(id -> !id.equals(currentUserId))
                 .toList();
-        String actionUrl = "/trekker/my-groups/" + groupId;
+        String actionUrl = "/trekker/my-groups/" + groupId + "?tab=itinerary";
         NotificationEventType eventType = newStatus == CheckpointProgressStatus.CHECKED_IN
                 ? NotificationEventType.GROUP_CHECKPOINT_CHECKED_IN
                 : NotificationEventType.GROUP_CHECKPOINT_SKIPPED;

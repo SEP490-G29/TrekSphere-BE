@@ -388,6 +388,7 @@ public class MessageConstant {
     public static final String JOURNEY_NOT_FOUND = "Hành trình Custom Journey không tồn tại";
     public static final String CUSTOM_JOURNEY_CHECKPOINT_NOT_FOUND = "Điểm dừng checkpoint không tồn tại";
     public static final String CHECKPOINT_ORDER_DUPLICATED = "Thứ tự điểm dừng đã tồn tại trong hành trình này";
+    public static final String CHECKPOINT_ORDER_NOT_CONSECUTIVE = "Thứ tự điểm dừng mới phải được tạo tuần tự theo số thứ tự tiếp theo";
     public static final String CHECKPOINT_TIME_INVALID = "Thời gian kết thúc điểm dừng phải sau hoặc bằng thời gian bắt đầu";
     public static final String CHECKLIST_ITEM_NOT_FOUND = "Mục checklist không tồn tại";
     public static final String POST_NOT_FOUND = "Bài đăng không tồn tại";
@@ -400,6 +401,7 @@ public class MessageConstant {
     public static final String CHECKPOINT_CREATED_SUCCESS = "Thêm điểm dừng hành trình thành công";
     public static final String CHECKPOINT_UPDATED_SUCCESS = "Cập nhật điểm dừng hành trình thành công";
     public static final String CHECKPOINT_DELETED_SUCCESS = "Xoá điểm dừng hành trình thành công";
+    public static final String CHECKPOINT_SWAPPED_SUCCESS = "Đổi thứ tự điểm dừng thành công";
     public static final String CHECKPOINT_PROGRESS_UPDATED_SUCCESS = "Đã cập nhật tiến độ điểm dừng thành công";
     public static final String CHECKPOINT_PROGRESS_RESET_SUCCESS = "Đã gỡ tiến độ điểm dừng thành công";
     public static final String CUSTOM_JOURNEY_ACTIVITY_NOT_FOUND = "Hoạt động trong thời khóa biểu hành trình không tồn tại";
@@ -486,7 +488,6 @@ public class MessageConstant {
     public static final String SCHEDULE_CREATED_SUCCESSFULLY = "Tạo lịch khởi hành thành công";
     public static final String SCHEDULE_UPDATED_SUCCESSFULLY = "Cập nhật lịch khởi hành thành công";
     public static final String SCHEDULE_DELETED_SUCCESSFULLY = "Huỷ lịch khởi hành thành công";
-    public static final String SCHEDULE_HAS_BOOKINGS = "Không thể huỷ lịch khởi hành đã có khách đặt";
     public static final String SCHEDULE_DEPARTURE_REQUIRED = "Ngày khởi hành không được để trống";
     public static final String SCHEDULE_RETURN_REQUIRED = "Ngày kết thúc không được để trống";
     public static final String SCHEDULE_SLOTS_REQUIRED = "Số slot không được để trống";
@@ -508,87 +509,6 @@ public class MessageConstant {
     public static final String PORTER_UPDATED_SUCCESSFULLY = "Cập nhật hồ sơ porter thành công";
     public static final String PORTER_DELETED_SUCCESSFULLY = "Xóa hồ sơ porter thành công";
     public static final String PORTER_LIST_FETCHED_SUCCESSFULLY = "Lấy danh sách hồ sơ porter thành công";
-
-    // Booking Messages
-    public static final String BOOKING_NOT_FOUND = "Đơn đặt tour không tồn tại";
-    public static final String BOOKING_CREATED_SUCCESSFULLY = "Đặt tour thành công";
-    public static final String BOOKING_CANCELLED_SUCCESSFULLY = "Huỷ đơn đặt tour thành công";
-    public static final String BOOKING_REJECTED_SUCCESSFULLY = "Từ chối đơn đặt tour thành công";
-    public static final String PAYMENT_PROOF_SUBMITTED = "Gửi minh chứng thanh toán thành công";
-    public static final String NOT_ENOUGH_SLOTS = "Số lượng chỗ trống không đủ";
-    public static final String BOOKING_CANNOT_CANCEL = "Không thể huỷ đơn đặt tour ở trạng thái này";
-    public static final String INVALID_BOOKING_STATUS = "Trạng thái đơn đặt tour không hợp lệ";
-
-    // Voucher Messages
-    public static final String VOUCHER_NOT_FOUND = "Mã giảm giá không tồn tại";
-    public static final String VOUCHER_NOT_ACTIVE = "Mã giảm giá không hoạt động";
-    public static final String VOUCHER_EXPIRED = "Mã giảm giá đã hết hạn hoặc chưa có hiệu lực";
-    public static final String VOUCHER_MAX_USAGE_REACHED = "Mã giảm giá đã hết lượt sử dụng";
-    public static final String VOUCHER_MIN_ORDER_VALUE_NOT_MET = "Đơn đặt tour chưa đạt giá trị tối thiểu để sử dụng mã giảm giá";
-    public static final String VOUCHER_VENDOR_MISMATCH = "Mã giảm giá không thuộc nhà cung cấp của tour này";
-    public static final String VOUCHER_CODE_ALREADY_EXISTS = "Mã giảm giá đã tồn tại";
-    public static final String VOUCHER_VALID_DATE_ERROR = "Ngày bắt đầu phải nhỏ hơn ngày kết thúc";
-    public static final String INVALID_DISCOUNT_VALUE = "Giá trị giảm giá phần trăm không hợp lệ (phải <= 100)";
-    public static final String VOUCHER_CREATED_SUCCESSFULLY = "Tạo mã giảm giá thành công";
-    public static final String VOUCHER_UPDATED_SUCCESSFULLY = "Cập nhật mã giảm giá thành công";
-    public static final String VOUCHER_DELETED_SUCCESSFULLY = "Hủy mã giảm giá thành công";
-    public static final String VOUCHER_NOT_YET_VALID = "Mã giảm giá chưa đến thời gian sử dụng";
-    public static final String VOUCHER_VALIDATION_SUCCESS = "Áp dụng mã giảm giá thành công!";
-
-    public static final String VOUCHER_CODE_REQUIRED = "Mã voucher không được để trống";
-    public static final String VOUCHER_DISCOUNT_TYPE_REQUIRED = "Loại giảm giá không được để trống";
-    public static final String VOUCHER_DISCOUNT_VALUE_REQUIRED = "Giá trị giảm không được để trống";
-    public static final String VOUCHER_DISCOUNT_VALUE_MIN = "Giá trị giảm phải lớn hơn hoặc bằng 0";
-    public static final String VOUCHER_MIN_ORDER_VALUE_MIN = "Giá trị đơn hàng tối thiểu phải lớn hơn hoặc bằng 0";
-    public static final String VOUCHER_MAX_USAGE_REQUIRED = "Số lượng giới hạn không được để trống";
-    public static final String VOUCHER_MAX_USAGE_MIN = "Số lượng giới hạn phải lớn hơn 0";
-    public static final String VOUCHER_VALID_FROM_REQUIRED = "Ngày bắt đầu không được để trống";
-    public static final String VOUCHER_VALID_FROM_FUTURE = "Ngày bắt đầu phải từ hiện tại trở đi";
-    public static final String VOUCHER_VALID_UNTIL_REQUIRED = "Ngày kết thúc không được để trống";
-    public static final String VOUCHER_VALID_UNTIL_FUTURE = "Ngày kết thúc phải từ hiện tại trở đi";
-
-    // Booking Validation Messages
-    public static final String BOOKING_FULL_NAME_REQUIRED = "Họ tên người tham gia không được để trống";
-    public static final String BOOKING_DOB_REQUIRED = "Ngày sinh không được để trống";
-    public static final String BOOKING_GENDER_REQUIRED = "Giới tính không được để trống";
-    public static final String BOOKING_ID_NUMBER_REQUIRED = "Số CCCD/Hộ chiếu không được để trống";
-    public static final String BOOKING_PHONE_REQUIRED = "Số điện thoại không được để trống";
-    public static final String BOOKING_EMAIL_INVALID = "Email không đúng định dạng";
-    public static final String BOOKING_SCHEDULE_REQUIRED = "Lịch khởi hành không được để trống";
-    public static final String BOOKING_PARTICIPANTS_REQUIRED = "Danh sách người tham gia không được để trống";
-    public static final String BOOKING_CANCEL_REASON_REQUIRED = "Lý do huỷ tour không được để trống";
-    public static final String BOOKING_PROOF_IMAGE_REQUIRED = "Đường dẫn ảnh minh chứng không được để trống";
-    public static final String PAYMENT_ACCOUNT_NOT_CONFIGURED = "Vendor chưa cấu hình kênh thanh toán payOS hoạt động";
-    public static final String PAYMENT_NOT_ALLOWED = "Booking không thể tạo giao dịch thanh toán ở trạng thái hiện tại";
-    public static final String PAYMENT_TRANSACTION_NOT_FOUND = "Không tìm thấy giao dịch thanh toán";
-    public static final String PAYMENT_GATEWAY_ERROR = "Cổng thanh toán đang gặp lỗi, vui lòng thử lại";
-    public static final String PAYMENT_ACCOUNT_VERIFICATION_FAILED =
-            "Không thể xác minh kết nối payOS. Vui lòng kiểm tra lại Client ID, API Key và Checksum Key";
-    public static final String INVALID_PAYMENT_WEBHOOK = "Webhook thanh toán không hợp lệ";
-    public static final String REFUND_NOT_FOUND = "Không tìm thấy giao dịch hoàn tiền";
-    public static final String REFUND_DESTINATION_REQUIRED = "Cần cung cấp đầy đủ ngân hàng, số tài khoản và tên chủ tài khoản để hoàn tiền";
-    public static final String REFUND_NOT_PROCESSABLE = "Giao dịch hoàn tiền không thể xử lý ở trạng thái hiện tại";
-    public static final String PAYMENT_PLAN_NOT_ALLOWED = "Phương án thanh toán không được áp dụng cho tour này";
-    public static final String IDEMPOTENCY_CONFLICT = "Idempotency-Key đã được dùng với nội dung booking khác";
-
-    // Vendor Booking Messages
-    public static final String PAYMENT_CONFIRMED_SUCCESSFULLY = "Xác nhận thanh toán thành công";
-    public static final String BOOKING_CONFIRMED_SUCCESSFULLY = "Xác nhận giữ chỗ đơn đặt tour thành công";
-    public static final String REFUND_CONFIRMED_SUCCESSFULLY = "Xác nhận hoàn tiền thành công";
-    public static final String BOOKING_NOT_CANCELLED = "Đơn đặt tour chưa ở trạng thái huỷ, không thể xác nhận hoàn tiền";
-    public static final String REFUND_BANK_INFO_REQUIRED = "Vui lòng cung cấp thông tin tài khoản ngân hàng nhận hoàn tiền";
-    public static final String REFUND_PROOF_IMAGE_REQUIRED = "Vui lòng tải lên ảnh minh chứng hoàn tiền";
-
-    // Cancellation Policy Messages
-    public static final String POLICY_NOT_FOUND = "Chính sách hủy tour không tồn tại";
-    public static final String POLICY_CREATED_SUCCESSFULLY = "Tạo chính sách hủy tour thành công";
-    public static final String POLICY_UPDATED_SUCCESSFULLY = "Cập nhật chính sách hủy tour thành công";
-    public static final String POLICY_DELETED_SUCCESSFULLY = "Xóa chính sách hủy tour thành công";
-    public static final String POLICY_DUPLICATE_DAYS = "Đã tồn tại chính sách với số ngày hủy trước này";
-    public static final String POLICY_CANCEL_DAYS_REQUIRED = "Số ngày hủy trước không được để trống";
-    public static final String POLICY_CANCEL_DAYS_MIN = "Số ngày hủy trước phải lớn hơn hoặc bằng 0";
-    public static final String POLICY_REFUND_PERCENTAGE_REQUIRED = "Phần trăm hoàn tiền không được để trống";
-    public static final String POLICY_REFUND_PERCENTAGE_RANGE = "Phần trăm hoàn tiền phải từ 0 đến 100";
 
     // Logistics Messages
     public static final String TOUR_SESSION_NOT_FOUND = "Phiên tour không tồn tại";
@@ -627,18 +547,6 @@ public class MessageConstant {
     public static final String QUANTITY_MIN_ZERO = "Số lượng không được nhỏ hơn 0";
     public static final String RETURN_QUANTITY_REQUIRED = "Số lượng trả về nguyên vẹn không được để trống";
     public static final String MISSING_QUANTITY_REQUIRED = "Số lượng thất lạc/hư hỏng không được để trống";
-    // Review Messages
-    public static final String REVIEW_NOT_FOUND = "Đánh giá không tồn tại";
-    public static final String REVIEW_CREATED_SUCCESSFULLY = "Gửi đánh giá thành công";
-    public static final String REVIEW_STATUS_UPDATED_SUCCESSFULLY = "Cập nhật trạng thái đánh giá thành công";
-    public static final String REVIEW_ALREADY_EXISTS = "Bạn đã đánh giá đơn đặt tour này rồi";
-    public static final String REVIEW_BOOKING_NOT_COMPLETED = "Chỉ có thể đánh giá khi đơn đặt tour đã hoàn thành";
-    public static final String REVIEW_BOOKING_NOT_OWNED = "Bạn không có quyền đánh giá đơn đặt tour này";
-    public static final String REVIEW_INVALID_STATUS_MSG = "Trạng thái đánh giá không hợp lệ (phải là APPROVED hoặc HIDDEN)";
-    public static final String REVIEW_RATING_REQUIRED = "Điểm đánh giá không được để trống";
-    public static final String REVIEW_RATING_RANGE = "Điểm đánh giá phải từ 1 đến 5";
-    public static final String REVIEW_BOOKING_REQUIRED = "Mã đơn đặt tour không được để trống";
-    public static final String REVIEW_STATUS_REQUIRED_MSG = "Trạng thái đánh giá không được để trống";
     // Chat Messages
     public static final String CONVERSATIONS_FETCHED_SUCCESS = "Lấy danh sách cuộc hội thoại thành công";
     public static final String CONVERSATION_CREATED_SUCCESS = "Tạo cuộc hội thoại thành công";

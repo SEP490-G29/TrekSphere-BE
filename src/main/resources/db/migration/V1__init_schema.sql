@@ -1,4 +1,6 @@
-
+-- ----------------------------------------------------------------------------
+-- RBAC
+-- ----------------------------------------------------------------------------
 
 CREATE TABLE role (
     role_id UUID PRIMARY KEY,
@@ -54,7 +56,7 @@ CREATE TABLE users (
     CONSTRAINT chk_users_gender CHECK (gender IS NULL OR gender IN ('MALE','FEMALE','OTHER')),
     CONSTRAINT chk_users_provider CHECK (provider IN ('LOCAL','GOOGLE')),
     CONSTRAINT chk_users_experience_level CHECK (experience_level IS NULL OR experience_level IN ('BEGINNER','INTERMEDIATE','ADVANCED','EXPERT')),
-    CONSTRAINT chk_users_preferred_difficulty CHECK (preferred_difficulty IS NULL OR preferred_difficulty IN ('EASY','MODERATE','HARD','EXPERT')),
+    CONSTRAINT chk_users_preferred_difficulty CHECK (preferred_difficulty IS NULL OR preferred_difficulty IN ('EASY','MODERATE','HARD','EXTREME')),
     CONSTRAINT chk_users_preferred_areas_array CHECK (jsonb_typeof(preferred_areas) = 'array'),
     CONSTRAINT chk_users_skills_array CHECK (jsonb_typeof(skills) = 'array'),
     CONSTRAINT chk_users_trust_score CHECK (trust_score IS NULL OR trust_score BETWEEN 0 AND 100)
@@ -69,7 +71,7 @@ CREATE TABLE user_role (
 );
 
 -- ----------------------------------------------------------------------------
--- Mục 3.6–3.7: Vendor
+-- Vendor
 -- ----------------------------------------------------------------------------
 
 CREATE TABLE vendor (
@@ -82,6 +84,10 @@ CREATE TABLE vendor (
     contact_phone VARCHAR(20) NOT NULL,
     tax_code VARCHAR(50) UNIQUE NOT NULL,
     business_license_url VARCHAR(500) NOT NULL,
+    business_address VARCHAR(500),
+    legal_representative_name VARCHAR(255),
+    legal_representative_position VARCHAR(255),
+    website_url VARCHAR(500),
     status VARCHAR(10) NOT NULL,
     is_deleted BOOLEAN NOT NULL DEFAULT FALSE,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -98,14 +104,21 @@ CREATE TABLE vendor (
 CREATE TABLE vendor_application (
     vendor_application_id UUID PRIMARY KEY,
     applicant_id UUID NOT NULL,
-    company_name VARCHAR(255) NOT NULL,
-    contact_email VARCHAR(255) NOT NULL,
-    contact_phone VARCHAR(20) NOT NULL,
-    tax_code VARCHAR(50) UNIQUE NOT NULL,
-    business_license_url VARCHAR(500) NOT NULL,
+    company_name VARCHAR(255),
+    contact_email VARCHAR(255),
+    contact_phone VARCHAR(20),
+    tax_code VARCHAR(50) UNIQUE,
+    business_license_url VARCHAR(500),
     business_description TEXT,
     application_status VARCHAR(10) NOT NULL,
     rejection_reason TEXT,
+    business_address VARCHAR(500),
+    legal_representative_name VARCHAR(255),
+    legal_representative_position VARCHAR(255),
+    website_url VARCHAR(500),
+    reviewed_by UUID,
+    reviewed_at TIMESTAMP,
+    vendor_id UUID,
     is_deleted BOOLEAN NOT NULL DEFAULT FALSE,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP,
@@ -115,11 +128,32 @@ CREATE TABLE vendor_application (
     deleted_by VARCHAR(255),
 
     CONSTRAINT fk_va_applicant FOREIGN KEY (applicant_id) REFERENCES users(user_id),
-    CONSTRAINT chk_va_status CHECK (application_status IN ('PENDING','APPROVED','REJECTED'))
+    CONSTRAINT fk_va_reviewed_by FOREIGN KEY (reviewed_by) REFERENCES users(user_id),
+    CONSTRAINT fk_va_vendor FOREIGN KEY (vendor_id) REFERENCES vendor(vendor_id),
+    CONSTRAINT uq_va_vendor UNIQUE (vendor_id),
+    CONSTRAINT chk_va_status CHECK (application_status IN ('DRAFT','PENDING','APPROVED','REJECTED')),
+    CONSTRAINT chk_va_submission_complete CHECK (
+        application_status = 'DRAFT'
+        OR (
+            NULLIF(BTRIM(company_name), '') IS NOT NULL
+            AND NULLIF(BTRIM(contact_email), '') IS NOT NULL
+            AND NULLIF(BTRIM(contact_phone), '') IS NOT NULL
+            AND NULLIF(BTRIM(tax_code), '') IS NOT NULL
+            AND NULLIF(BTRIM(business_license_url), '') IS NOT NULL
+            AND NULLIF(BTRIM(business_description), '') IS NOT NULL
+            AND NULLIF(BTRIM(business_address), '') IS NOT NULL
+            AND NULLIF(BTRIM(legal_representative_name), '') IS NOT NULL
+            AND NULLIF(BTRIM(legal_representative_position), '') IS NOT NULL
+        )
+    ) NOT VALID
 );
 
+CREATE INDEX ix_vendor_application_applicant_status
+    ON vendor_application (applicant_id, application_status)
+    WHERE is_deleted = FALSE;
+
 -- ----------------------------------------------------------------------------
--- Mục 3.8–3.11: Tour (chỉ để khám phá/tham khảo — không Booking, không Payment)
+-- Tour
 -- ----------------------------------------------------------------------------
 
 CREATE TABLE tour (
@@ -130,6 +164,7 @@ CREATE TABLE tour (
     duration_days INTEGER NOT NULL,
     min_capacity INTEGER NOT NULL DEFAULT 1,
     max_capacity INTEGER NOT NULL,
+    price DECIMAL(12,2) NOT NULL,
     total_distance_km DECIMAL(5,2),
     difficulty VARCHAR(10) NOT NULL,
     status VARCHAR(20) NOT NULL,
@@ -139,6 +174,10 @@ CREATE TABLE tour (
     includes TEXT,
     excludes TEXT,
     rejection_reason TEXT,
+    published_at TIMESTAMP,
+    hidden_reason TEXT,
+    hidden_at TIMESTAMP,
+    hidden_by UUID,
     creator_id UUID NOT NULL,
     is_deleted BOOLEAN NOT NULL DEFAULT FALSE,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -150,10 +189,15 @@ CREATE TABLE tour (
 
     CONSTRAINT fk_tour_vendor FOREIGN KEY (vendor_id) REFERENCES vendor(vendor_id),
     CONSTRAINT fk_tour_creator FOREIGN KEY (creator_id) REFERENCES users(user_id),
+    CONSTRAINT fk_tour_hidden_by FOREIGN KEY (hidden_by) REFERENCES users(user_id),
     CONSTRAINT chk_tour_capacity CHECK (max_capacity >= min_capacity),
-    CONSTRAINT chk_tour_difficulty CHECK (difficulty IN ('EASY','MODERATE','HARD','EXPERT')),
-    CONSTRAINT chk_tour_status CHECK (status IN ('DRAFT','PENDING_APPROVAL','APPROVED','REJECTED','HIDDEN'))
+    CONSTRAINT chk_tour_difficulty CHECK (difficulty IN ('EASY','MODERATE','HARD','EXTREME')),
+    CONSTRAINT chk_tour_status CHECK (status IN ('DRAFT','PUBLISHED','HIDDEN')),
+    CONSTRAINT chk_tour_price CHECK (price >= 0)
 );
+
+CREATE INDEX ix_tour_vendor_status_active ON tour (vendor_id, status, is_deleted);
+CREATE INDEX ix_tour_published_at ON tour (published_at DESC) WHERE status = 'PUBLISHED' AND is_deleted = FALSE;
 
 CREATE TABLE tour_image (
     tour_image_id UUID PRIMARY KEY,
@@ -172,14 +216,14 @@ CREATE TABLE tour_image (
     CONSTRAINT fk_ti_tour FOREIGN KEY (tour_id) REFERENCES tour(tour_id)
 );
 
--- tour_schedule: đợt khởi hành + giá của đợt đó (nguồn giá duy nhất, thay tour.base_price đã bỏ)
 CREATE TABLE tour_schedule (
     tour_schedule_id UUID PRIMARY KEY,
     tour_id UUID NOT NULL,
     departure_date DATE NOT NULL,
     return_date DATE NOT NULL,
-    price DECIMAL(12,2) NOT NULL,
     status VARCHAR(20) NOT NULL,
+    cancellation_reason TEXT,
+    cancelled_at TIMESTAMP,
     is_deleted BOOLEAN NOT NULL DEFAULT FALSE,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP,
@@ -190,9 +234,10 @@ CREATE TABLE tour_schedule (
 
     CONSTRAINT fk_ts_tour FOREIGN KEY (tour_id) REFERENCES tour(tour_id),
     CONSTRAINT chk_ts_dates CHECK (return_date >= departure_date),
-    CONSTRAINT chk_ts_price CHECK (price >= 0),
     CONSTRAINT chk_ts_status CHECK (status IN ('OPEN','CLOSED','CANCELLED'))
 );
+
+CREATE INDEX ix_tour_schedule_tour_status_departure ON tour_schedule (tour_id, status, departure_date, is_deleted);
 
 CREATE TABLE tour_checkpoint (
     tour_checkpoint_id UUID PRIMARY KEY,
@@ -216,8 +261,68 @@ CREATE TABLE tour_checkpoint (
     CONSTRAINT chk_tc_order CHECK (checkpoint_order > 0)
 );
 
+CREATE TABLE tour_participation_policy (
+    policy_id UUID PRIMARY KEY,
+    tour_id UUID NOT NULL UNIQUE,
+    min_age INTEGER,
+    max_age INTEGER,
+    min_height_cm DECIMAL(5,2),
+    max_height_cm DECIMAL(5,2),
+    min_weight_kg DECIMAL(5,2),
+    max_weight_kg DECIMAL(5,2),
+    fitness_level VARCHAR(20) NOT NULL DEFAULT 'ANY',
+    health_requirements TEXT,
+    restricted_medical_conditions TEXT,
+    required_experience TEXT,
+    required_skills TEXT,
+    required_equipment TEXT,
+    required_documents TEXT,
+    requires_health_declaration BOOLEAN NOT NULL DEFAULT FALSE,
+    requires_medical_certificate BOOLEAN NOT NULL DEFAULT FALSE,
+    guardian_required_under_age INTEGER,
+    additional_requirements TEXT,
+    is_deleted BOOLEAN NOT NULL DEFAULT FALSE,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP,
+    deleted_at TIMESTAMP,
+    created_by VARCHAR(255),
+    updated_by VARCHAR(255),
+    deleted_by VARCHAR(255),
+
+    CONSTRAINT fk_policy_tour FOREIGN KEY (tour_id) REFERENCES tour(tour_id) ON DELETE CASCADE,
+    CONSTRAINT chk_policy_age CHECK (max_age IS NULL OR min_age IS NULL OR max_age >= min_age)
+);
+
+CREATE INDEX ix_tour_policy_tour_id ON tour_participation_policy (tour_id) WHERE is_deleted = FALSE;
+
+CREATE TABLE tour_behavior_event (
+    behavior_event_id UUID PRIMARY KEY,
+    user_id UUID NOT NULL,
+    tour_id UUID NOT NULL,
+    event_type VARCHAR(20) NOT NULL,
+    source VARCHAR(30) NOT NULL,
+    session_id VARCHAR(100),
+    display_position INTEGER,
+    occurred_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT fk_tbe_user FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE,
+    CONSTRAINT fk_tbe_tour FOREIGN KEY (tour_id) REFERENCES tour(tour_id) ON DELETE CASCADE,
+    CONSTRAINT chk_tbe_event_type CHECK (
+        event_type IN ('IMPRESSION', 'VIEW', 'CLICK', 'SAVE', 'UNSAVE', 'DISMISS')
+    ),
+    CONSTRAINT chk_tbe_source CHECK (
+        source IN ('RECOMMENDATION', 'HOME', 'SEARCH', 'TOUR_LIST', 'DIRECT', 'OTHER')
+    ),
+    CONSTRAINT chk_tbe_display_position CHECK (
+        display_position IS NULL OR display_position BETWEEN 0 AND 1000
+    )
+);
+
+CREATE INDEX ix_tbe_user_occurred ON tour_behavior_event (user_id, occurred_at DESC);
+CREATE INDEX ix_tbe_user_tour_type_occurred ON tour_behavior_event (user_id, tour_id, event_type, occurred_at DESC);
+
 -- ----------------------------------------------------------------------------
--- Mục 3.14–3.16: Chat (tạo trước matching_group vì matching_group.conversation_id FK tới đây)
+-- Chat 
 -- ----------------------------------------------------------------------------
 
 CREATE TABLE conversation (
@@ -248,7 +353,13 @@ CREATE TABLE message (
     message_id UUID PRIMARY KEY,
     conversation_id UUID NOT NULL,
     sender_id UUID NOT NULL,
-    content TEXT NOT NULL,
+    content TEXT,
+    message_type VARCHAR(20) NOT NULL DEFAULT 'TEXT',
+    attachment_storage_id VARCHAR(500),
+    attachment_url VARCHAR(1000),
+    attachment_name VARCHAR(255),
+    attachment_mime_type VARCHAR(255),
+    attachment_size_bytes BIGINT,
     is_read BOOLEAN NOT NULL DEFAULT FALSE,
     is_deleted BOOLEAN NOT NULL DEFAULT FALSE,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -259,13 +370,25 @@ CREATE TABLE message (
     deleted_by VARCHAR(255),
 
     CONSTRAINT fk_message_conversation FOREIGN KEY (conversation_id) REFERENCES conversation(conversation_id),
-    CONSTRAINT fk_message_sender FOREIGN KEY (sender_id) REFERENCES users(user_id)
+    CONSTRAINT fk_message_sender FOREIGN KEY (sender_id) REFERENCES users(user_id),
+    CONSTRAINT chk_message_type CHECK (message_type IN ('TEXT', 'IMAGE', 'FILE', 'SYSTEM')),
+    CONSTRAINT chk_message_payload CHECK (
+        (message_type IN ('TEXT', 'SYSTEM')
+            AND NULLIF(BTRIM(content), '') IS NOT NULL
+            AND attachment_url IS NULL)
+        OR
+        (message_type IN ('IMAGE', 'FILE')
+            AND attachment_url IS NOT NULL
+            AND attachment_name IS NOT NULL
+            AND attachment_mime_type IS NOT NULL
+            AND attachment_size_bytes > 0)
+    )
 );
 
 CREATE INDEX ix_message_conversation_created ON message (conversation_id, created_at);
 
 -- ----------------------------------------------------------------------------
--- Mục 3.12–3.13: Nhóm ghép — bảng trung tâm của hệ thống
+-- Nhóm ghép 
 -- ----------------------------------------------------------------------------
 
 CREATE TABLE matching_group (
@@ -280,6 +403,7 @@ CREATE TABLE matching_group (
     matching_deadline TIMESTAMP NOT NULL,
     status VARCHAR(30) NOT NULL,
     conversation_id UUID,
+    cover_image_url VARCHAR(500),
     is_deleted BOOLEAN NOT NULL DEFAULT FALSE,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP,
@@ -295,13 +419,54 @@ CREATE TABLE matching_group (
     CONSTRAINT chk_matching_group_status CHECK (status IN ('OPEN','FULL','CLOSED','HIDDEN','IN_PROGRESS','COMPLETED','CANCELLED'))
 );
 
--- matching_member: vừa là đơn xin vào nhóm (status=PENDING), vừa là thành viên chính thức
+CREATE INDEX ix_matching_group_tour_status_active ON matching_group (tour_id, status, is_deleted);
+CREATE INDEX ix_matching_group_owner_completed_tour
+    ON matching_group (owner_id, tour_id)
+    WHERE is_deleted = FALSE AND status = 'COMPLETED' AND tour_id IS NOT NULL;
+
+CREATE TABLE group_join_application (
+    application_id UUID PRIMARY KEY,
+    matching_group_id UUID NOT NULL,
+    applicant_user_id UUID NOT NULL,
+    message TEXT,
+    status VARCHAR(20) NOT NULL DEFAULT 'PENDING',
+    reviewed_by UUID,
+    reviewed_at TIMESTAMP,
+    reject_reason TEXT,
+    withdrawn_at TIMESTAMP,
+    is_deleted BOOLEAN NOT NULL DEFAULT FALSE,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP,
+    deleted_at TIMESTAMP,
+    created_by VARCHAR(255),
+    updated_by VARCHAR(255),
+    deleted_by VARCHAR(255),
+
+    CONSTRAINT fk_gja_group FOREIGN KEY (matching_group_id) REFERENCES matching_group(matching_group_id),
+    CONSTRAINT fk_gja_applicant FOREIGN KEY (applicant_user_id) REFERENCES users(user_id),
+    CONSTRAINT fk_gja_reviewer FOREIGN KEY (reviewed_by) REFERENCES users(user_id),
+    CONSTRAINT chk_gja_status CHECK (status IN ('PENDING', 'ACCEPTED', 'REJECTED', 'WITHDRAWN')),
+    CONSTRAINT chk_gja_withdrawn_at CHECK (
+        (status = 'WITHDRAWN' AND withdrawn_at IS NOT NULL)
+        OR (status <> 'WITHDRAWN' AND withdrawn_at IS NULL)
+    )
+);
+
+CREATE UNIQUE INDEX uq_group_applicant_pending
+    ON group_join_application (matching_group_id, applicant_user_id)
+    WHERE status = 'PENDING' AND is_deleted = FALSE;
+CREATE INDEX ix_gja_group_status ON group_join_application (matching_group_id, status);
+CREATE INDEX ix_gja_applicant_status ON group_join_application (applicant_user_id, status);
+
 CREATE TABLE matching_member (
     matching_member_id UUID PRIMARY KEY,
     matching_group_id UUID NOT NULL,
     user_id UUID NOT NULL,
     role VARCHAR(20) NOT NULL,
     status VARCHAR(20) NOT NULL,
+    source_application_id UUID,
+    joined_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    left_at TIMESTAMP,
     withdrawn_at TIMESTAMP,
     is_deleted BOOLEAN NOT NULL DEFAULT FALSE,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -313,6 +478,7 @@ CREATE TABLE matching_member (
 
     CONSTRAINT fk_mm_group FOREIGN KEY (matching_group_id) REFERENCES matching_group(matching_group_id),
     CONSTRAINT fk_mm_user FOREIGN KEY (user_id) REFERENCES users(user_id),
+    CONSTRAINT fk_mm_source_application FOREIGN KEY (source_application_id) REFERENCES group_join_application(application_id),
     CONSTRAINT uq_mm_group_user UNIQUE (matching_group_id, user_id),
     CONSTRAINT chk_mm_role CHECK (role IN ('LEADER','MEMBER')),
     CONSTRAINT chk_mm_status CHECK (status IN ('PENDING','ACCEPTED','REJECTED','WITHDRAWN','LEFT','REMOVED')),
@@ -322,19 +488,20 @@ CREATE TABLE matching_member (
     )
 );
 
--- Mỗi nhóm đúng một LEADER đang active (kể cả khi chuyển giao quyền — chỉ UPDATE role, không bảng riêng)
 CREATE UNIQUE INDEX uq_group_active_leader
     ON matching_member (matching_group_id)
     WHERE role = 'LEADER' AND status = 'ACCEPTED' AND is_deleted = FALSE;
+CREATE INDEX ix_matching_member_user_accepted_group
+    ON matching_member (user_id, matching_group_id)
+    WHERE is_deleted = FALSE AND status = 'ACCEPTED';
 
--- ----------------------------------------------------------------------------
--- Mục 4.1: Chuyến đi thực tế của nhóm
--- ----------------------------------------------------------------------------
+
 
 CREATE TABLE group_trip (
     group_trip_id UUID PRIMARY KEY,
     matching_group_id UUID NOT NULL UNIQUE,
     status VARCHAR(20) NOT NULL,
+    scheduled_start_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     started_at TIMESTAMP,
     ended_at TIMESTAMP,
     start_by UUID,
@@ -354,7 +521,7 @@ CREATE TABLE group_trip (
 );
 
 -- ----------------------------------------------------------------------------
--- Mục 4.2–4.4: Custom Journey (hành trình tự lên của nhóm)
+-- Custom Journey (hành trình tự lên của nhóm)
 -- ----------------------------------------------------------------------------
 
 CREATE TABLE custom_journey (
@@ -364,6 +531,7 @@ CREATE TABLE custom_journey (
     description TEXT,
     start_date DATE NOT NULL,
     end_date DATE NOT NULL,
+    difficulty VARCHAR(20) NOT NULL DEFAULT 'MODERATE',
     is_locked BOOLEAN NOT NULL DEFAULT FALSE,
     locked_at TIMESTAMP,
     is_deleted BOOLEAN NOT NULL DEFAULT FALSE,
@@ -375,7 +543,8 @@ CREATE TABLE custom_journey (
     deleted_by VARCHAR(255),
 
     CONSTRAINT fk_cj_group FOREIGN KEY (matching_group_id) REFERENCES matching_group(matching_group_id),
-    CONSTRAINT chk_cj_dates CHECK (end_date >= start_date)
+    CONSTRAINT chk_cj_dates CHECK (end_date >= start_date),
+    CONSTRAINT chk_cj_difficulty CHECK (difficulty IN ('EASY','MODERATE','HARD','EXTREME'))
 );
 
 CREATE TABLE custom_journey_checkpoint (
@@ -391,6 +560,9 @@ CREATE TABLE custom_journey_checkpoint (
     planned_start_at TIMESTAMP,
     planned_end_at TIMESTAMP,
     image_url VARCHAR(500),
+    status VARCHAR(20) NOT NULL DEFAULT 'PENDING',
+    progress_updated_at TIMESTAMP,
+    progress_updated_by_member_id UUID,
     is_deleted BOOLEAN NOT NULL DEFAULT FALSE,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP,
@@ -400,13 +572,17 @@ CREATE TABLE custom_journey_checkpoint (
     deleted_by VARCHAR(255),
 
     CONSTRAINT fk_cjc_journey FOREIGN KEY (custom_journey_id) REFERENCES custom_journey(custom_journey_id),
-    CONSTRAINT uq_cjc_order UNIQUE (custom_journey_id, checkpoint_order),
+    CONSTRAINT fk_checkpoint_checked_in_by_member FOREIGN KEY (progress_updated_by_member_id) REFERENCES matching_member(matching_member_id) ON DELETE SET NULL,
     CONSTRAINT chk_cjc_day_no CHECK (day_no IS NULL OR day_no > 0),
     CONSTRAINT chk_cjc_order CHECK (checkpoint_order > 0),
     CONSTRAINT chk_cjc_planned_times CHECK (planned_end_at IS NULL OR planned_start_at IS NULL OR planned_end_at >= planned_start_at)
 );
 
 CREATE INDEX ix_cjc_journey_day_order ON custom_journey_checkpoint (custom_journey_id, day_no, checkpoint_order);
+-- Unique theo (journey, order) chỉ tính bản ghi chưa xoá mềm
+CREATE UNIQUE INDEX uq_cjc_order_active
+    ON custom_journey_checkpoint (custom_journey_id, checkpoint_order)
+    WHERE is_deleted = FALSE;
 
 CREATE TABLE custom_journey_cost_item (
     custom_journey_cost_item_id UUID PRIMARY KEY,
@@ -428,8 +604,36 @@ CREATE TABLE custom_journey_cost_item (
     CONSTRAINT chk_cjci_amount CHECK (estimated_amount >= 0)
 );
 
+CREATE TABLE custom_journey_activity (
+    custom_journey_activity_id UUID PRIMARY KEY,
+    custom_journey_id UUID NOT NULL,
+    custom_journey_checkpoint_id UUID,
+    day_no INTEGER NOT NULL,
+    time_slot VARCHAR(20) NOT NULL,
+    activity_order INTEGER NOT NULL DEFAULT 1,
+    title VARCHAR(255) NOT NULL,
+    description TEXT,
+    planned_start_at VARCHAR(50),
+    planned_end_at VARCHAR(50),
+    is_deleted BOOLEAN NOT NULL DEFAULT FALSE,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP,
+    deleted_at TIMESTAMP,
+    created_by VARCHAR(255),
+    updated_by VARCHAR(255),
+    deleted_by VARCHAR(255),
+
+    CONSTRAINT fk_cja_journey FOREIGN KEY (custom_journey_id) REFERENCES custom_journey(custom_journey_id) ON DELETE CASCADE,
+    CONSTRAINT fk_cja_checkpoint FOREIGN KEY (custom_journey_checkpoint_id) REFERENCES custom_journey_checkpoint(custom_journey_checkpoint_id) ON DELETE SET NULL,
+    CONSTRAINT chk_cja_day_no CHECK (day_no > 0),
+    CONSTRAINT chk_cja_activity_order CHECK (activity_order > 0),
+    CONSTRAINT chk_cja_time_slot CHECK (time_slot IN ('MORNING', 'NOON', 'AFTERNOON', 'EVENING'))
+);
+
+CREATE INDEX ix_cja_journey_day_slot ON custom_journey_activity (custom_journey_id, day_no, time_slot) WHERE is_deleted = FALSE;
+
 -- ----------------------------------------------------------------------------
--- Mục 3.21: SOS — phát cho toàn bộ thành viên nhóm (thay tour_session bằng group_trip)
+-- SOS — phát cho toàn bộ thành viên nhóm
 -- ----------------------------------------------------------------------------
 
 CREATE TABLE sos_alert (
@@ -460,7 +664,7 @@ CREATE TABLE sos_alert (
 );
 
 -- ----------------------------------------------------------------------------
--- Mục 4.5–4.7: Shared Expense
+-- Shared Expense
 -- ----------------------------------------------------------------------------
 
 CREATE TABLE group_expense (
@@ -511,10 +715,13 @@ CREATE TABLE group_expense_share (
 
     CONSTRAINT fk_ges_expense FOREIGN KEY (group_expense_id) REFERENCES group_expense(group_expense_id),
     CONSTRAINT fk_ges_member FOREIGN KEY (matching_member_id) REFERENCES matching_member(matching_member_id),
-    CONSTRAINT uq_ges_expense_member UNIQUE (group_expense_id, matching_member_id),
     CONSTRAINT chk_ges_share_amount CHECK (share_amount >= 0),
     CONSTRAINT chk_ges_settlement_status CHECK (settlement_status IN ('UNSETTLED','SETTLED'))
 );
+
+CREATE UNIQUE INDEX uq_ges_expense_member_active
+    ON group_expense_share (group_expense_id, matching_member_id)
+    WHERE is_deleted = FALSE;
 
 CREATE TABLE group_settlement (
     group_settlement_id UUID PRIMARY KEY,
@@ -547,7 +754,7 @@ CREATE TABLE group_settlement (
 );
 
 -- ----------------------------------------------------------------------------
--- Mục 4.8: Checklist
+-- Checklist
 -- ----------------------------------------------------------------------------
 
 CREATE TABLE group_checklist_item (
@@ -584,9 +791,6 @@ CREATE TABLE group_checklist_item (
 
 CREATE INDEX ix_gci_group_scope_status ON group_checklist_item (matching_group_id, item_scope, status);
 
--- ----------------------------------------------------------------------------
--- Mục 4.9–4.10: Bài đăng / bình luận trong nhóm
--- ----------------------------------------------------------------------------
 
 CREATE TABLE group_post (
     group_post_id UUID PRIMARY KEY,
@@ -595,6 +799,9 @@ CREATE TABLE group_post (
     title VARCHAR(200),
     content TEXT NOT NULL,
     status VARCHAR(20) NOT NULL DEFAULT 'SHOW',
+    post_type VARCHAR(30) NOT NULL DEFAULT 'DISCUSSION',
+    is_pinned BOOLEAN NOT NULL DEFAULT FALSE,
+    pinned_at TIMESTAMP,
     is_deleted BOOLEAN NOT NULL DEFAULT FALSE,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP,
@@ -609,6 +816,16 @@ CREATE TABLE group_post (
 );
 
 CREATE INDEX ix_gp_group_created ON group_post (matching_group_id, created_at DESC);
+CREATE INDEX idx_group_post_pinned_created ON group_post (matching_group_id, is_pinned DESC, created_at DESC);
+
+CREATE TABLE group_post_image (
+    group_post_id UUID NOT NULL,
+    image_url VARCHAR(500) NOT NULL,
+
+    CONSTRAINT fk_gpi_group_post FOREIGN KEY (group_post_id) REFERENCES group_post(group_post_id) ON DELETE CASCADE
+);
+
+CREATE INDEX ix_gpi_post_id ON group_post_image (group_post_id);
 
 CREATE TABLE group_post_comment (
     group_post_comment_id UUID PRIMARY KEY,
@@ -616,6 +833,9 @@ CREATE TABLE group_post_comment (
     answered_by UUID NOT NULL,
     content TEXT NOT NULL,
     status VARCHAR(20) NOT NULL DEFAULT 'SHOW',
+    parent_comment_id UUID,
+    reply_to_comment_id UUID,
+    reply_to_member_id UUID,
     is_deleted BOOLEAN NOT NULL DEFAULT FALSE,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP,
@@ -626,16 +846,17 @@ CREATE TABLE group_post_comment (
 
     CONSTRAINT fk_gpc_post FOREIGN KEY (group_post_id) REFERENCES group_post(group_post_id),
     CONSTRAINT fk_gpc_answered_by FOREIGN KEY (answered_by) REFERENCES matching_member(matching_member_id),
+    CONSTRAINT fk_gpc_parent_comment FOREIGN KEY (parent_comment_id) REFERENCES group_post_comment(group_post_comment_id) ON DELETE CASCADE,
+    CONSTRAINT fk_gpc_reply_to_comment FOREIGN KEY (reply_to_comment_id) REFERENCES group_post_comment(group_post_comment_id) ON DELETE SET NULL,
+    CONSTRAINT fk_gpc_reply_to_member FOREIGN KEY (reply_to_member_id) REFERENCES matching_member(matching_member_id) ON DELETE SET NULL,
     CONSTRAINT chk_gpc_status CHECK (status IN ('SHOW','HIDDEN'))
 );
 
 CREATE INDEX ix_gpc_post_created ON group_post_comment (group_post_id, created_at);
+CREATE INDEX ix_gpc_parent_comment ON group_post_comment (parent_comment_id, created_at ASC);
+CREATE INDEX ix_gpc_reply_to_comment ON group_post_comment (reply_to_comment_id);
 
--- ----------------------------------------------------------------------------
--- Mục 4.11–4.13: Biểu quyết chung (bầu Leader / giải tán nhóm / mục đích khác)
--- group_vote.winning_option_id tham chiếu group_vote_option nên cột này được
--- thêm bằng ALTER sau khi group_vote_option đã tồn tại (tránh vòng lặp FK).
--- ----------------------------------------------------------------------------
+
 
 CREATE TABLE group_vote (
     group_vote_id UUID PRIMARY KEY,
@@ -664,7 +885,6 @@ CREATE TABLE group_vote (
     CONSTRAINT chk_gv_eligible_voter_count CHECK (eligible_voter_count > 0)
 );
 
--- Mỗi nhóm chỉ một cuộc vote OPEN cùng vote_type tại một thời điểm
 CREATE UNIQUE INDEX uq_gv_group_type_open
     ON group_vote (matching_group_id, vote_type)
     WHERE status = 'OPEN' AND is_deleted = FALSE;
@@ -689,7 +909,6 @@ CREATE TABLE group_vote_option (
     CONSTRAINT chk_gvo_order CHECK (option_order > 0)
 );
 
--- Thêm cột kết quả sau khi group_vote_option đã tồn tại (phá vòng lặp FK)
 ALTER TABLE group_vote ADD COLUMN winning_option_id UUID;
 ALTER TABLE group_vote ADD CONSTRAINT fk_gv_winning_option
     FOREIGN KEY (winning_option_id) REFERENCES group_vote_option(group_vote_option_id);
@@ -709,21 +928,20 @@ CREATE TABLE group_vote_ballot (
 
 CREATE INDEX ix_gvb_vote_option ON group_vote_ballot (group_vote_id, group_vote_option_id);
 
--- ----------------------------------------------------------------------------
--- Mục 4.14–4.15: Khoảnh khắc chuyến đi
--- ----------------------------------------------------------------------------
 
-CREATE TABLE group_moment (
-    group_moment_id UUID PRIMARY KEY,
-    matching_group_id UUID NOT NULL,
-    author_matching_member_id UUID NOT NULL,
+
+CREATE TABLE moment (
+    moment_id UUID PRIMARY KEY,
+    author_user_id UUID NOT NULL,
+    matching_group_id UUID,
+    author_matching_member_id UUID,
     caption TEXT,
     captured_at TIMESTAMP,
     place_name VARCHAR(200),
-    latitude DECIMAL(10,7),
-    longitude DECIMAL(10,7),
+    latitude NUMERIC(10, 7),
+    longitude NUMERIC(10, 7),
     visibility VARCHAR(20) NOT NULL DEFAULT 'GROUP_ONLY',
-    status VARCHAR(20) NOT NULL,
+    status VARCHAR(20) NOT NULL DEFAULT 'VISIBLE',
     hidden_by_user_id UUID,
     hidden_reason TEXT,
     is_deleted BOOLEAN NOT NULL DEFAULT FALSE,
@@ -734,29 +952,32 @@ CREATE TABLE group_moment (
     updated_by VARCHAR(255),
     deleted_by VARCHAR(255),
 
-    CONSTRAINT fk_gm_group FOREIGN KEY (matching_group_id) REFERENCES matching_group(matching_group_id),
-    CONSTRAINT fk_gm_author FOREIGN KEY (author_matching_member_id) REFERENCES matching_member(matching_member_id),
-    CONSTRAINT fk_gm_hidden_by FOREIGN KEY (hidden_by_user_id) REFERENCES users(user_id),
-    CONSTRAINT chk_gm_visibility CHECK (visibility = 'GROUP_ONLY'),
-    CONSTRAINT chk_gm_status CHECK (status IN ('VISIBLE','HIDDEN'))
+    CONSTRAINT fk_moment_author_user FOREIGN KEY (author_user_id) REFERENCES users(user_id) ON DELETE CASCADE,
+    CONSTRAINT fk_moment_matching_group FOREIGN KEY (matching_group_id) REFERENCES matching_group(matching_group_id) ON DELETE SET NULL,
+    CONSTRAINT fk_moment_author_member FOREIGN KEY (author_matching_member_id) REFERENCES matching_member(matching_member_id) ON DELETE SET NULL,
+    CONSTRAINT fk_moment_hidden_by FOREIGN KEY (hidden_by_user_id) REFERENCES users(user_id) ON DELETE SET NULL,
+    CONSTRAINT chk_moment_visibility CHECK (visibility IN ('GROUP_ONLY', 'PUBLIC_PROFILE', 'ONLY_ME')),
+    CONSTRAINT chk_moment_status CHECK (status IN ('VISIBLE', 'HIDDEN'))
 );
 
-CREATE INDEX ix_gm_group_created ON group_moment (matching_group_id, created_at DESC);
+CREATE INDEX ix_moment_group ON moment (matching_group_id) WHERE is_deleted = FALSE;
+CREATE INDEX ix_moment_author ON moment (author_user_id) WHERE is_deleted = FALSE;
+CREATE INDEX ix_moment_created_at ON moment (created_at DESC) WHERE is_deleted = FALSE;
 
-CREATE TABLE group_moment_media (
-    group_moment_media_id UUID PRIMARY KEY,
-    group_moment_id UUID NOT NULL,
+CREATE TABLE moment_media (
+    moment_media_id UUID PRIMARY KEY,
+    moment_id UUID NOT NULL,
     image_url VARCHAR(500) NOT NULL,
     sort_order INTEGER NOT NULL,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
-    CONSTRAINT fk_gmm_moment FOREIGN KEY (group_moment_id) REFERENCES group_moment(group_moment_id),
-    CONSTRAINT uq_gmm_moment_order UNIQUE (group_moment_id, sort_order)
+    CONSTRAINT fk_moment_media_moment FOREIGN KEY (moment_id) REFERENCES moment(moment_id) ON DELETE CASCADE,
+    CONSTRAINT uq_moment_media_order UNIQUE (moment_id, sort_order)
 );
 
--- ----------------------------------------------------------------------------
--- Mục 4.16: Peer Review / Trust
--- ----------------------------------------------------------------------------
+CREATE INDEX ix_moment_media_moment ON moment_media (moment_id);
+
+
 
 CREATE TABLE group_peer_review (
     group_peer_review_id UUID PRIMARY KEY,
@@ -787,9 +1008,29 @@ CREATE TABLE group_peer_review (
     CONSTRAINT chk_gpr_moderation_status CHECK (moderation_status IN ('VISIBLE','HIDDEN','REPORTED'))
 );
 
--- ----------------------------------------------------------------------------
--- Mục 3.17–3.20: Thông báo, Blog, Report
--- ----------------------------------------------------------------------------
+CREATE TABLE group_emergency_contact (
+    group_emergency_contact_id UUID PRIMARY KEY,
+    matching_group_id UUID NOT NULL,
+    contact_type VARCHAR(30) NOT NULL,
+    contact_name VARCHAR(200) NOT NULL,
+    phone_number VARCHAR(20) NOT NULL,
+    note TEXT,
+    is_active BOOLEAN NOT NULL DEFAULT TRUE,
+    is_deleted BOOLEAN NOT NULL DEFAULT FALSE,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP,
+    deleted_at TIMESTAMP,
+    created_by VARCHAR(255),
+    updated_by VARCHAR(255),
+    deleted_by VARCHAR(255),
+
+    CONSTRAINT fk_gec_group FOREIGN KEY (matching_group_id) REFERENCES matching_group(matching_group_id),
+    CONSTRAINT chk_gec_contact_type CHECK (contact_type IN ('NATIONWIDE', 'OTHER'))
+);
+
+CREATE INDEX ix_gec_group_active ON group_emergency_contact (matching_group_id, is_active);
+
+
 
 CREATE TABLE notification (
     notification_id UUID PRIMARY KEY,
@@ -812,7 +1053,8 @@ CREATE TABLE notification (
     CONSTRAINT fk_notification_recipient FOREIGN KEY (recipient_id) REFERENCES users(user_id),
     CONSTRAINT chk_notification_reference_type CHECK (
         reference_type IS NULL OR reference_type IN
-        ('TOUR','BLOG','MATCHING_GROUP','CONVERSATION','GROUP_TRIP','GROUP_EXPENSE','GROUP_VOTE','SOS')
+        ('TOUR','BLOG','MATCHING_GROUP','CONVERSATION','GROUP_TRIP','GROUP_EXPENSE','GROUP_VOTE','SOS',
+         'VENDOR_APPLICATION','VENDOR','REPORT','USER')
     )
 );
 
@@ -859,7 +1101,6 @@ CREATE TABLE blog_comment (
     CONSTRAINT chk_bc_status CHECK (status IN ('VISIBLE','HIDDEN'))
 );
 
--- report_content: đa hình theo loại đối tượng bị báo cáo — đúng một target khác NULL
 CREATE TABLE report_content (
     report_content_id UUID PRIMARY KEY,
     reporter_id UUID NOT NULL,

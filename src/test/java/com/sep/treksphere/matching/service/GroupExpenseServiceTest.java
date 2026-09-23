@@ -17,8 +17,8 @@ import com.sep.treksphere.matching.enums.*;
 import com.sep.treksphere.matching.mapper.GroupExpenseMapper;
 import com.sep.treksphere.matching.repository.*;
 import com.sep.treksphere.matching.service.impl.GroupExpenseServiceImpl;
-import com.sep.treksphere.notification.NotificationService;
-import com.sep.treksphere.user.User;
+import com.sep.treksphere.notification.service.NotificationService;
+import com.sep.treksphere.user.entity.User;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -164,8 +164,8 @@ class GroupExpenseServiceTest {
         verify(groupExpenseShareRepository).saveAll(any());
         verify(notificationService).notify(
                 org.mockito.ArgumentMatchers.<List<UUID>>any(),
-                org.mockito.ArgumentMatchers.eq(com.sep.treksphere.notification.NotificationEventType.GROUP_EXPENSE_CREATED),
-                org.mockito.ArgumentMatchers.eq(com.sep.treksphere.notification.ReferenceType.GROUP_EXPENSE),
+                org.mockito.ArgumentMatchers.eq(com.sep.treksphere.notification.enums.NotificationEventType.GROUP_EXPENSE_CREATED),
+                org.mockito.ArgumentMatchers.eq(com.sep.treksphere.notification.enums.ReferenceType.GROUP_EXPENSE),
                 any(),
                 org.mockito.ArgumentMatchers.anyString(),
                 org.mockito.ArgumentMatchers.any(),

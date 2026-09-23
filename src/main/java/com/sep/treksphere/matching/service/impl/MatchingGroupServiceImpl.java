@@ -5,6 +5,7 @@ import com.sep.treksphere.common.exception.AppException;
 import com.sep.treksphere.common.exception.ErrorCode;
 import com.sep.treksphere.common.security.CustomUserDetails;
 import com.sep.treksphere.common.util.PaginationUtils;
+import com.sep.treksphere.blog.service.BlogService;
 import com.sep.treksphere.matching.dto.request.CustomJourneyCreateRequest;
 import com.sep.treksphere.matching.dto.request.CustomJourneyUpdateRequest;
 import com.sep.treksphere.matching.dto.request.GroupApplicationRequest;
@@ -54,18 +55,18 @@ import com.sep.treksphere.matching.repository.MatchingMemberRepository;
 import com.sep.treksphere.matching.repository.MomentRepository;
 import com.sep.treksphere.matching.service.GroupVoteService;
 import com.sep.treksphere.matching.service.MatchingGroupService;
-import com.sep.treksphere.notification.NotificationEventType;
-import com.sep.treksphere.notification.NotificationService;
-import com.sep.treksphere.notification.ReferenceType;
-import com.sep.treksphere.tour.Tour;
-import com.sep.treksphere.tour.TourRepository;
-import com.sep.treksphere.tour.TourStatus;
-import com.sep.treksphere.tour.checkpoint.TourCheckpoint;
-import com.sep.treksphere.tour.checkpoint.TourCheckpointRepository;
-import com.sep.treksphere.user.User;
-import com.sep.treksphere.user.UserRepository;
-import com.sep.treksphere.user.UserStatus;
-import com.sep.treksphere.vendor.VendorStatus;
+import com.sep.treksphere.notification.enums.NotificationEventType;
+import com.sep.treksphere.notification.service.NotificationService;
+import com.sep.treksphere.notification.enums.ReferenceType;
+import com.sep.treksphere.tour.entity.Tour;
+import com.sep.treksphere.tour.repository.TourRepository;
+import com.sep.treksphere.tour.enums.TourStatus;
+import com.sep.treksphere.tour.entity.TourCheckpoint;
+import com.sep.treksphere.tour.repository.TourCheckpointRepository;
+import com.sep.treksphere.user.entity.User;
+import com.sep.treksphere.user.repository.UserRepository;
+import com.sep.treksphere.user.enums.UserStatus;
+import com.sep.treksphere.vendor.enums.VendorStatus;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationEventPublisher;
@@ -270,7 +271,6 @@ public class MatchingGroupServiceImpl implements MatchingGroupService {
             }
         }
 
-        // Nếu không phải Leader/Member của nhóm, chỉ cho phép xem nếu nhóm ở trạng thái public (OPEN/FULL) và Tour/Vendor khả dụng
         if (!isAcceptedMember) {
             if (matchingGroup.getStatus() != MatchingGroupStatus.OPEN && matchingGroup.getStatus() != MatchingGroupStatus.FULL) {
                 throw new AppException(ErrorCode.MATCHING_GROUP_NOT_FOUND);
@@ -292,7 +292,6 @@ public class MatchingGroupServiceImpl implements MatchingGroupService {
             matchingGroup.getConversation().getParticipants().forEach(p -> usersInConversation.add(p.getUserId()));
         }
 
-        // Chỉ Accepted Member và Leader mới xem được danh sách thành viên (theo Artifact B Permission Matrix)
         if (isAcceptedMember) {
             List<MatchingMemberResponse> acceptedMembers = matchingGroup.getMembers().stream()
                     .filter(member -> member.getStatus() == JoinStatus.ACCEPTED
@@ -424,12 +423,7 @@ public class MatchingGroupServiceImpl implements MatchingGroupService {
         return response;
     }
 
-    /**
-     * Điền `leaderName`/`leaderAvatarUrl` (Trưởng nhóm HIỆN TẠI, có thể khác owner sau khi bầu
-     * Trưởng nhóm mới) cho danh sách response, gộp thành 1 query cho cả trang thay vì N+1.
-     * Fallback về owner nếu vì lý do gì đó không tìm thấy accepted LEADER member (không nên xảy
-     * ra bình thường vì mỗi nhóm luôn có đúng 1 leader).
-     */
+    
     private void applyCurrentLeaders(List<MatchingGroupResponse> responses) {
         if (responses == null || responses.isEmpty()) {
             return;
@@ -454,8 +448,8 @@ public class MatchingGroupServiceImpl implements MatchingGroupService {
         for (MatchingGroupResponse response : responses) {
             MatchingMember leader = leadersByGroupId.get(response.getMatchingGroupId());
             if (leader != null && leader.getUser() != null) {
-                if (leader.getUser().getStatus() == com.sep.treksphere.user.UserStatus.LOCKED) {
-                    response.setLeaderName(com.sep.treksphere.blog.BlogService.SYSTEM_USER_ANONYMOUS_NAME);
+                if (leader.getUser().getStatus() == UserStatus.LOCKED) {
+                    response.setLeaderName(BlogService.SYSTEM_USER_ANONYMOUS_NAME);
                     response.setLeaderAvatarUrl(null);
                 } else {
                     response.setLeaderName(leader.getUser().getFullName());
@@ -767,7 +761,7 @@ public class MatchingGroupServiceImpl implements MatchingGroupService {
                 currentLeaderUserId,
                 NotificationEventType.GROUP_JOIN_REQUEST,
                 ReferenceType.MATCHING_GROUP, matchingGroup.getMatchingGroupId(),
-                "/trekker/my-groups/" + matchingGroup.getMatchingGroupId(),
+                "/trekker/my-groups/" + matchingGroup.getMatchingGroupId() + "?tab=members&subTab=requests",
                 currentUser.getFullName(), matchingGroup.getGroupName());
 
         return matchingGroupMapper.toMemberResponse(savedApp);
@@ -863,7 +857,6 @@ public class MatchingGroupServiceImpl implements MatchingGroupService {
             throw new AppException(ErrorCode.INVALID_MEMBER_STATUS);
         }
 
-        // Check if applicant has schedule conflict with another active group
         LocalDate[] targetRange = resolveGroupDateRange(matchingGroup);
         if (targetRange != null) {
             validateNoScheduleConflict(application.getApplicant().getUserId(), targetRange[0], targetRange[1], groupId, true);
@@ -964,7 +957,7 @@ public class MatchingGroupServiceImpl implements MatchingGroupService {
                 application.getApplicant().getUserId(),
                 NotificationEventType.GROUP_MEMBER_REJECTED,
                 ReferenceType.MATCHING_GROUP, matchingGroup.getMatchingGroupId(),
-                "/trekker/my-groups",
+                "/trekker/my-join-requests",
                 matchingGroup.getGroupName());
 
         return matchingGroupMapper.toMemberResponse(savedApp);
@@ -1211,7 +1204,7 @@ public class MatchingGroupServiceImpl implements MatchingGroupService {
                         || (!Boolean.TRUE.equals(tour.getIsDeleted())
                                 && tour.getStatus() == TourStatus.PUBLISHED
                                 && tour.getVendor() != null
-                                && tour.getVendor().getStatus() == com.sep.treksphere.vendor.VendorStatus.ACTIVE
+                                && tour.getVendor().getStatus() == VendorStatus.ACTIVE
                                 && !Boolean.TRUE.equals(tour.getVendor().getIsDeleted())));
 
         matchingGroup.setStatus(canReopen ? MatchingGroupStatus.OPEN : MatchingGroupStatus.CLOSED);
@@ -1223,7 +1216,7 @@ public class MatchingGroupServiceImpl implements MatchingGroupService {
         Tour tour = matchingGroup.getTour();
         if (tour != null && (Boolean.TRUE.equals(tour.getIsDeleted())
                 || tour.getStatus() != TourStatus.PUBLISHED
-                || tour.getVendor().getStatus() != com.sep.treksphere.vendor.VendorStatus.ACTIVE
+                || tour.getVendor().getStatus() != VendorStatus.ACTIVE
                 || Boolean.TRUE.equals(tour.getVendor().getIsDeleted()))) {
             throw new AppException(ErrorCode.MATCHING_TOUR_NOT_AVAILABLE);
         }
@@ -1261,7 +1254,6 @@ public class MatchingGroupServiceImpl implements MatchingGroupService {
         LocalDate today = LocalDate.now();
         LocalDateTime now = LocalDateTime.now();
 
-        // 1. Validate and resolve dates with 2-way sync
         LocalDate explicitTargetDate = request.getTargetDate();
         LocalDate explicitCjStartDate = (request.getCustomJourney() != null) ? request.getCustomJourney().getStartDate() : null;
 
@@ -1293,7 +1285,6 @@ public class MatchingGroupServiceImpl implements MatchingGroupService {
         matchingGroup.setTargetDate(newTargetDate);
         matchingGroup.setMatchingDeadline(newDeadline);
 
-        // 2. Validate and update text fields
         if (request.getGroupName() != null && !request.getGroupName().isBlank()) {
             matchingGroup.setGroupName(request.getGroupName().trim());
         }
@@ -1304,7 +1295,6 @@ public class MatchingGroupServiceImpl implements MatchingGroupService {
             matchingGroup.setCoverImageUrl(normalizeNullableText(request.getCoverImageUrl()));
         }
 
-        // 3. Validate and update capacity
         if (request.getMaxSize() != null) {
             long activeCount = matchingMemberRepository.countActiveMembersByGroupIdAndStatus(
                     groupId,
@@ -1323,7 +1313,6 @@ public class MatchingGroupServiceImpl implements MatchingGroupService {
 
             matchingGroup.setMaxSize(request.getMaxSize());
 
-            // Auto-adjust status if OPEN or FULL
             if (matchingGroup.getStatus() == MatchingGroupStatus.OPEN
                     && matchingGroup.getCurrentSize() >= matchingGroup.getMaxSize()) {
                 matchingGroup.setStatus(MatchingGroupStatus.FULL);
@@ -1335,7 +1324,6 @@ public class MatchingGroupServiceImpl implements MatchingGroupService {
             }
         }
 
-        // 4. Validate and update Custom Journey
         if (request.getCustomJourney() != null) {
             CustomJourney customJourney = matchingGroup.getCustomJourney();
             if (customJourney == null) {
@@ -1556,7 +1544,7 @@ public class MatchingGroupServiceImpl implements MatchingGroupService {
                 memberIdsToNotifyStart,
                 NotificationEventType.GROUP_TRIP_STARTED,
                 ReferenceType.GROUP_TRIP, groupId,
-                "/trekker/my-groups/" + groupId,
+                "/trekker/my-groups/" + groupId + "?tab=itinerary",
                 matchingGroup.getGroupName());
 
         return getMatchingGroupById(groupId, userDetails);
@@ -1603,7 +1591,7 @@ public class MatchingGroupServiceImpl implements MatchingGroupService {
                 memberIdsToNotifyEnd,
                 NotificationEventType.GROUP_TRIP_ENDED,
                 ReferenceType.GROUP_TRIP, groupId,
-                "/trekker/my-groups/" + groupId,
+                "/trekker/my-groups/" + groupId + "?tab=members&subTab=reviews",
                 matchingGroup.getGroupName());
 
         return getMatchingGroupById(groupId, userDetails);

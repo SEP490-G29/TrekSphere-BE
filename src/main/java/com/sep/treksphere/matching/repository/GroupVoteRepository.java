@@ -19,7 +19,13 @@ import java.util.UUID;
 public interface GroupVoteRepository extends JpaRepository<GroupVote, UUID> {
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
-    @Query("SELECT v FROM GroupVote v WHERE v.groupVoteId = :voteId AND v.isDeleted = false")
+    @Query("""
+        SELECT v FROM GroupVote v
+        JOIN FETCH v.matchingGroup mg
+        JOIN FETCH v.createdByMember cbm
+        JOIN FETCH cbm.user cbmu
+        WHERE v.groupVoteId = :voteId AND v.isDeleted = false
+    """)
     Optional<GroupVote> findByIdForUpdate(@Param("voteId") UUID voteId);
 
     @Query("""

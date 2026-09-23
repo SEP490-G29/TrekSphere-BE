@@ -31,4 +31,9 @@ public interface CustomJourneyCheckpointRepository extends JpaRepository<CustomJ
 
     boolean existsByCustomJourney_CustomJourneyIdAndCheckpointOrderAndCustomJourneyCheckpointIdNotAndIsDeletedFalse(
             UUID customJourneyId, Integer checkpointOrder, UUID checkpointId);
+
+    long countByCustomJourney_CustomJourneyIdAndIsDeletedFalse(UUID customJourneyId);
+
+    List<CustomJourneyCheckpoint> findByCustomJourney_CustomJourneyIdAndCheckpointOrderGreaterThanAndIsDeletedFalseOrderByCheckpointOrderAsc(
+            UUID customJourneyId, Integer checkpointOrder);
 }

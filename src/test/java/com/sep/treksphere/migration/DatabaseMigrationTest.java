@@ -1,7 +1,7 @@
 package com.sep.treksphere.migration;
 
-import com.sep.treksphere.tour.recommendation.TourRecommendationRepository;
-import com.sep.treksphere.vendor.statistics.VendorTourStatisticsRepository;
+import com.sep.treksphere.tour.repository.TourRecommendationRepository;
+import com.sep.treksphere.vendor.repository.VendorTourStatisticsRepository;
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres;
 import org.flywaydb.core.Flyway;
 import org.junit.jupiter.api.Test;
@@ -32,7 +32,7 @@ class DatabaseMigrationTest {
                     .dataSource(postgres.getPostgresDatabase())
                     .locations("classpath:db/migration")
                     .load();
-            assertEquals(24, flyway.migrate().migrationsExecuted);
+            assertEquals(6, flyway.migrate().migrationsExecuted);
 
             try (Connection connection = postgres.getPostgresDatabase().getConnection()) {
                 assertTrue(hasColumn(connection, "tour", "published_at"));
@@ -48,7 +48,6 @@ class DatabaseMigrationTest {
                 assertTrue(hasColumn(connection, "tour_behavior_event", "event_type"));
                 assertTrue(hasColumn(connection, "custom_journey_checkpoint", "status"));
 
-
                 try (PreparedStatement statement = connection.prepareStatement("""
                         SELECT COUNT(*)
                         FROM vendor v
@@ -57,7 +56,7 @@ class DatabaseMigrationTest {
                         WHERE r.role_name = 'TREKKER'
                         """); ResultSet result = statement.executeQuery()) {
                     assertTrue(result.next());
-                    assertEquals(2, result.getInt(1));
+                    assertEquals(3, result.getInt(1));
                 }
 
                 assertEquals(0, countPermission(connection, "VENDOR", "TOUR", "HIDE_UNHIDE"));
@@ -78,7 +77,7 @@ class DatabaseMigrationTest {
             JdbcTemplate jdbc = new JdbcTemplate(postgres.getPostgresDatabase());
             NamedParameterJdbcTemplate namedJdbc = new NamedParameterJdbcTemplate(jdbc);
             UUID vendorId = UUID.fromString("2b3c4d5e-0001-4b2c-8d3e-000000000001");
-            UUID tourId = UUID.fromString("3c4d5e6f-0001-4c3d-8e4f-000000000001");
+            UUID tourId = UUID.fromString("3c4d5e6f-0f99-4c3d-8e4f-0000000f0099");
             jdbc.update("""
                     INSERT INTO tour (
                         tour_id, vendor_id, tour_name, description, duration_days,
@@ -95,7 +94,7 @@ class DatabaseMigrationTest {
                         status, is_deleted
                     ) VALUES (?, ?, CURRENT_DATE + 30, CURRENT_DATE + 31,
                               'OPEN', FALSE)
-                    """, UUID.fromString("4d5e6f70-0001-4d4e-8f50-000000000001"), tourId);
+                    """, UUID.fromString("4d5e6f70-0f99-4d4e-8f50-0000000f0099"), tourId);
 
             Query statsAnnotation = VendorTourStatisticsRepository.class.getMethod(
                             "getTourStatistics", UUID.class, String.class, String.class,
@@ -109,8 +108,7 @@ class DatabaseMigrationTest {
                     .addValue("sortDir", "desc");
             List<Map<String, Object>> statsRows = namedJdbc.queryForList(
                     statsAnnotation.value(), statsParams);
-            assertEquals(1, statsRows.size());
-            assertEquals(tourId, statsRows.getFirst().get("tourId"));
+            assertTrue(statsRows.stream().anyMatch(row -> tourId.equals(row.get("tourId"))));
 
             Query recommendationsAnnotation = TourRecommendationRepository.class.getMethod(
                             "findPersonalizedRecommendations", UUID.class, String.class,
@@ -126,8 +124,7 @@ class DatabaseMigrationTest {
                     .addValue("maxDifficultyRank", 2, Types.INTEGER);
             List<Map<String, Object>> recommendationRows = namedJdbc.queryForList(
                     recommendationsAnnotation.value(), recommendationParams);
-            assertEquals(1, recommendationRows.size());
-            assertEquals(tourId, recommendationRows.getFirst().get("tour_id"));
+            assertTrue(recommendationRows.stream().anyMatch(row -> tourId.equals(row.get("tour_id"))));
         }
     }
 

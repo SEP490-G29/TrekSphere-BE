@@ -20,6 +20,9 @@ public interface CustomJourneyService {
 
     void deleteCheckpoint(UUID groupId, UUID checkpointId, UUID currentUserId);
 
+    List<CustomJourneyCheckpointResponse> swapCheckpoints(
+            UUID groupId, UUID checkpointId, UUID targetCheckpointId, UUID currentUserId);
+
     CustomJourneyCheckpointResponse updateCheckpointProgress(
             UUID groupId, UUID checkpointId, UpdateCheckpointProgressRequest request, UUID currentUserId);
 

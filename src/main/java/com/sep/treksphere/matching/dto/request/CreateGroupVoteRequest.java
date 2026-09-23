@@ -30,7 +30,6 @@ public class CreateGroupVoteRequest {
     @Size(max = 200, message = MessageConstant.GROUP_VOTE_TITLE_TOO_LONG)
     private String title;
 
-    @NotBlank(message = MessageConstant.GROUP_VOTE_REASON_REQUIRED)
     private String reason;
 
     @NotNull(message = MessageConstant.GROUP_VOTE_CLOSES_AT_REQUIRED)

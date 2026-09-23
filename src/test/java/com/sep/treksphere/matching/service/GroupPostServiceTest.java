@@ -24,8 +24,8 @@ import com.sep.treksphere.matching.repository.GroupPostRepository;
 import com.sep.treksphere.matching.repository.MatchingGroupRepository;
 import com.sep.treksphere.matching.repository.MatchingMemberRepository;
 import com.sep.treksphere.matching.service.impl.GroupPostServiceImpl;
-import com.sep.treksphere.notification.NotificationService;
-import com.sep.treksphere.user.User;
+import com.sep.treksphere.notification.service.NotificationService;
+import com.sep.treksphere.user.entity.User;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -256,8 +256,8 @@ class GroupPostServiceTest {
         assertThat(response.getStatus()).isEqualTo(GroupContentStatus.SHOW);
         verify(notificationService).notify(
                 org.mockito.ArgumentMatchers.<List<UUID>>any(),
-                org.mockito.ArgumentMatchers.eq(com.sep.treksphere.notification.NotificationEventType.GROUP_POST_CREATED),
-                org.mockito.ArgumentMatchers.eq(com.sep.treksphere.notification.ReferenceType.MATCHING_GROUP),
+                org.mockito.ArgumentMatchers.eq(com.sep.treksphere.notification.enums.NotificationEventType.GROUP_POST_CREATED),
+                org.mockito.ArgumentMatchers.eq(com.sep.treksphere.notification.enums.ReferenceType.MATCHING_GROUP),
                 org.mockito.ArgumentMatchers.eq(groupId),
                 org.mockito.ArgumentMatchers.anyString(),
                 org.mockito.ArgumentMatchers.anyString(),
@@ -286,8 +286,8 @@ class GroupPostServiceTest {
         assertThat(response).isNotNull();
         verify(notificationService).notify(
                 org.mockito.ArgumentMatchers.<List<UUID>>any(),
-                org.mockito.ArgumentMatchers.eq(com.sep.treksphere.notification.NotificationEventType.GROUP_POST_ANNOUNCEMENT),
-                org.mockito.ArgumentMatchers.eq(com.sep.treksphere.notification.ReferenceType.MATCHING_GROUP),
+                org.mockito.ArgumentMatchers.eq(com.sep.treksphere.notification.enums.NotificationEventType.GROUP_POST_ANNOUNCEMENT),
+                org.mockito.ArgumentMatchers.eq(com.sep.treksphere.notification.enums.ReferenceType.MATCHING_GROUP),
                 org.mockito.ArgumentMatchers.eq(groupId),
                 org.mockito.ArgumentMatchers.anyString(),
                 org.mockito.ArgumentMatchers.any());
@@ -408,8 +408,8 @@ class GroupPostServiceTest {
         assertThat(response.getContent()).isEqualTo("Bình luận mới");
         verify(notificationService).notify(
                 org.mockito.ArgumentMatchers.eq(authorMember.getUser().getUserId()),
-                org.mockito.ArgumentMatchers.eq(com.sep.treksphere.notification.NotificationEventType.GROUP_POST_COMMENT_ADDED),
-                org.mockito.ArgumentMatchers.eq(com.sep.treksphere.notification.ReferenceType.MATCHING_GROUP),
+                org.mockito.ArgumentMatchers.eq(com.sep.treksphere.notification.enums.NotificationEventType.GROUP_POST_COMMENT_ADDED),
+                org.mockito.ArgumentMatchers.eq(com.sep.treksphere.notification.enums.ReferenceType.MATCHING_GROUP),
                 org.mockito.ArgumentMatchers.eq(groupId),
                 org.mockito.ArgumentMatchers.anyString(),
                 org.mockito.ArgumentMatchers.any(),
