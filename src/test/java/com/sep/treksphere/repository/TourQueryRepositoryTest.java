@@ -1,11 +1,11 @@
 package com.sep.treksphere.repository;
 
-import com.sep.treksphere.tour.Tour;
-import com.sep.treksphere.tour.TourRepository;
-import com.sep.treksphere.tour.recommendation.TourRecommendationRepository;
-import com.sep.treksphere.vendor.statistics.VendorStatisticsOverviewProjection;
-import com.sep.treksphere.vendor.statistics.VendorTourStatisticProjection;
-import com.sep.treksphere.vendor.statistics.VendorTourStatisticsRepository;
+import com.sep.treksphere.tour.entity.Tour;
+import com.sep.treksphere.tour.repository.TourRepository;
+import com.sep.treksphere.tour.repository.TourRecommendationRepository;
+import com.sep.treksphere.vendor.repository.VendorStatisticsOverviewProjection;
+import com.sep.treksphere.vendor.repository.VendorTourStatisticProjection;
+import com.sep.treksphere.vendor.repository.VendorTourStatisticsRepository;
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeEach;
@@ -125,7 +125,7 @@ class TourQueryRepositoryTest {
 
         assertEquals(List.of("Sa Pa, Lao Cai"),
                 recommendationRepository.findCompletedTourLocations(TREKKER_ID));
-        assertEquals(List.of(com.sep.treksphere.tour.DifficultyLevel.MODERATE),
+        assertEquals(List.of(com.sep.treksphere.tour.enums.DifficultyLevel.MODERATE),
                 recommendationRepository.findCompletedTourDifficulties(TREKKER_ID));
     }
 
@@ -174,10 +174,6 @@ class TourQueryRepositoryTest {
         assertEquals(SECOND_TOUR_ID, page.getContent().getFirst().getTourId());
     }
 
-    /**
-     * {@code price} là property thật trên {@code Tour} (không còn suy ra từ schedule) — kiểm
-     * chứng {@code sortBy=price} chạy đúng qua {@code searchTours} với cả 2 chiều.
-     */
     @Test
     void searchToursSortsByPriceAscendingAndDescending() {
         seedSecondTour("Ba Vi, Ha Noi", "MODERATE");
@@ -186,7 +182,7 @@ class TourQueryRepositoryTest {
 
         Sort ascByPrice = Sort.by(Sort.Direction.ASC, "price");
         Page<Tour> ascPage = tourRepository.searchTours(
-                com.sep.treksphere.tour.TourStatus.PUBLISHED,
+                com.sep.treksphere.tour.enums.TourStatus.PUBLISHED,
                 null, null, null, null, null, null,
                 PageRequest.of(0, 10, ascByPrice));
         assertEquals(cheapTourId, ascPage.getContent().get(0).getTourId());
@@ -195,7 +191,7 @@ class TourQueryRepositoryTest {
 
         Sort descByPrice = Sort.by(Sort.Direction.DESC, "price");
         Page<Tour> descPage = tourRepository.searchTours(
-                com.sep.treksphere.tour.TourStatus.PUBLISHED,
+                com.sep.treksphere.tour.enums.TourStatus.PUBLISHED,
                 null, null, null, null, null, null,
                 PageRequest.of(0, 10, descByPrice));
         assertEquals(SECOND_TOUR_ID, descPage.getContent().get(0).getTourId());

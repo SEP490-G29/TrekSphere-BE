@@ -15,10 +15,10 @@ import com.sep.treksphere.matching.repository.GroupTripRepository;
 import com.sep.treksphere.matching.repository.MatchingMemberRepository;
 import com.sep.treksphere.matching.repository.SosAlertRepository;
 import com.sep.treksphere.matching.service.SosAlertService;
-import com.sep.treksphere.notification.NotificationEventType;
-import com.sep.treksphere.notification.NotificationService;
-import com.sep.treksphere.notification.ReferenceType;
-import com.sep.treksphere.user.User;
+import com.sep.treksphere.notification.enums.NotificationEventType;
+import com.sep.treksphere.notification.service.NotificationService;
+import com.sep.treksphere.notification.enums.ReferenceType;
+import com.sep.treksphere.user.entity.User;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -80,7 +80,7 @@ public class SosAlertServiceImpl implements SosAlertService {
                 .filter(id -> !id.equals(currentUserId))
                 .toList();
 
-        String actionUrl = "/trekker/my-groups/" + groupId;
+        String actionUrl = "/trekker/my-groups/" + groupId + "?tab=sos";
         notificationService.notify(recipientIds, NotificationEventType.SOS_ALERT_RAISED,
                 ReferenceType.SOS, saved.getSosAlertId(), actionUrl,
                 sender.getFullName(), saved.getIncidentTypeCode().getLabel());
@@ -134,7 +134,7 @@ public class SosAlertServiceImpl implements SosAlertService {
                 .filter(id -> !id.equals(currentUserId))
                 .toList();
 
-        String actionUrl = "/trekker/my-groups/" + groupId;
+        String actionUrl = "/trekker/my-groups/" + groupId + "?tab=sos";
         notificationService.notify(recipientIds, NotificationEventType.SOS_ALERT_RESOLVED,
                 ReferenceType.SOS, saved.getSosAlertId(), actionUrl, actor.getFullName());
 

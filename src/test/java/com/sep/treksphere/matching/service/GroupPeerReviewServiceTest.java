@@ -19,7 +19,7 @@ import com.sep.treksphere.matching.repository.GroupTripRepository;
 import com.sep.treksphere.matching.repository.MatchingGroupRepository;
 import com.sep.treksphere.matching.repository.MatchingMemberRepository;
 import com.sep.treksphere.matching.service.impl.GroupPeerReviewServiceImpl;
-import com.sep.treksphere.user.User;
+import com.sep.treksphere.user.entity.User;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -57,7 +57,7 @@ class GroupPeerReviewServiceTest {
     private TrustScoreService trustScoreService;
 
     @Mock
-    private com.sep.treksphere.user.UserRepository userRepository;
+    private com.sep.treksphere.user.repository.UserRepository userRepository;
 
     @Spy
     private PeerReviewMapper peerReviewMapper = new PeerReviewMapper();

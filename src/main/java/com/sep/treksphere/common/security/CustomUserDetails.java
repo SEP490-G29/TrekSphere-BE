@@ -1,7 +1,7 @@
 package com.sep.treksphere.common.security;
 
-import com.sep.treksphere.user.User;
-import com.sep.treksphere.user.UserStatus;
+import com.sep.treksphere.user.entity.User;
+import com.sep.treksphere.user.enums.UserStatus;
 import lombok.Getter;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;

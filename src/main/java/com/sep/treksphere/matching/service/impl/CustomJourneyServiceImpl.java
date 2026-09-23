@@ -14,9 +14,9 @@ import com.sep.treksphere.matching.enums.MatchingRole;
 import com.sep.treksphere.matching.mapper.CustomJourneyMapper;
 import com.sep.treksphere.matching.repository.*;
 import com.sep.treksphere.matching.service.CustomJourneyService;
-import com.sep.treksphere.notification.NotificationEventType;
-import com.sep.treksphere.notification.NotificationService;
-import com.sep.treksphere.notification.ReferenceType;
+import com.sep.treksphere.notification.enums.NotificationEventType;
+import com.sep.treksphere.notification.service.NotificationService;
+import com.sep.treksphere.notification.enums.ReferenceType;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -291,7 +291,7 @@ public class CustomJourneyServiceImpl implements CustomJourneyService {
                 .map(m -> m.getUser().getUserId())
                 .filter(id -> !id.equals(currentUserId))
                 .toList();
-        String actionUrl = "/trekker/my-groups/" + groupId;
+        String actionUrl = "/trekker/my-groups/" + groupId + "?tab=itinerary";
         NotificationEventType eventType = newStatus == CheckpointProgressStatus.CHECKED_IN
                 ? NotificationEventType.GROUP_CHECKPOINT_CHECKED_IN
                 : NotificationEventType.GROUP_CHECKPOINT_SKIPPED;

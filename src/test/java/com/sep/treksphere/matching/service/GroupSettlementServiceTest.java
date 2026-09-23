@@ -14,9 +14,9 @@ import com.sep.treksphere.matching.enums.SettlementStatus;
 import com.sep.treksphere.matching.mapper.GroupSettlementMapper;
 import com.sep.treksphere.matching.repository.*;
 import com.sep.treksphere.matching.service.impl.GroupSettlementServiceImpl;
-import com.sep.treksphere.notification.NotificationService;
-import com.sep.treksphere.user.User;
-import com.sep.treksphere.user.UserRepository;
+import com.sep.treksphere.notification.service.NotificationService;
+import com.sep.treksphere.user.entity.User;
+import com.sep.treksphere.user.repository.UserRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -247,11 +247,70 @@ class GroupSettlementServiceTest {
         assertThat(result.get(0).getToMember().getMatchingMemberId()).isEqualTo(leaderMember.getMatchingMemberId());
         assertThat(result.get(0).getAmount()).isEqualByComparingTo(new BigDecimal("150000"));
         assertThat(result.get(0).getStatus()).isEqualTo(SettlementStatus.PENDING);
+        verify(notificationService).notify(
+                org.mockito.ArgumentMatchers.eq(List.of(member1.getUser().getUserId())),
+                org.mockito.ArgumentMatchers.eq(com.sep.treksphere.notification.NotificationEventType.GROUP_SETTLEMENT_CREATED),
+                org.mockito.ArgumentMatchers.eq(com.sep.treksphere.notification.ReferenceType.GROUP_EXPENSE),
+                org.mockito.ArgumentMatchers.eq(groupId),
+                org.mockito.ArgumentMatchers.anyString(),
+                org.mockito.ArgumentMatchers.any(),
+                org.mockito.ArgumentMatchers.any());
+    }
+
+    @Test
+    @DisplayName("TC-SETTLE-03B: Tái khởi tạo quyết toán phải bảo lưu trạng thái và ảnh chứng từ PROOF_SUBMITTED")
+    void generateSettlements_PreserveProofSubmitted_WhenRegenerated() {
+        GroupExpense expense = new GroupExpense();
+        expense.setAmount(new BigDecimal("300000"));
+        expense.setPaidBy(leaderMember);
+
+        GroupExpenseShare s1 = new GroupExpenseShare();
+        s1.setMatchingMember(leaderMember);
+        s1.setShareAmount(new BigDecimal("150000"));
+        s1.setIsDeleted(false);
+
+        GroupExpenseShare s2 = new GroupExpenseShare();
+        s2.setMatchingMember(member1);
+        s2.setShareAmount(new BigDecimal("150000"));
+        s2.setIsDeleted(false);
+
+        expense.setShares(List.of(s1, s2));
+
+        GroupSettlement existingSubmitted = new GroupSettlement();
+        existingSubmitted.setGroupSettlementId(UUID.randomUUID());
+        existingSubmitted.setGroupTrip(groupTrip);
+        existingSubmitted.setFromMatchingMember(member1);
+        existingSubmitted.setToMatchingMember(leaderMember);
+        existingSubmitted.setAmount(new BigDecimal("150000"));
+        existingSubmitted.setStatus(SettlementStatus.PROOF_SUBMITTED);
+        existingSubmitted.setProofUrl("https://img.treksphere.com/proof123.jpg");
+
+        when(matchingGroupRepository.findById(groupId)).thenReturn(Optional.of(group));
+        when(userRepository.findByEmail(leaderUser.getEmail())).thenReturn(Optional.of(leaderUser));
+        when(matchingMemberRepository.findByMatchingGroupAndUserAndIsDeletedFalse(group, leaderUser))
+                .thenReturn(Optional.of(leaderMember));
+        when(groupTripRepository.findByMatchingGroup(group)).thenReturn(Optional.of(groupTrip));
+        when(matchingMemberRepository.findActiveMembers(groupId, JoinStatus.ACCEPTED))
+                .thenReturn(List.of(leaderMember, member1));
+        when(groupExpenseRepository.findByGroupTrip_MatchingGroup_MatchingGroupIdAndIsDeletedFalse(groupId))
+                .thenReturn(List.of(expense));
+        when(groupSettlementRepository.findByGroupTrip_MatchingGroup_MatchingGroupIdAndIsDeletedFalseOrderByCreatedAtAsc(groupId))
+                .thenReturn(List.of(existingSubmitted));
+        when(groupSettlementRepository.saveAll(anyList())).thenAnswer(invocation -> invocation.getArgument(0));
+
+        // When
+        List<GroupSettlementResponse> result = groupSettlementService.generateSettlements(groupId, leaderUser.getEmail());
+
+        // Then
+        assertThat(result).hasSize(1);
+        assertThat(result.get(0).getStatus()).isEqualTo(SettlementStatus.PROOF_SUBMITTED);
+        assertThat(result.get(0).getProofUrl()).isEqualTo("https://img.treksphere.com/proof123.jpg");
     }
 
     @Test
     @DisplayName("TC-SETTLE-04: Thành viên thường không được khởi tạo danh sách quyết toán")
     void generateSettlements_Forbidden_WhenNotLeader() {
+
         when(matchingGroupRepository.findById(groupId)).thenReturn(Optional.of(group));
         when(userRepository.findByEmail(memberUser1.getEmail())).thenReturn(Optional.of(memberUser1));
         when(matchingMemberRepository.findByMatchingGroupAndUserAndIsDeletedFalse(group, memberUser1))
@@ -295,8 +354,8 @@ class GroupSettlementServiceTest {
         assertThat(response.getSubmittedAt()).isNotNull();
         verify(notificationService).notify(
                 org.mockito.ArgumentMatchers.eq(leaderMember.getUser().getUserId()),
-                org.mockito.ArgumentMatchers.eq(com.sep.treksphere.notification.NotificationEventType.GROUP_SETTLEMENT_PROOF_SUBMITTED),
-                org.mockito.ArgumentMatchers.eq(com.sep.treksphere.notification.ReferenceType.GROUP_EXPENSE),
+                org.mockito.ArgumentMatchers.eq(com.sep.treksphere.notification.enums.NotificationEventType.GROUP_SETTLEMENT_PROOF_SUBMITTED),
+                org.mockito.ArgumentMatchers.eq(com.sep.treksphere.notification.enums.ReferenceType.GROUP_EXPENSE),
                 org.mockito.ArgumentMatchers.eq(settlementId),
                 org.mockito.ArgumentMatchers.anyString(),
                 org.mockito.ArgumentMatchers.any(),
@@ -360,8 +419,8 @@ class GroupSettlementServiceTest {
         assertThat(response.getConfirmedBy().getMatchingMemberId()).isEqualTo(leaderMember.getMatchingMemberId());
         verify(notificationService).notify(
                 org.mockito.ArgumentMatchers.eq(member1.getUser().getUserId()),
-                org.mockito.ArgumentMatchers.eq(com.sep.treksphere.notification.NotificationEventType.GROUP_SETTLEMENT_CONFIRMED),
-                org.mockito.ArgumentMatchers.eq(com.sep.treksphere.notification.ReferenceType.GROUP_EXPENSE),
+                org.mockito.ArgumentMatchers.eq(com.sep.treksphere.notification.enums.NotificationEventType.GROUP_SETTLEMENT_CONFIRMED),
+                org.mockito.ArgumentMatchers.eq(com.sep.treksphere.notification.enums.ReferenceType.GROUP_EXPENSE),
                 org.mockito.ArgumentMatchers.eq(settlementId),
                 org.mockito.ArgumentMatchers.anyString(),
                 org.mockito.ArgumentMatchers.any(),
@@ -420,6 +479,15 @@ class GroupSettlementServiceTest {
         // Then
         assertThat(response.getStatus()).isEqualTo(SettlementStatus.REJECTED);
         assertThat(response.getRejectReason()).isEqualTo("Chưa nhận được tiền vào tài khoản ngân hàng");
+        verify(notificationService).notify(
+                org.mockito.ArgumentMatchers.eq(member1.getUser().getUserId()),
+                org.mockito.ArgumentMatchers.eq(com.sep.treksphere.notification.NotificationEventType.GROUP_SETTLEMENT_REJECTED),
+                org.mockito.ArgumentMatchers.eq(com.sep.treksphere.notification.ReferenceType.GROUP_EXPENSE),
+                org.mockito.ArgumentMatchers.eq(settlementId),
+                org.mockito.ArgumentMatchers.anyString(),
+                org.mockito.ArgumentMatchers.any(),
+                org.mockito.ArgumentMatchers.any(),
+                org.mockito.ArgumentMatchers.any());
     }
 
     @Test

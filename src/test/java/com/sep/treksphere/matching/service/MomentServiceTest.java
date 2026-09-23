@@ -16,10 +16,10 @@ import com.sep.treksphere.matching.repository.MatchingMemberRepository;
 import com.sep.treksphere.matching.repository.MomentMediaRepository;
 import com.sep.treksphere.matching.repository.MomentRepository;
 import com.sep.treksphere.matching.service.impl.MomentServiceImpl;
-import com.sep.treksphere.notification.NotificationService;
-import com.sep.treksphere.user.User;
-import com.sep.treksphere.user.UserRepository;
-import com.sep.treksphere.user.UserStatus;
+import com.sep.treksphere.notification.service.NotificationService;
+import com.sep.treksphere.user.entity.User;
+import com.sep.treksphere.user.repository.UserRepository;
+import com.sep.treksphere.user.enums.UserStatus;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -205,8 +205,8 @@ class MomentServiceTest {
         verify(momentRepository).save(any(Moment.class));
         verify(notificationService).notify(
                 org.mockito.ArgumentMatchers.<List<UUID>>any(),
-                org.mockito.ArgumentMatchers.eq(com.sep.treksphere.notification.NotificationEventType.GROUP_MOMENT_CREATED),
-                org.mockito.ArgumentMatchers.eq(com.sep.treksphere.notification.ReferenceType.MATCHING_GROUP),
+                org.mockito.ArgumentMatchers.eq(com.sep.treksphere.notification.enums.NotificationEventType.GROUP_MOMENT_CREATED),
+                org.mockito.ArgumentMatchers.eq(com.sep.treksphere.notification.enums.ReferenceType.MATCHING_GROUP),
                 org.mockito.ArgumentMatchers.eq(groupId),
                 org.mockito.ArgumentMatchers.anyString(),
                 org.mockito.ArgumentMatchers.any(),

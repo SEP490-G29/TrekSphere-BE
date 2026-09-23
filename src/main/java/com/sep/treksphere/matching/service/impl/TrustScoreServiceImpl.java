@@ -6,8 +6,8 @@ import com.sep.treksphere.matching.entity.GroupPeerReview;
 import com.sep.treksphere.matching.enums.PeerReviewModerationStatus;
 import com.sep.treksphere.matching.repository.GroupPeerReviewRepository;
 import com.sep.treksphere.matching.service.TrustScoreService;
-import com.sep.treksphere.user.User;
-import com.sep.treksphere.user.UserRepository;
+import com.sep.treksphere.user.entity.User;
+import com.sep.treksphere.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -18,12 +18,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
 
-/**
- * Tính users.trust_score theo công thức Bayesian ở db_refactor_v3.md Mục 8.9.
- * trust_score/trust_review_count/trust_calculated_at là cache/projection — source of truth
- * luôn là group_peer_review, nên hàm này luôn tính lại từ đầu (không cộng dồn incremental)
- * để đảm bảo tái tạo đúng dù review bị xoá hoặc đổi moderation_status.
- */
+
 @Service
 @RequiredArgsConstructor
 public class TrustScoreServiceImpl implements TrustScoreService {
@@ -61,11 +56,9 @@ public class TrustScoreServiceImpl implements TrustScoreService {
             sumOfPerReviewAverages = sumOfPerReviewAverages.add(perReviewAverage(review));
         }
 
-        // Điểm đánh giá trung bình thực tế (thang 1..5 sao)
         BigDecimal averageRating = sumOfPerReviewAverages.divide(
                 BigDecimal.valueOf(reviewCount), INTERNAL_SCALE, RoundingMode.HALF_UP);
 
-        // Quy đổi ra thang điểm 0..100 (5 sao = 100, 4 sao = 80, 3 sao = 60, 1 sao = 20)
         BigDecimal scorePercent = averageRating.multiply(POINTS_PER_STAR);
         int rawScore = scorePercent.setScale(0, RoundingMode.HALF_UP).intValueExact();
         short trustScore = (short) Math.max(0, Math.min(100, rawScore));
@@ -74,7 +67,6 @@ public class TrustScoreServiceImpl implements TrustScoreService {
         userRepository.save(user);
     }
 
-    /** r = trung bình 3 tiêu chí của một review, thang 1..5. */
     private BigDecimal perReviewAverage(GroupPeerReview review) {
         int sum = review.getActualEnduranceRating()
                 + review.getPunctualityResponsibilityRating()
