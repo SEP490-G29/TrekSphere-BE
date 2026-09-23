@@ -70,7 +70,7 @@ treksphere-be/
 │   │
 │   └── resources/
 │       ├── application.yml         # Cấu hình ứng dụng Spring Boot
-│       ├── db/migration/           # Flyway migration (V1__init_schema.sql - schema hợp nhất, không seed data)
+│       ├── db/migration/           # Flyway migration (V1 schema hợp nhất + V2..V6 seed data)
 │       ├── templates/              # Template email (Thymeleaf)
 │       ├── email/                  # Tài nguyên tĩnh dùng trong email (logo...)
 │       └── static/                 # Tài nguyên tĩnh (nếu có)
@@ -179,7 +179,18 @@ Bạn có thể import dự án vào các IDE phổ biến như IntelliJ IDEA, E
 
 ### 5. Database Migration (Flyway)
 
-Toàn bộ schema được gộp thành **một file migration duy nhất**: [`src/main/resources/db/migration/V1__init_schema.sql`](src/main/resources/db/migration/V1__init_schema.sql) (chỉ chứa DDL, không có seed data).
+Toàn bộ schema được gộp thành **một file DDL duy nhất**, kèm theo các file seed data chạy sau đó:
+
+| File | Nội dung |
+|---|---|
+| [`V1__init_schema.sql`](src/main/resources/db/migration/V1__init_schema.sql) | Toàn bộ DDL (43 bảng), không chứa dữ liệu |
+| `V2__seed_rbac.sql` | 3 role, 30 permission, 41 role_permission, tài khoản admin |
+| `V3__seed_users.sql` | 4 trekker + 3 vendor manager |
+| `V4__seed_vendors.sql` | 3 vendor + 4 đơn đăng ký vendor |
+| `V5__seed_tours.sql` | 12 tour kèm lịch khởi hành, ảnh, checkpoint, chính sách tham gia |
+| `V6__seed_blogs.sql` | 10 blog + 21 bình luận |
+
+> `V2__seed_rbac.sql` là dữ liệu **bắt buộc**: nếu `role`/`permission`/`role_permission` rỗng thì mọi kiểm tra `@PreAuthorize` sẽ fail và chức năng đăng ký tài khoản cũng lỗi do không tìm thấy role `TREKKER`. Các file `V3`..`V6` là dữ liệu demo.
 
 Việc chạy migration được điều khiển bởi cấu hình `spring.flyway.enabled` trong [`application.yml`](src/main/resources/application.yml):
 
@@ -189,7 +200,35 @@ spring:
     enabled: true # đặt false nếu muốn bỏ qua bước chạy migration khi start app
 ```
 
-- `enabled: true` (mặc định khi deploy) — Flyway tự động chạy `V1__init_schema.sql` để tạo schema trên database trống.
+- `enabled: true` (mặc định khi deploy) — Flyway tự động chạy `V1` → `V6` để dựng schema và seed dữ liệu trên database trống.
 - `enabled: false` — bỏ qua bước migration, dùng khi chạy thử ứng dụng trên một database **đã có sẵn schema** từ trước.
+
+#### Dựng lại database từ đầu
+
+Migration chỉ chạy được trên database trống. Muốn làm sạch và dựng lại (thao tác này **không hoàn tác được**):
+
+```bash
+# Local (Docker)
+docker compose down -v && docker compose up -d db
+
+# Database từ xa (Railway, managed Postgres... — không DROP DATABASE được)
+psql "$DATABASE_PUBLIC_URL" -c "DROP SCHEMA public CASCADE; CREATE SCHEMA public;"
+```
+
+`DROP SCHEMA` xoá luôn bảng `flyway_schema_history`, nhờ đó Flyway chạy lại từ `V1`.
+
+#### Tài khoản demo
+
+Mật khẩu của **tất cả** tài khoản dưới đây: `Pass123@`
+
+| Email | Role |
+|---|---|
+| `admin@treksphere.com` | ADMIN |
+| `trekker1@treksphere.com` … `trekker4@treksphere.com` | TREKKER |
+| `vendor1@treksphere.com` | VENDOR + TREKKER — TrekViet Adventures (ACTIVE) |
+| `vendor2@treksphere.com` | VENDOR + TREKKER — Mountain Trails Co (ACTIVE) |
+| `vendor3@treksphere.com` | VENDOR + TREKKER — Non Nuoc Cao Bang Trek (PENDING) |
+
+> Một Vendor đồng thời vẫn là một Trekker, nên mỗi vendor manager giữ cả hai role.
 
 ---

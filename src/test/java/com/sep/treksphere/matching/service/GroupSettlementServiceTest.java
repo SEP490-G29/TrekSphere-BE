@@ -249,8 +249,8 @@ class GroupSettlementServiceTest {
         assertThat(result.get(0).getStatus()).isEqualTo(SettlementStatus.PENDING);
         verify(notificationService).notify(
                 org.mockito.ArgumentMatchers.eq(List.of(member1.getUser().getUserId())),
-                org.mockito.ArgumentMatchers.eq(com.sep.treksphere.notification.NotificationEventType.GROUP_SETTLEMENT_CREATED),
-                org.mockito.ArgumentMatchers.eq(com.sep.treksphere.notification.ReferenceType.GROUP_EXPENSE),
+                org.mockito.ArgumentMatchers.eq(com.sep.treksphere.notification.enums.NotificationEventType.GROUP_SETTLEMENT_CREATED),
+                org.mockito.ArgumentMatchers.eq(com.sep.treksphere.notification.enums.ReferenceType.GROUP_EXPENSE),
                 org.mockito.ArgumentMatchers.eq(groupId),
                 org.mockito.ArgumentMatchers.anyString(),
                 org.mockito.ArgumentMatchers.any(),
@@ -481,8 +481,8 @@ class GroupSettlementServiceTest {
         assertThat(response.getRejectReason()).isEqualTo("Chưa nhận được tiền vào tài khoản ngân hàng");
         verify(notificationService).notify(
                 org.mockito.ArgumentMatchers.eq(member1.getUser().getUserId()),
-                org.mockito.ArgumentMatchers.eq(com.sep.treksphere.notification.NotificationEventType.GROUP_SETTLEMENT_REJECTED),
-                org.mockito.ArgumentMatchers.eq(com.sep.treksphere.notification.ReferenceType.GROUP_EXPENSE),
+                org.mockito.ArgumentMatchers.eq(com.sep.treksphere.notification.enums.NotificationEventType.GROUP_SETTLEMENT_REJECTED),
+                org.mockito.ArgumentMatchers.eq(com.sep.treksphere.notification.enums.ReferenceType.GROUP_EXPENSE),
                 org.mockito.ArgumentMatchers.eq(settlementId),
                 org.mockito.ArgumentMatchers.anyString(),
                 org.mockito.ArgumentMatchers.any(),
