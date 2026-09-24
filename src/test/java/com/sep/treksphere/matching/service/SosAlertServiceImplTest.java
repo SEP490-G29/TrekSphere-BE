@@ -3,6 +3,7 @@ package com.sep.treksphere.matching.service;
 import com.sep.treksphere.common.exception.AppException;
 import com.sep.treksphere.common.exception.ErrorCode;
 import com.sep.treksphere.matching.dto.request.CreateSosAlertRequest;
+import com.sep.treksphere.matching.dto.request.UpdateSosLocationRequest;
 import com.sep.treksphere.matching.dto.response.SosAlertResponse;
 import com.sep.treksphere.matching.entity.GroupTrip;
 import com.sep.treksphere.matching.entity.MatchingGroup;
@@ -32,6 +33,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -270,8 +272,8 @@ class SosAlertServiceImplTest {
         when(groupTripRepository.findByMatchingGroup_MatchingGroupId(groupId)).thenReturn(Optional.of(trip));
         when(sosAlertRepository.findByGroupTrip_GroupTripIdAndSender_UserIdAndIdempotencyKeyAndIsDeletedFalse(
                 tripId, sender.getUserId(), "key-2")).thenReturn(Optional.empty());
-        when(sosAlertRepository.existsByGroupTrip_GroupTripIdAndSender_UserIdAndStatusAndIsDeletedFalse(
-                tripId, sender.getUserId(), SosAlertStatus.OPEN)).thenReturn(true);
+        when(sosAlertRepository.existsByGroupTrip_GroupTripIdAndSender_UserIdAndStatusInAndIsDeletedFalse(
+                tripId, sender.getUserId(), List.of(SosAlertStatus.OPEN, SosAlertStatus.RESPONDING))).thenReturn(true);
 
         assertThatThrownBy(() -> sosAlertService.createAlert(groupId, sampleRequest("key-2"), sender.getUserId()))
                 .isInstanceOf(AppException.class)
@@ -288,8 +290,8 @@ class SosAlertServiceImplTest {
         when(groupTripRepository.findByMatchingGroup_MatchingGroupId(groupId)).thenReturn(Optional.of(trip));
         when(sosAlertRepository.findByGroupTrip_GroupTripIdAndSender_UserIdAndIdempotencyKeyAndIsDeletedFalse(
                 tripId, sender.getUserId(), "key-2")).thenReturn(Optional.empty());
-        when(sosAlertRepository.existsByGroupTrip_GroupTripIdAndSender_UserIdAndStatusAndIsDeletedFalse(
-                tripId, sender.getUserId(), SosAlertStatus.OPEN)).thenReturn(false);
+        when(sosAlertRepository.existsByGroupTrip_GroupTripIdAndSender_UserIdAndStatusInAndIsDeletedFalse(
+                tripId, sender.getUserId(), List.of(SosAlertStatus.OPEN, SosAlertStatus.RESPONDING))).thenReturn(false);
         when(matchingMemberRepository.findActiveMembers(groupId, JoinStatus.ACCEPTED))
                 .thenReturn(List.of(senderMember, leaderMember));
         when(sosAlertRepository.save(any(SosAlert.class))).thenReturn(newOpenAlert("key-2"));
@@ -298,6 +300,115 @@ class SosAlertServiceImplTest {
 
         assertThat(response.getStatus()).isEqualTo(SosAlertStatus.OPEN);
         verify(sosAlertRepository).save(any(SosAlert.class));
+    }
+
+    @Test
+    @DisplayName("respond bởi member khác trong nhóm -> thành công, status chuyển thành RESPONDING")
+    void respond_ByOtherMember_Succeeds() {
+        SosAlert alert = newOpenAlert("key-1");
+        when(sosAlertRepository.findByIdForUpdate(alert.getSosAlertId())).thenReturn(Optional.of(alert));
+
+        MatchingMember otherMember = new MatchingMember();
+        otherMember.setMatchingGroup(trip.getMatchingGroup());
+        otherMember.setUser(otherUser);
+        otherMember.setRole(MatchingRole.MEMBER);
+        otherMember.setStatus(JoinStatus.ACCEPTED);
+        when(matchingMemberRepository.findByGroupIdAndUserId(groupId, otherUser.getUserId()))
+                .thenReturn(Optional.of(otherMember));
+        when(matchingMemberRepository.findActiveMembers(groupId, JoinStatus.ACCEPTED))
+                .thenReturn(List.of(senderMember, otherMember));
+        when(sosAlertRepository.save(any(SosAlert.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        SosAlertResponse response = sosAlertService.respond(groupId, alert.getSosAlertId(), otherUser.getUserId());
+
+        assertThat(response.getStatus()).isEqualTo(SosAlertStatus.RESPONDING);
+        assertThat(response.getResponderId()).isEqualTo(otherUser.getUserId());
+        assertThat(response.getResponderName()).isEqualTo(otherUser.getFullName());
+        verify(sosAlertRepository).save(alert);
+    }
+
+    @Test
+    @DisplayName("respond bởi chính sender của alert -> báo lỗi SOS_ALERT_CANNOT_RESPOND_TO_OWN_ALERT")
+    void respond_BySender_ThrowsError() {
+        SosAlert alert = newOpenAlert("key-1");
+        when(matchingMemberRepository.findByGroupIdAndUserId(groupId, sender.getUserId()))
+                .thenReturn(Optional.of(senderMember));
+        when(sosAlertRepository.findByIdForUpdate(alert.getSosAlertId())).thenReturn(Optional.of(alert));
+
+        assertThatThrownBy(() -> sosAlertService.respond(groupId, alert.getSosAlertId(), sender.getUserId()))
+                .isInstanceOf(AppException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.SOS_ALERT_CANNOT_RESPOND_TO_OWN_ALERT);
+
+        verify(sosAlertRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("respond khi alert đã ở trạng thái RESPONDING -> báo lỗi SOS_ALERT_ALREADY_RESPONDED")
+    void respond_AlreadyResponding_ThrowsError() {
+        SosAlert alert = newOpenAlert("key-1");
+        alert.setStatus(SosAlertStatus.RESPONDING);
+        alert.setResponder(leader);
+
+        MatchingMember otherMember = new MatchingMember();
+        otherMember.setMatchingGroup(trip.getMatchingGroup());
+        otherMember.setUser(otherUser);
+        otherMember.setRole(MatchingRole.MEMBER);
+        otherMember.setStatus(JoinStatus.ACCEPTED);
+        when(matchingMemberRepository.findByGroupIdAndUserId(groupId, otherUser.getUserId()))
+                .thenReturn(Optional.of(otherMember));
+        when(sosAlertRepository.findByIdForUpdate(alert.getSosAlertId())).thenReturn(Optional.of(alert));
+
+        assertThatThrownBy(() -> sosAlertService.respond(groupId, alert.getSosAlertId(), otherUser.getUserId()))
+                .isInstanceOf(AppException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.SOS_ALERT_ALREADY_RESPONDED);
+
+        verify(sosAlertRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("updateLocation bởi chính sender -> thành công cập nhật latitude, longitude")
+    void updateLocation_BySender_Succeeds() {
+        SosAlert alert = newOpenAlert("key-1");
+        when(matchingMemberRepository.findByGroupIdAndUserId(groupId, sender.getUserId()))
+                .thenReturn(Optional.of(senderMember));
+        when(sosAlertRepository.findByIdForUpdate(alert.getSosAlertId())).thenReturn(Optional.of(alert));
+        when(sosAlertRepository.save(any(SosAlert.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        UpdateSosLocationRequest request = UpdateSosLocationRequest.builder()
+                .latitude(new BigDecimal("12.3456780"))
+                .longitude(new BigDecimal("108.1234560"))
+                .build();
+
+        SosAlertResponse response = sosAlertService.updateLocation(groupId, alert.getSosAlertId(), request, sender.getUserId());
+
+        assertThat(response.getLatitude()).isEqualTo(new BigDecimal("12.3456780"));
+        assertThat(response.getLongitude()).isEqualTo(new BigDecimal("108.1234560"));
+        verify(sosAlertRepository).save(alert);
+    }
+
+    @Test
+    @DisplayName("updateLocation bởi member khác -> báo lỗi SOS_ALERT_UNAUTHORIZED_UPDATE_LOCATION")
+    void updateLocation_ByOtherMember_ThrowsError() {
+        SosAlert alert = newOpenAlert("key-1");
+        MatchingMember otherMember = new MatchingMember();
+        otherMember.setMatchingGroup(trip.getMatchingGroup());
+        otherMember.setUser(otherUser);
+        otherMember.setRole(MatchingRole.MEMBER);
+        otherMember.setStatus(JoinStatus.ACCEPTED);
+        when(matchingMemberRepository.findByGroupIdAndUserId(groupId, otherUser.getUserId()))
+                .thenReturn(Optional.of(otherMember));
+        when(sosAlertRepository.findByIdForUpdate(alert.getSosAlertId())).thenReturn(Optional.of(alert));
+
+        UpdateSosLocationRequest request = UpdateSosLocationRequest.builder()
+                .latitude(new BigDecimal("12.3456780"))
+                .longitude(new BigDecimal("108.1234560"))
+                .build();
+
+        assertThatThrownBy(() -> sosAlertService.updateLocation(groupId, alert.getSosAlertId(), request, otherUser.getUserId()))
+                .isInstanceOf(AppException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.SOS_ALERT_UNAUTHORIZED_UPDATE_LOCATION);
+
+        verify(sosAlertRepository, never()).save(any());
     }
 
     @Test

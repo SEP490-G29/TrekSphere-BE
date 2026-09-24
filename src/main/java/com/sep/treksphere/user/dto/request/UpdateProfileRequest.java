@@ -35,6 +35,12 @@ public class UpdateProfileRequest {
 
     private DifficultyLevel preferredDifficulty;
 
+    @Size(max = 255)
+    private String emergencyContactName;
+
+    @Pattern(regexp = ValidationConstant.PHONE_REGEX, message = MessageConstant.INVALID_PHONE)
+    private String emergencyContactPhone;
+
     @Size(max = 20)
     private List<String> preferredAreas;
 

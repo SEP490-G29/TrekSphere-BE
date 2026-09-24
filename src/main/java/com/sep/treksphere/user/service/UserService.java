@@ -128,6 +128,13 @@ public class UserService {
         if (request.getSkills() != null) {
             user.setSkills(normalizeTags(request.getSkills(), 100));
         }
+        if (request.getEmergencyContactName() != null) {
+            user.setEmergencyContactName(request.getEmergencyContactName().isBlank() ? null : request.getEmergencyContactName().trim());
+        }
+        if (request.getEmergencyContactPhone() != null) {
+            String rawContactPhone = request.getEmergencyContactPhone().trim();
+            user.setEmergencyContactPhone(rawContactPhone.isEmpty() ? null : PhoneNumberUtil.normalize(rawContactPhone));
+        }
 
         validatePreferenceCompatibility(user);
 

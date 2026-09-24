@@ -20,6 +20,8 @@ import com.sep.treksphere.matching.repository.MatchingGroupRepository;
 import com.sep.treksphere.matching.repository.MatchingMemberRepository;
 import com.sep.treksphere.matching.service.impl.GroupChecklistServiceImpl;
 import com.sep.treksphere.user.entity.User;
+import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -55,6 +57,12 @@ class GroupChecklistServiceTest {
 
     @Mock
     private GroupTripRepository groupTripRepository;
+
+    @Mock
+    private SimpMessagingTemplate messagingTemplate;
+
+    @Mock
+    private ApplicationEventPublisher eventPublisher;
 
     @Spy
     private GroupChecklistMapper checklistMapper = Mappers.getMapper(GroupChecklistMapper.class);
@@ -233,7 +241,6 @@ class GroupChecklistServiceTest {
 
         when(matchingGroupRepository.findById(groupId)).thenReturn(Optional.of(group));
         when(matchingMemberRepository.findActiveMembers(groupId, JoinStatus.ACCEPTED)).thenReturn(List.of(member1));
-        when(matchingMemberRepository.findById(member2.getMatchingMemberId())).thenReturn(Optional.of(member2));
 
         assertThatThrownBy(() -> checklistService.createChecklistItem(groupId, request, member1Id))
                 .isInstanceOf(AppException.class)

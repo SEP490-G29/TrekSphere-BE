@@ -24,8 +24,13 @@ import com.sep.treksphere.matching.repository.GroupTripRepository;
 import com.sep.treksphere.matching.repository.MatchingGroupRepository;
 import com.sep.treksphere.matching.repository.MatchingMemberRepository;
 import com.sep.treksphere.matching.service.GroupChecklistService;
+import com.sep.treksphere.notification.enums.NotificationEventType;
+import com.sep.treksphere.notification.enums.ReferenceType;
+import com.sep.treksphere.notification.event.NotifyCommand;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -44,6 +49,8 @@ public class GroupChecklistServiceImpl implements GroupChecklistService {
     private final MatchingMemberRepository matchingMemberRepository;
     private final GroupTripRepository groupTripRepository;
     private final GroupChecklistMapper checklistMapper;
+    private final SimpMessagingTemplate messagingTemplate;
+    private final ApplicationEventPublisher eventPublisher;
 
     @Override
     @Transactional(readOnly = true)
@@ -55,7 +62,6 @@ public class GroupChecklistServiceImpl implements GroupChecklistService {
         List<GroupChecklistItem> allItems = checklistItemRepository
                 .findByMatchingGroup_MatchingGroupIdAndIsDeletedFalseOrderByCreatedAtAsc(groupId);
 
-        // Đồ cá nhân (PERSONAL): chỉ trả về cho chính chủ nhân, kể cả Leader cũng không xem được của người khác
         List<GroupChecklistItem> visibleItems = allItems.stream()
                 .filter(item -> {
                     if (item.getItemScope() == ChecklistItemScope.SHARED) {
@@ -116,6 +122,10 @@ public class GroupChecklistServiceImpl implements GroupChecklistService {
         validateChecklistModifiable(group);
         MatchingMember callerMember = getCallerMemberOrThrow(groupId, currentUserId);
 
+        if (request.getItemScope() == ChecklistItemScope.SHARED && callerMember.getRole() != MatchingRole.LEADER) {
+            throw new AppException(ErrorCode.UNAUTHORIZED_CHECKLIST_ACTION);
+        }
+
         GroupChecklistItem item = checklistMapper.toEntity(request);
         item.setMatchingGroup(group);
         item.setStatus(ChecklistItemStatus.TODO);
@@ -133,7 +143,14 @@ public class GroupChecklistServiceImpl implements GroupChecklistService {
 
         GroupChecklistItem saved = checklistItemRepository.save(item);
         log.info("Created checklist item {} for group {}", saved.getGroupChecklistItemId(), groupId);
-        return checklistMapper.toResponse(saved);
+
+        if (saved.getItemScope() == ChecklistItemScope.SHARED && saved.getAssigneeMatchingMember() != null) {
+            notifyAssignee(group, callerMember, saved);
+        }
+
+        GroupChecklistItemResponse response = checklistMapper.toResponse(saved);
+        broadcastChecklistEvent(groupId, response);
+        return response;
     }
 
     @Override
@@ -150,6 +167,11 @@ public class GroupChecklistServiceImpl implements GroupChecklistService {
 
         validateItemModifyPermission(item, callerMember);
 
+        // Chỉ LEADER mới được đổi phạm vi sang SHARED
+        if (request.getItemScope() == ChecklistItemScope.SHARED && callerMember.getRole() != MatchingRole.LEADER) {
+            throw new AppException(ErrorCode.UNAUTHORIZED_CHECKLIST_ACTION);
+        }
+
         checklistMapper.updateEntityFromRequest(request, item);
 
         if (item.getItemScope() == ChecklistItemScope.PERSONAL) {
@@ -165,7 +187,14 @@ public class GroupChecklistServiceImpl implements GroupChecklistService {
 
         GroupChecklistItem saved = checklistItemRepository.save(item);
         log.info("Updated checklist item {} in group {}", itemId, groupId);
-        return checklistMapper.toResponse(saved);
+
+        if (saved.getItemScope() == ChecklistItemScope.SHARED && saved.getAssigneeMatchingMember() != null) {
+            notifyAssignee(group, callerMember, saved);
+        }
+
+        GroupChecklistItemResponse response = checklistMapper.toResponse(saved);
+        broadcastChecklistEvent(groupId, response);
+        return response;
     }
 
     @Override
@@ -186,7 +215,10 @@ public class GroupChecklistServiceImpl implements GroupChecklistService {
 
         GroupChecklistItem saved = checklistItemRepository.save(item);
         log.info("Updated checklist item {} status to {} by user {}", itemId, request.getStatus(), currentUserId);
-        return checklistMapper.toResponse(saved);
+
+        GroupChecklistItemResponse response = checklistMapper.toResponse(saved);
+        broadcastChecklistEvent(groupId, response);
+        return response;
     }
 
     @Override
@@ -205,6 +237,51 @@ public class GroupChecklistServiceImpl implements GroupChecklistService {
         item.setIsDeleted(true);
         checklistItemRepository.save(item);
         log.info("Deleted checklist item {} in group {}", itemId, groupId);
+
+        GroupChecklistItemResponse response = GroupChecklistItemResponse.builder()
+                .groupChecklistItemId(itemId)
+                .matchingGroupId(groupId)
+                .build();
+        broadcastChecklistEvent(groupId, response);
+    }
+
+    private void broadcastChecklistEvent(UUID groupId, GroupChecklistItemResponse payload) {
+        try {
+            messagingTemplate.convertAndSend("/topic/matching-groups/" + groupId + "/checklist", payload);
+        } catch (Exception ex) {
+            log.warn("Không thể gửi websocket message tới topic checklist cho group {}", groupId, ex);
+        }
+    }
+
+    private void notifyAssignee(MatchingGroup group, MatchingMember callerMember, GroupChecklistItem item) {
+        try {
+            if (item.getAssigneeMatchingMember() == null || item.getAssigneeMatchingMember().getUser() == null) {
+                return;
+            }
+            UUID assigneeUserId = item.getAssigneeMatchingMember().getUser().getUserId();
+            UUID callerUserId = callerMember.getUser() != null ? callerMember.getUser().getUserId() : null;
+            if (Objects.equals(assigneeUserId, callerUserId)) {
+                return;
+            }
+
+            String callerName = callerMember.getUser() != null && callerMember.getUser().getFullName() != null
+                    ? callerMember.getUser().getFullName()
+                    : "Trưởng nhóm";
+
+            String groupName = group.getGroupName() != null ? group.getGroupName() : "nhóm";
+
+            eventPublisher.publishEvent(new NotifyCommand(
+                    List.of(assigneeUserId),
+                    NotificationEventType.GROUP_CHECKLIST_ASSIGNED,
+                    "Phân công chuẩn bị đồ dùng",
+                    callerName + " đã phân công bạn chuẩn bị \"" + item.getTitle() + "\" cho đoàn \"" + groupName + "\"",
+                    ReferenceType.MATCHING_GROUP,
+                    group.getMatchingGroupId(),
+                    "/trekker/my-groups/" + group.getMatchingGroupId() + "?tab=checklist"
+            ));
+        } catch (Exception ex) {
+            log.warn("Không thể gửi notification phân công checklist cho member", ex);
+        }
     }
 
     private MatchingGroup getGroupOrThrow(UUID groupId) {

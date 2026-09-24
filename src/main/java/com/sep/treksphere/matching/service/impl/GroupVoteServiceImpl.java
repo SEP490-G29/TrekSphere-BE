@@ -471,21 +471,23 @@ public class GroupVoteServiceImpl implements GroupVoteService {
 
         final UUID newLeaderMemberId = newLeader.getMatchingMemberId();
 
-        matchingMemberRepository.findActiveMembers(groupId, JoinStatus.ACCEPTED).stream()
+        List<MatchingMember> oldLeaders = matchingMemberRepository.findActiveMembers(groupId, JoinStatus.ACCEPTED).stream()
                 .filter(m -> m.getRole() == MatchingRole.LEADER)
                 .filter(m -> !m.getMatchingMemberId().equals(newLeaderMemberId))
-                .forEach(oldLeader -> {
-                    oldLeader.setRole(MatchingRole.MEMBER);
-                    matchingMemberRepository.save(oldLeader);
-                });
+                .toList();
+
+        for (MatchingMember oldLeader : oldLeaders) {
+            oldLeader.setRole(MatchingRole.MEMBER);
+            matchingMemberRepository.saveAndFlush(oldLeader);
+        }
 
         newLeader.setRole(MatchingRole.LEADER);
-        matchingMemberRepository.save(newLeader);
+        matchingMemberRepository.saveAndFlush(newLeader);
 
         MatchingGroup matchingGroup = matchingGroupRepository.findById(groupId)
                 .orElse(vote.getMatchingGroup());
         matchingGroup.setOwner(newLeader.getUser());
-        matchingGroupRepository.save(matchingGroup);
+        matchingGroupRepository.saveAndFlush(matchingGroup);
     }
 
   
