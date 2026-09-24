@@ -31,8 +31,15 @@ public class SosAlertResponse {
     private BigDecimal longitude;
     private String message;
     private SosAlertStatus status;
+    private UUID responderId;
+    private String responderName;
+    private String responderPhone;
+    private String responderAvatarUrl;
+    private LocalDateTime respondedAt;
     private UUID resolvedById;
     private String resolvedByName;
+    private String senderEmergencyContactName;
+    private String senderEmergencyContactPhone;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 
@@ -45,11 +52,18 @@ public class SosAlertResponse {
                 .senderName(alert.getSender().getFullName())
                 .senderPhone(alert.getSender().getPhone())
                 .senderAvatarUrl(alert.getSender().getAvatarUrl())
+                .senderEmergencyContactName(alert.getSender().getEmergencyContactName())
+                .senderEmergencyContactPhone(alert.getSender().getEmergencyContactPhone())
                 .incidentTypeCode(alert.getIncidentTypeCode())
                 .latitude(alert.getLatitude())
                 .longitude(alert.getLongitude())
                 .message(alert.getMessage())
                 .status(alert.getStatus())
+                .responderId(alert.getResponder() != null ? alert.getResponder().getUserId() : null)
+                .responderName(alert.getResponder() != null ? alert.getResponder().getFullName() : null)
+                .responderPhone(alert.getResponder() != null ? alert.getResponder().getPhone() : null)
+                .responderAvatarUrl(alert.getResponder() != null ? alert.getResponder().getAvatarUrl() : null)
+                .respondedAt(alert.getRespondedAt())
                 .resolvedById(alert.getResolvedBy() != null ? alert.getResolvedBy().getUserId() : null)
                 .resolvedByName(alert.getResolvedBy() != null ? alert.getResolvedBy().getFullName() : null)
                 .createdAt(alert.getCreatedAt())

@@ -32,6 +32,8 @@ public class UserProfileResponse {
     private DifficultyLevel preferredDifficulty;
     private List<String> preferredAreas;
     private List<String> skills;
+    private String emergencyContactName;
+    private String emergencyContactPhone;
     private Short trustScore;
     private Integer trustReviewCount;
     private List<String> roles;

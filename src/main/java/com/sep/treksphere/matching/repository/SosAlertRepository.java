@@ -11,6 +11,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -24,8 +25,14 @@ public interface SosAlertRepository extends JpaRepository<SosAlert, UUID> {
     boolean existsByGroupTrip_GroupTripIdAndSender_UserIdAndStatusAndIsDeletedFalse(
             UUID groupTripId, UUID senderId, SosAlertStatus status);
 
+    boolean existsByGroupTrip_GroupTripIdAndSender_UserIdAndStatusInAndIsDeletedFalse(
+            UUID groupTripId, UUID senderId, Collection<SosAlertStatus> statuses);
+
     List<SosAlert> findByGroupTrip_GroupTripIdAndStatusAndIsDeletedFalseOrderByCreatedAtDesc(
             UUID groupTripId, SosAlertStatus status);
+
+    List<SosAlert> findByGroupTrip_GroupTripIdAndStatusInAndIsDeletedFalseOrderByCreatedAtDesc(
+            UUID groupTripId, Collection<SosAlertStatus> statuses);
 
     Page<SosAlert> findByGroupTrip_GroupTripIdAndIsDeletedFalseOrderByCreatedAtDesc(
             UUID groupTripId, Pageable pageable);

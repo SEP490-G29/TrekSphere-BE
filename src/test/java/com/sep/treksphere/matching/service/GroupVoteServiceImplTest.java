@@ -609,8 +609,8 @@ class GroupVoteServiceImplTest {
         assertThat(response.getWinningOptionId()).isEqualTo(winnerOption.getGroupVoteOptionId());
         assertThat(memberEntity.getRole()).isEqualTo(MatchingRole.LEADER);
         assertThat(leaderMember.getRole()).isEqualTo(MatchingRole.MEMBER);
-        verify(matchingMemberRepository).save(leaderMember);
-        verify(matchingMemberRepository).save(memberEntity);
+        verify(matchingMemberRepository).saveAndFlush(leaderMember);
+        verify(matchingMemberRepository).saveAndFlush(memberEntity);
     }
 
     @Test

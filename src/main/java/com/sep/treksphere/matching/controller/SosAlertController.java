@@ -5,6 +5,7 @@ import com.sep.treksphere.common.dto.ApiResponse;
 import com.sep.treksphere.common.dto.PaginationResponse;
 import com.sep.treksphere.common.security.CustomUserDetails;
 import com.sep.treksphere.matching.dto.request.CreateSosAlertRequest;
+import com.sep.treksphere.matching.dto.request.UpdateSosLocationRequest;
 import com.sep.treksphere.matching.dto.response.SosAlertResponse;
 import com.sep.treksphere.matching.service.SosAlertService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -19,7 +20,13 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
 import java.util.UUID;
@@ -27,7 +34,7 @@ import java.util.UUID;
 @RestController
 @RequestMapping("/api/v1/matching-groups/{groupId}/sos-alerts")
 @RequiredArgsConstructor
-@Tag(name = "SOS Alert", description = "Phát và đóng tín hiệu SOS khẩn cấp trong Group Trip")
+@Tag(name = "SOS Alert", description = "Phát, ứng cứu và đóng tín hiệu SOS khẩn cấp trong Group Trip")
 public class SosAlertController {
 
     private final SosAlertService sosAlertService;
@@ -47,7 +54,7 @@ public class SosAlertController {
 
     @GetMapping("/active")
     @PreAuthorize("hasAuthority('GROUP_TRIP_SOS')")
-    @Operation(summary = "Lấy danh sách tín hiệu SOS đang mở (OPEN) của Group Trip")
+    @Operation(summary = "Lấy danh sách tín hiệu SOS đang mở (OPEN, RESPONDING) của Group Trip")
     public ResponseEntity<ApiResponse<List<SosAlertResponse>>> getActive(
             @PathVariable UUID groupId,
             @AuthenticationPrincipal CustomUserDetails userDetails) {
@@ -74,6 +81,31 @@ public class SosAlertController {
                 .last(page.isLast())
                 .build();
         return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, response, MessageConstant.SOS_ALERT_HISTORY_FETCHED));
+    }
+
+    @PatchMapping("/{sosAlertId}/respond")
+    @PreAuthorize("hasAuthority('GROUP_TRIP_SOS')")
+    @Operation(summary = "Tiếp nhận ứng cứu tín hiệu SOS (thành viên khác trong nhóm)")
+    public ResponseEntity<ApiResponse<SosAlertResponse>> respond(
+            @PathVariable UUID groupId,
+            @PathVariable UUID sosAlertId,
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+        UUID currentUserId = userDetails.getUser().getUserId();
+        SosAlertResponse response = sosAlertService.respond(groupId, sosAlertId, currentUserId);
+        return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, response, MessageConstant.SOS_ALERT_RESPONDED_SUCCESS));
+    }
+
+    @PatchMapping("/{sosAlertId}/location")
+    @PreAuthorize("hasAuthority('GROUP_TRIP_SOS')")
+    @Operation(summary = "Cập nhật vị trí GPS mới cho tín hiệu SOS (chính người phát tín hiệu)")
+    public ResponseEntity<ApiResponse<SosAlertResponse>> updateLocation(
+            @PathVariable UUID groupId,
+            @PathVariable UUID sosAlertId,
+            @Valid @RequestBody UpdateSosLocationRequest request,
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+        UUID currentUserId = userDetails.getUser().getUserId();
+        SosAlertResponse response = sosAlertService.updateLocation(groupId, sosAlertId, request, currentUserId);
+        return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, response, MessageConstant.SOS_ALERT_LOCATION_UPDATED_SUCCESS));
     }
 
     @PatchMapping("/{sosAlertId}/resolve")
