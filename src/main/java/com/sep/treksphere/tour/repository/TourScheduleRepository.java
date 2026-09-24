@@ -44,6 +44,20 @@ public interface TourScheduleRepository extends JpaRepository<TourSchedule, UUID
                      @Param("today") LocalDate today,
                      @Param("excludedId") UUID excludedId);
 
+       @Query("""
+              SELECT COUNT(ts) > 0 FROM TourSchedule ts
+              WHERE ts.tour.tourId = :tourId
+                AND ts.departureDate = :departureDate
+                AND ts.returnDate = :returnDate
+                AND ts.isDeleted = false
+                AND (CAST(:excludedId AS uuid) IS NULL OR ts.tourScheduleId <> :excludedId)
+              """)
+       boolean existsDuplicateSchedule(
+                     @Param("tourId") UUID tourId,
+                     @Param("departureDate") LocalDate departureDate,
+                     @Param("returnDate") LocalDate returnDate,
+                     @Param("excludedId") UUID excludedId);
+
        @Modifying
        @Query("""
               UPDATE TourSchedule ts
