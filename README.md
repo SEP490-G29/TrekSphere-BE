@@ -76,8 +76,6 @@ treksphere-be/
 │       └── static/                 # Tài nguyên tĩnh (nếu có)
 ```
 
-> Lưu ý: hai domain đã lược bỏ hoàn toàn khỏi hệ thống là **booking** và **payment** — không còn tồn tại code, endpoint, bảng dữ liệu hay cấu hình liên quan.
-
 ---
 
 ## 🚀 Hướng dẫn Cài đặt & Khởi chạy Nhanh
@@ -137,8 +135,6 @@ CLOUDINARY_API_KEY=your_cloudinary_api_key
 CLOUDINARY_API_SECRET=your_cloudinary_api_secret
 ```
 
-> ⚠️ File `.env` đã được đưa vào `.gitignore`, **không commit** file này lên git vì chứa thông tin nhạy cảm.
-
 ### 3. Khởi chạy Hạ tầng (Docker)
 
 Tại thư mục gốc của dự án `treksphere-be` (nơi chứa file `docker-compose.yml`), khởi chạy các container ở chế độ chạy ngầm (detached mode):
@@ -181,16 +177,14 @@ Bạn có thể import dự án vào các IDE phổ biến như IntelliJ IDEA, E
 
 Toàn bộ schema được gộp thành **một file DDL duy nhất**, kèm theo các file seed data chạy sau đó:
 
-| File | Nội dung |
-|---|---|
-| [`V1__init_schema.sql`](src/main/resources/db/migration/V1__init_schema.sql) | Toàn bộ DDL (43 bảng), không chứa dữ liệu |
-| `V2__seed_rbac.sql` | 3 role, 30 permission, 41 role_permission, tài khoản admin |
-| `V3__seed_users.sql` | 4 trekker + 3 vendor manager |
-| `V4__seed_vendors.sql` | 3 vendor + 4 đơn đăng ký vendor |
-| `V5__seed_tours.sql` | 12 tour kèm lịch khởi hành, ảnh, checkpoint, chính sách tham gia |
-| `V6__seed_blogs.sql` | 10 blog + 21 bình luận |
-
-> `V2__seed_rbac.sql` là dữ liệu **bắt buộc**: nếu `role`/`permission`/`role_permission` rỗng thì mọi kiểm tra `@PreAuthorize` sẽ fail và chức năng đăng ký tài khoản cũng lỗi do không tìm thấy role `TREKKER`. Các file `V3`..`V6` là dữ liệu demo.
+| File                                                                         | Nội dung                                                         |
+| ---------------------------------------------------------------------------- | ---------------------------------------------------------------- |
+| [`V1__init_schema.sql`](src/main/resources/db/migration/V1__init_schema.sql) | Toàn bộ DDL (43 bảng), không chứa dữ liệu                        |
+| `V2__seed_rbac.sql`                                                          | 3 role, 30 permission, 41 role_permission, tài khoản admin       |
+| `V3__seed_users.sql`                                                         | 4 trekker + 3 vendor manager                                     |
+| `V4__seed_vendors.sql`                                                       | 3 vendor + 4 đơn đăng ký vendor                                  |
+| `V5__seed_tours.sql`                                                         | 12 tour kèm lịch khởi hành, ảnh, checkpoint, chính sách tham gia |
+| `V6__seed_blogs.sql`                                                         | 10 blog + 21 bình luận                                           |
 
 Việc chạy migration được điều khiển bởi cấu hình `spring.flyway.enabled` trong [`application.yml`](src/main/resources/application.yml):
 
@@ -216,19 +210,3 @@ psql "$DATABASE_PUBLIC_URL" -c "DROP SCHEMA public CASCADE; CREATE SCHEMA public
 ```
 
 `DROP SCHEMA` xoá luôn bảng `flyway_schema_history`, nhờ đó Flyway chạy lại từ `V1`.
-
-#### Tài khoản demo
-
-Mật khẩu của **tất cả** tài khoản dưới đây: `Pass123@`
-
-| Email | Role |
-|---|---|
-| `admin@treksphere.com` | ADMIN |
-| `trekker1@treksphere.com` … `trekker4@treksphere.com` | TREKKER |
-| `vendor1@treksphere.com` | VENDOR + TREKKER — TrekViet Adventures (ACTIVE) |
-| `vendor2@treksphere.com` | VENDOR + TREKKER — Mountain Trails Co (ACTIVE) |
-| `vendor3@treksphere.com` | VENDOR + TREKKER — Non Nuoc Cao Bang Trek (PENDING) |
-
-> Một Vendor đồng thời vẫn là một Trekker, nên mỗi vendor manager giữ cả hai role.
-
----

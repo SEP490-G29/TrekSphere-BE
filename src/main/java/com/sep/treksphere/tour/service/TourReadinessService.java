@@ -28,7 +28,7 @@ public class TourReadinessService {
                 .existsByTourAndStatusAndDepartureDateAfterAndIsDeletedFalse(
                         tour, ScheduleStatus.OPEN, LocalDate.now());
         if (!hasFutureSchedule) {
-            errors.add("NO_FUTURE_OPEN_SCHEDULE");
+            errors.add("chưa có lịch khởi hành đang mở trong tương lai");
         }
         return errors;
     }
@@ -82,19 +82,19 @@ public class TourReadinessService {
                 || !StringUtils.hasText(tour.getLocation())
                 || tour.getDurationDays() == null
                 || tour.getDurationDays() < 1) {
-            errors.add("MISSING_MAIN_FIELDS");
+            errors.add("thiếu thông tin cơ bản (tên/mô tả/độ khó/địa điểm/số ngày)");
         }
         if (tour.getMinCapacity() == null
                 || tour.getMaxCapacity() == null
                 || tour.getMinCapacity() < 1
                 || tour.getMaxCapacity() < tour.getMinCapacity()) {
-            errors.add("INVALID_CAPACITY");
+            errors.add("sức chứa không hợp lệ");
         }
         if (!StringUtils.hasText(tour.getCoverImageUrl())) {
-            errors.add("MISSING_COVER_IMAGE");
+            errors.add("chưa có ảnh bìa");
         }
         if (checkpointRepository.countByTourAndIsDeletedFalse(tour) < 2) {
-            errors.add("INSUFFICIENT_CHECKPOINTS");
+            errors.add("chưa đủ tối thiểu 2 checkpoint");
         }
         return errors;
     }

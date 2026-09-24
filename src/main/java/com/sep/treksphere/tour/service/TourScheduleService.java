@@ -61,6 +61,7 @@ public class TourScheduleService {
         Vendor vendor = vendorAccessService.resolveActiveByManagerEmail(userEmail);
         validateTourBelongsToVendor(tour, vendor);
         validateDatesAndDuration(tour, request.getDepartureDate(), request.getReturnDate());
+        ensureNoDuplicateSchedule(tourId, request.getDepartureDate(), request.getReturnDate(), null);
 
         TourSchedule schedule = new TourSchedule();
         schedule.setTour(tour);
@@ -86,6 +87,7 @@ public class TourScheduleService {
         LocalDate returnDate = request.getReturnDate() == null
                 ? schedule.getReturnDate() : request.getReturnDate();
         validateDatesAndDuration(schedule.getTour(), departure, returnDate);
+        ensureNoDuplicateSchedule(schedule.getTour().getTourId(), departure, returnDate, scheduleId);
 
         ScheduleStatus requestedStatus = request.getStatus() == null ? schedule.getStatus() : request.getStatus();
         if (requestedStatus == ScheduleStatus.CANCELLED && !StringUtils.hasText(request.getReason())) {
@@ -171,10 +173,17 @@ public class TourScheduleService {
             throw new AppException(ErrorCode.SCHEDULE_RETURN_BEFORE_DEPARTURE);
         }
         if (tour.getDurationDays() != null && tour.getDurationDays() > 0
-                && returnDate.isAfter(departure.plusDays(tour.getDurationDays() - 1L))) {
+                && !returnDate.isEqual(departure.plusDays(tour.getDurationDays() - 1L))) {
             throw new AppException(
-                    ErrorCode.SCHEDULE_DURATION_EXCEEDS_TOUR,
-                    "Lịch khởi hành không được vượt quá thời lượng " + tour.getDurationDays() + " ngày của Tour.");
+                    ErrorCode.SCHEDULE_DATES_NOT_MATCH_TOUR_DURATION,
+                    "Lịch khởi hành phải kéo dài đúng " + tour.getDurationDays() + " ngày như Tour đã thiết lập.");
+        }
+    }
+
+    private void ensureNoDuplicateSchedule(
+            UUID tourId, LocalDate departure, LocalDate returnDate, UUID excludedScheduleId) {
+        if (tourScheduleRepository.existsDuplicateSchedule(tourId, departure, returnDate, excludedScheduleId)) {
+            throw new AppException(ErrorCode.SCHEDULE_DUPLICATE_DATES);
         }
     }
 

@@ -53,7 +53,10 @@ class TourReadinessServiceTest {
                 eq(tour), eq(ScheduleStatus.OPEN), any(LocalDate.class))).thenReturn(false);
 
         assertEquals(
-                List.of("INVALID_CAPACITY", "INSUFFICIENT_CHECKPOINTS", "NO_FUTURE_OPEN_SCHEDULE"),
+                List.of(
+                        "sức chứa không hợp lệ",
+                        "chưa đủ tối thiểu 2 checkpoint",
+                        "chưa có lịch khởi hành đang mở trong tương lai"),
                 service.getPublishReadinessErrors(tour));
         assertThrows(AppException.class, () -> service.validateForPublish(tour));
     }
