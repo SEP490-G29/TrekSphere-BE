@@ -42,6 +42,12 @@ public class User extends BaseEntity {
     @Column(length = 20)
     private String phone;
 
+    @Column(length = 255)
+    private String emergencyContactName;
+
+    @Column(length = 20)
+    private String emergencyContactPhone;
+
     private LocalDate dateOfBirth;
 
     @Enumerated(EnumType.STRING)

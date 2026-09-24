@@ -3,6 +3,7 @@ package com.sep.treksphere.matching.service.impl;
 import com.sep.treksphere.common.exception.AppException;
 import com.sep.treksphere.common.exception.ErrorCode;
 import com.sep.treksphere.matching.dto.request.CreateSosAlertRequest;
+import com.sep.treksphere.matching.dto.request.UpdateSosLocationRequest;
 import com.sep.treksphere.matching.dto.response.SosAlertResponse;
 import com.sep.treksphere.matching.entity.GroupTrip;
 import com.sep.treksphere.matching.entity.MatchingMember;
@@ -16,8 +17,8 @@ import com.sep.treksphere.matching.repository.MatchingMemberRepository;
 import com.sep.treksphere.matching.repository.SosAlertRepository;
 import com.sep.treksphere.matching.service.SosAlertService;
 import com.sep.treksphere.notification.enums.NotificationEventType;
-import com.sep.treksphere.notification.service.NotificationService;
 import com.sep.treksphere.notification.enums.ReferenceType;
+import com.sep.treksphere.notification.service.NotificationService;
 import com.sep.treksphere.user.entity.User;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -28,6 +29,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -52,12 +54,11 @@ public class SosAlertServiceImpl implements SosAlertService {
                 .findByGroupTrip_GroupTripIdAndSender_UserIdAndIdempotencyKeyAndIsDeletedFalse(
                         trip.getGroupTripId(), currentUserId, request.getIdempotencyKey());
         if (existing.isPresent()) {
-
             return SosAlertResponse.from(existing.get());
         }
 
-        if (sosAlertRepository.existsByGroupTrip_GroupTripIdAndSender_UserIdAndStatusAndIsDeletedFalse(
-                trip.getGroupTripId(), currentUserId, SosAlertStatus.OPEN)) {
+        if (sosAlertRepository.existsByGroupTrip_GroupTripIdAndSender_UserIdAndStatusInAndIsDeletedFalse(
+                trip.getGroupTripId(), currentUserId, List.of(SosAlertStatus.OPEN, SosAlertStatus.RESPONDING))) {
             throw new AppException(ErrorCode.SOS_ALERT_SENDER_HAS_ACTIVE_ALERT);
         }
 
@@ -98,8 +99,8 @@ public class SosAlertServiceImpl implements SosAlertService {
                 .orElseThrow(() -> new AppException(ErrorCode.GROUP_TRIP_NOT_FOUND));
 
         return sosAlertRepository
-                .findByGroupTrip_GroupTripIdAndStatusAndIsDeletedFalseOrderByCreatedAtDesc(
-                        trip.getGroupTripId(), SosAlertStatus.OPEN)
+                .findByGroupTrip_GroupTripIdAndStatusInAndIsDeletedFalseOrderByCreatedAtDesc(
+                        trip.getGroupTripId(), List.of(SosAlertStatus.OPEN, SosAlertStatus.RESPONDING))
                 .stream()
                 .map(SosAlertResponse::from)
                 .toList();
@@ -115,6 +116,69 @@ public class SosAlertServiceImpl implements SosAlertService {
         return sosAlertRepository
                 .findByGroupTrip_GroupTripIdAndIsDeletedFalseOrderByCreatedAtDesc(trip.getGroupTripId(), pageable)
                 .map(SosAlertResponse::from);
+    }
+
+    @Override
+    @Transactional
+    public SosAlertResponse respond(UUID groupId, UUID sosAlertId, UUID currentUserId) {
+        MatchingMember callerMember = requireActiveMember(groupId, currentUserId);
+        SosAlert alert = lockAlertInGroupOrThrow(groupId, sosAlertId);
+
+        if (alert.getSender().getUserId().equals(currentUserId)) {
+            throw new AppException(ErrorCode.SOS_ALERT_CANNOT_RESPOND_TO_OWN_ALERT);
+        }
+
+        if (alert.getStatus() == SosAlertStatus.RESOLVED) {
+            throw new AppException(ErrorCode.SOS_ALERT_ALREADY_RESOLVED);
+        }
+
+        if (alert.getStatus() == SosAlertStatus.RESPONDING) {
+            throw new AppException(ErrorCode.SOS_ALERT_ALREADY_RESPONDED);
+        }
+
+        User responder = callerMember.getUser();
+        alert.setStatus(SosAlertStatus.RESPONDING);
+        alert.setResponder(responder);
+        alert.setRespondedAt(LocalDateTime.now());
+        SosAlert saved = sosAlertRepository.save(alert);
+
+        List<UUID> recipientIds = matchingMemberRepository.findActiveMembers(groupId, JoinStatus.ACCEPTED)
+                .stream()
+                .map(m -> m.getUser().getUserId())
+                .filter(id -> !id.equals(currentUserId))
+                .toList();
+
+        String actionUrl = "/trekker/my-groups/" + groupId + "?tab=sos";
+        notificationService.notify(recipientIds, NotificationEventType.SOS_ALERT_RESPONDED,
+                ReferenceType.SOS, saved.getSosAlertId(), actionUrl,
+                responder.getFullName(), alert.getSender().getFullName());
+
+        SosAlertResponse response = SosAlertResponse.from(saved);
+        broadcastAfterCommit(groupId, response);
+        return response;
+    }
+
+    @Override
+    @Transactional
+    public SosAlertResponse updateLocation(UUID groupId, UUID sosAlertId, UpdateSosLocationRequest request, UUID currentUserId) {
+        requireActiveMember(groupId, currentUserId);
+        SosAlert alert = lockAlertInGroupOrThrow(groupId, sosAlertId);
+
+        if (!alert.getSender().getUserId().equals(currentUserId)) {
+            throw new AppException(ErrorCode.SOS_ALERT_UNAUTHORIZED_UPDATE_LOCATION);
+        }
+
+        if (alert.getStatus() == SosAlertStatus.RESOLVED) {
+            throw new AppException(ErrorCode.SOS_ALERT_ALREADY_RESOLVED);
+        }
+
+        alert.setLatitude(request.getLatitude());
+        alert.setLongitude(request.getLongitude());
+        SosAlert saved = sosAlertRepository.save(alert);
+
+        SosAlertResponse response = SosAlertResponse.from(saved);
+        broadcastAfterCommit(groupId, response);
+        return response;
     }
 
     @Override
@@ -179,7 +243,7 @@ public class SosAlertServiceImpl implements SosAlertService {
     }
 
     private void assertTransitionAllowed(SosAlertStatus current) {
-        if (current != SosAlertStatus.OPEN) {
+        if (current == SosAlertStatus.RESOLVED) {
             throw new AppException(ErrorCode.SOS_ALERT_ALREADY_RESOLVED);
         }
     }

@@ -270,9 +270,14 @@ public class MessageConstant {
     public static final String ACTIVE_SOS_ALERTS_FETCHED = "Lấy danh sách tín hiệu SOS đang mở thành công";
     public static final String SOS_ALERT_HISTORY_FETCHED = "Lấy lịch sử tín hiệu SOS thành công";
     public static final String SOS_ALERT_RESOLVED_SUCCESS = "Đóng tín hiệu SOS thành công";
+    public static final String SOS_ALERT_RESPONDED_SUCCESS = "Tiếp nhận ứng cứu tín hiệu SOS thành công";
+    public static final String SOS_ALERT_LOCATION_UPDATED_SUCCESS = "Cập nhật vị trí tín hiệu SOS thành công";
     public static final String SOS_ALERT_NOT_FOUND = "Tín hiệu SOS không tồn tại";
     public static final String SOS_ALERT_ALREADY_RESOLVED = "Tín hiệu SOS này đã được xử lý xong, không thể thao tác thêm";
     public static final String SOS_ALERT_SENDER_HAS_ACTIVE_ALERT = "Bạn đang có 1 tín hiệu SOS chưa được xử lý, không thể phát thêm cho đến khi tín hiệu đó được đóng";
+    public static final String SOS_ALERT_CANNOT_RESPOND_TO_OWN_ALERT = "Bạn không thể tự nhận ứng cứu cho tín hiệu SOS của chính mình";
+    public static final String SOS_ALERT_ALREADY_RESPONDED = "Tín hiệu SOS này đã được tiếp nhận ứng cứu";
+    public static final String SOS_ALERT_UNAUTHORIZED_UPDATE_LOCATION = "Chỉ người phát tín hiệu SOS mới có quyền cập nhật vị trí";
     public static final String UNAUTHORIZED_RESOLVE_SOS = "Chỉ Trekker đã phát tín hiệu này hoặc Trưởng nhóm mới có quyền đóng tín hiệu SOS này";
     public static final String SOS_INCIDENT_TYPE_REQUIRED = "Loại sự cố không được để trống";
     public static final String SOS_MESSAGE_TOO_LONG = "Ghi chú tối đa 2000 ký tự";
