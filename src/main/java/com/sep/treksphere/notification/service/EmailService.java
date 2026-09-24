@@ -6,8 +6,10 @@ import com.sendgrid.Response;
 import com.sendgrid.SendGrid;
 import com.sendgrid.helpers.mail.Mail;
 import com.sendgrid.helpers.mail.objects.Attachments;
+import com.sendgrid.helpers.mail.objects.ClickTrackingSetting;
 import com.sendgrid.helpers.mail.objects.Content;
 import com.sendgrid.helpers.mail.objects.Email;
+import com.sendgrid.helpers.mail.objects.TrackingSettings;
 import com.sep.treksphere.common.exception.AppException;
 import com.sep.treksphere.common.exception.ErrorCode;
 import lombok.extern.slf4j.Slf4j;
@@ -81,6 +83,7 @@ public class EmailService {
             Email to = new Email(toAddress);
             Content content = new Content("text/html", htmlContent);
             Mail mail = new Mail(from, subject, to, content);
+            mail.setTrackingSettings(disabledClickTracking());
             if (includeBrandLogo) {
                 mail.addAttachments(createInlineBrandLogo());
             }
@@ -101,6 +104,16 @@ public class EmailService {
             log.error("Failed to send email [{}] to {}", templateName, toAddress, e);
             throw new AppException(ErrorCode.EMAIL_SEND_FAILED);
         }
+    }
+
+    private TrackingSettings disabledClickTracking() {
+        ClickTrackingSetting clickTracking = new ClickTrackingSetting();
+        clickTracking.setEnable(false);
+        clickTracking.setEnableText(false);
+
+        TrackingSettings trackingSettings = new TrackingSettings();
+        trackingSettings.setClickTrackingSetting(clickTracking);
+        return trackingSettings;
     }
 
     private Attachments createInlineBrandLogo() throws IOException {
