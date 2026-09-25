@@ -26,6 +26,7 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.Optional;
@@ -143,7 +144,10 @@ public class CustomJourneyServiceImpl implements CustomJourneyService {
         checkpoint.setCustomJourney(journey);
 
         CustomJourneyCheckpoint saved = checkpointRepository.save(checkpoint);
+        checkpointRepository.flush();
         log.info("Created checkpoint {} for custom journey {}", saved.getCustomJourneyCheckpointId(), journey.getCustomJourneyId());
+
+        validateCheckpointsChronological(journey);
 
         return customJourneyMapper.toCheckpointResponse(saved);
     }
@@ -181,7 +185,10 @@ public class CustomJourneyServiceImpl implements CustomJourneyService {
 
         customJourneyMapper.updateCheckpointFromRequest(request, checkpoint);
         CustomJourneyCheckpoint saved = checkpointRepository.save(checkpoint);
+        checkpointRepository.flush();
         log.info("Updated checkpoint {} in custom journey {}", checkpointId, journey.getCustomJourneyId());
+
+        validateCheckpointsChronological(journey);
 
         return customJourneyMapper.toCheckpointResponse(saved);
     }
@@ -256,6 +263,8 @@ public class CustomJourneyServiceImpl implements CustomJourneyService {
 
         log.info("Swapped checkpoint orders between {} (now order {}) and {} (now order {}) in custom journey {}",
                 checkpointId, cp1.getCheckpointOrder(), targetCheckpointId, cp2.getCheckpointOrder(), journey.getCustomJourneyId());
+
+        validateCheckpointsChronological(journey);
 
         return getCheckpoints(groupId, currentUserId);
     }
@@ -367,6 +376,7 @@ public class CustomJourneyServiceImpl implements CustomJourneyService {
                     .findByCustomJourneyCheckpointIdAndCustomJourney_CustomJourneyIdAndIsDeletedFalse(
                             request.getCustomJourneyCheckpointId(), journey.getCustomJourneyId())
                     .orElseThrow(() -> new AppException(ErrorCode.CUSTOM_JOURNEY_CHECKPOINT_NOT_FOUND));
+            validateActivityWithinCheckpoint(request.getPlannedStartAt(), request.getPlannedEndAt(), checkpoint);
             activity.setCheckpoint(checkpoint);
         }
 
@@ -411,6 +421,7 @@ public class CustomJourneyServiceImpl implements CustomJourneyService {
                     .findByCustomJourneyCheckpointIdAndCustomJourney_CustomJourneyIdAndIsDeletedFalse(
                             request.getCustomJourneyCheckpointId(), journey.getCustomJourneyId())
                     .orElseThrow(() -> new AppException(ErrorCode.CUSTOM_JOURNEY_CHECKPOINT_NOT_FOUND));
+            validateActivityWithinCheckpoint(plannedStart, plannedEnd, checkpoint);
             activity.setCheckpoint(checkpoint);
         } else {
             activity.setCheckpoint(null);
@@ -668,6 +679,51 @@ public class CustomJourneyServiceImpl implements CustomJourneyService {
                     throw new AppException(ErrorCode.ACTIVITY_DAY_OUT_OF_RANGE);
                 }
             }
+        }
+    }
+
+    /**
+     * Checkpoints must stay chronologically ordered within the same day — the checkpoint that
+     * comes later in {@code checkpointOrder} cannot start earlier than the one before it.
+     * Runs after create/update/swap, since swap in particular changes ordering without ever
+     * touching the checkpoints' own planned times.
+     */
+    private void validateCheckpointsChronological(CustomJourney journey) {
+        List<CustomJourneyCheckpoint> checkpoints = checkpointRepository
+                .findByCustomJourney_CustomJourneyIdAndIsDeletedFalseOrderByDayNoAscCheckpointOrderAsc(journey.getCustomJourneyId());
+
+        for (int i = 1; i < checkpoints.size(); i++) {
+            CustomJourneyCheckpoint previous = checkpoints.get(i - 1);
+            CustomJourneyCheckpoint current = checkpoints.get(i);
+            if (!java.util.Objects.equals(previous.getDayNo(), current.getDayNo())) {
+                continue;
+            }
+            if (previous.getPlannedStartAt() != null && current.getPlannedStartAt() != null
+                    && current.getPlannedStartAt().isBefore(previous.getPlannedStartAt())) {
+                throw new AppException(ErrorCode.CHECKPOINT_TIME_INVALID);
+            }
+        }
+    }
+
+    /**
+     * When an activity is linked to a checkpoint, its planned time window must stay within that
+     * checkpoint's own planned time window.
+     */
+    private void validateActivityWithinCheckpoint(String activityStart, String activityEnd, CustomJourneyCheckpoint checkpoint) {
+        if (activityStart == null || activityStart.isBlank() || activityEnd == null || activityEnd.isBlank()) {
+            return;
+        }
+        if (checkpoint.getPlannedStartAt() == null || checkpoint.getPlannedEndAt() == null) {
+            return;
+        }
+
+        LocalTime checkpointStart = checkpoint.getPlannedStartAt().toLocalTime();
+        LocalTime checkpointEnd = checkpoint.getPlannedEndAt().toLocalTime();
+        LocalTime start = LocalTime.parse(activityStart);
+        LocalTime end = LocalTime.parse(activityEnd);
+
+        if (start.isBefore(checkpointStart) || end.isAfter(checkpointEnd)) {
+            throw new AppException(ErrorCode.ACTIVITY_TIME_OUTSIDE_CHECKPOINT);
         }
     }
 }
