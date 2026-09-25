@@ -82,6 +82,11 @@ public class ReportService {
                 throw new AppException(ErrorCode.VALIDATION_ERROR);
         }
 
+        User targetAuthor = extractTargetAuthor(report);
+        if (targetAuthor != null && targetAuthor.getUserId().equals(reporterId)) {
+            throw new AppException(ErrorCode.REPORT_SELF_NOT_ALLOWED);
+        }
+
         reportContentRepository.save(report);
         log.info("User {} created a report for {} with ID {}", reporterId, request.getTargetType(), request.getTargetId());
 

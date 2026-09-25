@@ -584,6 +584,7 @@ public class MessageConstant {
     public static final String REPORT_ALREADY_RESOLVED = "Báo cáo này đã được xử lý";
     public static final String REPORT_TARGET_ID_REQUIRED = "ID nội dung báo cáo không được để trống";
     public static final String REPORT_TARGET_TYPE_REQUIRED = "Loại nội dung báo cáo không được để trống";
+    public static final String REPORT_SELF_NOT_ALLOWED = "Không thể tự báo cáo nội dung của chính mình";
     public static final String REPORT_REASON_REQUIRED = "Lý do báo cáo không được để trống";
     public static final String REPORT_ACTION_REQUIRED = "Hành động xử lý không được để trống";
 
