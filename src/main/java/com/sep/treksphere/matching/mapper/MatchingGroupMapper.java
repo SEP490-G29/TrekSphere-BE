@@ -106,6 +106,7 @@ public interface MatchingGroupMapper {
     MatchingMemberResponse toMemberResponse(GroupJoinApplication application);
 
     @Mapping(target = "progressUpdatedByName", source = "progressUpdatedBy.user.fullName")
+    @Mapping(target = "imageUrls", expression = "java(splitImageUrls(checkpoint.getImageUrl()))")
     CustomJourneyCheckpointResponse toCheckpointResponse(CustomJourneyCheckpoint checkpoint);
 
     CustomJourneyCostItemResponse toCostItemResponse(CustomJourneyCostItem costItem);
@@ -229,6 +230,13 @@ public interface MatchingGroupMapper {
             }
         }
         return null;
+    }
+
+    default List<String> splitImageUrls(String rawUrls) {
+        if (rawUrls == null || rawUrls.isBlank()) {
+            return Collections.emptyList();
+        }
+        return List.of(rawUrls.split(","));
     }
 
     default List<CustomJourneyCheckpointResponse> toCheckpointResponses(CustomJourney customJourney) {
