@@ -26,6 +26,7 @@ public interface CustomJourneyMapper {
     CustomJourneyDetailResponse toDetailResponse(CustomJourney customJourney);
 
     @Mapping(target = "progressUpdatedByName", source = "progressUpdatedBy.user.fullName")
+    @Mapping(target = "imageUrls", expression = "java(splitImageUrls(checkpoint.getImageUrl()))")
     CustomJourneyCheckpointResponse toCheckpointResponse(CustomJourneyCheckpoint checkpoint);
 
     @Mapping(target = "customJourneyId", source = "customJourney.customJourneyId")
@@ -99,6 +100,13 @@ public interface CustomJourneyMapper {
                         .thenComparing(CustomJourneyActivity::getActivityOrder))
                 .map(this::toActivityResponse)
                 .toList();
+    }
+
+    default List<String> splitImageUrls(String rawUrls) {
+        if (rawUrls == null || rawUrls.isBlank()) {
+            return Collections.emptyList();
+        }
+        return List.of(rawUrls.split(","));
     }
 
     default List<CustomJourneyCostItemResponse> mapCostItems(Set<CustomJourneyCostItem> costItems) {
