@@ -367,6 +367,8 @@ public class CustomJourneyServiceImpl implements CustomJourneyService {
         }
 
         validateTimeOrder(request.getPlannedStartAt(), request.getPlannedEndAt());
+        validateNoOverlappingActivity(journey.getCustomJourneyId(), request.getDayNo(),
+                request.getPlannedStartAt(), request.getPlannedEndAt(), null);
 
         CustomJourneyActivity activity = customJourneyMapper.toActivityEntity(request);
         activity.setCustomJourney(journey);
@@ -376,6 +378,9 @@ public class CustomJourneyServiceImpl implements CustomJourneyService {
                     .findByCustomJourneyCheckpointIdAndCustomJourney_CustomJourneyIdAndIsDeletedFalse(
                             request.getCustomJourneyCheckpointId(), journey.getCustomJourneyId())
                     .orElseThrow(() -> new AppException(ErrorCode.CUSTOM_JOURNEY_CHECKPOINT_NOT_FOUND));
+            if (!java.util.Objects.equals(checkpoint.getDayNo(), request.getDayNo())) {
+                throw new AppException(ErrorCode.ACTIVITY_DAY_MISMATCH_CHECKPOINT);
+            }
             validateActivityWithinCheckpoint(request.getPlannedStartAt(), request.getPlannedEndAt(), checkpoint);
             activity.setCheckpoint(checkpoint);
         }
@@ -414,6 +419,9 @@ public class CustomJourneyServiceImpl implements CustomJourneyService {
         var plannedEnd = request.getPlannedEndAt() != null ? request.getPlannedEndAt() : activity.getPlannedEndAt();
         validateTimeOrder(plannedStart, plannedEnd);
 
+        Integer effectiveDayNo = request.getDayNo() != null ? request.getDayNo() : activity.getDayNo();
+        validateNoOverlappingActivity(journey.getCustomJourneyId(), effectiveDayNo, plannedStart, plannedEnd, activityId);
+
         customJourneyMapper.updateActivityFromRequest(request, activity);
 
         if (request.getCustomJourneyCheckpointId() != null) {
@@ -421,6 +429,9 @@ public class CustomJourneyServiceImpl implements CustomJourneyService {
                     .findByCustomJourneyCheckpointIdAndCustomJourney_CustomJourneyIdAndIsDeletedFalse(
                             request.getCustomJourneyCheckpointId(), journey.getCustomJourneyId())
                     .orElseThrow(() -> new AppException(ErrorCode.CUSTOM_JOURNEY_CHECKPOINT_NOT_FOUND));
+            if (!java.util.Objects.equals(checkpoint.getDayNo(), effectiveDayNo)) {
+                throw new AppException(ErrorCode.ACTIVITY_DAY_MISMATCH_CHECKPOINT);
+            }
             validateActivityWithinCheckpoint(plannedStart, plannedEnd, checkpoint);
             activity.setCheckpoint(checkpoint);
         } else {
@@ -683,8 +694,9 @@ public class CustomJourneyServiceImpl implements CustomJourneyService {
     }
 
     /**
-     * Checkpoints must stay chronologically ordered within the same day — the checkpoint that
-     * comes later in {@code checkpointOrder} cannot start earlier than the one before it.
+     * Checkpoints must stay chronologically ordered AND non-overlapping within the same day — the
+     * checkpoint that comes later in {@code checkpointOrder} cannot start before the one before it
+     * ends (this also rejects a checkpoint fully nested inside the previous one's time window).
      * Runs after create/update/swap, since swap in particular changes ordering without ever
      * touching the checkpoints' own planned times.
      */
@@ -698,9 +710,16 @@ public class CustomJourneyServiceImpl implements CustomJourneyService {
             if (!java.util.Objects.equals(previous.getDayNo(), current.getDayNo())) {
                 continue;
             }
-            if (previous.getPlannedStartAt() != null && current.getPlannedStartAt() != null
-                    && current.getPlannedStartAt().isBefore(previous.getPlannedStartAt())) {
-                throw new AppException(ErrorCode.CHECKPOINT_TIME_INVALID);
+            if (previous.getPlannedStartAt() == null || previous.getPlannedEndAt() == null
+                    || current.getPlannedStartAt() == null) {
+                continue;
+            }
+            if (current.getPlannedStartAt().isBefore(previous.getPlannedEndAt())) {
+                String message = String.format(
+                        "Thời gian chặng \"%s\" bị trùng với chặng \"%s\" (%s - %s)",
+                        current.getTitle(), previous.getTitle(),
+                        previous.getPlannedStartAt().toLocalTime(), previous.getPlannedEndAt().toLocalTime());
+                throw new AppException(ErrorCode.CHECKPOINT_TIME_OVERLAP, message);
             }
         }
     }
@@ -724,6 +743,43 @@ public class CustomJourneyServiceImpl implements CustomJourneyService {
 
         if (start.isBefore(checkpointStart) || end.isAfter(checkpointEnd)) {
             throw new AppException(ErrorCode.ACTIVITY_TIME_OUTSIDE_CHECKPOINT);
+        }
+    }
+
+    /**
+     * An activity's planned time window must not overlap any other active activity's window
+     * on the same day, regardless of their stored timeSlot (timeSlot is only a display label).
+     * Overlap is strict: back-to-back activities (one ends exactly when the other starts) are allowed.
+     */
+    private void validateNoOverlappingActivity(UUID customJourneyId, Integer dayNo,
+                                                String start, String end, UUID excludeActivityId) {
+        if (start == null || start.isBlank() || end == null || end.isBlank() || dayNo == null) {
+            return;
+        }
+        LocalTime newStart = LocalTime.parse(start.trim());
+        LocalTime newEnd = LocalTime.parse(end.trim());
+
+        List<CustomJourneyActivity> sameDayActivities = activityRepository
+                .findByCustomJourney_CustomJourneyIdAndDayNoAndIsDeletedFalseOrderByTimeSlotAscActivityOrderAsc(
+                        customJourneyId, dayNo);
+
+        for (CustomJourneyActivity existing : sameDayActivities) {
+            if (excludeActivityId != null && excludeActivityId.equals(existing.getCustomJourneyActivityId())) {
+                continue;
+            }
+            if (existing.getPlannedStartAt() == null || existing.getPlannedStartAt().isBlank()
+                    || existing.getPlannedEndAt() == null || existing.getPlannedEndAt().isBlank()) {
+                continue;
+            }
+            LocalTime existingStart = LocalTime.parse(existing.getPlannedStartAt().trim());
+            LocalTime existingEnd = LocalTime.parse(existing.getPlannedEndAt().trim());
+
+            if (newStart.isBefore(existingEnd) && existingStart.isBefore(newEnd)) {
+                String message = String.format(
+                        "Thời gian hoạt động bị trùng với hoạt động \"%s\" (%s - %s)",
+                        existing.getTitle(), existing.getPlannedStartAt(), existing.getPlannedEndAt());
+                throw new AppException(ErrorCode.ACTIVITY_TIME_OVERLAP, message);
+            }
         }
     }
 }
