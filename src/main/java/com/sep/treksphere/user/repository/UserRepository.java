@@ -52,6 +52,8 @@ public interface UserRepository extends JpaRepository<User, UUID> {
            "AND (r.roleName IS NULL OR r.roleName <> 'ADMIN') " +
            "AND (CAST(:status AS string) IS NULL OR u.status = :status) " +
            "AND (CAST(:roleName AS string) IS NULL OR CAST(:roleName AS string) = '' OR r.roleName = :roleName) " +
+           "AND (CAST(:roleName AS string) IS NULL OR :roleName <> 'TREKKER' " +
+           "     OR NOT EXISTS (SELECT 1 FROM u.roles rv WHERE rv.roleName = 'VENDOR')) " +
            "AND (CAST(:keyword AS string) IS NULL OR CAST(:keyword AS string) = '' OR LOWER(u.fullName) LIKE LOWER(CONCAT('%', CAST(:keyword AS string), '%')) OR LOWER(u.email) LIKE LOWER(CONCAT('%', CAST(:keyword AS string), '%')))")
     Page<User> findAllUsersWithFilter(@Param("status") UserStatus status, 
                                       @Param("roleName") String roleName, 

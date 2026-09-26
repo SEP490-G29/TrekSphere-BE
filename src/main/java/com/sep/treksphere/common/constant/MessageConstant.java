@@ -584,6 +584,7 @@ public class MessageConstant {
     public static final String REPORT_ALREADY_RESOLVED = "Báo cáo này đã được xử lý";
     public static final String REPORT_TARGET_ID_REQUIRED = "ID nội dung báo cáo không được để trống";
     public static final String REPORT_TARGET_TYPE_REQUIRED = "Loại nội dung báo cáo không được để trống";
+    public static final String REPORT_SELF_NOT_ALLOWED = "Không thể tự báo cáo nội dung của chính mình";
     public static final String REPORT_REASON_REQUIRED = "Lý do báo cáo không được để trống";
     public static final String REPORT_ACTION_REQUIRED = "Hành động xử lý không được để trống";
 
@@ -631,6 +632,8 @@ public class MessageConstant {
     public static final String UNAUTHORIZED_SETTLEMENT_REJECT = "Chỉ người nhận tiền (Payee) mới có quyền từ chối quyết toán";
     public static final String INVALID_SETTLEMENT_STATUS = "Trạng thái quyết toán không hợp lệ cho thao tác này";
     public static final String MEMBER_HAS_UNSETTLED_EXPENSES = "Thành viên còn khoản chi phí hoặc quyết toán chưa hoàn tất trong nhóm, không thể rời hoặc xóa khỏi nhóm";
+    public static final String MATCHING_MEMBER_CANNOT_REMOVE_DURING_TRIP = "Không thể xoá thành viên khi chuyến đi đang diễn ra hoặc đã hoàn thành";
+    public static final String ACTIVITY_TIME_OUTSIDE_CHECKPOINT = "Thời gian hoạt động phải nằm trong khoảng thời gian của checkpoint đã chọn";
 
     // Moment Messages
     public static final String MOMENT_NOT_FOUND = "Khoảnh khắc không tồn tại";

@@ -1062,6 +1062,11 @@ public class MatchingGroupServiceImpl implements MatchingGroupService {
 
         validateGroupLeader(matchingGroup, currentUser.getUserId());
 
+        if (matchingGroup.getStatus() == MatchingGroupStatus.IN_PROGRESS
+                || matchingGroup.getStatus() == MatchingGroupStatus.COMPLETED) {
+            throw new AppException(ErrorCode.MATCHING_MEMBER_CANNOT_REMOVE_DURING_TRIP);
+        }
+
         MatchingMember target = matchingMemberRepository.findMemberByIdAndGroupId(memberId, groupId)
                 .orElseThrow(() -> new AppException(ErrorCode.MATCHING_MEMBER_NOT_FOUND));
 
