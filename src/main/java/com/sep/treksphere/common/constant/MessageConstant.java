@@ -634,6 +634,9 @@ public class MessageConstant {
     public static final String MEMBER_HAS_UNSETTLED_EXPENSES = "Thành viên còn khoản chi phí hoặc quyết toán chưa hoàn tất trong nhóm, không thể rời hoặc xóa khỏi nhóm";
     public static final String MATCHING_MEMBER_CANNOT_REMOVE_DURING_TRIP = "Không thể xoá thành viên khi chuyến đi đang diễn ra hoặc đã hoàn thành";
     public static final String ACTIVITY_TIME_OUTSIDE_CHECKPOINT = "Thời gian hoạt động phải nằm trong khoảng thời gian của checkpoint đã chọn";
+    public static final String ACTIVITY_TIME_OVERLAP = "Thời gian hoạt động bị trùng với một hoạt động khác trong cùng ngày";
+    public static final String CHECKPOINT_TIME_OVERLAP = "Thời gian chặng bị trùng với một chặng khác trong cùng ngày";
+    public static final String ACTIVITY_DAY_MISMATCH_CHECKPOINT = "Ngày của hoạt động phải trùng với ngày của chặng đã chọn";
 
     // Moment Messages
     public static final String MOMENT_NOT_FOUND = "Khoảnh khắc không tồn tại";
